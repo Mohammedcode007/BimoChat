@@ -38,12 +38,36 @@ export default function AppHeader() {
 
       {/* Center */}
       <Text style={styles.title}>{getTitle()}</Text>
-         <View style={{ flexDirection: 'row', gap: 14 }}>
-          <Ionicons name="search-outline" size={22} />
-          <Ionicons name="notifications-outline" size={22} />
-                    <Ionicons name="settings-outline" size={22} />
+      <View style={{ flexDirection: 'row', gap: 14 }}>
+     <TouchableOpacity onPress={() =>
+          router.push({
+            pathname: '/search'
+          })
 
-        </View>
+        }>
+        <Ionicons name="search-outline" size={22} />
+
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() =>
+          router.push({
+            pathname: '/notifications'
+          })
+
+        }>
+          <Ionicons name="notifications-outline" size={22} />
+
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() =>
+            router.push({
+              pathname: '/store',
+            })
+          }
+        >
+          <Ionicons name="storefront-outline" size={22} />
+        </TouchableOpacity>
+
+      </View>
 
       {/* Right */}
       {/* {pathname === '/' ? (

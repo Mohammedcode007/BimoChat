@@ -1,3 +1,4 @@
+import { useAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -18,34 +19,43 @@ export default function SettingsScreen() {
   const [readReceipts, setReadReceipts] = React.useState(true);
   const [location, setLocation] = React.useState(false);
   const [autoPlayVideos, setAutoPlayVideos] = React.useState(true);
-const router = useRouter();
+  const router = useRouter();
+  const { logout } = useAuth();
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      
+
       {/* Header */}
       <Text style={styles.header}>الإعدادات</Text>
 
       {/* Profile */}
-<TouchableOpacity
-  style={styles.card}
-  activeOpacity={0.8}
-  onPress={() => router.push('/profile')}
->
-  <Ionicons name="person-circle-outline" size={52} color="#555" />
-  <View style={{ marginLeft: 12 }}>
-    <Text style={styles.name}>Mohammed</Text>
-    <Text style={styles.email}>mohammed@email.com</Text>
-  </View>
-</TouchableOpacity>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.8}
+        onPress={() => router.push('/profile')}
+      >
+        <Ionicons name="person-circle-outline" size={52} color="#555" />
+        <View style={{ marginLeft: 12 }}>
+          <Text style={styles.name}>Mohammed</Text>
+          <Text style={styles.email}>mohammed@email.com</Text>
+        </View>
+      </TouchableOpacity>
 
 
       {/* ===== Account ===== */}
       <Section title="الحساب">
-        <Row icon="person-outline" text="تعديل الملف الشخصي" arrow />
-        <Row icon="at-outline" text="اسم المستخدم" arrow />
-        <Row icon="key-outline" text="تغيير كلمة المرور" arrow />
-        <Row icon="shield-checkmark-outline" text="تأكيد الحساب" arrow />
+<Row
+  icon="person-outline"
+  text="تعديل الملف الشخصي"
+  arrow
+  onPress={() => router.push('/edit-profile')}
+/>
+<Row
+  icon="shield-checkmark-outline"
+  text="تأكيد الحساب"
+  arrow
+  onPress={() => router.push('/verify-account')}
+/>
       </Section>
 
       {/* ===== Privacy ===== */}
@@ -53,49 +63,105 @@ const router = useRouter();
         <Row icon="eye-outline" text="الحالة متصل الآن" switcher value={onlineStatus} onChange={setOnlineStatus} />
         <Row icon="checkmark-done-outline" text="إيصالات القراءة" switcher value={readReceipts} onChange={setReadReceipts} />
         <Row icon="location-outline" text="مشاركة الموقع" switcher value={location} onChange={setLocation} />
-        <Row icon="lock-closed-outline" text="الحسابات المحظورة" arrow />
+        <Row
+          icon="lock-closed-outline"
+          text="الحسابات المحظورة"
+          arrow
+          onPress={() => router.push('/blocked')}
+        />
       </Section>
 
       {/* ===== Notifications ===== */}
       <Section title="الإشعارات">
         <Row icon="notifications-outline" text="الإشعارات" switcher value={notifications} onChange={setNotifications} />
         <Row icon="volume-high-outline" text="أصوات الإشعارات" switcher value={sounds} onChange={setSounds} />
-        <Row icon="time-outline" text="كتم الإشعارات" arrow />
       </Section>
 
       {/* ===== Appearance ===== */}
       <Section title="المظهر">
         <Row icon="moon-outline" text="الوضع الليلي" switcher value={darkMode} onChange={setDarkMode} />
-        <Row icon="color-palette-outline" text="الألوان والثيم" arrow />
-        <Row icon="text-outline" text="حجم الخط" arrow />
+<Row
+  icon="color-palette-outline"
+  text="الألوان والثيم"
+  arrow
+  onPress={() => router.push('/theme-settings')}
+/>
+        <Row
+          icon="text-outline"
+          text="حجم الخط"
+          arrow
+          onPress={() => router.push('/font-settings')}
+        />
       </Section>
 
       {/* ===== Media ===== */}
       <Section title="الوسائط">
         <Row icon="play-outline" text="تشغيل الفيديو تلقائيًا" switcher value={autoPlayVideos} onChange={setAutoPlayVideos} />
-        <Row icon="image-outline" text="جودة الصور" arrow />
-        <Row icon="cloud-download-outline" text="استخدام البيانات" arrow />
+        <Row
+          Row icon="cloud-download-outline" text="استخدام البيانات" arrow
+          onPress={() => router.push('/data-usage')}
+        />
       </Section>
 
       {/* ===== Security ===== */}
       <Section title="الأمان">
-        <Row icon="finger-print-outline" text="قفل التطبيق بالبصمة" arrow />
-        <Row icon="shield-outline" text="التحقق بخطوتين" arrow />
-        <Row icon="alert-circle-outline" text="تنبيهات تسجيل الدخول" arrow />
+        <Row
+          icon="finger-print-outline"
+          text="قفل التطبيق بالبصمة"
+          arrow
+          onPress={() => router.push('/biometric-lock')}
+        />
+        <Row
+          icon="shield-outline"
+          text="التحقق بخطوتين"
+          arrow
+          onPress={() => router.push('/two-factor')}
+        />
+        <Row
+          icon="alert-circle-outline"
+          text="تنبيهات تسجيل الدخول"
+          arrow
+          onPress={() => router.push('/login-alerts')}
+        />
       </Section>
 
       {/* ===== App ===== */}
       <Section title="التطبيق">
-        <Row icon="language-outline" text="اللغة" arrow />
-        <Row icon="information-circle-outline" text="حول التطبيق" arrow />
-        <Row icon="help-circle-outline" text="المساعدة والدعم" arrow />
-        <Row icon="document-text-outline" text="سياسة الخصوصية" arrow />
-        <Row icon="document-outline" text="الشروط والأحكام" arrow />
+<Row
+  icon="language-outline"
+  text="اللغة"
+  arrow
+  onPress={() => router.push('/language-settings')}
+/>
+<Row
+  icon="information-circle-outline"
+  text="حول التطبيق"
+  arrow
+  onPress={() => router.push('/about-app')}
+/>
+<Row
+  icon="help-circle-outline"
+  text="المساعدة والدعم"
+  arrow
+  onPress={() => router.push('/help-support')}
+/>
+<Row
+  icon="document-text-outline"
+  text="سياسة الخصوصية"
+  arrow
+  onPress={() => router.push('/privacy-policy')}
+/>
+<Row
+  icon="document-outline"
+  text="الشروط والأحكام"
+  arrow
+  onPress={() => router.push('/terms-conditions')}
+/>
       </Section>
 
       {/* ===== Logout ===== */}
       <View style={styles.logoutBox}>
-        <TouchableOpacity style={styles.logoutBtn}>
+        <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
           <Ionicons name="log-out-outline" size={22} color="#E53935" />
           <Text style={styles.logoutText}>تسجيل الخروج</Text>
         </TouchableOpacity>
@@ -124,9 +190,15 @@ function Row({
   switcher,
   value,
   onChange,
+  onPress,
 }: any) {
   return (
-    <View style={styles.row}>
+    <TouchableOpacity
+      disabled={!onPress}
+      onPress={onPress}
+      style={styles.row}
+      activeOpacity={0.7}
+    >
       <View style={styles.rowLeft}>
         <Ionicons name={icon} size={22} color="#333" />
         <Text style={styles.rowText}>{text}</Text>
@@ -134,9 +206,10 @@ function Row({
 
       {switcher && <Switch value={value} onValueChange={onChange} />}
       {arrow && <Ionicons name="chevron-forward" size={20} color="#999" />}
-    </View>
+    </TouchableOpacity>
   );
 }
+
 
 /* ================= STYLES ================= */
 

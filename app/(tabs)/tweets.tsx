@@ -250,14 +250,7 @@ if (!selectedTweetId || !commentText.trim()) return;
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Ionicons name="settings-outline" size={22} color="#111" />
-        <Text style={styles.logo}>X</Text>
-        <Image
-          source={{ uri: 'https://picsum.photos/50/50' }}
-          style={styles.profile}
-        />
-      </View>
+     
 
       {/* Feed */}
       <FlatList

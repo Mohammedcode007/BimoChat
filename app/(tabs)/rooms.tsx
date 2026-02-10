@@ -1,14 +1,15 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    FlatList,
-    Image,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Image,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 /* =======================
@@ -82,6 +83,8 @@ const Badge = ({
 ======================= */
 
 export default function RoomsScreen() {
+    const router = useRouter();
+  
   const [rooms, setRooms] = useState<Room[]>([]);
   const [page, setPage] = useState(1);
 
@@ -231,7 +234,12 @@ export default function RoomsScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card}>
+          <TouchableOpacity    onPress={() =>
+                router.push({
+                  pathname: '/room/[id]',
+                  params: { id: item.id },
+                })
+              } style={styles.card}>
             <Image source={{ uri: item.image }} style={styles.image} />
 
             <View style={styles.info}>

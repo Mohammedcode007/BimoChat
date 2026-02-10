@@ -23,13 +23,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 /* ================= TYPES ================= */
 
 type Reaction = '👍' | '❤️' | '😂' | '😮' | '😢' | '😡';
+type User = {
+    id: string;
+    name: string;
+    avatar: string;
+};
 
 type Message = {
     id: string;
     type: 'text' | 'image' | 'gif' | 'sticker' | 'pdf' | 'audio' | 'video';
     text?: string;
     uri?: string;
-    sender: 'me' | 'other';
+    sender: User;
     time: string;
     replyTo?: Message;
     reaction?: Reaction;
@@ -46,6 +51,13 @@ const COLORS = {
 };
 
 const REACTIONS: Reaction[] = ['👍', '❤️', '😂', '😮', '😢', '😡'];
+/* ================= CURRENT USER ================= */
+
+const currentUser: User = {
+    id: 'me',
+    name: 'Mohamed',
+    avatar: 'https://i.pravatar.cc/150?img=32',
+};
 
 /* ================= COMPONENT ================= */
 
@@ -58,11 +70,16 @@ export default function ChatScreen() {
         {
             id: '1',
             type: 'text',
-            text: 'Yes, it’s available.',
-            sender: 'other',
+            text: 'أهلاً بالجميع 👋',
+            sender: {
+                id: 'u1',
+                name: 'Ahmed Ali',
+                avatar: 'https://i.pravatar.cc/150?img=12',
+            },
             time: '4:56 pm',
         },
     ]);
+
 
     const [text, setText] = useState('');
     const [recording, setRecording] = useState<Audio.Recording | null>(null);
@@ -145,7 +162,7 @@ export default function ChatScreen() {
                 id: Date.now().toString(),
                 type: 'text',
                 text,
-                sender: 'me',
+sender: currentUser,
                 time: 'Now',
                 replyTo: replyTo ?? undefined,
             },
@@ -169,7 +186,7 @@ export default function ChatScreen() {
                     id: Date.now().toString(),
                     type,
                     uri: res.assets[0].uri,
-                    sender: 'me',
+sender: currentUser,
                     time: 'Now',
                 },
                 ...prev,
@@ -190,7 +207,7 @@ export default function ChatScreen() {
                     type: 'pdf',
                     uri: res.assets[0].uri,
                     text: res.assets[0].name,
-                    sender: 'me',
+sender: currentUser,
                     time: 'Now',
                 },
                 ...prev,
@@ -256,7 +273,7 @@ export default function ChatScreen() {
                     id: Date.now().toString(),
                     type: 'video',
                     uri: res.assets[0].uri,
-                    sender: 'me',
+sender: currentUser,
                     time: 'Now',
                 },
                 ...prev,
@@ -282,7 +299,7 @@ export default function ChatScreen() {
                 id: Date.now().toString(),
                 type: 'audio',
                 uri: uri!,
-                sender: 'me',
+sender: currentUser,
                 time: 'Now',
             },
             ...prev,
@@ -376,8 +393,9 @@ export default function ChatScreen() {
                             style={styles.avatar}
                         />
                         <View>
-                            <Text style={styles.name}>George Alan</Text>
-                            <Text style={styles.online}>Online</Text>
+                            <Text style={styles.name}>React Native Room</Text>
+                            <Text style={styles.online}>128 Members</Text>
+
                         </View>
                     </View>
                     <View style={styles.headerRight}>
@@ -461,134 +479,135 @@ export default function ChatScreen() {
                     inverted
                     keyExtractor={item => item.id}
                     contentContainerStyle={{ padding: 16 }}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity
-                            activeOpacity={0.8}
-                            onLongPress={() => {
-                                setSelectedMessage(item);
-                                setShowActions(true);
-                            }}
-                            style={[
-                                styles.bubble,
-                                item.sender === 'me' ? styles.me : styles.other,
-                            ]}
-                        >
-                            {item.unsent ? (
-                                <Text style={styles.unsent}>Message was unsent</Text>
-                            ) : (
-                                <>
-                                    {item.replyTo && (
-                                        <View style={styles.replyBox}>
-                                            <Text style={styles.replyName}>
-                                                {item.replyTo.sender === 'me' ? 'You' : 'George'}
-                                            </Text>
-                                            <Text numberOfLines={1} style={styles.replyText}>
-                                                {item.replyTo.text || 'Media message'}
-                                            </Text>
-                                        </View>
-                                    )}
+                   renderItem={({ item }) => {
+  const isMe = item.sender.id === currentUser.id;
 
-                                    {item.type === 'text' && (
-                                        <Text
-                                            style={[
-                                                styles.text,
-                                                item.sender === 'me' && { color: '#FFF' },
-                                            ]}
-                                        >
-                                            {item.text}
-                                        </Text>
-                                    )}
-{item.type === 'video' && (
-  <View style={styles.videoWrapper}>
-    <Video
-      source={{ uri: item.uri }}
-      style={styles.video}
-      useNativeControls
-resizeMode={ResizeMode.CONTAIN}
-      isLooping={false}
-    />
-  </View>
-)}
+  return (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onLongPress={() => {
+        setSelectedMessage(item);
+        setShowActions(true);
+      }}
+      style={[
+        styles.bubble,
+        isMe ? styles.me : styles.other,
+      ]}
+    >
+      {item.unsent ? (
+        <Text style={styles.unsent}>Message was unsent</Text>
+      ) : (
+        <>
+          {item.replyTo && (
+            <View style={styles.replyBox}>
+              <Text style={styles.replyName}>
+                {item.replyTo.sender.id === currentUser.id
+                  ? 'You'
+                  : item.replyTo.sender.name}
+              </Text>
+              <Text numberOfLines={1} style={styles.replyText}>
+                {item.replyTo.text || 'Media message'}
+              </Text>
+            </View>
+          )}
 
-                                    {(item.type === 'image' ||
-                                        item.type === 'gif' ||
-                                        item.type === 'sticker') && (
-                                            <TouchableOpacity
-                                                activeOpacity={0.9}
-                                                onPress={() => setPreviewImage(item.uri!)}
-                                            >
-                                                <Image source={{ uri: item.uri }} style={styles.media} />
-                                            </TouchableOpacity>
-                                        )}
+          {item.type === 'text' && (
+            <Text
+              style={[
+                styles.text,
+                isMe && { color: '#FFF' },
+              ]}
+            >
+              {item.text}
+            </Text>
+          )}
 
+          {item.type === 'video' && (
+            <View style={styles.videoWrapper}>
+              <Video
+                source={{ uri: item.uri }}
+                style={styles.video}
+                useNativeControls
+                resizeMode={ResizeMode.CONTAIN}
+                isLooping={false}
+              />
+            </View>
+          )}
 
-                                    {item.type === 'pdf' && (
-                                        <View style={styles.pdfRow}>
-                                            <Ionicons name="document-text-outline" size={22} />
-                                            <Text numberOfLines={1}>{item.text}</Text>
-                                        </View>
-                                    )}
+          {(item.type === 'image' ||
+            item.type === 'gif' ||
+            item.type === 'sticker') && (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => setPreviewImage(item.uri!)}
+            >
+              <Image source={{ uri: item.uri }} style={styles.media} />
+            </TouchableOpacity>
+          )}
 
-                                    {item.type === 'audio' && (
-                                        <TouchableOpacity
-                                            style={styles.audioRow}
-                                            activeOpacity={0.8}
-                                            onPress={() => togglePlay(item.uri!, item.id)}
-                                        >
-                                            {/* Play / Pause */}
-                                            <Ionicons
-                                                name={playingId === item.id ? 'pause' : 'play'}
-                                                size={22}
-                                                color={item.sender === 'me' ? '#FFF' : '#000'}
-                                            />
+          {item.type === 'pdf' && (
+            <View style={styles.pdfRow}>
+              <Ionicons name="document-text-outline" size={22} />
+              <Text numberOfLines={1}>{item.text}</Text>
+            </View>
+          )}
 
-                                            {/* Progress Bar */}
-                                            <View style={styles.audioProgressWrapper}>
-                                                <View style={styles.audioProgressBg}>
-                                                    <Animated.View
-                                                        style={[
-                                                            styles.audioProgressFill,
-                                                            {
-                                                                width:
-                                                                    playingId === item.id
-                                                                        ? progressAnim.interpolate({
-                                                                            inputRange: [0, 1],
-                                                                            outputRange: ['0%', '100%'],
-                                                                        })
-                                                                        : '0%',
+          {item.type === 'audio' && (
+            <TouchableOpacity
+              style={styles.audioRow}
+              activeOpacity={0.8}
+              onPress={() => togglePlay(item.uri!, item.id)}
+            >
+              <Ionicons
+                name={playingId === item.id ? 'pause' : 'play'}
+                size={22}
+                color={isMe ? '#FFF' : '#000'}
+              />
 
-                                                                backgroundColor:
-                                                                    item.sender === 'me' ? '#FFF' : '#6D5DF6',
-                                                            },
-                                                        ]}
-                                                    />
-                                                </View>
+              <View style={styles.audioProgressWrapper}>
+                <View style={styles.audioProgressBg}>
+                  <Animated.View
+                    style={[
+                      styles.audioProgressFill,
+                      {
+                        width:
+                          playingId === item.id
+                            ? progressAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: ['0%', '100%'],
+                              })
+                            : '0%',
+                        backgroundColor: isMe ? '#FFF' : '#6D5DF6',
+                      },
+                    ]}
+                  />
+                </View>
 
-                                                <Text
-                                                    style={[
-                                                        styles.audioLabel,
-                                                        { color: item.sender === 'me' ? '#FFF' : '#000' },
-                                                    ]}
-                                                >
-                                                    Voice message
-                                                </Text>
-                                            </View>
-                                        </TouchableOpacity>
-                                    )}
+                <Text
+                  style={[
+                    styles.audioLabel,
+                    { color: isMe ? '#FFF' : '#000' },
+                  ]}
+                >
+                  Voice message
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
+          {item.reaction && (
+            <View style={styles.reaction}>
+              <Text>{item.reaction}</Text>
+            </View>
+          )}
 
+          <Text style={styles.time}>{item.time}</Text>
+        </>
+      )}
+    </TouchableOpacity>
+  );
+}}
 
-                                    {item.reaction && (
-                                        <View style={styles.reaction}>
-                                            <Text>{item.reaction}</Text>
-                                        </View>
-                                    )}
-
-                                    <Text style={styles.time}>{item.time}</Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
-                    )}
                 />
 
                 {/* ================= REPLY PREVIEW ================= */}
@@ -690,7 +709,7 @@ resizeMode={ResizeMode.CONTAIN}
                                 <Text style={styles.action}>Reply</Text>
                             </TouchableOpacity>
 
-                            {selectedMessage?.sender === 'me' && (
+{selectedMessage?.sender?.id === currentUser.id && (
                                 <TouchableOpacity
                                     onPress={() => unsendMessage(selectedMessage.id)}
                                 >
@@ -812,18 +831,18 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         marginBottom: 6,
     },
-videoWrapper: {
-  width: 220,
-  height: 160,
-  borderRadius: 12,
-  overflow: 'hidden',
-  backgroundColor: '#000',
-},
+    videoWrapper: {
+        width: 220,
+        height: 160,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: '#000',
+    },
 
-video: {
-  width: '100%',
-  height: '100%',
-},
+    video: {
+        width: '100%',
+        height: '100%',
+    },
 
 
     audioProgressFill: {

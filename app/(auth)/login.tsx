@@ -1,27 +1,35 @@
-import { useAuth } from '@/context/AuthContext';
+import { Colors } from '@/constants/theme';
+import { login } from '@/redux/slices/authSlice';
+import { AppDispatch } from '@/redux/store';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View
 } from 'react-native';
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSequence,
-    withTiming,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from 'react-native-reanimated';
+import Toast from 'react-native-toast-message';
+import { useDispatch } from 'react-redux';
 
 export default function LoginScreen() {
-  const { login } = useAuth();
-  const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
 
+  // const { login } = useAuth();
+  const router = useRouter();
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -64,17 +72,57 @@ export default function LoginScreen() {
     );
   };
 
-  const handleLogin = async () => {
-    if (!username.trim()) {
-      showError('Username is required');
-      return;
+const handleLogin = async () => {
+
+  if (!username || !password) {
+    Toast.show({
+      type: "error",
+      text1: "خطأ",
+      text2: "يرجى إدخال اسم المستخدم وكلمة المرور",
+    });
+    return;
+  }
+
+  try {
+
+    const resultAction = await dispatch(
+      login({
+        username: username.trim().toLowerCase(), // ✅ هنا التحويل
+        password,
+      })
+    );
+
+    if (login.fulfilled.match(resultAction)) {
+
+      Toast.show({
+        type: "success",
+        text1: "تم بنجاح",
+        text2: "تم تسجيل الدخول",
+      });
+
+    } else {
+
+      Toast.show({
+        type: "error",
+        text1: "فشل تسجيل الدخول",
+        text2: (resultAction.payload as string) || "بيانات غير صحيحة",
+      });
+
     }
-    if (password.length < 6) {
-      showError('Password must be at least 6 characters');
-      return;
-    }
-    await login('token-123');
-  };
+
+  } catch {
+
+    Toast.show({
+      type: "error",
+      text1: "خطأ",
+      text2: "حدث خطأ غير متوقع",
+    });
+
+  }
+};
+
+
+
 
   /* ================= Animated Styles ================= */
   const userStyle = useAnimatedStyle(() => ({

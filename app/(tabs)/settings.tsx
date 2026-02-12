@@ -1,4 +1,7 @@
-import { useAuth } from '@/context/AuthContext';
+import { Colors } from '@/constants/theme';
+import i18n from '@/localization/i18n';
+import { logout } from '@/redux/slices/authSlice';
+import { AppDispatch } from '@/redux/store';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -8,10 +11,15 @@ import {
   Switch,
   Text,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native';
+import { useDispatch } from 'react-redux';
 
 export default function SettingsScreen() {
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+
   const [darkMode, setDarkMode] = React.useState(false);
   const [notifications, setNotifications] = React.useState(true);
   const [sounds, setSounds] = React.useState(true);
@@ -20,154 +28,205 @@ export default function SettingsScreen() {
   const [location, setLocation] = React.useState(false);
   const [autoPlayVideos, setAutoPlayVideos] = React.useState(true);
   const router = useRouter();
-  const { logout } = useAuth();
+  const dispatch = useDispatch<AppDispatch>();
 
+  const handleLogout = async () => {
+    await dispatch(logout());
+  };
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      showsVerticalScrollIndicator={false}
+    >
 
-      {/* Header */}
-      <Text style={styles.header}>الإعدادات</Text>
 
       {/* Profile */}
       <TouchableOpacity
-        style={styles.card}
+       style={[styles.card, { backgroundColor: theme.background }]}
         activeOpacity={0.8}
-        onPress={() => router.push('/profile')}
+        onPress={() => router.push("/profile")}
       >
         <Ionicons name="person-circle-outline" size={52} color="#555" />
         <View style={{ marginLeft: 12 }}>
-          <Text style={styles.name}>Mohammed</Text>
-          <Text style={styles.email}>mohammed@email.com</Text>
+          <Text style={[styles.name, { color: theme.text }]}>Mohammed</Text>
+          <Text style={[styles.email, { color: theme.text }]}>mohammed@email.com</Text>
         </View>
       </TouchableOpacity>
 
-
       {/* ===== Account ===== */}
-      <Section title="الحساب">
-<Row
-  icon="person-outline"
-  text="تعديل الملف الشخصي"
-  arrow
-  onPress={() => router.push('/edit-profile')}
-/>
-<Row
-  icon="shield-checkmark-outline"
-  text="تأكيد الحساب"
-  arrow
-  onPress={() => router.push('/verify-account')}
-/>
+      <Section title={i18n.t("settingsScreen.account")}>
+        <Row
+          icon="person-outline"
+          text={i18n.t("settingsScreen.editProfile")}
+          arrow
+          onPress={() => router.push("/edit-profile")}
+        />
+        <Row
+          icon="shield-checkmark-outline"
+          text={i18n.t("settingsScreen.verifyAccount")}
+          arrow
+          onPress={() => router.push("/verify-account")}
+        />
       </Section>
 
       {/* ===== Privacy ===== */}
-      <Section title="الخصوصية">
-        <Row icon="eye-outline" text="الحالة متصل الآن" switcher value={onlineStatus} onChange={setOnlineStatus} />
-        <Row icon="checkmark-done-outline" text="إيصالات القراءة" switcher value={readReceipts} onChange={setReadReceipts} />
-        <Row icon="location-outline" text="مشاركة الموقع" switcher value={location} onChange={setLocation} />
+      <Section title={i18n.t("settingsScreen.privacy")}>
+        <Row
+          icon="eye-outline"
+          text={i18n.t("settingsScreen.onlineStatus")}
+          switcher
+          value={onlineStatus}
+          onChange={setOnlineStatus}
+        />
+        <Row
+          icon="checkmark-done-outline"
+          text={i18n.t("settingsScreen.readReceipts")}
+          switcher
+          value={readReceipts}
+          onChange={setReadReceipts}
+        />
+        <Row
+          icon="location-outline"
+          text={i18n.t("settingsScreen.locationSharing")}
+          switcher
+          value={location}
+          onChange={setLocation}
+        />
         <Row
           icon="lock-closed-outline"
-          text="الحسابات المحظورة"
+          text={i18n.t("settingsScreen.blockedAccounts")}
           arrow
-          onPress={() => router.push('/blocked')}
+          onPress={() => router.push("/blocked")}
         />
       </Section>
 
       {/* ===== Notifications ===== */}
-      <Section title="الإشعارات">
-        <Row icon="notifications-outline" text="الإشعارات" switcher value={notifications} onChange={setNotifications} />
-        <Row icon="volume-high-outline" text="أصوات الإشعارات" switcher value={sounds} onChange={setSounds} />
+      <Section title={i18n.t("settingsScreen.notifications")}>
+        <Row
+          icon="notifications-outline"
+          text={i18n.t("settingsScreen.notificationToggle")}
+          switcher
+          value={notifications}
+          onChange={setNotifications}
+        />
+        <Row
+          icon="volume-high-outline"
+          text={i18n.t("settingsScreen.notificationSounds")}
+          switcher
+          value={sounds}
+          onChange={setSounds}
+        />
       </Section>
 
       {/* ===== Appearance ===== */}
-      <Section title="المظهر">
-        <Row icon="moon-outline" text="الوضع الليلي" switcher value={darkMode} onChange={setDarkMode} />
-<Row
-  icon="color-palette-outline"
-  text="الألوان والثيم"
-  arrow
-  onPress={() => router.push('/theme-settings')}
-/>
+      <Section title={i18n.t("settingsScreen.appearance")}>
+        <Row
+          icon="moon-outline"
+          text={i18n.t("settingsScreen.darkMode")}
+          switcher
+          value={darkMode}
+          onChange={setDarkMode}
+        />
+        <Row
+          icon="color-palette-outline"
+          text={i18n.t("settingsScreen.theme")}
+          arrow
+          onPress={() => router.push("/theme-settings")}
+        />
         <Row
           icon="text-outline"
-          text="حجم الخط"
+          text={i18n.t("settingsScreen.fontSize")}
           arrow
-          onPress={() => router.push('/font-settings')}
+          onPress={() => router.push("/font-settings")}
         />
       </Section>
 
       {/* ===== Media ===== */}
-      <Section title="الوسائط">
-        <Row icon="play-outline" text="تشغيل الفيديو تلقائيًا" switcher value={autoPlayVideos} onChange={setAutoPlayVideos} />
+      <Section title={i18n.t("settingsScreen.media")}>
         <Row
-          Row icon="cloud-download-outline" text="استخدام البيانات" arrow
-          onPress={() => router.push('/data-usage')}
+          icon="play-outline"
+          text={i18n.t("settingsScreen.autoPlayVideos")}
+          switcher
+          value={autoPlayVideos}
+          onChange={setAutoPlayVideos}
+        />
+        <Row
+          icon="cloud-download-outline"
+          text={i18n.t("settingsScreen.dataUsage")}
+          arrow
+          onPress={() => router.push("/data-usage")}
         />
       </Section>
 
       {/* ===== Security ===== */}
-      <Section title="الأمان">
+      <Section title={i18n.t("settingsScreen.security")}>
         <Row
           icon="finger-print-outline"
-          text="قفل التطبيق بالبصمة"
+          text={i18n.t("settingsScreen.biometricLock")}
           arrow
-          onPress={() => router.push('/biometric-lock')}
+          onPress={() => router.push("/biometric-lock")}
         />
         <Row
           icon="shield-outline"
-          text="التحقق بخطوتين"
+          text={i18n.t("settingsScreen.twoFactor")}
           arrow
-          onPress={() => router.push('/two-factor')}
+          onPress={() => router.push("/two-factor")}
         />
         <Row
           icon="alert-circle-outline"
-          text="تنبيهات تسجيل الدخول"
+          text={i18n.t("settingsScreen.loginAlerts")}
           arrow
-          onPress={() => router.push('/login-alerts')}
+          onPress={() => router.push("/login-alerts")}
         />
       </Section>
 
       {/* ===== App ===== */}
-      <Section title="التطبيق">
-<Row
-  icon="language-outline"
-  text="اللغة"
-  arrow
-  onPress={() => router.push('/language-settings')}
-/>
-<Row
-  icon="information-circle-outline"
-  text="حول التطبيق"
-  arrow
-  onPress={() => router.push('/about-app')}
-/>
-<Row
-  icon="help-circle-outline"
-  text="المساعدة والدعم"
-  arrow
-  onPress={() => router.push('/help-support')}
-/>
-<Row
-  icon="document-text-outline"
-  text="سياسة الخصوصية"
-  arrow
-  onPress={() => router.push('/privacy-policy')}
-/>
-<Row
-  icon="document-outline"
-  text="الشروط والأحكام"
-  arrow
-  onPress={() => router.push('/terms-conditions')}
-/>
+      <Section title={i18n.t("settingsScreen.app")}>
+        <Row
+          icon="language-outline"
+          text={i18n.t("settingsScreen.language")}
+          arrow
+          onPress={() => router.push("/language-settings")}
+        />
+        <Row
+          icon="information-circle-outline"
+          text={i18n.t("settingsScreen.aboutApp")}
+          arrow
+          onPress={() => router.push("/about-app")}
+        />
+        <Row
+          icon="help-circle-outline"
+          text={i18n.t("settingsScreen.helpSupport")}
+          arrow
+          onPress={() => router.push("/help-support")}
+        />
+        <Row
+          icon="document-text-outline"
+          text={i18n.t("settingsScreen.privacyPolicy")}
+          arrow
+          onPress={() => router.push("/privacy-policy")}
+        />
+        <Row
+          icon="document-outline"
+          text={i18n.t("settingsScreen.termsConditions")}
+          arrow
+          onPress={() => router.push("/terms-conditions")}
+        />
       </Section>
 
       {/* ===== Logout ===== */}
       <View style={styles.logoutBox}>
-        <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
           <Ionicons name="log-out-outline" size={22} color="#E53935" />
-          <Text style={styles.logoutText}>تسجيل الخروج</Text>
+          <Text style={styles.logoutText}>
+            {i18n.t("settingsScreen.logout")}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.version}>Bimo v1.0.0</Text>
+      <Text style={styles.version}>
+        {i18n.t("settingsScreen.version")}
+      </Text>
     </ScrollView>
   );
 }
@@ -175,10 +234,13 @@ export default function SettingsScreen() {
 /* ================= COMPONENTS ================= */
 
 function Section({ title, children }: any) {
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionCard}>{children}</View>
+      <View style={[styles.sectionCard, { backgroundColor: theme.background }]}>
+        {children}</View>
     </View>
   );
 }
@@ -192,6 +254,8 @@ function Row({
   onChange,
   onPress,
 }: any) {
+    const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   return (
     <TouchableOpacity
       disabled={!onPress}
@@ -200,8 +264,8 @@ function Row({
       activeOpacity={0.7}
     >
       <View style={styles.rowLeft}>
-        <Ionicons name={icon} size={22} color="#333" />
-        <Text style={styles.rowText}>{text}</Text>
+        <Ionicons name={icon} size={22} color={theme.icon} />
+        <Text style={[styles.rowText, { color: theme.text }]} >{text}</Text>
       </View>
 
       {switcher && <Switch value={value} onValueChange={onChange} />}

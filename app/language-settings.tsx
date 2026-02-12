@@ -1,37 +1,44 @@
+import { useLanguage } from '@/context/LanguageContext';
+import i18n from '@/localization/i18n';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const LANGUAGES = [
   { id: 'ar', name: 'العربية' },
   { id: 'en', name: 'English' },
-  { id: 'fr', name: 'Français' },
 ];
 
 export default function LanguageSettingsScreen() {
-  const [selected, setSelected] = useState('ar');
+  const { language, changeLanguage } = useLanguage();
 
   return (
+                <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    
     <View style={styles.container}>
-      <Text style={styles.header}>اللغة</Text>
+      <Text style={styles.header}>{i18n.t("language")}</Text>
 
       <View style={styles.card}>
         {LANGUAGES.map(l => (
           <TouchableOpacity
             key={l.id}
             style={styles.row}
-            onPress={() => setSelected(l.id)}
+            onPress={() => changeLanguage(l.id)}
           >
             <Text>{l.name}</Text>
-            {selected === l.id && (
+            {language === l.id && (
               <Ionicons name="checkmark" size={20} color="#6D5DF6" />
             )}
           </TouchableOpacity>
         ))}
       </View>
     </View>
+        </SafeAreaView>
+    
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

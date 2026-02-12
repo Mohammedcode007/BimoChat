@@ -1,16 +1,19 @@
+import { Colors } from '@/constants/theme';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Animated,
-    FlatList,
-    Image,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Animated,
+  FlatList,
+  Image,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 
@@ -50,11 +53,14 @@ const generateFriends = (size: number): Friend[] => {
 ======================= */
 
 export default function FriendsScreen() {
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const [data, setData] = useState<Friend[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-const [newFriendId, setNewFriendId] = useState<string | null>(null);
+  const [newFriendId, setNewFriendId] = useState<string | null>(null);
+  const router = useRouter();
 
   // Search
   const [search, setSearch] = useState('');
@@ -108,34 +114,34 @@ const [newFriendId, setNewFriendId] = useState<string | null>(null);
      Actions
   ======================= */
 
- const addFriend = () => {
-  if (!inviteValue.trim()) return;
+  const addFriend = () => {
+    if (!inviteValue.trim()) return;
 
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-  const newFriend: Friend = {
-    id,
-    name: inviteValue,
-    message: 'New friend 👋',
-    time: 'now',
-    avatar: `https://i.pravatar.cc/150?u=${id}`,
-    online: true,
+    const newFriend: Friend = {
+      id,
+      name: inviteValue,
+      message: 'New friend 👋',
+      time: 'now',
+      avatar: `https://i.pravatar.cc/150?u=${id}`,
+      online: true,
+    };
+
+    setNewFriendId(id); // ✅ تحديد الصديق الجديد
+    scaleAnim.setValue(0.8);
+
+    setData((prev) => [newFriend, ...prev]);
+    setInviteValue('');
+    setModalVisible(false);
+
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start(() => {
+      setNewFriendId(null); // تنظيف
+    });
   };
-
-  setNewFriendId(id); // ✅ تحديد الصديق الجديد
-  scaleAnim.setValue(0.8);
-
-  setData((prev) => [newFriend, ...prev]);
-  setInviteValue('');
-  setModalVisible(false);
-
-  Animated.spring(scaleAnim, {
-    toValue: 1,
-    useNativeDriver: true,
-  }).start(() => {
-    setNewFriendId(null); // تنظيف
-  });
-};
 
 
   const deleteFriend = (id: string) => {
@@ -179,10 +185,25 @@ const [newFriendId, setNewFriendId] = useState<string | null>(null);
   ======================= */
 
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container,
+      {
+        backgroundColor: theme.background,
+      },
+    ]}>
       {/* Search + Add */}
-      <View style={styles.topBar}>
-        <View style={styles.searchBox}>
+      <View style={[
+        styles.topBar,
+        {
+          backgroundColor: theme.background,
+        },
+      ]}>
+        <View style={[
+          styles.searchBox,
+          {
+            backgroundColor: theme.background,
+          },
+        ]}>
           <Ionicons name="search" size={16} color="#9CA3AF" />
           <TextInput
             placeholder="Search friends"
@@ -195,10 +216,11 @@ const [newFriendId, setNewFriendId] = useState<string | null>(null);
 
         <TouchableOpacity
           style={styles.addBtn}
-          onPress={() => setModalVisible(true)}
+          onPress={() => router.push("/add-friend")}
         >
           <Ionicons name="person-add" size={20} color="#FFF" />
         </TouchableOpacity>
+
       </View>
 
       {/* List */}
@@ -218,15 +240,18 @@ const [newFriendId, setNewFriendId] = useState<string | null>(null);
           </View>
         }
         renderItem={({ item, index }) => (
-      <Swipeable renderRightActions={() => renderRightActions(item)}>
-  <Animated.View
-    style={[
-      styles.card,
-      item.id === newFriendId && {
-        transform: [{ scale: scaleAnim }],
-      },
-    ]}
-  >
+          <Swipeable renderRightActions={() => renderRightActions(item)}>
+            <Animated.View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.background,
+                },
+                item.id === newFriendId && {
+                  transform: [{ scale: scaleAnim }],
+                },
+              ]}
+            >
 
               <View style={styles.avatarWrapper}>
                 <Image source={{ uri: item.avatar }} style={styles.avatar} />
@@ -235,7 +260,7 @@ const [newFriendId, setNewFriendId] = useState<string | null>(null);
 
               <View style={styles.info}>
                 <View style={styles.row}>
-                  <Text style={styles.name} numberOfLines={1}>
+                  <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
                     {item.name}
                   </Text>
                   <Text style={styles.time}>{item.time}</Text>

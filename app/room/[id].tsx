@@ -162,7 +162,7 @@ export default function ChatScreen() {
                 id: Date.now().toString(),
                 type: 'text',
                 text,
-sender: currentUser,
+                sender: currentUser,
                 time: 'Now',
                 replyTo: replyTo ?? undefined,
             },
@@ -186,7 +186,7 @@ sender: currentUser,
                     id: Date.now().toString(),
                     type,
                     uri: res.assets[0].uri,
-sender: currentUser,
+                    sender: currentUser,
                     time: 'Now',
                 },
                 ...prev,
@@ -207,7 +207,7 @@ sender: currentUser,
                     type: 'pdf',
                     uri: res.assets[0].uri,
                     text: res.assets[0].name,
-sender: currentUser,
+                    sender: currentUser,
                     time: 'Now',
                 },
                 ...prev,
@@ -273,7 +273,7 @@ sender: currentUser,
                     id: Date.now().toString(),
                     type: 'video',
                     uri: res.assets[0].uri,
-sender: currentUser,
+                    sender: currentUser,
                     time: 'Now',
                 },
                 ...prev,
@@ -299,7 +299,7 @@ sender: currentUser,
                 id: Date.now().toString(),
                 type: 'audio',
                 uri: uri!,
-sender: currentUser,
+                sender: currentUser,
                 time: 'Now',
             },
             ...prev,
@@ -479,132 +479,157 @@ sender: currentUser,
                     inverted
                     keyExtractor={item => item.id}
                     contentContainerStyle={{ padding: 16 }}
-                   renderItem={({ item }) => {
+                 renderItem={({ item, index }) => {
   const isMe = item.sender.id === currentUser.id;
 
+  // الرسالة السابقة (لأن القائمة inverted)
+  const previousMessage = messages[index + 1];
+
+  const showName =
+    !previousMessage ||
+    previousMessage.sender.id !== item.sender.id;
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onLongPress={() => {
-        setSelectedMessage(item);
-        setShowActions(true);
-      }}
-      style={[
-        styles.bubble,
-        isMe ? styles.me : styles.other,
-      ]}
-    >
-      {item.unsent ? (
-        <Text style={styles.unsent}>Message was unsent</Text>
-      ) : (
-        <>
-          {item.replyTo && (
-            <View style={styles.replyBox}>
-              <Text style={styles.replyName}>
-                {item.replyTo.sender.id === currentUser.id
-                  ? 'You'
-                  : item.replyTo.sender.name}
-              </Text>
-              <Text numberOfLines={1} style={styles.replyText}>
-                {item.replyTo.text || 'Media message'}
-              </Text>
-            </View>
-          )}
+    <View style={{ marginBottom: 12 }}>
 
-          {item.type === 'text' && (
-            <Text
-              style={[
-                styles.text,
-                isMe && { color: '#FFF' },
-              ]}
-            >
-              {item.text}
-            </Text>
-          )}
+      {/* ===== Sender Name Outside Bubble ===== */}
+      {showName && (
+        <Text
+          style={[
+            styles.outsideName,
+            { alignSelf: isMe ? 'flex-end' : 'flex-start' },
+          ]}
+        >
+          {isMe ? 'You' : item.sender.name}
+        </Text>
+      )}
 
-          {item.type === 'video' && (
-            <View style={styles.videoWrapper}>
-              <Video
-                source={{ uri: item.uri }}
-                style={styles.video}
-                useNativeControls
-                resizeMode={ResizeMode.CONTAIN}
-                isLooping={false}
-              />
-            </View>
-          )}
-
-          {(item.type === 'image' ||
-            item.type === 'gif' ||
-            item.type === 'sticker') && (
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => setPreviewImage(item.uri!)}
-            >
-              <Image source={{ uri: item.uri }} style={styles.media} />
-            </TouchableOpacity>
-          )}
-
-          {item.type === 'pdf' && (
-            <View style={styles.pdfRow}>
-              <Ionicons name="document-text-outline" size={22} />
-              <Text numberOfLines={1}>{item.text}</Text>
-            </View>
-          )}
-
-          {item.type === 'audio' && (
-            <TouchableOpacity
-              style={styles.audioRow}
-              activeOpacity={0.8}
-              onPress={() => togglePlay(item.uri!, item.id)}
-            >
-              <Ionicons
-                name={playingId === item.id ? 'pause' : 'play'}
-                size={22}
-                color={isMe ? '#FFF' : '#000'}
-              />
-
-              <View style={styles.audioProgressWrapper}>
-                <View style={styles.audioProgressBg}>
-                  <Animated.View
-                    style={[
-                      styles.audioProgressFill,
-                      {
-                        width:
-                          playingId === item.id
-                            ? progressAnim.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: ['0%', '100%'],
-                              })
-                            : '0%',
-                        backgroundColor: isMe ? '#FFF' : '#6D5DF6',
-                      },
-                    ]}
-                  />
-                </View>
-
-                <Text
-                  style={[
-                    styles.audioLabel,
-                    { color: isMe ? '#FFF' : '#000' },
-                  ]}
-                >
-                  Voice message
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onLongPress={() => {
+          setSelectedMessage(item);
+          setShowActions(true);
+        }}
+        style={[
+          styles.bubble,
+          isMe ? styles.me : styles.other,
+        ]}
+      >
+        {item.unsent ? (
+          <Text style={styles.unsent}>Message was unsent</Text>
+        ) : (
+          <>
+            {item.replyTo && (
+              <View style={styles.replyBox}>
+                <Text style={styles.replyName}>
+                  {item.replyTo.sender.id === currentUser.id
+                    ? 'You'
+                    : item.replyTo.sender.name}
+                </Text>
+                <Text numberOfLines={1} style={styles.replyText}>
+                  {item.replyTo.text || 'Media message'}
                 </Text>
               </View>
-            </TouchableOpacity>
-          )}
+            )}
 
-          {item.reaction && (
-            <View style={styles.reaction}>
-              <Text>{item.reaction}</Text>
-            </View>
-          )}
+            {item.type === 'text' && (
+              <Text
+                style={[
+                  styles.text,
+                  isMe && { color: '#FFF' },
+                ]}
+              >
+                {item.text}
+              </Text>
+            )}
 
-          <Text style={styles.time}>{item.time}</Text>
-        </>
-      )}
-    </TouchableOpacity>
+            {item.type === 'video' && (
+              <View style={styles.videoWrapper}>
+                <Video
+                  source={{ uri: item.uri }}
+                  style={styles.video}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
+                  isLooping={false}
+                />
+              </View>
+            )}
+
+            {(item.type === 'image' ||
+              item.type === 'gif' ||
+              item.type === 'sticker') && (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => setPreviewImage(item.uri!)}
+              >
+                <Image
+                  source={{ uri: item.uri }}
+                  style={styles.media}
+                />
+              </TouchableOpacity>
+            )}
+
+            {item.type === 'pdf' && (
+              <View style={styles.pdfRow}>
+                <Ionicons name="document-text-outline" size={22} />
+                <Text numberOfLines={1}>{item.text}</Text>
+              </View>
+            )}
+
+            {item.type === 'audio' && (
+              <TouchableOpacity
+                style={styles.audioRow}
+                activeOpacity={0.8}
+                onPress={() => togglePlay(item.uri!, item.id)}
+              >
+                <Ionicons
+                  name={playingId === item.id ? 'pause' : 'play'}
+                  size={22}
+                  color={isMe ? '#FFF' : '#000'}
+                />
+
+                <View style={styles.audioProgressWrapper}>
+                  <View style={styles.audioProgressBg}>
+                    <Animated.View
+                      style={[
+                        styles.audioProgressFill,
+                        {
+                          width:
+                            playingId === item.id
+                              ? progressAnim.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: ['0%', '100%'],
+                                })
+                              : '0%',
+                          backgroundColor: isMe ? '#FFF' : '#6D5DF6',
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.audioLabel,
+                      { color: isMe ? '#FFF' : '#000' },
+                    ]}
+                  >
+                    Voice message
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {item.reaction && (
+              <View style={styles.reaction}>
+                <Text>{item.reaction}</Text>
+              </View>
+            )}
+
+            <Text style={styles.time}>{item.time}</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }}
 
@@ -709,7 +734,7 @@ sender: currentUser,
                                 <Text style={styles.action}>Reply</Text>
                             </TouchableOpacity>
 
-{selectedMessage?.sender?.id === currentUser.id && (
+                            {selectedMessage?.sender?.id === currentUser.id && (
                                 <TouchableOpacity
                                     onPress={() => unsendMessage(selectedMessage.id)}
                                 >
@@ -818,6 +843,13 @@ const styles = StyleSheet.create({
     replyName: { fontSize: 12, fontWeight: '600' },
     replyText: { fontSize: 12, color: '#fff' },
 
+outsideName: {
+  fontSize: 12,
+  fontWeight: '700',
+  marginBottom: 4,
+  marginHorizontal: 6,
+  color: '#6D5DF6',
+},
 
     audioProgressWrapper: {
         flex: 1,
@@ -877,6 +909,13 @@ const styles = StyleSheet.create({
         marginTop: 6,
         overflow: 'hidden',
     },
+    senderName: {
+  fontSize: 12,
+  fontWeight: '700',
+  marginBottom: 4,
+  letterSpacing: 0.3,
+},
+
     progressFill: {
         height: '100%',
         backgroundColor: '#6366F1',

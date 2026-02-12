@@ -1,3 +1,4 @@
+import { Colors } from '@/constants/theme';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Video } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,8 +11,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native';
+
 
 /* =======================
    Types
@@ -83,6 +86,8 @@ const initialTweets: Tweet[] = [
 ======================= */
 
 export default function TweetsScreen() {
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const [feed, setFeed] = useState<Tweet[]>(initialTweets);
   const [showComposer, setShowComposer] = useState(false);
   const [tweetText, setTweetText] = useState('');
@@ -90,45 +95,45 @@ export default function TweetsScreen() {
   const [loadingMedia, setLoadingMedia] = useState(false);
 
   const [showComments, setShowComments] = useState(false);
-const [selectedTweetId, setSelectedTweetId] = useState<string | null>(null);
+  const [selectedTweetId, setSelectedTweetId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
-const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-const selectedTweet = feed.find(t => t.id === selectedTweetId) || null;
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const selectedTweet = feed.find(t => t.id === selectedTweetId) || null;
 
-const updateComment = (id: string) => {
-if (!commentText.trim() || !selectedTweetId) return;
+  const updateComment = (id: string) => {
+    if (!commentText.trim() || !selectedTweetId) return;
 
-  setFeed(prev =>
-    prev.map(t =>
-      t.id === selectedTweetId
-        ? {
+    setFeed(prev =>
+      prev.map(t =>
+        t.id === selectedTweetId
+          ? {
             ...t,
             comments: t.comments?.map(c =>
               c.id === id ? { ...c, text: commentText } : c
             ),
           }
-        : t
-    )
-  );
+          : t
+      )
+    );
 
-  setEditingCommentId(null);
-  setCommentText('');
-};
-const deleteComment = (id: string) => {
-  if (!selectedTweet) return;
+    setEditingCommentId(null);
+    setCommentText('');
+  };
+  const deleteComment = (id: string) => {
+    if (!selectedTweet) return;
 
-  setFeed(prev =>
-    prev.map(t =>
-      t.id === selectedTweetId
-        ? {
+    setFeed(prev =>
+      prev.map(t =>
+        t.id === selectedTweetId
+          ? {
             ...t,
             replies: Math.max(0, t.replies - 1),
             comments: t.comments?.filter(c => c.id !== id),
           }
-        : t
-    )
-  );
-};
+          : t
+      )
+    );
+  };
 
   /* ===== Like ===== */
   const toggleLike = (id: string) => {
@@ -221,36 +226,41 @@ const deleteComment = (id: string) => {
     }
     setLoadingMedia(false);
   };
-const addComment = () => {
-if (!selectedTweetId || !commentText.trim()) return;
+  const addComment = () => {
+    if (!selectedTweetId || !commentText.trim()) return;
 
-  const newComment: Comment = {
-    id: Date.now().toString(),
-    user: 'You',
-    text: commentText,
-    time: 'الآن',
-  };
+    const newComment: Comment = {
+      id: Date.now().toString(),
+      user: 'You',
+      text: commentText,
+      time: 'الآن',
+    };
 
-  setFeed(prev =>
-    prev.map(t =>
-      t.id === selectedTweetId
-        ? {
+    setFeed(prev =>
+      prev.map(t =>
+        t.id === selectedTweetId
+          ? {
             ...t,
             replies: t.replies + 1,
             comments: [...(t.comments || []), newComment],
           }
-        : t
-    )
-  );
+          : t
+      )
+    );
 
-  setCommentText('');
-};
+    setCommentText('');
+  };
 
 
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container,
+      {
+        backgroundColor: theme.background,
+      },
+    ]}>
       {/* Header */}
-     
+
 
       {/* Feed */}
       <FlatList
@@ -268,7 +278,8 @@ if (!selectedTweetId || !commentText.trim()) return;
               )}
 
               <View style={styles.nameRow}>
-                <Text style={styles.name}>{item.name}</Text>
+              <Text style={[styles.name, { color: theme.text }]}>
+                  {item.name}</Text>
                 {item.verified && (
                   <Ionicons
                     name="checkmark-circle"
@@ -281,7 +292,8 @@ if (!selectedTweetId || !commentText.trim()) return;
                 </Text>
               </View>
 
-              <Text style={styles.text}>{item.text}</Text>
+              <Text style={[styles.text, { color: theme.text }]}>
+                {item.text}</Text>
 
               {item.image && (
                 <Image source={{ uri: item.image }} style={styles.tweetImage} />
@@ -314,8 +326,8 @@ if (!selectedTweetId || !commentText.trim()) return;
 
                 <Action
                   onPress={() => {
-                  setSelectedTweetId(item.id);
-setShowComments(true);
+                    setSelectedTweetId(item.id);
+                    setShowComments(true);
 
                   }}
 
@@ -339,226 +351,226 @@ setShowComments(true);
       </TouchableOpacity>
 
       {/* Composer */}
-     <Modal visible={showComposer} animationType="slide" presentationStyle="pageSheet">
-  <View style={{ flex: 1, backgroundColor: '#FFF' }}>
-    {/* Header */}
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 0.5,
-        borderColor: '#E5E7EB',
-      }}
-    >
-      <TouchableOpacity onPress={() => setShowComposer(false)}>
-        <Ionicons name="close" size={22} />
-      </TouchableOpacity>
+      <Modal visible={showComposer} animationType="slide" presentationStyle="pageSheet">
+        <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+          {/* Header */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderBottomWidth: 0.5,
+              borderColor: '#E5E7EB',
+            }}
+          >
+            <TouchableOpacity onPress={() => setShowComposer(false)}>
+              <Ionicons name="close" size={22} />
+            </TouchableOpacity>
 
-      <Text style={{ fontSize: 16, fontWeight: '700' }}>إنشاء منشور</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700' }}>إنشاء منشور</Text>
 
-      <TouchableOpacity
-        onPress={addTweet}
-        style={{
-          backgroundColor: tweetText.trim() || media.image || media.video ? '#1D9BF0' : '#93C5FD',
-          paddingHorizontal: 18,
-          paddingVertical: 6,
-          borderRadius: 20,
-        }}
-        disabled={!tweetText.trim() && !media.image && !media.video}
-      >
-        <Text style={{ color: '#FFF', fontWeight: '700' }}>نشر</Text>
-      </TouchableOpacity>
-    </View>
+            <TouchableOpacity
+              onPress={addTweet}
+              style={{
+                backgroundColor: tweetText.trim() || media.image || media.video ? '#1D9BF0' : '#93C5FD',
+                paddingHorizontal: 18,
+                paddingVertical: 6,
+                borderRadius: 20,
+              }}
+              disabled={!tweetText.trim() && !media.image && !media.video}
+            >
+              <Text style={{ color: '#FFF', fontWeight: '700' }}>نشر</Text>
+            </TouchableOpacity>
+          </View>
 
-    {/* Body */}
-    <View style={{ flex: 1, padding: 16 }}>
-      <View style={{ flexDirection: 'row' }}>
-        <Image
-          source={{ uri: 'https://picsum.photos/200' }}
-          style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }}
-        />
+          {/* Body */}
+          <View style={{ flex: 1, padding: 16 }}>
+            <View style={{ flexDirection: 'row' }}>
+              <Image
+                source={{ uri: 'https://picsum.photos/200' }}
+                style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }}
+              />
 
-        <TextInput
-          placeholder="ماذا يحدث؟"
-          multiline
-          value={tweetText}
-          onChangeText={setTweetText}
-          style={{
-            flex: 1,
-            fontSize: 17,
-            lineHeight: 24,
-            textAlignVertical: 'top',
-          }}
-        />
-      </View>
+              <TextInput
+                placeholder="ماذا يحدث؟"
+                multiline
+                value={tweetText}
+                onChangeText={setTweetText}
+                style={{
+                  flex: 1,
+                  fontSize: 17,
+                  lineHeight: 24,
+                  textAlignVertical: 'top',
+                }}
+              />
+            </View>
 
-      {/* Media Preview */}
-      {(media.image || media.video) && (
-        <View style={{ marginTop: 14 }}>
-          {media.image && (
-            <Image source={{ uri: media.image }} style={styles.previewMedia} />
-          )}
+            {/* Media Preview */}
+            {(media.image || media.video) && (
+              <View style={{ marginTop: 14 }}>
+                {media.image && (
+                  <Image source={{ uri: media.image }} style={styles.previewMedia} />
+                )}
 
-          {media.video && (
-            <Video
-              source={{ uri: media.video }}
-              style={styles.previewMedia}
-              useNativeControls
-            />
-          )}
+                {media.video && (
+                  <Video
+                    source={{ uri: media.video }}
+                    style={styles.previewMedia}
+                    useNativeControls
+                  />
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Footer Actions */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              borderTopWidth: 0.5,
+              borderColor: '#E5E7EB',
+            }}
+          >
+            <TouchableOpacity onPress={pickImage}>
+              <Ionicons name="image-outline" size={24} color="#1D9BF0" />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={pickVideo} style={{ marginLeft: 20 }}>
+              <Ionicons name="videocam-outline" size={24} color="#1D9BF0" />
+            </TouchableOpacity>
+
+            <View style={{ flex: 1 }} />
+
+            <Text style={{ color: '#6B7280', fontSize: 12 }}>
+              {tweetText.length}/280
+            </Text>
+          </View>
         </View>
-      )}
-    </View>
+      </Modal>
 
-    {/* Footer Actions */}
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderTopWidth: 0.5,
-        borderColor: '#E5E7EB',
-      }}
-    >
-      <TouchableOpacity onPress={pickImage}>
-        <Ionicons name="image-outline" size={24} color="#1D9BF0" />
-      </TouchableOpacity>
+      <Modal visible={showComments} animationType="slide">
+        <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+          {/* Header */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 14,
+              borderBottomWidth: 0.5,
+              borderColor: '#E5E7EB',
+            }}
+          >
+            <TouchableOpacity onPress={() => setShowComments(false)}>
+              <Ionicons name="close" size={22} />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 16, fontWeight: '700', marginLeft: 12 }}>
+              المنشور
+            </Text>
+          </View>
 
-      <TouchableOpacity onPress={pickVideo} style={{ marginLeft: 20 }}>
-        <Ionicons name="videocam-outline" size={24} color="#1D9BF0" />
-      </TouchableOpacity>
+          {/* Original Tweet */}
+          <View style={{ padding: 14 }}>
+            <Text style={{ fontWeight: '700' }}>
+              {selectedTweet?.name}{' '}
+              <Text style={{ color: '#6B7280', fontWeight: '400' }}>
+                @{selectedTweet?.username}
+              </Text>
+            </Text>
+            <Text style={{ marginTop: 6 }}>{selectedTweet?.text}</Text>
+          </View>
 
-      <View style={{ flex: 1 }} />
+          {/* Comments */}
+          <FlatList
+            data={selectedTweet?.comments || []}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ paddingHorizontal: 14 }}
+            renderItem={({ item }) => (
+              <View
+                style={{
+                  marginTop: 16,
+                  paddingLeft: 12,
+                  borderLeftWidth: 2,
+                  borderColor: '#E5E7EB',
+                }}
+              >
+                <Text style={{ fontWeight: '700' }}>{item.user}</Text>
 
-      <Text style={{ color: '#6B7280', fontSize: 12 }}>
-        {tweetText.length}/280
-      </Text>
-    </View>
-  </View>
-</Modal>
+                {editingCommentId === item.id ? (
+                  <TextInput
+                    value={commentText}
+                    onChangeText={setCommentText}
+                    autoFocus
+                    style={{
+                      borderWidth: 1,
+                      borderColor: '#E5E7EB',
+                      borderRadius: 12,
+                      padding: 8,
+                      marginTop: 6,
+                    }}
+                  />
+                ) : (
+                  <Text style={{ marginTop: 4 }}>{item.text}</Text>
+                )}
 
- <Modal visible={showComments} animationType="slide">
-  <View style={{ flex: 1, backgroundColor: '#FFF' }}>
-    {/* Header */}
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 14,
-        borderBottomWidth: 0.5,
-        borderColor: '#E5E7EB',
-      }}
-    >
-      <TouchableOpacity onPress={() => setShowComments(false)}>
-        <Ionicons name="close" size={22} />
-      </TouchableOpacity>
-      <Text style={{ fontSize: 16, fontWeight: '700', marginLeft: 12 }}>
-        المنشور
-      </Text>
-    </View>
+                <View style={{ flexDirection: 'row', gap: 14, marginTop: 6 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingCommentId(item.id);
+                      setCommentText(item.text);
+                    }}
+                  >
+                    <Text style={{ color: '#1D9BF0', fontSize: 12 }}>تعديل</Text>
+                  </TouchableOpacity>
 
-    {/* Original Tweet */}
-    <View style={{ padding: 14 }}>
-      <Text style={{ fontWeight: '700' }}>
-        {selectedTweet?.name}{' '}
-        <Text style={{ color: '#6B7280', fontWeight: '400' }}>
-          @{selectedTweet?.username}
-        </Text>
-      </Text>
-      <Text style={{ marginTop: 6 }}>{selectedTweet?.text}</Text>
-    </View>
+                  <TouchableOpacity onPress={() => deleteComment(item.id)}>
+                    <Text style={{ color: '#EF4444', fontSize: 12 }}>حذف</Text>
+                  </TouchableOpacity>
 
-    {/* Comments */}
-    <FlatList
-      data={selectedTweet?.comments || []}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={{ paddingHorizontal: 14 }}
-    renderItem={({ item }) => (
-  <View
-    style={{
-      marginTop: 16,
-      paddingLeft: 12,
-      borderLeftWidth: 2,
-      borderColor: '#E5E7EB',
-    }}
-  >
-    <Text style={{ fontWeight: '700' }}>{item.user}</Text>
+                  {editingCommentId === item.id && (
+                    <TouchableOpacity onPress={() => updateComment(item.id)}>
+                      <Text style={{ color: '#22C55E', fontSize: 12 }}>حفظ</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
 
-    {editingCommentId === item.id ? (
-      <TextInput
-        value={commentText}
-        onChangeText={setCommentText}
-        autoFocus
-        style={{
-          borderWidth: 1,
-          borderColor: '#E5E7EB',
-          borderRadius: 12,
-          padding: 8,
-          marginTop: 6,
-        }}
-      />
-    ) : (
-      <Text style={{ marginTop: 4 }}>{item.text}</Text>
-    )}
+          />
 
-    <View style={{ flexDirection: 'row', gap: 14, marginTop: 6 }}>
-      <TouchableOpacity
-        onPress={() => {
-          setEditingCommentId(item.id);
-          setCommentText(item.text);
-        }}
-      >
-        <Text style={{ color: '#1D9BF0', fontSize: 12 }}>تعديل</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => deleteComment(item.id)}>
-        <Text style={{ color: '#EF4444', fontSize: 12 }}>حذف</Text>
-      </TouchableOpacity>
-
-      {editingCommentId === item.id && (
-        <TouchableOpacity onPress={() => updateComment(item.id)}>
-          <Text style={{ color: '#22C55E', fontSize: 12 }}>حفظ</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  </View>
-)}
-
-    />
-
-    {/* Add Comment */}
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderTopWidth: 0.5,
-        borderColor: '#E5E7EB',
-      }}
-    >
-      <TextInput
-        placeholder="اكتب ردك..."
-        value={commentText}
-        onChangeText={setCommentText}
-        style={{
-          flex: 1,
-          borderWidth: 1,
-          borderColor: '#E5E7EB',
-          borderRadius: 20,
-          paddingHorizontal: 14,
-          paddingVertical: 8,
-        }}
-      />
-      <TouchableOpacity onPress={addComment} style={{ marginLeft: 10 }}>
-        <Ionicons name="send" size={22} color="#1D9BF0" />
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+          {/* Add Comment */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 12,
+              borderTopWidth: 0.5,
+              borderColor: '#E5E7EB',
+            }}
+          >
+            <TextInput
+              placeholder="اكتب ردك..."
+              value={commentText}
+              onChangeText={setCommentText}
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                borderRadius: 20,
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+              }}
+            />
+            <TouchableOpacity onPress={addComment} style={{ marginLeft: 10 }}>
+              <Ionicons name="send" size={22} color="#1D9BF0" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
 
     </View>

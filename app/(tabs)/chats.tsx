@@ -1,3 +1,4 @@
+import { Colors } from '@/constants/theme';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -10,6 +11,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -119,7 +121,8 @@ function TypingDots() {
 
 export default function ChatScreen() {
   const router = useRouter();
-
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const [data, setData] = useState<Chat[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -182,14 +185,24 @@ export default function ChatScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      {/* Search */}
-      <View style={styles.searchBox}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.background,
+        },
+      ]}
+    >      {/* Search */}
+      <View style={[styles.searchBox, {
+        backgroundColor: theme.background,
+      }]}>
         <Ionicons name="search" size={16} color="#9CA3AF" />
         <TextInput
           placeholder="Search chats"
           value={search}
           onChangeText={setSearch}
+          placeholderTextColor={colorScheme === 'dark' ? '#6B7280' : '#9CA3AF'}
+
           style={styles.searchInput}
         />
       </View>
@@ -214,9 +227,14 @@ export default function ChatScreen() {
               <View
                 style={[
                   styles.card,
-                  item.unread ? styles.unreadCard : null,
+                  {
+                    backgroundColor: item.unread
+                      ? theme.unreadCard
+                      : theme.card,
+                  },
                 ]}
               >
+
                 <View style={styles.avatarWrapper}>
                   <Image source={{ uri: item.avatar }} style={styles.avatar} />
                   {item.online && <View style={styles.onlineDot} />}
@@ -226,7 +244,7 @@ export default function ChatScreen() {
                   <View style={styles.row}>
                     <Text
                       style={[
-                        styles.name,
+                        styles.name, { color: theme.text },
                         item.unread ? styles.unreadName : null,
                       ]}
                       numberOfLines={1}

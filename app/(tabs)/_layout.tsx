@@ -1,20 +1,36 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 
 import AppHeader from '@/components/AppHeader';
 import { HapticTab } from '@/components/haptic-tab';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { RootState } from '@/redux/store';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Feather from '@expo/vector-icons/Feather';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Octicons from '@expo/vector-icons/Octicons';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { useSelector } from 'react-redux';
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { isLoggedIn, loading } = useSelector(
+    (state: RootState) => state.auth
+  );
 
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return <Redirect href="/(auth)/login" />;
+  }
   return (
     <View style={{ flex: 1 }}>
       {/* Header ثابت */}

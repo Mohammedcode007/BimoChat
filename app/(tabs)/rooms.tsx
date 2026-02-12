@@ -1,3 +1,4 @@
+import { Colors } from '@/constants/theme';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -9,6 +10,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native';
 
@@ -83,8 +85,9 @@ const Badge = ({
 ======================= */
 
 export default function RoomsScreen() {
-    const router = useRouter();
-  
+  const router = useRouter();
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const [rooms, setRooms] = useState<Room[]>([]);
   const [page, setPage] = useState(1);
 
@@ -182,43 +185,45 @@ export default function RoomsScreen() {
   ======================= */
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Search */}
-      <View style={styles.searchBox}>
+      <View style={[styles.searchBox, { backgroundColor: theme.background }]}>
         <Ionicons name="search" size={16} color="#9CA3AF" />
         <TextInput
           placeholder="Search rooms"
           value={search}
           onChangeText={setSearch}
+          placeholderTextColor={colorScheme === 'dark' ? '#6B7280' : '#9CA3AF'}
+
           style={styles.searchInput}
         />
       </View>
 
       {/* Tabs */}
-    <View style={styles.tabs}>
-  {TABS.map((t) => {
-    const active = tab === t;
-    return (
-      <TouchableOpacity
-        key={t}
-        onPress={() => setTab(t)}
-        activeOpacity={0.7}
-        style={styles.tabBtn}
-      >
-        <Text
-          style={[
-            styles.tabText,
-            active && styles.activeTabText,
-          ]}
-        >
-          {t}
-        </Text>
+      <View style={[styles.tabs, { backgroundColor: theme.background }]}>
+        {TABS.map((t) => {
+          const active = tab === t;
+          return (
+            <TouchableOpacity
+              key={t}
+              onPress={() => setTab(t)}
+              activeOpacity={0.7}
+              style={styles.tabBtn}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  active && styles.activeTabText,
+                ]}
+              >
+                {t}
+              </Text>
 
-        {active && <View style={styles.indicator} />}
-      </TouchableOpacity>
-    );
-  })}
-</View>
+              {active && <View style={styles.indicator} />}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
 
       {/* Rooms */}
@@ -234,16 +239,16 @@ export default function RoomsScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <TouchableOpacity    onPress={() =>
-                router.push({
-                  pathname: '/room/[id]',
-                  params: { id: item.id },
-                })
-              } style={styles.card}>
+          <TouchableOpacity onPress={() =>
+            router.push({
+              pathname: '/room/[id]',
+              params: { id: item.id },
+            })
+          } style={[styles.card, { backgroundColor: theme.background }]}>
             <Image source={{ uri: item.image }} style={styles.image} />
 
             <View style={styles.info}>
-              <Text style={styles.name}>{item.name}</Text>
+              <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
               <Text style={styles.members}>{item.members}/50 members</Text>
 
               <View style={styles.badges}>
@@ -475,39 +480,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tabs: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginBottom: 12,
-  backgroundColor: '#FFFFFF',
-  borderRadius: 16,
-  padding: 6,
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 6,
+  },
 
-tabBtn: {
-  flex: 1,
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingVertical: 8,
-  borderRadius: 12,
-},
+  tabBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
 
-tabText: {
-  fontSize: 13,
-  fontWeight: '500',
-  color: '#6B7280',
-},
+  tabText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
 
-activeTabText: {
-  color: '#4F46E5',
-  fontWeight: '700',
-},
+  activeTabText: {
+    color: '#4F46E5',
+    fontWeight: '700',
+  },
 
-indicator: {
-  marginTop: 6,
-  width: 20,
-  height: 3,
-  borderRadius: 2,
-  backgroundColor: '#4F46E5',
-},
+  indicator: {
+    marginTop: 6,
+    width: 20,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#4F46E5',
+  },
 
 });

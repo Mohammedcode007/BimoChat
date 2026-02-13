@@ -17,11 +17,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 
 import {
-    acceptFriendRequest,
     cancelFriendRequest,
-    rejectFriendRequest,
     searchUsers,
-    sendFriendRequest,
+    sendFriendRequest
 } from "@/redux/slices/friendSlice";
 
 import { AppDispatch, RootState } from "@/redux/store";
@@ -80,23 +78,30 @@ export default function AddFriendScreen() {
             /* ===== HE SENT REQUEST ===== */
             case "pending_received":
                 return (
-                    <View style={styles.actionRow}>
-                        <TouchableOpacity
-                            style={[styles.acceptBtn, disabled && styles.disabledBtn]}
-                            disabled={disabled}
-                            onPress={() => dispatch(acceptFriendRequest(user._id))}
-                        >
-                            <Text style={styles.btnText}>Accept</Text>
-                        </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.cancelBtn, disabled && styles.disabledBtn]}
+                        disabled={true}
+                        // onPress={() => dispatch(cancelFriendRequest(user._id))}
+                    >
+                        <Text style={styles.btnText}>Pending</Text>
+                    </TouchableOpacity>
+                    // <View style={styles.actionRow}>
+                    //     <TouchableOpacity
+                    //         style={[styles.acceptBtn, disabled && styles.disabledBtn]}
+                    //         disabled={disabled}
+                    //         onPress={() => dispatch(acceptFriendRequest(user._id))}
+                    //     >
+                    //         <Text style={styles.btnText}>Accept</Text>
+                    //     </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={[styles.declineBtn, disabled && styles.disabledBtn]}
-                            disabled={disabled}
-                            onPress={() => dispatch(rejectFriendRequest(user._id))}
-                        >
-                            <Text style={styles.btnText}>Decline</Text>
-                        </TouchableOpacity>
-                    </View>
+                    //     <TouchableOpacity
+                    //         style={[styles.declineBtn, disabled && styles.disabledBtn]}
+                    //         disabled={disabled}
+                    //         onPress={() => dispatch(rejectFriendRequest(user._id))}
+                    //     >
+                    //         <Text style={styles.btnText}>Decline</Text>
+                    //     </TouchableOpacity>
+                    // </View>
                 );
 
             /* ===== FRIENDS ===== */

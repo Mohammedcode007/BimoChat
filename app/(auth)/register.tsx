@@ -1,25 +1,28 @@
-import { useAuth } from '@/context/AuthContext';
+import { register } from '@/redux/slices/authSlice';
+import { AppDispatch, RootState } from '@/redux/store';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSequence,
-    withTiming,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from 'react-native-reanimated';
+import { useDispatch, useSelector } from 'react-redux';
 
 export default function RegisterScreen() {
-  const { login } = useAuth();
+  const dispatch = useDispatch<AppDispatch>();
+  const { loading } = useSelector((state: RootState) => state.auth);
   const router = useRouter();
 
   const [username, setUsername] = useState('');
@@ -28,12 +31,18 @@ export default function RegisterScreen() {
   const [captchaInput, setCaptchaInput] = useState('');
   const [error, setError] = useState('');
 
-  /* ===== Captcha ===== */
-  const a = Math.floor(Math.random() * 9) + 1;
-  const b = Math.floor(Math.random() * 9) + 1;
-  const captchaResult = a + b;
+  /* ================= CAPTCHA ================= */
 
-  /* ===== Animations ===== */
+  const generateCaptcha = () => {
+    const x = Math.floor(Math.random() * 9) + 1;
+    const y = Math.floor(Math.random() * 9) + 1;
+    return { a: x, b: y, result: x + y };
+  };
+
+  const [captcha, setCaptcha] = useState(generateCaptcha());
+
+  /* ================= ANIMATIONS ================= */
+
   const userX = useSharedValue(-320);
   const passX = useSharedValue(320);
   const confirmX = useSharedValue(-320);
@@ -73,22 +82,43 @@ export default function RegisterScreen() {
     );
   };
 
+  /* ================= REGISTER ================= */
+
   const handleRegister = async () => {
     if (!username.trim()) return showError('Username is required');
+
     if (password.length < 6)
       return showError('Password must be at least 6 characters');
+
     if (password !== confirm)
       return showError('Passwords do not match');
-    if (Number(captchaInput) !== captchaResult)
-      return showError('Captcha is incorrect');
 
-    // بعد التسجيل (تجريبي)
-    await login('token-123');
+    if (Number(captchaInput) !== captcha.result) {
+      setCaptcha(generateCaptcha()); // تحديث الكابتشا عند الخطأ
+      setCaptchaInput('');
+      return showError('Captcha is incorrect');
+    }
+
+    const result = await dispatch(register({
+      username: username.trim().toLowerCase()
+      , password
+    }));
+
+    if (register.fulfilled.match(result)) {
+      router.replace('/(tabs)');
+    } else {
+      showError(result.payload as string);
+      setCaptcha(generateCaptcha());
+      setCaptchaInput('');
+    }
   };
 
-  /* ===== Animated Styles ===== */
+  /* ================= ANIMATED STYLES ================= */
+
   const animated = (x: any) =>
-    useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
+    useAnimatedStyle(() => ({
+      transform: [{ translateX: x.value }],
+    }));
 
   const buttonStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: buttonY.value }],
@@ -158,7 +188,7 @@ export default function RegisterScreen() {
 
           <Animated.View style={animated(captchaX)}>
             <TextInput
-              placeholder={`Captcha: ${a} + ${b} = ?`}
+              placeholder={`Captcha: ${captcha.a} + ${captcha.b} = ?`}
               placeholderTextColor="#94A3B8"
               keyboardType="numeric"
               value={captchaInput}
@@ -167,6 +197,16 @@ export default function RegisterScreen() {
             />
           </Animated.View>
 
+          {/* زر تحديث الكابتشا */}
+          <TouchableOpacity
+            onPress={() => {
+              setCaptcha(generateCaptcha());
+              setCaptchaInput('');
+            }}
+          >
+            <Text style={styles.refreshCaptcha}>Refresh Captcha</Text>
+          </TouchableOpacity>
+
           {!!error && (
             <Animated.Text style={[styles.error, errorStyle]}>
               {error}
@@ -174,8 +214,14 @@ export default function RegisterScreen() {
           )}
 
           <Animated.View style={buttonStyle}>
-            <TouchableOpacity style={styles.button} onPress={handleRegister}>
-              <Text style={styles.buttonText}>Register</Text>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? 'Creating...' : 'Register'}
+              </Text>
             </TouchableOpacity>
           </Animated.View>
 
@@ -218,6 +264,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: '#0F172A',
   },
+  refreshCaptcha: {
+    color: '#2563EB',
+    fontSize: 13,
+    marginBottom: 12,
+    fontWeight: '600',
+  },
   button: {
     height: 54,
     backgroundColor: '#2563EB',
@@ -244,7 +296,6 @@ const styles = StyleSheet.create({
   },
   link: { color: '#2563EB', fontWeight: '600' },
 
-  /* Shapes */
   circle: { position: 'absolute', borderRadius: 999 },
   square: { position: 'absolute', borderRadius: 18 },
   triangle: {

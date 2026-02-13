@@ -1,3 +1,4 @@
+
 // import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 // import api from "../../services/api";
 
@@ -13,185 +14,152 @@
 //   | "blocked_by_me"
 //   | "blocked_me";
 
-
 // export interface UserItem {
-//     _id: string;
-//     username: string;
-//     atUsername?: string;
-//     avatar?: string;
-//     isOnline: boolean;
-//     lastSeen?: string;
-//     relationshipStatus: FriendshipStatus;
+//   _id: string;
+//   username: string;
+//   atUsername?: string;
+//   avatar?: string;
+//   isOnline: boolean;
+//   lastSeen?: string;
+//   relationshipStatus: FriendshipStatus;
 // }
 
 // interface FriendState {
-//     searchResults: UserItem[];
-//     pendingRequests: UserItem[];
-//     loading: boolean;
-//     error?: string;
+//   searchResults: UserItem[];
+//   pendingRequests: UserItem[];
+//   loading: boolean;
+//   error?: string;
 // }
 
 // const initialState: FriendState = {
-//     searchResults: [],
-//     pendingRequests: [],
-//     loading: false,
+//   searchResults: [],
+//   pendingRequests: [],
+//   loading: false,
+//   error: undefined
 // };
 
 // /* =====================================================
-//    SEARCH USERS
+//    ASYNC THUNKS
 // ===================================================== */
 
 // export const searchUsers = createAsyncThunk<
-//     UserItem[],
-//     string,
-//     { rejectValue: string }
+//   UserItem[],
+//   string,
+//   { rejectValue: string }
 // >("friends/search", async (query, thunkAPI) => {
-//     try {
-//         console.log("🔎 Searching users:", query);
-
-//         const res = await api.get(`/users/search?q=${query}`);
-
-//         console.log("✅ Search response:", res.data);
-
-//         return res.data;
-
-//     } catch (err: any) {
-//         console.error("❌ Search error:", err.response?.data || err.message);
-//         return thunkAPI.rejectWithValue(err.response?.data?.message);
-//     }
+//   try {
+//     const res = await api.get(`/users/search?q=${query}`);
+//     return res.data;
+//   } catch (err: any) {
+//     return thunkAPI.rejectWithValue(
+//       err.response?.data?.message || "Search failed"
+//     );
+//   }
 // });
-
-// /* =====================================================
-//    SEND FRIEND REQUEST
-// ===================================================== */
 
 // export const sendFriendRequest = createAsyncThunk<
-//     string,
-//     string,
-//     { rejectValue: string }
+//   string,
+//   string,
+//   { rejectValue: string }
 // >("friends/send", async (userId, thunkAPI) => {
-//     try {
-//         console.log("📤 Sending friend request to:", userId);
-
-//         await api.post(`/friends/${userId}/send`);
-
-//         return userId;
-
-//     } catch (err: any) {
-//         console.error("❌ Send error:", err.response?.data || err.message);
-//         return thunkAPI.rejectWithValue(err.response?.data?.message);
-//     }
+//   try {
+//     await api.post(`/friends/${userId}/send`);
+//     return userId;
+//   } catch (err: any) {
+//     return thunkAPI.rejectWithValue(
+//       err.response?.data?.message || "Send failed"
+//     );
+//   }
 // });
-
-// /* =====================================================
-//    CANCEL FRIEND REQUEST
-// ===================================================== */
 
 // export const cancelFriendRequest = createAsyncThunk<
-//     string,
-//     string,
-//     { rejectValue: string }
+//   string,
+//   string,
+//   { rejectValue: string }
 // >("friends/cancel", async (userId, thunkAPI) => {
-//     try {
-//         console.log("❌ Canceling friend request:", userId);
-
-//         await api.post(`/friends/${userId}/cancel`);
-
-//         return userId;
-
-//     } catch (err: any) {
-//         console.error("❌ Cancel error:", err.response?.data || err.message);
-//         return thunkAPI.rejectWithValue(err.response?.data?.message);
-//     }
+//   try {
+//     await api.post(`/friends/${userId}/cancel`);
+//     return userId;
+//   } catch (err: any) {
+//     return thunkAPI.rejectWithValue(
+//       err.response?.data?.message || "Cancel failed"
+//     );
+//   }
 // });
-
-// /* =====================================================
-//    ACCEPT REQUEST
-// ===================================================== */
 
 // export const acceptFriendRequest = createAsyncThunk<
-//     string,
-//     string,
-//     { rejectValue: string }
+//   string,
+//   string,
+//   { rejectValue: string }
 // >("friends/accept", async (userId, thunkAPI) => {
-//     try {
-//         console.log("✅ Accepting friend:", userId);
-
-//         await api.post(`/friends/${userId}/accept`);
-
-//         return userId;
-
-//     } catch (err: any) {
-//         console.error("❌ Accept error:", err.response?.data || err.message);
-//         return thunkAPI.rejectWithValue(err.response?.data?.message);
-//     }
+//   try {
+//     await api.post(`/friends/${userId}/accept`);
+//     return userId;
+//   } catch (err: any) {
+//     return thunkAPI.rejectWithValue(
+//       err.response?.data?.message || "Accept failed"
+//     );
+//   }
 // });
 
-// /* =====================================================
-//    REMOVE FRIEND
-// ===================================================== */
+// export const rejectFriendRequest = createAsyncThunk<
+//   string,
+//   string,
+//   { rejectValue: string }
+// >("friends/reject", async (userId, thunkAPI) => {
+//   try {
+//     await api.post(`/friends/${userId}/reject`);
+//     return userId;
+//   } catch (err: any) {
+//     return thunkAPI.rejectWithValue(
+//       err.response?.data?.message || "Reject failed"
+//     );
+//   }
+// });
 
 // export const removeFriend = createAsyncThunk<
-//     string,
-//     string,
-//     { rejectValue: string }
+//   string,
+//   string,
+//   { rejectValue: string }
 // >("friends/remove", async (userId, thunkAPI) => {
-//     try {
-//         console.log("🗑 Removing friend:", userId);
-
-//         await api.delete(`/friends/${userId}/remove`);
-
-//         return userId;
-
-//     } catch (err: any) {
-//         console.error("❌ Remove error:", err.response?.data || err.message);
-//         return thunkAPI.rejectWithValue(err.response?.data?.message);
-//     }
+//   try {
+//     await api.delete(`/friends/${userId}/remove`);
+//     return userId;
+//   } catch (err: any) {
+//     return thunkAPI.rejectWithValue(
+//       err.response?.data?.message || "Remove failed"
+//     );
+//   }
 // });
-
-
-// /* =====================================================
-//    BLOCK USER
-// ===================================================== */
 
 // export const blockUser = createAsyncThunk<
-//     string,
-//     string,
-//     { rejectValue: string }
+//   string,
+//   string,
+//   { rejectValue: string }
 // >("friends/block", async (userId, thunkAPI) => {
-//     try {
-//         console.log("⛔ Blocking user:", userId);
-
-//         await api.post(`/friends/${userId}/block`);
-
-//         return userId;
-
-//     } catch (err: any) {
-//         console.error("❌ Block error:", err.response?.data || err.message);
-//         return thunkAPI.rejectWithValue(err.response?.data?.message);
-//     }
+//   try {
+//     await api.post(`/friends/${userId}/block`);
+//     return userId;
+//   } catch (err: any) {
+//     return thunkAPI.rejectWithValue(
+//       err.response?.data?.message || "Block failed"
+//     );
+//   }
 // });
 
-// /* =====================================================
-//    GET PENDING REQUESTS
-// ===================================================== */
-
 // export const getPendingRequests = createAsyncThunk<
-//     UserItem[],
-//     void,
-//     { rejectValue: string }
+//   UserItem[],
+//   void,
+//   { rejectValue: string }
 // >("friends/pending", async (_, thunkAPI) => {
-//     try {
-//         console.log("📥 Fetching pending requests");
-
-//         const res = await api.get(`/friends/pending`);
-
-//         return res.data;
-
-//     } catch (err: any) {
-//         console.error("❌ Pending error:", err.response?.data || err.message);
-//         return thunkAPI.rejectWithValue(err.response?.data?.message);
-//     }
+//   try {
+//     const res = await api.get(`/friends/pending`);
+//     return res.data;
+//   } catch (err: any) {
+//     return thunkAPI.rejectWithValue(
+//       err.response?.data?.message || "Pending failed"
+//     );
+//   }
 // });
 
 // /* =====================================================
@@ -199,141 +167,153 @@
 // ===================================================== */
 
 // const friendSlice = createSlice({
-//     name: "friends",
-//     initialState,
+//   name: "friends",
+//   initialState,
 
-//     reducers: {
+//   reducers: {
 
-//         /* ================= RELATION UPDATE (SOCKET) ================= */
+//     /* ========= UPDATE RELATION FROM SOCKET ========= */
 
-//         updateRelationshipStatus: (
-//             state,
-//             action: PayloadAction<{ userId: string; status: FriendshipStatus }>
-//         ) => {
+//     updateRelationshipStatus: (
+//       state,
+//       action: PayloadAction<{ userId: string; status: FriendshipStatus }>
+//     ) => {
+//       const updateUser = (list: UserItem[]) => {
+//         const user = list.find(u => u._id === action.payload.userId);
+//         if (user) user.relationshipStatus = action.payload.status;
+//       };
 
-//             console.log("🔄 Realtime relationship update:", action.payload);
-
-//             const user = state.searchResults.find(
-//                 u => u._id === action.payload.userId
-//             );
-
-//             if (user) {
-//                 user.relationshipStatus = action.payload.status;
-//             }
-//         },
-
-//         /* ================= ONLINE STATUS UPDATE (SOCKET) ================= */
-
-//         updateOnlineStatus: (
-//             state,
-//             action: PayloadAction<{
-//                 userId: string;
-//                 status: "online" | "offline";
-//                 lastSeen?: string;
-//             }>
-//         ) => {
-
-//             console.log("🟢 Presence update:", action.payload);
-
-//             const user = state.searchResults.find(
-//                 u => u._id === action.payload.userId
-//             );
-
-//             if (user) {
-//                 if (action.payload.status === "online") {
-//                     user.isOnline = true;
-//                     user.lastSeen = undefined;
-//                 } else {
-//                     user.isOnline = false;
-//                     user.lastSeen = action.payload.lastSeen;
-//                 }
-//             }
-//         }
-
+//       updateUser(state.searchResults);
+//       updateUser(state.pendingRequests);
 //     },
+
+//     /* ========= ONLINE STATUS ========= */
+
+//     updateOnlineStatus: (
+//       state,
+//       action: PayloadAction<{
+//         userId: string;
+//         status: "online" | "offline";
+//         lastSeen?: string;
+//       }>
+//     ) => {
+
+//       const updateUser = (list: UserItem[]) => {
+//         const user = list.find(u => u._id === action.payload.userId);
+//         if (!user) return;
+
+//         if (action.payload.status === "online") {
+//           user.isOnline = true;
+//           user.lastSeen = undefined;
+//         } else {
+//           user.isOnline = false;
+//           user.lastSeen = action.payload.lastSeen;
+//         }
+//       };
+
+//       updateUser(state.searchResults);
+//       updateUser(state.pendingRequests);
+//     },
+
+//     clearFriendError: (state) => {
+//       state.error = undefined;
+//     }
+
+//   },
 
 //   extraReducers: builder => {
 
-//   builder
+//     builder
 
-//     /* ===== SEARCH ===== */
-//     .addCase(searchUsers.pending, state => {
-//       state.loading = true;
-//     })
+//       /* ===== SEARCH ===== */
+//       .addCase(searchUsers.pending, (state) => {
+//         state.loading = true;
+//         state.error = undefined;
+//       })
+//       .addCase(searchUsers.fulfilled, (state, action) => {
+//         state.loading = false;
+//         state.searchResults = action.payload;
+//       })
+//       .addCase(searchUsers.rejected, (state, action) => {
+//         state.loading = false;
+//         state.error = action.payload;
+//       })
 
-//     .addCase(searchUsers.fulfilled, (state, action) => {
-//       state.loading = false;
-//       state.searchResults = action.payload;
-//     })
+//       /* ===== SEND ===== */
+//       .addCase(sendFriendRequest.fulfilled, (state, action) => {
+//         const user = state.searchResults.find(
+//           u => u._id === action.payload
+//         );
+//         if (user) user.relationshipStatus = "pending_sent";
+//       })
+// /* ===== REJECT ===== */
+// .addCase(rejectFriendRequest.fulfilled, (state, action) => {
+//   const user = state.searchResults.find(
+//     u => u._id === action.payload
+//   );
 
-//     .addCase(searchUsers.rejected, (state, action) => {
-//       state.loading = false;
-//       state.error = action.payload;
-//     })
+//   if (user) {
+//     user.relationshipStatus = "none";
+//   }
 
-//     /* ===== SEND ===== */
-//     .addCase(sendFriendRequest.fulfilled, (state, action) => {
-//       const user = state.searchResults.find(
-//         u => u._id === action.payload
-//       );
-//       if (user) {
-//         user.relationshipStatus = "pending_sent";
-//       }
-//     })
+//   state.pendingRequests = state.pendingRequests.filter(
+//     u => u._id !== action.payload
+//   );
+// })
 
-//     /* ===== CANCEL ===== */
-//     .addCase(cancelFriendRequest.fulfilled, (state, action) => {
-//       const user = state.searchResults.find(
-//         u => u._id === action.payload
-//       );
-//       if (user) {
-//         user.relationshipStatus = "none";
-//       }
-//     })
+//       /* ===== CANCEL ===== */
+//       .addCase(cancelFriendRequest.fulfilled, (state, action) => {
+//         const user = state.searchResults.find(
+//           u => u._id === action.payload
+//         );
+//         if (user) user.relationshipStatus = "none";
+//       })
 
-//     /* ===== ACCEPT ===== */
-//     .addCase(acceptFriendRequest.fulfilled, (state, action) => {
-//       const user = state.searchResults.find(
-//         u => u._id === action.payload
-//       );
-//       if (user) {
-//         user.relationshipStatus = "accepted";
-//       }
-//     })
+//       /* ===== ACCEPT ===== */
+//       .addCase(acceptFriendRequest.fulfilled, (state, action) => {
+//         const user = state.searchResults.find(
+//           u => u._id === action.payload
+//         );
+//         if (user) user.relationshipStatus = "accepted";
 
-//     /* ===== REMOVE ===== */
-//     .addCase(removeFriend.fulfilled, (state, action) => {
-//       const user = state.searchResults.find(
-//         u => u._id === action.payload
-//       );
-//       if (user) {
-//         user.relationshipStatus = "none";
-//       }
-//     })
+//         state.pendingRequests = state.pendingRequests.filter(
+//           u => u._id !== action.payload
+//         );
+//       })
 
-//     /* ===== BLOCK ===== */
-//     .addCase(blockUser.fulfilled, (state, action) => {
-//       const user = state.searchResults.find(
-//         u => u._id === action.payload
-//       );
-//       if (user) {
-//         user.relationshipStatus = "blocked_by_me";
-//       }
-//     })
+//       /* ===== REMOVE ===== */
+//       .addCase(removeFriend.fulfilled, (state, action) => {
+//         const user = state.searchResults.find(
+//           u => u._id === action.payload
+//         );
+//         if (user) user.relationshipStatus = "none";
+//       })
 
-//     /* ===== PENDING LIST ===== */
-//     .addCase(getPendingRequests.fulfilled, (state, action) => {
-//       state.pendingRequests = action.payload;
-//     });
+//       /* ===== BLOCK ===== */
+//       .addCase(blockUser.fulfilled, (state, action) => {
+//         const user = state.searchResults.find(
+//           u => u._id === action.payload
+//         );
+//         if (user) user.relationshipStatus = "blocked_by_me";
 
-// }
+//         state.pendingRequests = state.pendingRequests.filter(
+//           u => u._id !== action.payload
+//         );
+//       })
 
+//       /* ===== PENDING ===== */
+//       .addCase(getPendingRequests.fulfilled, (state, action) => {
+//         state.pendingRequests = action.payload;
+//       });
+
+//   }
 
 // });
 
 // export const {
-//     updateRelationshipStatus,
-//     updateOnlineStatus
+//   updateRelationshipStatus,
+//   updateOnlineStatus,
+//   clearFriendError
 // } = friendSlice.actions;
 
 // export default friendSlice.reducer;
@@ -366,6 +346,7 @@ export interface UserItem {
 interface FriendState {
   searchResults: UserItem[];
   pendingRequests: UserItem[];
+  friends: UserItem[];          // 🔥 قائمة الأصدقاء
   loading: boolean;
   error?: string;
 }
@@ -373,6 +354,7 @@ interface FriendState {
 const initialState: FriendState = {
   searchResults: [],
   pendingRequests: [],
+  friends: [],                  // 🔥
   loading: false,
   error: undefined
 };
@@ -392,6 +374,21 @@ export const searchUsers = createAsyncThunk<
   } catch (err: any) {
     return thunkAPI.rejectWithValue(
       err.response?.data?.message || "Search failed"
+    );
+  }
+});
+
+export const getFriends = createAsyncThunk<
+  UserItem[],
+  void,
+  { rejectValue: string }
+>("friends/getFriends", async (_, thunkAPI) => {
+  try {
+    const res = await api.get(`/friends`);
+    return res.data;
+  } catch (err: any) {
+    return thunkAPI.rejectWithValue(
+      err.response?.data?.message || "Fetch friends failed"
     );
   }
 });
@@ -511,12 +508,11 @@ const friendSlice = createSlice({
 
   reducers: {
 
-    /* ========= UPDATE RELATION FROM SOCKET ========= */
-
     updateRelationshipStatus: (
       state,
       action: PayloadAction<{ userId: string; status: FriendshipStatus }>
     ) => {
+
       const updateUser = (list: UserItem[]) => {
         const user = list.find(u => u._id === action.payload.userId);
         if (user) user.relationshipStatus = action.payload.status;
@@ -524,9 +520,8 @@ const friendSlice = createSlice({
 
       updateUser(state.searchResults);
       updateUser(state.pendingRequests);
+      updateUser(state.friends);     // 🔥 مهم
     },
-
-    /* ========= ONLINE STATUS ========= */
 
     updateOnlineStatus: (
       state,
@@ -552,6 +547,7 @@ const friendSlice = createSlice({
 
       updateUser(state.searchResults);
       updateUser(state.pendingRequests);
+      updateUser(state.friends);   // 🔥 مهم
     },
 
     clearFriendError: (state) => {
@@ -578,6 +574,19 @@ const friendSlice = createSlice({
         state.error = action.payload;
       })
 
+      /* ===== GET FRIENDS ===== */
+      .addCase(getFriends.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getFriends.fulfilled, (state, action) => {
+        state.loading = false;
+        state.friends = action.payload;
+      })
+      .addCase(getFriends.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
       /* ===== SEND ===== */
       .addCase(sendFriendRequest.fulfilled, (state, action) => {
         const user = state.searchResults.find(
@@ -585,20 +594,19 @@ const friendSlice = createSlice({
         );
         if (user) user.relationshipStatus = "pending_sent";
       })
-/* ===== REJECT ===== */
-.addCase(rejectFriendRequest.fulfilled, (state, action) => {
-  const user = state.searchResults.find(
-    u => u._id === action.payload
-  );
 
-  if (user) {
-    user.relationshipStatus = "none";
-  }
+      /* ===== REJECT ===== */
+      .addCase(rejectFriendRequest.fulfilled, (state, action) => {
 
-  state.pendingRequests = state.pendingRequests.filter(
-    u => u._id !== action.payload
-  );
-})
+        const user = state.searchResults.find(
+          u => u._id === action.payload
+        );
+        if (user) user.relationshipStatus = "none";
+
+        state.pendingRequests = state.pendingRequests.filter(
+          u => u._id !== action.payload
+        );
+      })
 
       /* ===== CANCEL ===== */
       .addCase(cancelFriendRequest.fulfilled, (state, action) => {
@@ -610,6 +618,7 @@ const friendSlice = createSlice({
 
       /* ===== ACCEPT ===== */
       .addCase(acceptFriendRequest.fulfilled, (state, action) => {
+
         const user = state.searchResults.find(
           u => u._id === action.payload
         );
@@ -618,25 +627,47 @@ const friendSlice = createSlice({
         state.pendingRequests = state.pendingRequests.filter(
           u => u._id !== action.payload
         );
+
+        // تحديث في قائمة الأصدقاء لو كان موجود في البحث
+        const acceptedUser = state.searchResults.find(
+          u => u._id === action.payload
+        );
+        if (acceptedUser && !state.friends.some(f => f._id === acceptedUser._id)) {
+          state.friends.push(acceptedUser);
+        }
       })
 
       /* ===== REMOVE ===== */
       .addCase(removeFriend.fulfilled, (state, action) => {
+
+        const userId = action.payload;
+
         const user = state.searchResults.find(
-          u => u._id === action.payload
+          u => u._id === userId
         );
         if (user) user.relationshipStatus = "none";
+
+        state.friends = state.friends.filter(
+          u => u._id !== userId
+        );
       })
 
       /* ===== BLOCK ===== */
       .addCase(blockUser.fulfilled, (state, action) => {
+
+        const userId = action.payload;
+
         const user = state.searchResults.find(
-          u => u._id === action.payload
+          u => u._id === userId
         );
         if (user) user.relationshipStatus = "blocked_by_me";
 
         state.pendingRequests = state.pendingRequests.filter(
-          u => u._id !== action.payload
+          u => u._id !== userId
+        );
+
+        state.friends = state.friends.filter(
+          u => u._id !== userId
         );
       })
 

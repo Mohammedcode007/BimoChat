@@ -1,487 +1,13 @@
-// import {
-//     addComment,
-//     deleteTweet,
-//     getComments,
-//     getSingleTweet,
-//     toggleBookmark,
-//     toggleLike,
-//     toggleRetweet,
-// } from '@/redux/slices/tweetSlice';
 
-// import { AppDispatch, RootState } from '@/redux/store';
-// import Ionicons from '@expo/vector-icons/Ionicons';
-// import { ResizeMode, Video } from 'expo-av';
-// import { useLocalSearchParams, useRouter } from 'expo-router';
-// import React, { useEffect, useRef, useState } from 'react';
-
-// import {
-//     ActionSheetIOS,
-//     ActivityIndicator,
-//     Alert,
-//     FlatList,
-//     Image,
-//     KeyboardAvoidingView,
-//     Platform,
-//     Share,
-//     StyleSheet,
-//     Text,
-//     TextInput,
-//     TouchableOpacity,
-//     View,
-// } from 'react-native';
-
-// import { SafeAreaView } from 'react-native-safe-area-context';
-// import { useDispatch, useSelector } from 'react-redux';
-
-// export default function TweetDetailsScreen() {
-
-//   /* ================= ROUTER ================= */
-
-//   const { id } = useLocalSearchParams();
-//   const router = useRouter();
-//   const dispatch = useDispatch<AppDispatch>();
-
-//   /* ================= REDUX ================= */
-
-//   const { currentTweet, comments, loading } =
-//     useSelector((state: RootState) => state.tweets);
-
-//   const { user } =
-//     useSelector((state: RootState) => state.auth);
-
-//   /* ================= LOCAL STATE ================= */
-
-//   const [commentText, setCommentText] = useState('');
-//   const [sending, setSending] = useState(false);
-
-//   const inputRef = useRef<TextInput>(null);
-
-//   /* ================= INITIAL LOAD ================= */
-
-//   useEffect(() => {
-//     if (id) {
-//       dispatch(getSingleTweet(id as string));
-//       dispatch(getComments(id as string));
-//     }
-//   }, [id]);
-
-//   /* ================= HELPERS ================= */
-
-//   const isVideo = (url: string) =>
-//     /\.(mp4|mov|m4v|webm)$/i.test(url);
-
-//   const isValidUrl = (url?: string) =>
-//     !!url && typeof url === 'string' && url.startsWith('http');
-
-//   const isOwner =
-//     currentTweet?.author._id === user?._id;
-
-//   /* ================= LONG PRESS MENU ================= */
-
-//   const openMenu = () => {
-
-//     const options = isOwner
-//       ? ['Delete Tweet', 'Cancel']
-//       : ['Report', 'Cancel'];
-
-//     if (Platform.OS === 'ios') {
-
-//       ActionSheetIOS.showActionSheetWithOptions(
-//         {
-//           options,
-//           cancelButtonIndex: options.length - 1,
-//           destructiveButtonIndex: isOwner ? 0 : undefined,
-//         },
-//         (index) => {
-//           if (isOwner && index === 0) {
-//             dispatch(deleteTweet(currentTweet!._id));
-//             router.back();
-//           }
-//         }
-//       );
-
-//     } else {
-
-//       Alert.alert(
-//         "Options",
-//         "",
-//         isOwner
-//           ? [
-//               {
-//                 text: "Delete Tweet",
-//                 style: "destructive",
-//                 onPress: () => {
-//                   dispatch(deleteTweet(currentTweet!._id));
-//                   router.back();
-//                 }
-//               },
-//               { text: "Cancel", style: "cancel" }
-//             ]
-//           : [
-//               { text: "Report" },
-//               { text: "Cancel", style: "cancel" }
-//             ]
-//       );
-
-//     }
-//   };
-
-//   /* ================= SHARE ================= */
-
-//   const handleShare = async () => {
-//     await Share.share({
-//       message: currentTweet?.content || ''
-//     });
-//   };
-
-//   /* ================= ADD COMMENT ================= */
-
-//   const handleAddComment = async () => {
-//     if (!commentText.trim()) return;
-
-//     setSending(true);
-
-//     await dispatch(
-//       addComment({
-//         tweetId: id as string,
-//         content: commentText,
-//       })
-//     );
-
-//     setCommentText('');
-//     setSending(false);
-//   };
-
-//   /* ================= LOADING ================= */
-
-//   if (loading || !currentTweet) {
-//     return (
-//       <SafeAreaView style={styles.center}>
-//         <ActivityIndicator size="large" />
-//       </SafeAreaView>
-//     );
-//   }
-
-//   /* ================= UI ================= */
-
-//   return (
-//     <SafeAreaView style={styles.safe}>
-
-//       <KeyboardAvoidingView
-//         style={{ flex: 1 }}
-//         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-//         keyboardVerticalOffset={80}
-//       >
-
-//         <View style={styles.container}>
-
-//           {/* ===== HEADER ===== */}
-
-//           <View style={styles.header}>
-//             <TouchableOpacity onPress={() => router.back()}>
-//               <Ionicons name="arrow-back" size={24} />
-//             </TouchableOpacity>
-
-//             <Text style={styles.headerTitle}>
-//               Post
-//             </Text>
-
-//             <TouchableOpacity onPress={openMenu}>
-//               <Ionicons
-//                 name="ellipsis-horizontal"
-//                 size={20}
-//               />
-//             </TouchableOpacity>
-//           </View>
-
-//           {/* ===== TWEET CONTENT ===== */}
-
-//           <View style={styles.tweetBox}>
-
-//             <Text style={styles.name}>
-//               {currentTweet.author.username}
-//             </Text>
-
-//             <Text style={styles.content}>
-//               {currentTweet.content}
-//             </Text>
-
-//             {/* ===== MEDIA ===== */}
-
-//             {Array.isArray(currentTweet.media) &&
-//               currentTweet.media.length > 0 && (
-//                 <View style={{ marginTop: 10 }}>
-//                   {currentTweet.media
-//                     .filter(isValidUrl)
-//                     .map((url: string, index: number) => {
-
-//                       if (isVideo(url)) {
-//                         return (
-//                           <Video
-//                             key={index}
-//                             source={{ uri: url }}
-//                             style={styles.media}
-//                             useNativeControls
-//                             resizeMode={ResizeMode.CONTAIN}
-//                           />
-//                         );
-//                       }
-
-//                       return (
-//                         <Image
-//                           key={index}
-//                           source={{ uri: url }}
-//                           style={styles.media}
-//                         />
-//                       );
-//                     })}
-//                 </View>
-//               )}
-
-//             {/* ===== VIEWS ===== */}
-
-//             {/* <Text style={styles.views}>
-//               {currentTweet.viewsCount ?? 0} Views
-//             </Text> */}
-
-//             {/* ===== ACTIONS ===== */}
-
-//             <View style={styles.actions}>
-
-//               {/* COMMENT */}
-//               <TouchableOpacity
-//                 style={styles.actionBtn}
-//                 onPress={() => inputRef.current?.focus()}
-//               >
-//                 <Ionicons name="chatbubble-outline" size={20} />
-//                 <Text>{currentTweet.repliesCount}</Text>
-//               </TouchableOpacity>
-
-//               {/* RETWEET */}
-//               <TouchableOpacity
-//                 style={styles.actionBtn}
-//                 onPress={() =>
-//                   dispatch(toggleRetweet(currentTweet._id))
-//                 }
-//               >
-//                 <Ionicons name="repeat-outline" size={20} />
-//                 <Text>{currentTweet.retweetsCount}</Text>
-//               </TouchableOpacity>
-
-//               {/* LIKE */}
-//               <TouchableOpacity
-//                 style={styles.actionBtn}
-//                 onPress={() =>
-//                   dispatch(toggleLike(currentTweet._id))
-//                 }
-//               >
-//                 <Ionicons
-//                   name={
-//                     currentTweet.isLiked
-//                       ? "heart"
-//                       : "heart-outline"
-//                   }
-//                   size={20}
-//                   color={
-//                     currentTweet.isLiked
-//                       ? "red"
-//                       : "black"
-//                   }
-//                 />
-//                 <Text>{currentTweet.likesCount}</Text>
-//               </TouchableOpacity>
-
-//               {/* BOOKMARK */}
-//               <TouchableOpacity
-//                 style={styles.actionBtn}
-//                 onPress={() =>
-//                   dispatch(toggleBookmark(currentTweet._id))
-//                 }
-//               >
-//                 <Ionicons
-//                   name={
-//                     currentTweet.isBookmarked
-//                       ? "bookmark"
-//                       : "bookmark-outline"
-//                   }
-//                   size={20}
-//                 />
-//               </TouchableOpacity>
-
-//               {/* SHARE */}
-//               <TouchableOpacity
-//                 style={styles.actionBtn}
-//                 onPress={handleShare}
-//               >
-//                 <Ionicons
-//                   name="share-social-outline"
-//                   size={20}
-//                 />
-//               </TouchableOpacity>
-
-//             </View>
-
-//           </View>
-
-//           {/* ===== COMMENTS ===== */}
-
-//           <FlatList
-//             data={comments}
-//             keyExtractor={(item) => item._id}
-//             contentContainerStyle={{ paddingBottom: 120 }}
-//             renderItem={({ item }) => (
-//               <View style={styles.comment}>
-//                 <Text style={styles.commentUser}>
-//                   {item.user?.username}
-//                 </Text>
-//                 <Text>{item.content}</Text>
-//               </View>
-//             )}
-//           />
-
-//         </View>
-
-//         {/* ===== COMMENT INPUT ===== */}
-
-//         <View style={styles.inputRow}>
-//           <TextInput
-//             ref={inputRef}
-//             value={commentText}
-//             onChangeText={setCommentText}
-//             placeholder="Post your reply"
-//             style={styles.input}
-//           />
-
-//           <TouchableOpacity
-//             onPress={handleAddComment}
-//             disabled={sending}
-//           >
-//             {sending
-//               ? <ActivityIndicator />
-//               : <Ionicons name="send" size={22} color="#1D9BF0" />
-//             }
-//           </TouchableOpacity>
-//         </View>
-
-//       </KeyboardAvoidingView>
-//     </SafeAreaView>
-//   );
-// }
-
-// /* ================= STYLES ================= */
-
-// const styles = StyleSheet.create({
-
-//   safe: {
-//     flex: 1,
-//     backgroundColor: '#FFF'
-//   },
-
-//   container: {
-//     flex: 1,
-//     paddingHorizontal: 16
-//   },
-
-//   center: {
-//     flex: 1,
-//     justifyContent: 'center',
-//     alignItems: 'center'
-//   },
-
-//   header: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//     alignItems: 'center',
-//     paddingVertical: 12
-//   },
-
-//   headerTitle: {
-//     fontWeight: '700',
-//     fontSize: 16
-//   },
-
-//   tweetBox: {
-//     borderBottomWidth: 0.5,
-//     borderColor: '#E5E7EB',
-//     paddingBottom: 12
-//   },
-
-//   name: {
-//     fontWeight: '700',
-//     fontSize: 16
-//   },
-
-//   content: {
-//     marginVertical: 8,
-//     fontSize: 15
-//   },
-
-//   media: {
-//     width: '100%',
-//     height: 250,
-//     borderRadius: 12,
-//     marginTop: 8
-//   },
-
-//   views: {
-//     marginTop: 10,
-//     color: '#6B7280',
-//     fontSize: 13
-//   },
-
-//   actions: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//     marginTop: 12
-//   },
-
-//   actionBtn: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     gap: 6
-//   },
-
-//   comment: {
-//     paddingVertical: 12,
-//     borderBottomWidth: 0.5,
-//     borderColor: '#E5E7EB'
-//   },
-
-//   commentUser: {
-//     fontWeight: '700'
-//   },
-
-//   inputRow: {
-//     position: 'absolute',
-//     bottom: 0,
-//     left: 0,
-//     right: 0,
-//     flexDirection: 'row',
-//     padding: 12,
-//     borderTopWidth: 0.5,
-//     borderColor: '#E5E7EB',
-//     backgroundColor: '#FFF'
-//   },
-
-//   input: {
-//     flex: 1,
-//     borderWidth: 1,
-//     borderColor: '#E5E7EB',
-//     borderRadius: 20,
-//     paddingHorizontal: 12,
-//     marginRight: 10
-//   }
-
-// });
 
 import {
-    addComment,
-    deleteTweet,
-    getComments,
-    getSingleTweet,
-    toggleBookmark,
-    toggleLike,
-    toggleRetweet,
+  addComment,
+  deleteTweet,
+  getComments,
+  getSingleTweet,
+  toggleBookmark,
+  toggleLike,
+  toggleRetweet,
 } from '@/redux/slices/tweetSlice';
 
 import { AppDispatch, RootState } from '@/redux/store';
@@ -490,17 +16,17 @@ import { ResizeMode, Video } from 'expo-av';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Share,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { KeyboardAwareFlatList } from 'react-native-keyboard-aware-scroll-view';
@@ -623,32 +149,39 @@ if (!currentTweet) {
             {currentTweet?.content}
           </Text>
 
-          {currentTweet.media &&
-            Array.isArray(currentTweet.media) &&
-            currentTweet.media
-              .filter(isValidUrl)
-              .map((url, index) => {
+     {currentTweet.media &&
+  Array.isArray(currentTweet.media) &&
+  currentTweet.media.length > 0 && (
+    <View style={{ marginTop: 10 }}>
+      {currentTweet.media.map((mediaItem: any, index: number) => {
 
-                if (isVideo(url)) {
-                  return (
-                    <Video
-                      key={index}
-                      source={{ uri: url }}
-                      style={styles.media}
-                      resizeMode={ResizeMode.CONTAIN}
-                      useNativeControls
-                    />
-                  );
-                }
+        const url = mediaItem?.url;
 
-                return (
-                  <Image
-                    key={index}
-                    source={{ uri: url }}
-                    style={styles.media}
-                  />
-                );
-              })}
+        if (!url || typeof url !== 'string') return null;
+
+        if (mediaItem.type === "video") {
+          return (
+            <Video
+              key={index}
+              source={{ uri: url }}
+              style={styles.media}
+              resizeMode={ResizeMode.CONTAIN}
+              useNativeControls
+            />
+          );
+        }
+
+        return (
+          <Image
+            key={index}
+            source={{ uri: url }}
+            style={styles.media}
+          />
+        );
+      })}
+    </View>
+)}
+
 
           {/* ================= STATS ================= */}
           {/* <View style={styles.statsRow}>

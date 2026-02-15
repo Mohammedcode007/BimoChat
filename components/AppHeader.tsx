@@ -51,10 +51,16 @@ const unreadCount = useSelector(
      
    
     
-        <TouchableOpacity
-          style={styles.userContainer}
-          onPress={() => router.push('/profile')}
-        >
+       <TouchableOpacity
+  style={styles.userContainer}
+  onPress={() =>
+    router.push({
+      pathname: '/profile',
+      params: { userId: user?._id }
+    })
+  }
+>
+
           <Image
             source={{
               uri:

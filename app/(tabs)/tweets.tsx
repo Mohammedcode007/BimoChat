@@ -1,626 +1,1145 @@
+// import { Colors } from '@/constants/theme';
+// import {
+//   toggleFollow
+// } from '@/redux/slices/followSlice';
+// import {
+//   addComment,
+//   deleteTweet,
+//   getComments,
+//   getFollowingFeed,
+//   getForYouFeed,
+//   toggleLike,
+//   toggleRetweet
+// } from '@/redux/slices/tweetSlice';
+// import { AppDispatch, RootState } from '@/redux/store';
+// import Ionicons from '@expo/vector-icons/Ionicons';
+// import { useEffect, useState } from 'react';
+// import {
+//   ActivityIndicator,
+//   FlatList,
+//   Image,
+//   Modal,
+//   RefreshControl,
+//   StyleSheet,
+//   Text,
+//   TextInput,
+//   TouchableOpacity,
+//   useColorScheme,
+//   View,
+// } from 'react-native';
+// import { Swipeable } from 'react-native-gesture-handler';
+// import { useDispatch, useSelector } from 'react-redux';
+
+// export default function TweetsScreen() {
+
+//   const dispatch = useDispatch<AppDispatch>();
+
+//   const { following, forYou, loading, comments } =
+//     useSelector((state: RootState) => state.tweets);
+
+//   const { followingMap } =
+//     useSelector((state: RootState) => state.follow);
+
+//   const { user } =
+//     useSelector((state: RootState) => state.auth);
+
+//   const colorScheme = useColorScheme();
+//   const theme =
+//     Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+
+//   const [activeTab, setActiveTab] =
+//     useState<'following' | 'foryou'>('following');
+
+//   const [refreshing, setRefreshing] =
+//     useState(false);
+
+//   const [selectedTweet, setSelectedTweet] =
+//     useState<any>(null);
+
+//   const [showTweetModal, setShowTweetModal] =
+//     useState(false);
+
+//   const [commentText, setCommentText] =
+//     useState('');
+
+//   const [selectedUser, setSelectedUser] =
+//     useState<any>(null);
+
+//   const [showSheet, setShowSheet] =
+//     useState(false);
+
+//   const rawFeed =
+//     activeTab === 'following'
+//       ? following
+//       : forYou;
+
+//   /* ================= INITIAL LOAD ================= */
+
+//   useEffect(() => {
+//     dispatch(getFollowingFeed({ page: 1 }));
+//     dispatch(getForYouFeed({ page: 1 }));
+//   }, []);
+
+//   /* ================= REFRESH ================= */
+
+//   const handleRefresh = async () => {
+//     setRefreshing(true);
+
+//     if (activeTab === 'following') {
+//       await dispatch(getFollowingFeed({ page: 1 }));
+//     } else {
+//       await dispatch(getForYouFeed({ page: 1 }));
+//     }
+
+//     setRefreshing(false);
+//   };
+
+//   /* ================= LOAD MORE ================= */
+
+//   const handleLoadMore = () => {
+//     if (loading) return;
+
+//     if (activeTab === 'following') {
+//       dispatch(getFollowingFeed({ page: 2 }));
+//     } else {
+//       dispatch(getForYouFeed({ page: 2 }));
+//     }
+//   };
+
+//   /* ================= OPEN TWEET ================= */
+
+//   const openTweet = (tweet: any) => {
+//     setSelectedTweet(tweet);
+//     setShowTweetModal(true);
+//     dispatch(getComments(tweet._id));
+//   };
+
+//   /* ================= ADD COMMENT ================= */
+
+//   const handleAddComment = async () => {
+//     if (!commentText.trim()) return;
+
+//     await dispatch(
+//       addComment({
+//         tweetId: selectedTweet._id,
+//         content: commentText,
+//       })
+//     );
+
+//     setCommentText('');
+//   };
+
+//   /* ================= USER SHEET ================= */
+
+//   const openSheet = (author: any) => {
+//     setSelectedUser(author);
+//     setShowSheet(true);
+//   };
+
+//   const closeSheet = () => {
+//     setShowSheet(false);
+//     setSelectedUser(null);
+//   };
+
+//   /* ================= RENDER ================= */
+
+//   return (
+//     <View style={[
+//       styles.container,
+//       { backgroundColor: theme.background }
+//     ]}>
+
+//       {/* ===== Tabs ===== */}
+
+//       <View style={styles.tabs}>
+//         <TabButton
+//           title="Following"
+//           active={activeTab === 'following'}
+//           onPress={() => {
+//             setActiveTab('following');
+//             dispatch(getFollowingFeed({ page: 1 }));
+//           }}
+//         />
+//         <TabButton
+//           title="For You"
+//           active={activeTab === 'foryou'}
+//           onPress={() => {
+//             setActiveTab('foryou');
+//             dispatch(getForYouFeed({ page: 1 }));
+//           }}
+//         />
+//       </View>
+
+//       {/* ===== Feed ===== */}
+
+//       <FlatList
+//         data={rawFeed}
+//         keyExtractor={(item) => item._id}
+//         onEndReached={handleLoadMore}
+//         onEndReachedThreshold={0.5}
+//         refreshControl={
+//           <RefreshControl
+//             refreshing={refreshing}
+//             onRefresh={handleRefresh}
+//           />
+//         }
+//         ListFooterComponent={
+//           loading ? (
+//             <ActivityIndicator style={{ margin: 20 }} />
+//           ) : null
+//         }
+//         renderItem={({ item }) => {
+
+//           const isOwnTweet =
+//             item.author._id === user?._id;
+
+//           const isFollowing =
+//             followingMap?.[item.author._id] ??
+//             item.author.isFollowing ??
+//             false;
+
+//           return (
+//             <Swipeable
+//               renderRightActions={() =>
+//                 isOwnTweet ? (
+//                   <TouchableOpacity
+//                     style={styles.deleteBtn}
+//                     onPress={() =>
+//                       dispatch(deleteTweet(item._id))
+//                     }
+//                   >
+//                     <Ionicons
+//                       name="trash"
+//                       size={18}
+//                       color="#FFF"
+//                     />
+//                   </TouchableOpacity>
+//                 ) : null
+//               }
+//             >
+//               <View style={styles.tweetCard}>
+
+//                 <Image
+//                   source={{
+//                     uri:
+//                       item.author.avatar ||
+//                       'https://i.pravatar.cc/150?img=3',
+//                   }}
+//                   style={styles.avatar}
+//                 />
+
+//                 <View style={{ flex: 1 }}>
+
+//                   <View style={styles.row}>
+
+//                     <View style={{ flex: 1 }}>
+//                       <Text style={styles.name}>
+//                         {item.author.username}
+//                       </Text>
+//                       <Text style={styles.username}>
+//                         @{item.author.atUsername}
+//                       </Text>
+//                     </View>
+
+//                     {!isOwnTweet && (
+//                       <TouchableOpacity
+//                         style={[
+//                           styles.followBtn,
+//                           {
+//                             backgroundColor:
+//                               isFollowing
+//                                 ? '#374151'
+//                                 : '#1D9BF0',
+//                           }
+//                         ]}
+//                         onPress={() =>
+//                           dispatch(
+//                             toggleFollow(
+//                               item.author._id
+//                             )
+//                           )
+//                         }
+//                       >
+//                         <Text style={{ color: '#FFF', fontSize: 12 }}>
+//                           {isFollowing
+//                             ? 'Following'
+//                             : 'Follow'}
+//                         </Text>
+//                       </TouchableOpacity>
+//                     )}
+
+//                     <TouchableOpacity
+//                       onPress={() =>
+//                         openSheet(item.author)
+//                       }
+//                       style={{ marginLeft: 10 }}
+//                     >
+//                       <Ionicons
+//                         name="ellipsis-horizontal"
+//                         size={20}
+//                         color="#6B7280"
+//                       />
+//                     </TouchableOpacity>
+
+//                   </View>
+
+//                   <TouchableOpacity
+//                     activeOpacity={0.9}
+//                     onPress={() => openTweet(item)}
+//                   >
+//                     <Text style={styles.text}>
+//                       {item.content}
+//                     </Text>
+//                   </TouchableOpacity>
+
+//                   <View style={styles.actions}>
+//                     <Action
+//                       icon={
+//                         item.isLiked
+//                           ? 'heart'
+//                           : 'heart-outline'
+//                       }
+//                       value={item.likesCount}
+//                       onPress={() =>
+//                         dispatch(toggleLike(item._id))
+//                       }
+//                     />
+
+//                     <Action
+//                       icon="repeat-outline"
+//                       value={item.retweetsCount}
+//                       onPress={() =>
+//                         dispatch(toggleRetweet(item._id))
+//                       }
+//                     />
+
+//                     <Action
+//                       icon="chatbubble-outline"
+//                       value={item.repliesCount}
+//                       onPress={() => openTweet(item)}
+//                     />
+//                   </View>
+
+//                 </View>
+//               </View>
+//             </Swipeable>
+//           );
+//         }}
+//       />
+
+//       {/* ===== Tweet Modal ===== */}
+
+//       <Modal visible={showTweetModal} animationType="slide">
+//         {selectedTweet && (
+//           <View style={{ flex: 1, padding: 16 }}>
+
+//             <TouchableOpacity
+//               onPress={() =>
+//                 setShowTweetModal(false)
+//               }
+//             >
+//               <Ionicons
+//                 name="arrow-back"
+//                 size={24}
+//               />
+//             </TouchableOpacity>
+
+//             <Text style={styles.modalName}>
+//               {selectedTweet.author.username}
+//             </Text>
+
+//             <Text style={styles.modalContent}>
+//               {selectedTweet.content}
+//             </Text>
+
+//             <FlatList
+//               data={comments}
+//               keyExtractor={(item) => item._id}
+//               renderItem={({ item }) => (
+//                 <View style={styles.commentItem}>
+//                 <Text style={styles.commentUser}>
+//   {item.user?.username || 'Unknown User'}
+// </Text>
+
+//                   <Text>
+//                     {item.content}
+//                   </Text>
+//                 </View>
+//               )}
+//             />
+
+//             <View style={styles.commentInputRow}>
+//               <TextInput
+//                 value={commentText}
+//                 onChangeText={setCommentText}
+//                 placeholder="اكتب تعليق..."
+//                 style={styles.commentInput}
+//               />
+
+//               <TouchableOpacity
+//                 onPress={handleAddComment}
+//               >
+//                 <Ionicons
+//                   name="send"
+//                   size={22}
+//                   color="#1D9BF0"
+//                 />
+//               </TouchableOpacity>
+//             </View>
+
+//           </View>
+//         )}
+//       </Modal>
+
+//       {/* ===== User Bottom Sheet ===== */}
+
+//       <Modal
+//         visible={showSheet}
+//         transparent
+//         animationType="fade"
+//       >
+//         <TouchableOpacity
+//           style={styles.overlay}
+//           activeOpacity={1}
+//           onPress={closeSheet}
+//         >
+//           <View style={styles.sheet}>
+
+//             {selectedUser && (
+//               <>
+//                 <Text style={styles.sheetTitle}>
+//                   @{selectedUser.atUsername}
+//                 </Text>
+
+//                 <TouchableOpacity
+//                   style={styles.sheetItem}
+//                   onPress={() => {
+//                     dispatch(
+//                       toggleFollow(
+//                         selectedUser._id
+//                       )
+//                     );
+//                     closeSheet();
+//                   }}
+//                 >
+//                   <Ionicons
+//                     name="person-remove-outline"
+//                     size={20}
+//                     color="#EF4444"
+//                   />
+//                   <Text style={styles.sheetText}>
+//                     Unfollow
+//                   </Text>
+//                 </TouchableOpacity>
+
+//                 <TouchableOpacity
+//                   style={styles.sheetItem}
+//                 >
+//                   <Ionicons
+//                     name="ban-outline"
+//                     size={20}
+//                     color="#EF4444"
+//                   />
+//                   <Text style={styles.sheetText}>
+//                     Block
+//                   </Text>
+//                 </TouchableOpacity>
+
+//                 <TouchableOpacity
+//                   style={styles.sheetItem}
+//                 >
+//                   <Ionicons
+//                     name="flag-outline"
+//                     size={20}
+//                     color="#F59E0B"
+//                   />
+//                   <Text style={styles.sheetText}>
+//                     Report
+//                   </Text>
+//                 </TouchableOpacity>
+
+//               </>
+//             )}
+
+//           </View>
+//         </TouchableOpacity>
+//       </Modal>
+
+//     </View>
+//   );
+// }
+
+// /* ===== Components ===== */
+
+// function Action({ icon, value, onPress }: any) {
+//   return (
+//     <TouchableOpacity
+//       onPress={onPress}
+//       style={styles.actionItem}
+//     >
+//       <Ionicons
+//         name={icon}
+//         size={18}
+//         color="#6B7280"
+//       />
+//       <Text style={{ fontSize: 12, marginLeft: 4 }}>
+//         {value}
+//       </Text>
+//     </TouchableOpacity>
+//   );
+// }
+
+// function TabButton({ title, active, onPress }: any) {
+//   return (
+//     <TouchableOpacity onPress={onPress}>
+//       <Text style={{
+//         fontWeight: '700',
+//         fontSize: 16,
+//         color: active
+//           ? '#1D9BF0'
+//           : '#6B7280'
+//       }}>
+//         {title}
+//       </Text>
+//     </TouchableOpacity>
+//   );
+// }
+
+// /* ===== Styles ===== */
+
+// const styles = StyleSheet.create({
+//   container: { flex: 1 },
+
+//   tabs: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-around',
+//     paddingVertical: 10,
+//   },
+
+//   row: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     justifyContent: 'space-between',
+//   },
+
+//   tweetCard: {
+//     flexDirection: 'row',
+//     padding: 14,
+//     borderBottomWidth: 0.5,
+//     borderColor: '#E5E7EB',
+//   },
+
+//   avatar: {
+//     width: 44,
+//     height: 44,
+//     borderRadius: 22,
+//     marginRight: 10,
+//   },
+
+//   name: { fontWeight: '700' },
+
+//   username: {
+//     fontSize: 12,
+//     color: '#6B7280',
+//   },
+
+//   text: {
+//     marginTop: 6,
+//     fontSize: 14,
+//   },
+
+//   actions: {
+//     flexDirection: 'row',
+//     marginTop: 10,
+//   },
+
+//   actionItem: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     marginRight: 15,
+//   },
+
+//   followBtn: {
+//     paddingHorizontal: 12,
+//     paddingVertical: 6,
+//     borderRadius: 16,
+//   },
+
+//   deleteBtn: {
+//     backgroundColor: '#EF4444',
+//     justifyContent: 'center',
+//     padding: 20,
+//   },
+
+//   modalName: {
+//     fontSize: 18,
+//     fontWeight: '700',
+//     marginTop: 20,
+//   },
+
+//   modalContent: {
+//     fontSize: 16,
+//     marginVertical: 15,
+//   },
+
+//   commentItem: {
+//     paddingVertical: 8,
+//     borderBottomWidth: 0.5,
+//     borderColor: '#E5E7EB',
+//   },
+
+//   commentUser: {
+//     fontWeight: '700',
+//   },
+
+//   commentInputRow: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     paddingVertical: 10,
+//   },
+
+//   commentInput: {
+//     flex: 1,
+//     borderWidth: 1,
+//     borderColor: '#E5E7EB',
+//     borderRadius: 20,
+//     paddingHorizontal: 12,
+//     marginRight: 10,
+//   },
+
+//   overlay: {
+//     flex: 1,
+//     backgroundColor: 'rgba(0,0,0,0.4)',
+//     justifyContent: 'flex-end',
+//   },
+
+//   sheet: {
+//     backgroundColor: '#FFF',
+//     padding: 20,
+//     borderTopLeftRadius: 20,
+//     borderTopRightRadius: 20,
+//   },
+
+//   sheetTitle: {
+//     fontWeight: '700',
+//     fontSize: 16,
+//     marginBottom: 20,
+//   },
+
+//   sheetItem: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     paddingVertical: 12,
+//   },
+
+//   sheetText: {
+//     marginLeft: 10,
+//     fontSize: 14,
+//   },
+// });
+
+
 import { Colors } from '@/constants/theme';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { Video } from 'expo-av';
-import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
 import {
+  toggleFollow
+} from '@/redux/slices/followSlice';
+import {
+  deleteTweet,
+  getFollowingFeed,
+  getForYouFeed,
+  toggleLike,
+  toggleRetweet
+} from '@/redux/slices/tweetSlice';
+import { AppDispatch, RootState } from '@/redux/store';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { ResizeMode, Video } from 'expo-av';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
   FlatList,
   Image,
-  Modal,
+  RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   useColorScheme,
   View,
 } from 'react-native';
-
-
-/* =======================
-   Types
-======================= */
-type Comment = {
-  id: string;
-  user: string;
-  text: string;
-  time: string;
-};
-
-type Tweet = {
-  id: string;
-  name: string;
-  username: string;
-  verified?: boolean;
-  time: string;
-  text: string;
-  image?: string;
-  video?: string;
-  views: number;
-  likes: number;
-  retweets: number;
-  replies: number;
-  avatar: string;
-  liked?: boolean;
-  retweeted?: boolean;
-  isRetweet?: boolean;
-  originalUser?: string;
-  comments?: Comment[];
-
-};
-
-/* =======================
-   Initial Data
-======================= */
-
-const initialTweets: Tweet[] = [
-  {
-    id: '1',
-    name: 'Thinking Mind',
-    username: 'thinkingmind',
-    verified: true,
-    time: '14س',
-    text: 'هكذا يكون الأثر الحقيقي لأجهزة تنقية الهواء على حياتك اليومية',
-    image: 'https://picsum.photos/400/300',
-    views: 79200,
-    likes: 4400,
-    retweets: 961,
-    replies: 7,
-    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQIN1gwlCld-PW_qX5QxwNMdPUff8gYhTOe8w&s',
-  },
-  {
-    id: '2',
-    name: 'Ghada',
-    username: 'urfavghada',
-    time: '20س',
-    text: 'وبعدين بقى ف قلة النوم دي',
-    views: 733,
-    likes: 65,
-    retweets: 15,
-    replies: 3,
-    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQIN1gwlCld-PW_qX5QxwNMdPUff8gYhTOe8w&s',
-  },
-];
-
-/* =======================
-   Main Screen
-======================= */
+import { Swipeable } from 'react-native-gesture-handler';
+import { useDispatch, useSelector } from 'react-redux';
 
 export default function TweetsScreen() {
+
+  const dispatch = useDispatch<AppDispatch>();
+  const router = useRouter();
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [showSheet, setShowSheet] = useState(false);
+
+  const openSheet = (author: any) => {
+    setSelectedUser(author);
+    setShowSheet(true);
+  };
+
+  const closeSheet = () => {
+    setShowSheet(false);
+    setSelectedUser(null);
+  };
+
+  const { following, forYou, loading } =
+    useSelector((state: RootState) => state.tweets);
+
+  const { followingMap } =
+    useSelector((state: RootState) => state.follow);
+
+  const { user } =
+    useSelector((state: RootState) => state.auth);
+
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
-  const [feed, setFeed] = useState<Tweet[]>(initialTweets);
-  const [showComposer, setShowComposer] = useState(false);
-  const [tweetText, setTweetText] = useState('');
-  const [media, setMedia] = useState<{ image?: string; video?: string }>({});
-  const [loadingMedia, setLoadingMedia] = useState(false);
+  const theme =
+    Colors[colorScheme === 'dark' ? 'dark' : 'light'];
 
-  const [showComments, setShowComments] = useState(false);
-  const [selectedTweetId, setSelectedTweetId] = useState<string | null>(null);
-  const [commentText, setCommentText] = useState('');
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const selectedTweet = feed.find(t => t.id === selectedTweetId) || null;
+  const [activeTab, setActiveTab] =
+    useState<'following' | 'foryou'>('following');
 
-  const updateComment = (id: string) => {
-    if (!commentText.trim() || !selectedTweetId) return;
+  const [refreshing, setRefreshing] =
+    useState(false);
 
-    setFeed(prev =>
-      prev.map(t =>
-        t.id === selectedTweetId
-          ? {
-            ...t,
-            comments: t.comments?.map(c =>
-              c.id === id ? { ...c, text: commentText } : c
-            ),
-          }
-          : t
-      )
-    );
+  const [actionLoading, setActionLoading] =
+    useState<string | null>(null);
 
-    setEditingCommentId(null);
-    setCommentText('');
-  };
-  const deleteComment = (id: string) => {
-    if (!selectedTweet) return;
+  const rawFeed =
+    activeTab === 'following'
+      ? following
+      : forYou;
 
-    setFeed(prev =>
-      prev.map(t =>
-        t.id === selectedTweetId
-          ? {
-            ...t,
-            replies: Math.max(0, t.replies - 1),
-            comments: t.comments?.filter(c => c.id !== id),
-          }
-          : t
-      )
-    );
-  };
+  /* ================= INITIAL LOAD ================= */
 
-  /* ===== Like ===== */
-  const toggleLike = (id: string) => {
-    setFeed(prev =>
-      prev.map(t =>
-        t.id === id
-          ? {
-            ...t,
-            liked: !t.liked,
-            likes: t.liked ? t.likes - 1 : t.likes + 1,
-          }
-          : t
-      )
-    );
-  };
+  useEffect(() => {
+    dispatch(getFollowingFeed({ page: 1 }));
+    dispatch(getForYouFeed({ page: 1 }));
+  }, []);
 
-  /* ===== Retweet ( يظهر أعلى الشاشة ) ===== */
-  const toggleRetweet = (tweet: Tweet) => {
-    if (tweet.retweeted) return;
+  /* ================= REFRESH ================= */
 
-    const retweet: Tweet = {
-      ...tweet,
-      id: Date.now().toString(),
-      name: 'You',
-      username: 'you',
-      time: 'الآن',
-      isRetweet: true,
-      originalUser: tweet.username,
-      avatar: 'https://picsum.photos/200',
-    };
+  const handleRefresh = async () => {
+    setRefreshing(true);
 
-    setFeed(prev => [
-      retweet,
-      ...prev.map(t =>
-        t.id === tweet.id
-          ? { ...t, retweeted: true, retweets: t.retweets + 1 }
-          : t
-      ),
-    ]);
-  };
-
-  /* ===== Add Tweet ===== */
-  const addTweet = () => {
-    if (!tweetText.trim() && !media.image && !media.video) return;
-
-    const newTweet: Tweet = {
-      id: Date.now().toString(),
-      name: 'You',
-      username: 'you',
-      time: 'الآن',
-      text: tweetText,
-      image: media.image,
-      video: media.video,
-      views: 0,
-      likes: 0,
-      retweets: 0,
-      replies: 0,
-      avatar: 'https://picsum.photos/200',
-    };
-
-    setFeed([newTweet, ...feed]);
-    setTweetText('');
-    setMedia({});
-    setShowComposer(false);
-  };
-
-  /* ===== Mock Media Pickers ===== */
-  const pickImage = async () => {
-    setLoadingMedia(true);
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setMedia({ image: result.assets[0].uri });
+    if (activeTab === 'following') {
+      await dispatch(getFollowingFeed({ page: 1 }));
+    } else {
+      await dispatch(getForYouFeed({ page: 1 }));
     }
-    setLoadingMedia(false);
+
+    setRefreshing(false);
   };
 
+  /* ================= LOAD MORE ================= */
 
-  const pickVideo = async () => {
-    setLoadingMedia(true);
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-    });
+  const handleLoadMore = () => {
+    if (loading) return;
 
-    if (!result.canceled) {
-      setMedia({ video: result.assets[0].uri });
+    if (activeTab === 'following') {
+      dispatch(getFollowingFeed({ page: 2 }));
+    } else {
+      dispatch(getForYouFeed({ page: 2 }));
     }
-    setLoadingMedia(false);
-  };
-  const addComment = () => {
-    if (!selectedTweetId || !commentText.trim()) return;
-
-    const newComment: Comment = {
-      id: Date.now().toString(),
-      user: 'You',
-      text: commentText,
-      time: 'الآن',
-    };
-
-    setFeed(prev =>
-      prev.map(t =>
-        t.id === selectedTweetId
-          ? {
-            ...t,
-            replies: t.replies + 1,
-            comments: [...(t.comments || []), newComment],
-          }
-          : t
-      )
-    );
-
-    setCommentText('');
   };
 
+  /* ================= OPEN TWEET ================= */
+
+  const openTweet = (tweet: any) => {
+    router.push({
+      pathname: '/tweet/[id]',
+      params: { id: tweet._id },
+    });
+  };
+
+  /* ================= MEDIA HELPER ================= */
+
+  const isVideo = (url: string) => {
+    return /\.(mp4|mov|m4v|webm)$/i.test(url);
+  };
+  const isValidUrl = (url?: string) => {
+    if (!url) return false;
+    if (typeof url !== 'string') return false;
+    if (!url.startsWith('http')) return false;
+    return true;
+  };
+
+  /* ================= RENDER ================= */
 
   return (
     <View style={[
       styles.container,
-      {
-        backgroundColor: theme.background,
-      },
+      { backgroundColor: theme.background }
     ]}>
-      {/* Header */}
 
+      {/* ===== Tabs ===== */}
 
-      {/* Feed */}
+      <View style={styles.tabs}>
+        <TabButton
+          title="Following"
+          active={activeTab === 'following'}
+          onPress={() => {
+            setActiveTab('following');
+            dispatch(getFollowingFeed({ page: 1 }));
+          }}
+        />
+        <TabButton
+          title="For You"
+          active={activeTab === 'foryou'}
+          onPress={() => {
+            setActiveTab('foryou');
+            dispatch(getForYouFeed({ page: 1 }));
+          }}
+        />
+      </View>
+
+      {/* ===== Feed ===== */}
+
       <FlatList
-        data={feed}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.tweetCard}>
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
+        data={rawFeed}
+        keyExtractor={(item) => item._id}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+          />
+        }
+        ListFooterComponent={
+          loading ? (
+            <ActivityIndicator style={{ margin: 20 }} />
+          ) : null
+        }
+        renderItem={({ item }) => {
 
-            <View style={styles.content}>
-              {item.isRetweet && (
-                <Text style={styles.retweetLabel}>
-                  🔁 أعدت التغريد من @{item.originalUser}
-                </Text>
-              )}
+          const isOwnTweet =
+            item.author._id === user?._id;
 
-              <View style={styles.nameRow}>
-              <Text style={[styles.name, { color: theme.text }]}>
-                  {item.name}</Text>
-                {item.verified && (
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={14}
-                    color="#1D9BF0"
-                  />
-                )}
-                <Text style={styles.username}>
-                  @{item.username} · {item.time}
-                </Text>
-              </View>
+          const isFollowing =
+            followingMap?.[item.author._id] ??
+            item.author.isFollowing ??
+            false;
 
-              <Text style={[styles.text, { color: theme.text }]}>
-                {item.text}</Text>
-
-              {item.image && (
-                <Image source={{ uri: item.image }} style={styles.tweetImage} />
-              )}
-
-              {item.video && (
-                <Video
-                  source={{ uri: item.video }}
-                  style={styles.tweetImage}
-                  useNativeControls
-                />
-              )}
-
-              <View style={styles.actions}>
-                <Action icon="stats-chart-outline" value={item.views} />
-
-                <Action
-                  icon={item.liked ? 'heart' : 'heart-outline'}
-                  value={item.likes}
-                  color={item.liked ? '#EF4444' : '#6B7280'}
-                  onPress={() => toggleLike(item.id)}
-                />
-
-                <Action
-                  icon="repeat-outline"
-                  value={item.retweets}
-                  color={item.retweeted ? '#22C55E' : '#6B7280'}
-                  onPress={() => toggleRetweet(item)}
-                />
-
-                <Action
-                  onPress={() => {
-                    setSelectedTweetId(item.id);
-                    setShowComments(true);
-
-                  }}
-
-                  icon="chatbubble-outline"
-                  value={item.replies}
-                />
-
-                <Ionicons name="share-outline" size={18} color="#6B7280" />
-              </View>
-            </View>
-          </View>
-        )}
-      />
-
-      {/* FAB */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setShowComposer(true)}
-      >
-        <Ionicons name="add" size={28} color="#FFF" />
-      </TouchableOpacity>
-
-      {/* Composer */}
-      <Modal visible={showComposer} animationType="slide" presentationStyle="pageSheet">
-        <View style={{ flex: 1, backgroundColor: '#FFF' }}>
-          {/* Header */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              borderBottomWidth: 0.5,
-              borderColor: '#E5E7EB',
-            }}
-          >
-            <TouchableOpacity onPress={() => setShowComposer(false)}>
-              <Ionicons name="close" size={22} />
-            </TouchableOpacity>
-
-            <Text style={{ fontSize: 16, fontWeight: '700' }}>إنشاء منشور</Text>
-
-            <TouchableOpacity
-              onPress={addTweet}
-              style={{
-                backgroundColor: tweetText.trim() || media.image || media.video ? '#1D9BF0' : '#93C5FD',
-                paddingHorizontal: 18,
-                paddingVertical: 6,
-                borderRadius: 20,
-              }}
-              disabled={!tweetText.trim() && !media.image && !media.video}
-            >
-              <Text style={{ color: '#FFF', fontWeight: '700' }}>نشر</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Body */}
-          <View style={{ flex: 1, padding: 16 }}>
-            <View style={{ flexDirection: 'row' }}>
-              <Image
-                source={{ uri: 'https://picsum.photos/200' }}
-                style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }}
-              />
-
-              <TextInput
-                placeholder="ماذا يحدث؟"
-                multiline
-                value={tweetText}
-                onChangeText={setTweetText}
-                style={{
-                  flex: 1,
-                  fontSize: 17,
-                  lineHeight: 24,
-                  textAlignVertical: 'top',
-                }}
-              />
-            </View>
-
-            {/* Media Preview */}
-            {(media.image || media.video) && (
-              <View style={{ marginTop: 14 }}>
-                {media.image && (
-                  <Image source={{ uri: media.image }} style={styles.previewMedia} />
-                )}
-
-                {media.video && (
-                  <Video
-                    source={{ uri: media.video }}
-                    style={styles.previewMedia}
-                    useNativeControls
-                  />
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* Footer Actions */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderTopWidth: 0.5,
-              borderColor: '#E5E7EB',
-            }}
-          >
-            <TouchableOpacity onPress={pickImage}>
-              <Ionicons name="image-outline" size={24} color="#1D9BF0" />
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={pickVideo} style={{ marginLeft: 20 }}>
-              <Ionicons name="videocam-outline" size={24} color="#1D9BF0" />
-            </TouchableOpacity>
-
-            <View style={{ flex: 1 }} />
-
-            <Text style={{ color: '#6B7280', fontSize: 12 }}>
-              {tweetText.length}/280
-            </Text>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={showComments} animationType="slide">
-        <View style={{ flex: 1, backgroundColor: '#FFF' }}>
-          {/* Header */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              padding: 14,
-              borderBottomWidth: 0.5,
-              borderColor: '#E5E7EB',
-            }}
-          >
-            <TouchableOpacity onPress={() => setShowComments(false)}>
-              <Ionicons name="close" size={22} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 16, fontWeight: '700', marginLeft: 12 }}>
-              المنشور
-            </Text>
-          </View>
-
-          {/* Original Tweet */}
-          <View style={{ padding: 14 }}>
-            <Text style={{ fontWeight: '700' }}>
-              {selectedTweet?.name}{' '}
-              <Text style={{ color: '#6B7280', fontWeight: '400' }}>
-                @{selectedTweet?.username}
-              </Text>
-            </Text>
-            <Text style={{ marginTop: 6 }}>{selectedTweet?.text}</Text>
-          </View>
-
-          {/* Comments */}
-          <FlatList
-            data={selectedTweet?.comments || []}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingHorizontal: 14 }}
-            renderItem={({ item }) => (
-              <View
-                style={{
-                  marginTop: 16,
-                  paddingLeft: 12,
-                  borderLeftWidth: 2,
-                  borderColor: '#E5E7EB',
-                }}
-              >
-                <Text style={{ fontWeight: '700' }}>{item.user}</Text>
-
-                {editingCommentId === item.id ? (
-                  <TextInput
-                    value={commentText}
-                    onChangeText={setCommentText}
-                    autoFocus
-                    style={{
-                      borderWidth: 1,
-                      borderColor: '#E5E7EB',
-                      borderRadius: 12,
-                      padding: 8,
-                      marginTop: 6,
-                    }}
-                  />
-                ) : (
-                  <Text style={{ marginTop: 4 }}>{item.text}</Text>
-                )}
-
-                <View style={{ flexDirection: 'row', gap: 14, marginTop: 6 }}>
+          return (
+            <Swipeable
+              renderRightActions={() =>
+                isOwnTweet ? (
                   <TouchableOpacity
-                    onPress={() => {
-                      setEditingCommentId(item.id);
-                      setCommentText(item.text);
+                    style={styles.deleteBtn}
+                    onPress={async () => {
+                      setActionLoading(`delete-${item._id}`);
+                      await dispatch(deleteTweet(item._id));
+                      setActionLoading(null);
                     }}
                   >
-                    <Text style={{ color: '#1D9BF0', fontSize: 12 }}>تعديل</Text>
+                    {actionLoading === `delete-${item._id}` ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Ionicons
+                        name="trash"
+                        size={18}
+                        color="#FFF"
+                      />
+                    )}
                   </TouchableOpacity>
+                ) : null
+              }
+            >
+              <View style={styles.tweetCard}>
 
-                  <TouchableOpacity onPress={() => deleteComment(item.id)}>
-                    <Text style={{ color: '#EF4444', fontSize: 12 }}>حذف</Text>
-                  </TouchableOpacity>
+                <Image
+                  source={
+                    isValidUrl(item.author.avatar)
+                      ? { uri: item.author.avatar }
+                      : { uri: 'https://i.pravatar.cc/150?img=3' }
+                  }
+                  style={styles.avatar}
+                />
 
-                  {editingCommentId === item.id && (
-                    <TouchableOpacity onPress={() => updateComment(item.id)}>
-                      <Text style={{ color: '#22C55E', fontSize: 12 }}>حفظ</Text>
+
+                <View style={{ flex: 1 }}>
+
+                  <View style={styles.row}>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.name}>
+                        {item.author.username}
+                      </Text>
+                      <Text style={styles.username}>
+                        {item.author.atUsername}
+                      </Text>
+                    </View>
+
+                    {!isOwnTweet && (
+                      <TouchableOpacity
+                        style={[
+                          styles.followBtn,
+                          {
+                            backgroundColor:
+                              isFollowing
+                                ? '#374151'
+                                : '#1D9BF0',
+                          }
+                        ]}
+                        onPress={async () => {
+                          setActionLoading(`follow-${item.author._id}`);
+                          await dispatch(
+                            toggleFollow(item.author._id)
+                          );
+                          setActionLoading(null);
+                        }}
+                      >
+                        {actionLoading === `follow-${item.author._id}` ? (
+                          <ActivityIndicator color="#FFF" size="small" />
+                        ) : (
+                          <Text style={{ color: '#FFF', fontSize: 12 }}>
+                            {isFollowing
+                              ? 'Following'
+                              : 'Follow'}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      onPress={() => openSheet(item.author)}
+                      style={{ marginLeft: 10 }}
+                    >
+                      <Ionicons
+                        name="ellipsis-horizontal"
+                        size={20}
+                        color="#6B7280"
+                      />
                     </TouchableOpacity>
-                  )}
+
+                  </View>
+
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => openTweet(item)}
+                  >
+                    <Text style={styles.text}>
+                      {item.content}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* ===== MEDIA ARRAY SUPPORT ===== */}
+
+                  {item.media &&
+                    item.media.length > 0 && (
+                      <View style={{ marginTop: 10 }}>
+                        {item.media.map((url: string, index: number) => {
+
+                          if (!isValidUrl(url)) return null;
+
+                          if (isVideo(url)) {
+                            return (
+                              <Video
+                                key={index}
+                                source={{ uri: url }}
+                                style={styles.media}
+                                useNativeControls
+                                resizeMode={ResizeMode.CONTAIN}
+                                isLooping
+                              />
+                            );
+                          }
+
+                          return (
+                            <Image
+                              key={index}
+                              source={{ uri: url }}
+                              style={styles.media}
+                            />
+                          );
+                        })}
+                      </View>
+                    )}
+
+
+                  {/* ===== Actions ===== */}
+
+                  <View style={styles.actions}>
+
+                    {/* ===== LIKE ===== */}
+                    <Action
+                      loading={actionLoading === `like-${item._id}`}
+                      icon={
+                        item.isLiked
+                          ? 'heart'
+                          : 'heart-outline'
+                      }
+                      value={item.likesCount}
+                      onPress={async () => {
+                        setActionLoading(`like-${item._id}`);
+                        await dispatch(toggleLike(item._id));
+                        setActionLoading(null);
+                      }}
+                    />
+
+                    {/* ===== RETWEET ===== */}
+                    <Action
+                      loading={actionLoading === `retweet-${item._id}`}
+                      icon="repeat-outline"
+                      value={item.retweetsCount}
+                      onPress={async () => {
+                        setActionLoading(`retweet-${item._id}`);
+                        await dispatch(toggleRetweet(item._id));
+                        setActionLoading(null);
+                      }}
+                    />
+
+                    {/* ===== COMMENT ===== */}
+                    <Action
+                      loading={false}
+                      icon="chatbubble-outline"
+                      value={item.repliesCount}
+                      onPress={() => openTweet(item)}
+                    />
+
+                  </View>
+
+
                 </View>
               </View>
-            )}
+            </Swipeable>
+          );
+        }}
+      />
+      {/* ===== User Bottom Sheet ===== */}
 
-          />
+{showSheet && (
+  <View style={styles.overlay}>
+    <TouchableOpacity
+      style={{ flex: 1 }}
+      activeOpacity={1}
+      onPress={closeSheet}
+    />
 
-          {/* Add Comment */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              padding: 12,
-              borderTopWidth: 0.5,
-              borderColor: '#E5E7EB',
+    <View style={styles.sheet}>
+      {selectedUser && (
+        <>
+          <Text style={styles.sheetTitle}>
+            @{selectedUser.atUsername}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.sheetItem}
+            onPress={async () => {
+              await dispatch(
+                toggleFollow(selectedUser._id)
+              );
+              closeSheet();
             }}
           >
-            <TextInput
-              placeholder="اكتب ردك..."
-              value={commentText}
-              onChangeText={setCommentText}
-              style={{
-                flex: 1,
-                borderWidth: 1,
-                borderColor: '#E5E7EB',
-                borderRadius: 20,
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-              }}
+            <Ionicons
+              name="person-remove-outline"
+              size={20}
+              color="#EF4444"
             />
-            <TouchableOpacity onPress={addComment} style={{ marginLeft: 10 }}>
-              <Ionicons name="send" size={22} color="#1D9BF0" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+            <Text style={styles.sheetText}>
+              Unfollow
+            </Text>
+          </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.sheetItem}
+          >
+            <Ionicons
+              name="ban-outline"
+              size={20}
+              color="#EF4444"
+            />
+            <Text style={styles.sheetText}>
+              Block
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.sheetItem}
+          >
+            <Ionicons
+              name="flag-outline"
+              size={20}
+              color="#F59E0B"
+            />
+            <Text style={styles.sheetText}>
+              Report
+            </Text>
+          </TouchableOpacity>
+
+        </>
+      )}
+    </View>
+  </View>
+)}
 
     </View>
   );
 }
 
-/* =======================
-   Action Component
-======================= */
+/* ===== Components ===== */
 
-function Action({
-  icon,
-  value,
-  color = '#6B7280',
-  onPress,
-}: {
-  icon: any;
-  value: number;
-  color?: string;
-  onPress?: () => void;
-}) {
+function Action({ icon, value, onPress, loading }: any) {
   return (
-    <TouchableOpacity onPress={onPress} style={styles.actionItem}>
-      <Ionicons name={icon} size={18} color={color} />
-      <Text style={[styles.actionText, { color }]}>
-        {value.toLocaleString()}
+    <TouchableOpacity
+      onPress={onPress}
+      style={styles.actionItem}
+      disabled={loading}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" />
+      ) : (
+        <>
+          <Ionicons
+            name={icon}
+            size={18}
+            color="#6B7280"
+          />
+          <Text style={{ fontSize: 12, marginLeft: 4 }}>
+            {value}
+          </Text>
+        </>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+function TabButton({ title, active, onPress }: any) {
+  return (
+    <TouchableOpacity onPress={onPress}>
+      <Text style={{
+        fontWeight: '700',
+        fontSize: 16,
+        color: active
+          ? '#1D9BF0'
+          : '#6B7280'
+      }}>
+        {title}
       </Text>
     </TouchableOpacity>
   );
 }
 
-/* =======================
-   Styles
-======================= */
+/* ===== Styles ===== */
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
+  container: { flex: 1 },
 
-  header: {
-    height: 52,
-    paddingHorizontal: 14,
+  tabs: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+  },
+
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 0.5,
-    borderColor: '#E5E7EB',
   },
-
-  logo: { fontSize: 20, fontWeight: '900' },
-  profile: { width: 32, height: 32, borderRadius: 16 },
 
   tweetCard: {
     flexDirection: 'row',
@@ -636,90 +1155,79 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
 
-  content: { flex: 1 },
+  name: { fontWeight: '700' },
 
-  retweetLabel: {
+  username: {
     fontSize: 12,
-    color: '#22C55E',
-    marginBottom: 4,
+    color: '#6B7280',
   },
 
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
+  text: {
+    marginTop: 6,
+    fontSize: 14,
   },
 
-  name: { fontSize: 14, fontWeight: '700' },
-  username: { fontSize: 12, color: '#6B7280' },
-
-  text: { marginTop: 4, fontSize: 14, lineHeight: 20 },
-
-  tweetImage: {
-    marginTop: 8,
+  media: {
     width: '100%',
-    height: 200,
-    borderRadius: 16,
+    height: 220,
+    borderRadius: 12,
+    marginTop: 8,
   },
+  overlay: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0,0,0,0.4)',
+  justifyContent: 'flex-end',
+},
+
+sheet: {
+  backgroundColor: '#FFF',
+  padding: 20,
+  borderTopLeftRadius: 20,
+  borderTopRightRadius: 20,
+},
+
+sheetTitle: {
+  fontWeight: '700',
+  fontSize: 16,
+  marginBottom: 20,
+},
+
+sheetItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  paddingVertical: 12,
+},
+
+sheetText: {
+  marginLeft: 10,
+  fontSize: 14,
+},
+
 
   actions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     marginTop: 10,
-    paddingRight: 20,
   },
 
-  actionItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  actionText: { fontSize: 12 },
-
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#1D9BF0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  composer: { flex: 1, padding: 16 },
-  composerHeader: {
+  actionItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    marginRight: 15,
   },
 
-  composerBody: { flexDirection: 'row', marginTop: 16 },
-
-  inputModern: {
-    flex: 1,
-    fontSize: 16,
+  followBtn: {
     paddingHorizontal: 12,
-    textAlignVertical: 'top',
-  },
-
-  publishBtnSmall: {
-    backgroundColor: '#1D9BF0',
-    paddingHorizontal: 16,
     paddingVertical: 6,
-    borderRadius: 20,
-  },
-
-  publishText: { color: '#FFF', fontWeight: '700' },
-
-  previewMedia: {
-    marginTop: 12,
-    width: '100%',
-    height: 200,
     borderRadius: 16,
   },
 
-  mediaActions: {
-    flexDirection: 'row',
-    gap: 20,
-    marginTop: 16,
+  deleteBtn: {
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    padding: 20,
   },
 });

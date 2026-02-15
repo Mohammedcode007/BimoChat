@@ -1,3 +1,5 @@
+
+
 // import AsyncStorage from "@react-native-async-storage/async-storage";
 // import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 // import * as Device from "expo-device";
@@ -19,6 +21,7 @@
 //   loading: boolean;
 //   isLoggedIn: boolean;
 //   sessions: LoginSession[];
+//   error: string | null;
 // }
 
 // /* ================= INITIAL STATE ================= */
@@ -29,6 +32,7 @@
 //   loading: false,
 //   isLoggedIn: false,
 //   sessions: [],
+//   error: null,
 // };
 
 // /* ================= ADD LOGIN SESSION ================= */
@@ -77,6 +81,37 @@
 //   };
 // });
 
+// /* ================= REGISTER ================= */
+
+// export const register = createAsyncThunk(
+//   "auth/register",
+//   async (
+//     { username, password }: { username: string; password: string },
+//     thunkAPI
+//   ) => {
+//     try {
+//       const res = await api.post("/auth/register", {
+//         username,
+//         password,
+//       });
+
+//       const { user, token } = res.data;
+
+//       await AsyncStorage.setItem("token", token);
+
+//       connectSocket(token);
+
+//       const sessions = await addLoginSession();
+
+//       return { user, token, sessions };
+//     } catch (err: any) {
+//       return thunkAPI.rejectWithValue(
+//         err.response?.data?.message || "Registration failed"
+//       );
+//     }
+//   }
+// );
+
 // /* ================= LOGIN ================= */
 
 // export const login = createAsyncThunk(
@@ -101,7 +136,9 @@
 
 //       return { user, token, sessions };
 //     } catch (err: any) {
-//       return thunkAPI.rejectWithValue(err.response?.data?.message);
+//       return thunkAPI.rejectWithValue(
+//         err.response?.data?.message || "Login failed"
+//       );
 //     }
 //   }
 // );
@@ -119,7 +156,11 @@
 // const authSlice = createSlice({
 //   name: "auth",
 //   initialState,
-//   reducers: {},
+//   reducers: {
+//     clearError: state => {
+//       state.error = null;
+//     },
+//   },
 //   extraReducers: builder => {
 //     builder
 
@@ -132,17 +173,35 @@
 
 //         if (action.payload) {
 //           state.token = action.payload.token;
-//           state.isLoggedIn = true;
 //           state.sessions = action.payload.sessions;
+//           state.isLoggedIn = true;
 //         }
 //       })
 //       .addCase(checkAuth.rejected, state => {
 //         state.loading = false;
 //       })
 
+//       /* ===== REGISTER ===== */
+//       .addCase(register.pending, state => {
+//         state.loading = true;
+//         state.error = null;
+//       })
+//       .addCase(register.fulfilled, (state, action) => {
+//         state.loading = false;
+//         state.user = action.payload.user;
+//         state.token = action.payload.token;
+//         state.sessions = action.payload.sessions;
+//         state.isLoggedIn = true;
+//       })
+//       .addCase(register.rejected, (state, action) => {
+//         state.loading = false;
+//         state.error = action.payload as string;
+//       })
+
 //       /* ===== LOGIN ===== */
 //       .addCase(login.pending, state => {
 //         state.loading = true;
+//         state.error = null;
 //       })
 //       .addCase(login.fulfilled, (state, action) => {
 //         state.loading = false;
@@ -151,8 +210,9 @@
 //         state.sessions = action.payload.sessions;
 //         state.isLoggedIn = true;
 //       })
-//       .addCase(login.rejected, state => {
+//       .addCase(login.rejected, (state, action) => {
 //         state.loading = false;
+//         state.error = action.payload as string;
 //       })
 
 //       /* ===== LOGOUT ===== */
@@ -160,9 +220,13 @@
 //         state.user = null;
 //         state.token = null;
 //         state.isLoggedIn = false;
+//         state.sessions = [];
+//         state.error = null;
 //       });
 //   },
 // });
+
+// export const { clearError } = authSlice.actions;
 
 // export default authSlice.reducer;
 
@@ -172,7 +236,9 @@ import * as Device from "expo-device";
 import api from "../../services/api";
 import { connectSocket, disconnectSocket } from "../../services/socket";
 
-/* ================= TYPES ================= */
+/* =====================================================
+   TYPES
+===================================================== */
 
 interface LoginSession {
   id: string;
@@ -190,8 +256,6 @@ interface AuthState {
   error: string | null;
 }
 
-/* ================= INITIAL STATE ================= */
-
 const initialState: AuthState = {
   user: null,
   token: null,
@@ -201,7 +265,9 @@ const initialState: AuthState = {
   error: null,
 };
 
-/* ================= ADD LOGIN SESSION ================= */
+/* =====================================================
+   ADD LOGIN SESSION
+===================================================== */
 
 const addLoginSession = async () => {
   const device =
@@ -230,24 +296,37 @@ const addLoginSession = async () => {
   return sessions;
 };
 
-/* ================= CHECK AUTH ================= */
+/* =====================================================
+   CHECK AUTH
+===================================================== */
 
-export const checkAuth = createAsyncThunk("auth/checkAuth", async () => {
-  const token = await AsyncStorage.getItem("token");
+export const checkAuth = createAsyncThunk(
+  "auth/checkAuth",
+  async (_, thunkAPI) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const user = await AsyncStorage.getItem("user");
 
-  if (!token) return null;
+      if (!token) return null;
 
-  connectSocket(token);
+      connectSocket(token);
 
-  const savedSessions = await AsyncStorage.getItem("loginSessions");
+      const savedSessions = await AsyncStorage.getItem("loginSessions");
 
-  return {
-    token,
-    sessions: savedSessions ? JSON.parse(savedSessions) : [],
-  };
-});
+      return {
+        token,
+        user: user ? JSON.parse(user) : null,
+        sessions: savedSessions ? JSON.parse(savedSessions) : [],
+      };
+    } catch {
+      return null;
+    }
+  }
+);
 
-/* ================= REGISTER ================= */
+/* =====================================================
+   REGISTER
+===================================================== */
 
 export const register = createAsyncThunk(
   "auth/register",
@@ -264,6 +343,7 @@ export const register = createAsyncThunk(
       const { user, token } = res.data;
 
       await AsyncStorage.setItem("token", token);
+      await AsyncStorage.setItem("user", JSON.stringify(user));
 
       connectSocket(token);
 
@@ -278,7 +358,9 @@ export const register = createAsyncThunk(
   }
 );
 
-/* ================= LOGIN ================= */
+/* =====================================================
+   LOGIN
+===================================================== */
 
 export const login = createAsyncThunk(
   "auth/login",
@@ -295,6 +377,7 @@ export const login = createAsyncThunk(
       const { user, token } = res.data;
 
       await AsyncStorage.setItem("token", token);
+      await AsyncStorage.setItem("user", JSON.stringify(user));
 
       connectSocket(token);
 
@@ -309,15 +392,20 @@ export const login = createAsyncThunk(
   }
 );
 
-/* ================= LOGOUT ================= */
+/* =====================================================
+   LOGOUT
+===================================================== */
 
 export const logout = createAsyncThunk("auth/logout", async () => {
   await AsyncStorage.removeItem("token");
+  await AsyncStorage.removeItem("user");
   disconnectSocket();
   return true;
 });
 
-/* ================= SLICE ================= */
+/* =====================================================
+   SLICE
+===================================================== */
 
 const authSlice = createSlice({
   name: "auth",
@@ -325,6 +413,12 @@ const authSlice = createSlice({
   reducers: {
     clearError: state => {
       state.error = null;
+    },
+
+    /* 🔥 تحديث بيانات المستخدم (يستخدم من profileSlice) */
+    updateUser: (state, action) => {
+      state.user = action.payload;
+      AsyncStorage.setItem("user", JSON.stringify(action.payload));
     },
   },
   extraReducers: builder => {
@@ -339,6 +433,7 @@ const authSlice = createSlice({
 
         if (action.payload) {
           state.token = action.payload.token;
+          state.user = action.payload.user;
           state.sessions = action.payload.sessions;
           state.isLoggedIn = true;
         }
@@ -392,6 +487,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError } = authSlice.actions;
-
+export const { clearError, updateUser } = authSlice.actions;
 export default authSlice.reducer;

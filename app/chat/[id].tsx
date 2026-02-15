@@ -498,17 +498,17 @@ export default function ChatScreen() {
                                             {item.text}
                                         </Text>
                                     )}
-{item.type === 'video' && (
-  <View style={styles.videoWrapper}>
-    <Video
-      source={{ uri: item.uri }}
-      style={styles.video}
-      useNativeControls
-resizeMode={ResizeMode.CONTAIN}
-      isLooping={false}
-    />
-  </View>
-)}
+                                    {item.type === 'video' && (
+                                        <View style={styles.videoWrapper}>
+                                            <Video
+                                                source={{ uri: item.uri }}
+                                                style={styles.video}
+                                                useNativeControls
+                                                resizeMode={ResizeMode.CONTAIN}
+                                                isLooping={false}
+                                            />
+                                        </View>
+                                    )}
 
                                     {(item.type === 'image' ||
                                         item.type === 'gif' ||
@@ -812,18 +812,18 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         marginBottom: 6,
     },
-videoWrapper: {
-  width: 220,
-  height: 160,
-  borderRadius: 12,
-  overflow: 'hidden',
-  backgroundColor: '#000',
-},
+    videoWrapper: {
+        width: 220,
+        height: 160,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: '#000',
+    },
 
-video: {
-  width: '100%',
-  height: '100%',
-},
+    video: {
+        width: '100%',
+        height: '100%',
+    },
 
 
     audioProgressFill: {

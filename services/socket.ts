@@ -9,7 +9,7 @@ export const connectSocket = (token: string): Socket => {
     return socket;
   }
 
-  const newSocket = io("http://192.168.1.6:5000", {
+  const newSocket = io("http://192.168.0.101:5000", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true,

@@ -1,7 +1,7 @@
 import { Colors } from '@/constants/theme';
 import i18n from '@/localization/i18n';
-import { logout } from '@/redux/slices/authSlice';
-import { AppDispatch } from '@/redux/store';
+import { logout, toggleInvisible } from '@/redux/slices/authSlice';
+import { AppDispatch, RootState } from '@/redux/store';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -14,11 +14,13 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+const { user } = useSelector((state: RootState) => state.auth);
+console.log(user,'454545454');
 
   const [darkMode, setDarkMode] = React.useState(false);
   const [notifications, setNotifications] = React.useState(true);
@@ -29,6 +31,11 @@ export default function SettingsScreen() {
   const [autoPlayVideos, setAutoPlayVideos] = React.useState(true);
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
+const handleToggleOnline = (value: boolean) => {
+  // إذا السويتش ON → يعني يريد الظهور Online
+  // إذن invisible = false
+  dispatch(toggleInvisible(!value));
+};
 
   const handleLogout = async () => {
     await dispatch(logout());
@@ -71,13 +78,14 @@ export default function SettingsScreen() {
 
       {/* ===== Privacy ===== */}
       <Section title={i18n.t("settingsScreen.privacy")}>
-        <Row
-          icon="eye-outline"
-          text={i18n.t("settingsScreen.onlineStatus")}
-          switcher
-          value={onlineStatus}
-          onChange={setOnlineStatus}
-        />
+       <Row
+  icon="eye-outline"
+  text={i18n.t("settingsScreen.onlineStatus")}
+  switcher
+  value={!user?.isInvisible}
+  onChange={handleToggleOnline}
+/>
+
         <Row
           icon="checkmark-done-outline"
           text={i18n.t("settingsScreen.readReceipts")}

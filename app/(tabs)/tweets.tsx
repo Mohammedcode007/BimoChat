@@ -213,7 +213,6 @@ export default function TweetsScreen() {
           ) : null
         }
         renderItem={({ item }) => {
-console.log(item,'77777777777777');
 
           const isOwnTweet =
             item.author._id === user?._id;

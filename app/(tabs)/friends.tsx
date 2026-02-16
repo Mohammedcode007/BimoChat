@@ -1,513 +1,29 @@
-// import { Colors } from '@/constants/theme';
-// import Ionicons from '@expo/vector-icons/Ionicons';
-// import { useRouter } from 'expo-router';
-// import { useEffect, useRef, useState } from 'react';
-// import {
-//   ActivityIndicator,
-//   Animated,
-//   FlatList,
-//   Image,
-//   Modal,
-//   StyleSheet,
-//   Text,
-//   TextInput,
-//   TouchableOpacity,
-//   useColorScheme,
-//   View,
-// } from 'react-native';
-// import { Swipeable } from 'react-native-gesture-handler';
-
-// /* =======================
-//    Types + Mock Generator
-// ======================= */
-
-// type Friend = {
-//   id: string;
-//   name: string;
-//   message: string;
-//   time: string;
-//   avatar: string;
-//   online: boolean;
-//   muted?: boolean;
-// };
-
-// const PAGE_SIZE = 10;
-
-// const generateFriends = (size: number): Friend[] => {
-//   return Array.from({ length: size }).map(() => {
-//     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-//     return {
-//       id,
-//       name: `User ${id.slice(-4)}`,
-//       message: 'Hey! Are you available to chat?',
-//       time: `${Math.floor(Math.random() * 59) + 1}m`,
-//       avatar: `https://i.pravatar.cc/150?u=${id}`,
-//       online: Math.random() > 0.5,
-//       muted: false,
-//     };
-//   });
-// };
-
-// /* =======================
-//    Screen
-// ======================= */
-
-// export default function FriendsScreen() {
-//   const colorScheme = useColorScheme();
-//   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
-//   const [data, setData] = useState<Friend[]>([]);
-//   const [page, setPage] = useState(1);
-//   const [loading, setLoading] = useState(false);
-//   const [hasMore, setHasMore] = useState(true);
-//   const [newFriendId, setNewFriendId] = useState<string | null>(null);
-//   const router = useRouter();
-
-//   // Search
-//   const [search, setSearch] = useState('');
-//   const [debouncedSearch, setDebouncedSearch] = useState('');
-
-//   // Modal
-//   const [modalVisible, setModalVisible] = useState(false);
-//   const [inviteValue, setInviteValue] = useState('');
-
-//   // Animation
-//   const scaleAnim = useRef(new Animated.Value(0)).current;
-
-//   /* =======================
-//      Pagination Fetch
-//   ======================= */
-
-//   const fetchFriends = async () => {
-//     if (loading || !hasMore) return;
-//     setLoading(true);
-
-//     await new Promise((r) => setTimeout(r, 500));
-
-//     setData((prev) => [...prev, ...generateFriends(PAGE_SIZE)]);
-//     setHasMore(page < 5);
-//     setLoading(false);
-//   };
-
-//   useEffect(() => {
-//     fetchFriends();
-//   }, [page]);
-
-//   /* =======================
-//      Search Debounce
-//   ======================= */
-
-//   useEffect(() => {
-//     const timer = setTimeout(() => {
-//       setDebouncedSearch(search);
-//     }, 400);
-
-//     return () => clearTimeout(timer);
-//   }, [search]);
-
-//   const filteredData = data.filter(
-//     (f) =>
-//       f.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-//       f.message.toLowerCase().includes(debouncedSearch.toLowerCase())
-//   );
-
-//   /* =======================
-//      Actions
-//   ======================= */
-
-//   const addFriend = () => {
-//     if (!inviteValue.trim()) return;
-
-//     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
-//     const newFriend: Friend = {
-//       id,
-//       name: inviteValue,
-//       message: 'New friend 👋',
-//       time: 'now',
-//       avatar: `https://i.pravatar.cc/150?u=${id}`,
-//       online: true,
-//     };
-
-//     setNewFriendId(id); // ✅ تحديد الصديق الجديد
-//     scaleAnim.setValue(0.8);
-
-//     setData((prev) => [newFriend, ...prev]);
-//     setInviteValue('');
-//     setModalVisible(false);
-
-//     Animated.spring(scaleAnim, {
-//       toValue: 1,
-//       useNativeDriver: true,
-//     }).start(() => {
-//       setNewFriendId(null); // تنظيف
-//     });
-//   };
-
-
-//   const deleteFriend = (id: string) => {
-//     setData((prev) => prev.filter((f) => f.id !== id));
-//   };
-
-//   const muteFriend = (id: string) => {
-//     setData((prev) =>
-//       prev.map((f) => (f.id === id ? { ...f, muted: !f.muted } : f))
-//     );
-//   };
-
-//   const renderRightActions = (item: Friend) => (
-//     <View style={styles.actions}>
-//       <TouchableOpacity
-//         style={[styles.actionBtn, styles.mute]}
-//         onPress={() => muteFriend(item.id)}
-//       >
-//         <Ionicons
-//           name={item.muted ? 'volume-mute' : 'volume-high'}
-//           size={18}
-//           color="#FFF"
-//         />
-//         <Text style={styles.actionText}>
-//           {item.muted ? 'Unmute' : 'Mute'}
-//         </Text>
-//       </TouchableOpacity>
-
-//       <TouchableOpacity
-//         style={[styles.actionBtn, styles.delete]}
-//         onPress={() => deleteFriend(item.id)}
-//       >
-//         <Ionicons name="trash" size={18} color="#FFF" />
-//         <Text style={styles.actionText}>Delete</Text>
-//       </TouchableOpacity>
-//     </View>
-//   );
-
-//   /* =======================
-//      Render
-//   ======================= */
-
-//   return (
-//     <View style={[
-//       styles.container,
-//       {
-//         backgroundColor: theme.background,
-//       },
-//     ]}>
-//       {/* Search + Add */}
-//       <View style={[
-//         styles.topBar,
-//         {
-//           backgroundColor: theme.background,
-//         },
-//       ]}>
-//         <View style={[
-//           styles.searchBox,
-//           {
-//             backgroundColor: theme.background,
-//           },
-//         ]}>
-//           <Ionicons name="search" size={16} color="#9CA3AF" />
-//           <TextInput
-//             placeholder="Search friends"
-//             value={search}
-//             onChangeText={setSearch}
-//             style={styles.searchInput}
-//             placeholderTextColor="#9CA3AF"
-//           />
-//         </View>
-
-//         <TouchableOpacity
-//           style={styles.addBtn}
-//           onPress={() => router.push("/add-friend")}
-//         >
-//           <Ionicons name="person-add" size={20} color="#FFF" />
-//         </TouchableOpacity>
-
-//       </View>
-
-//       {/* List */}
-//       <FlatList
-//         data={filteredData}
-//         keyExtractor={(item) => item.id}
-//         showsVerticalScrollIndicator={false}
-//         onEndReached={() => setPage((p) => p + 1)}
-//         onEndReachedThreshold={0.4}
-//         ListFooterComponent={
-//           loading ? <ActivityIndicator size="small" /> : null
-//         }
-//         ListEmptyComponent={
-//           <View style={styles.empty}>
-//             <Ionicons name="people-outline" size={48} color="#9CA3AF" />
-//             <Text style={styles.emptyText}>No friends found</Text>
-//           </View>
-//         }
-//         renderItem={({ item, index }) => (
-//           <Swipeable renderRightActions={() => renderRightActions(item)}>
-//             <Animated.View
-//               style={[
-//                 styles.card,
-//                 {
-//                   backgroundColor: theme.background,
-//                 },
-//                 item.id === newFriendId && {
-//                   transform: [{ scale: scaleAnim }],
-//                 },
-//               ]}
-//             >
-
-//               <View style={styles.avatarWrapper}>
-//                 <Image source={{ uri: item.avatar }} style={styles.avatar} />
-//                 {item.online && <View style={styles.onlineDot} />}
-//               </View>
-
-//               <View style={styles.info}>
-//                 <View style={styles.row}>
-//                   <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
-//                     {item.name}
-//                   </Text>
-//                   <Text style={styles.time}>{item.time}</Text>
-//                 </View>
-
-//                 <View style={styles.row}>
-//                   <Text style={styles.message} numberOfLines={1}>
-//                     {item.message}
-//                   </Text>
-//                   {item.muted && (
-//                     <Ionicons name="volume-mute" size={14} color="#9CA3AF" />
-//                   )}
-//                 </View>
-//               </View>
-
-//               <Ionicons
-//                 name="chatbubble-outline"
-//                 size={20}
-//                 color="#6B7280"
-//               />
-//             </Animated.View>
-//           </Swipeable>
-//         )}
-//       />
-
-//       {/* Add Friend Modal */}
-//       <Modal visible={modalVisible} transparent animationType="fade">
-//         <View style={styles.modalOverlay}>
-//           <View style={styles.modal}>
-//             <Text style={styles.modalTitle}>Add Friend</Text>
-
-//             <TextInput
-//               placeholder="Username or phone number"
-//               value={inviteValue}
-//               onChangeText={setInviteValue}
-//               style={styles.modalInput}
-//             />
-
-//             <View style={styles.modalActions}>
-//               <TouchableOpacity
-//                 onPress={() => setModalVisible(false)}
-//               >
-//                 <Text style={styles.cancel}>Cancel</Text>
-//               </TouchableOpacity>
-
-//               <TouchableOpacity onPress={addFriend}>
-//                 <Text style={styles.confirm}>Invite</Text>
-//               </TouchableOpacity>
-//             </View>
-//           </View>
-//         </View>
-//       </Modal>
-//     </View>
-//   );
-// }
-
-// /* =======================
-//    Styles
-// ======================= */
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: '#F4F6FA',
-//     padding: 14,
-//   },
-
-//   topBar: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     marginBottom: 12,
-//     gap: 10,
-//   },
-
-//   searchBox: {
-//     flex: 1,
-//     flexDirection: 'row',
-//     backgroundColor: '#FFF',
-//     padding: 10,
-//     borderRadius: 14,
-//     alignItems: 'center',
-//   },
-
-//   searchInput: {
-//     marginLeft: 8,
-//     fontSize: 13,
-//     flex: 1,
-//   },
-
-//   addBtn: {
-//     width: 42,
-//     height: 42,
-//     borderRadius: 14,
-//     backgroundColor: '#4F46E5',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-
-//   card: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     backgroundColor: '#FFF',
-//     padding: 14,
-//     borderRadius: 18,
-//     marginBottom: 10,
-//   },
-
-//   avatarWrapper: {
-//     width: 52,
-//     height: 52,
-//     marginRight: 12,
-//   },
-
-//   avatar: {
-//     width: 52,
-//     height: 52,
-//     borderRadius: 26,
-//   },
-
-//   onlineDot: {
-//     position: 'absolute',
-//     top: -2,
-//     right: -2,
-//     width: 12,
-//     height: 12,
-//     borderRadius: 6,
-//     backgroundColor: '#22C55E',
-//     borderWidth: 2,
-//     borderColor: '#FFF',
-//   },
-
-//   info: {
-//     flex: 1,
-//     marginRight: 8,
-//   },
-
-//   row: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//   },
-
-//   name: {
-//     fontSize: 14,
-//     fontWeight: '600',
-//   },
-
-//   time: {
-//     fontSize: 11,
-//     color: '#9CA3AF',
-//   },
-
-//   message: {
-//     fontSize: 12,
-//     color: '#6B7280',
-//     marginTop: 2,
-//   },
-
-//   actions: {
-//     flexDirection: 'row',
-//     height: '100%',
-//   },
-
-//   actionBtn: {
-//     width: 80,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//   },
-
-//   mute: {
-//     backgroundColor: '#F59E0B',
-//   },
-
-//   delete: {
-//     backgroundColor: '#EF4444',
-//   },
-
-//   actionText: {
-//     color: '#FFF',
-//     fontSize: 11,
-//     marginTop: 4,
-//   },
-
-//   empty: {
-//     marginTop: 80,
-//     alignItems: 'center',
-//   },
-
-//   emptyText: {
-//     marginTop: 10,
-//     color: '#9CA3AF',
-//   },
-
-//   modalOverlay: {
-//     flex: 1,
-//     backgroundColor: 'rgba(0,0,0,0.4)',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-
-//   modal: {
-//     width: '85%',
-//     backgroundColor: '#FFF',
-//     borderRadius: 16,
-//     padding: 16,
-//   },
-
-//   modalTitle: {
-//     fontSize: 16,
-//     fontWeight: '600',
-//     marginBottom: 12,
-//   },
-
-//   modalInput: {
-//     backgroundColor: '#F3F4F6',
-//     borderRadius: 12,
-//     padding: 10,
-//     fontSize: 13,
-//   },
-
-//   modalActions: {
-//     flexDirection: 'row',
-//     justifyContent: 'flex-end',
-//     marginTop: 14,
-//     gap: 16,
-//   },
-
-//   cancel: {
-//     color: '#6B7280',
-//   },
-
-//   confirm: {
-//     color: '#4F46E5',
-//     fontWeight: '600',
-//   },
-// });
-
-
 import { Colors } from '@/constants/theme';
-import { getFriends, removeFriend } from '@/redux/slices/friendSlice';
+import {
+  createChat,
+  setActiveChat
+} from '@/redux/slices/chatSlice';
+
+import {
+  getFriends,
+  removeFriend
+} from '@/redux/slices/friendSlice';
+
+import {
+  fetchMessages
+} from '@/redux/slices/messageSlice';
+
 import { AppDispatch, RootState } from '@/redux/store';
+
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Image,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -515,12 +31,15 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
+
 import { Swipeable } from 'react-native-gesture-handler';
 import { useDispatch, useSelector } from 'react-redux';
 
 export default function FriendsScreen() {
+
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
 
@@ -528,31 +47,85 @@ export default function FriendsScreen() {
     (state: RootState) => state.friends
   );
 
-  /* =======================
-     Search State
-  ======================= */
-
   const [search, setSearch] = useState('');
+  const [creatingChatId, setCreatingChatId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filteredFriends = friends.filter((f) =>
-    f.username.toLowerCase().includes(search.toLowerCase())
-  );
-
-  /* =======================
-     Fetch Friends
-  ======================= */
+  /* ======================= Fetch ======================= */
 
   useEffect(() => {
     dispatch(getFriends());
-  }, []);
+  }, [dispatch]);
 
-  /* =======================
-     Actions
-  ======================= */
+  /* ======================= Filter ======================= */
+
+  const filteredFriends = useMemo(() => {
+    return friends.filter((f) =>
+      f.username.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [friends, search]);
+
+  /* ======================= Last Seen Formatter ======================= */
+
+  const formatLastSeen = (date?: string) => {
+
+    if (!date) return "Offline";
+
+    const last = new Date(date).getTime();
+    const now = Date.now();
+
+    const diff = Math.floor((now - last) / 1000);
+
+    if (diff < 60) return "Just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+
+    return `${Math.floor(diff / 86400)}d ago`;
+  };
+
+  /* ======================= Pull To Refresh ======================= */
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await dispatch(getFriends());
+    setRefreshing(false);
+  };
+
+  /* ======================= Delete ======================= */
 
   const deleteFriendHandler = (id: string) => {
     dispatch(removeFriend(id));
   };
+
+  /* ======================= Open Chat ======================= */
+
+  const openChat = async (targetUserId: string) => {
+
+    if (creatingChatId) return;
+
+    try {
+
+      setCreatingChatId(targetUserId);
+
+      const chat = await dispatch(
+        createChat(targetUserId)
+      ).unwrap();
+
+      dispatch(setActiveChat(chat._id));
+
+      /* 🔥 Prefetch messages قبل الدخول */
+      dispatch(fetchMessages({ chatId: chat._id, page: 1 }));
+
+      router.push(`/chat/${chat._id}`);
+
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setCreatingChatId(null);
+    }
+  };
+
+  /* ======================= Swipe ======================= */
 
   const renderRightActions = (item: any) => (
     <View style={styles.actions}>
@@ -561,23 +134,20 @@ export default function FriendsScreen() {
         onPress={() => deleteFriendHandler(item._id)}
       >
         <Ionicons name="trash" size={18} color="#FFF" />
-        <Text style={styles.actionText}>Delete</Text>
+        <Text style={styles.actionText}>Remove</Text>
       </TouchableOpacity>
     </View>
   );
 
-  /* =======================
-     Render
-  ======================= */
+  /* ======================= Render ======================= */
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      
-      {/* =======================
-          TOP BAR (Search + Add)
-      ======================= */}
+
+      {/* TOP BAR */}
 
       <View style={styles.topBar}>
+
         <View style={styles.searchBox}>
           <Ionicons name="search" size={16} color="#9CA3AF" />
           <TextInput
@@ -595,146 +165,164 @@ export default function FriendsScreen() {
         >
           <Ionicons name="person-add" size={20} color="#FFF" />
         </TouchableOpacity>
+
       </View>
 
-      {/* =======================
-          FRIENDS LIST
-      ======================= */}
+      {/* LIST */}
 
       <FlatList
         data={filteredFriends}
         keyExtractor={(item) => item._id}
         showsVerticalScrollIndicator={false}
-        refreshing={loading}
-        onRefresh={() => dispatch(getFriends())}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+          />
+        }
         ListEmptyComponent={
           loading ? (
             <ActivityIndicator size="large" />
           ) : (
             <View style={styles.empty}>
-              <Ionicons name="people-outline" size={48} color="#9CA3AF" />
-              <Text style={styles.emptyText}>
-                {search ? 'No matching friends' : 'No friends yet'}
+              <Ionicons name="people-outline" size={60} color="#CBD5E1" />
+              <Text style={styles.emptyTitle}>
+                {search ? "No matching friends" : "No friends yet"}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                Start adding friends to begin chatting.
               </Text>
             </View>
           )
         }
         renderItem={({ item }) => (
+
           <Swipeable renderRightActions={() => renderRightActions(item)}>
-            <View style={styles.card}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => openChat(item._id)}
+            >
+              <View style={[styles.card, { backgroundColor: theme.card }]}>
 
-              <View style={styles.avatarWrapper}>
-                <Image
-                  source={{
-                    uri:
-                      item.avatar ||
-                      `https://i.pravatar.cc/150?u=${item._id}`,
-                  }}
-                  style={styles.avatar}
-                />
-                {item.isOnline && <View style={styles.onlineDot} />}
+                <View style={styles.avatarWrapper}>
+                  <Image
+                    source={{
+                      uri:
+                        item.avatar ||
+                        `https://i.pravatar.cc/150?u=${item._id}`,
+                    }}
+                    style={styles.avatar}
+                  />
+                  {item.isOnline && <View style={styles.onlineDot} />}
+                </View>
+
+                <View style={styles.info}>
+                  <Text
+                    style={[styles.name, { color: theme.text }]}
+                    numberOfLines={1}
+                  >
+                    {item.username}
+                  </Text>
+
+                  <Text style={styles.message}>
+                    {item.isOnline
+                      ? "Online"
+                      : formatLastSeen(item.lastSeen)}
+                  </Text>
+                </View>
+
+                {creatingChatId === item._id && (
+                  <ActivityIndicator size="small" />
+                )}
+
               </View>
-
-              <View style={styles.info}>
-                <Text
-                  style={[styles.name, { color: theme.text }]}
-                  numberOfLines={1}
-                >
-                  {item.username}
-                </Text>
-
-                <Text style={styles.message}>
-                  {item.isOnline
-                    ? 'Online'
-                    : item.lastSeen
-                    ? `Last seen ${item.lastSeen}`
-                    : 'Offline'}
-                </Text>
-              </View>
-
-              <Ionicons
-                name="chatbubble-outline"
-                size={20}
-                color="#6B7280"
-                onPress={() => router.push(`/chat/${item._id}`)}
-              />
-            </View>
+            </TouchableOpacity>
           </Swipeable>
+
         )}
       />
+
     </View>
   );
 }
 
-/* =======================
-   Styles
-======================= */
+/* ======================= STYLES ======================= */
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
-    padding: 14,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
 
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 10,
+    marginBottom: 16,
+    gap: 12,
   },
 
   searchBox: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#FFF',
-    padding: 10,
-    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
     alignItems: 'center',
   },
 
   searchInput: {
     marginLeft: 8,
-    fontSize: 13,
+    fontSize: 14,
     flex: 1,
   },
 
   addBtn: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     backgroundColor: '#4F46E5',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
 
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    padding: 14,
-    borderRadius: 18,
-    marginBottom: 10,
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
 
   avatarWrapper: {
-    width: 52,
-    height: 52,
-    marginRight: 12,
+    width: 56,
+    height: 56,
+    marginRight: 14,
   },
 
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
   },
 
   onlineDot: {
     position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    bottom: 4,
+    right: 4,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#22C55E',
     borderWidth: 2,
     borderColor: '#FFF',
@@ -745,14 +333,14 @@ const styles = StyleSheet.create({
   },
 
   name: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
   },
 
   message: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
-    marginTop: 2,
+    marginTop: 4,
   },
 
   actions: {
@@ -761,28 +349,40 @@ const styles = StyleSheet.create({
   },
 
   actionBtn: {
-    width: 80,
+    width: 90,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   delete: {
     backgroundColor: '#EF4444',
+    borderRadius: 20,
+    marginVertical: 6,
   },
 
   actionText: {
     color: '#FFF',
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 4,
   },
 
   empty: {
-    marginTop: 80,
+    marginTop: 100,
     alignItems: 'center',
   },
 
-  emptyText: {
-    marginTop: 10,
-    color: '#9CA3AF',
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 12,
+    color: '#374151',
   },
+
+  emptySubtitle: {
+    fontSize: 13,
+    marginTop: 6,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+
 });

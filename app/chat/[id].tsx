@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+// ChatScreen.tsx
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -19,16 +21,18 @@ import { useDispatch, useSelector } from "react-redux";
 
 import {
   addMessage,
+  clearChatMessages,
   MessageItem,
-  setMessages
+  setMessages,
+  updateReaction
 } from "@/redux/slices/messageSlice";
-import { AppDispatch, RootState } from "@/redux/store";
 
 import {
-  setActiveChat,
-  setUnreadFromServer
+  markChatSeenLocally,
+  setActiveChat
 } from "@/redux/slices/chatSlice";
 
+import { AppDispatch, RootState } from "@/redux/store";
 import {
   emitMarkAsSeen,
   emitTyping,
@@ -47,9 +51,15 @@ export default function ChatScreen() {
 
   const dispatch = useDispatch<AppDispatch>();
   const flatListRef = useRef<FlatList<MessageItem>>(null);
+  const typingTimeout = useRef<any>(null);
 
   const currentUser = useSelector(
     (state: RootState) => state.auth.user
+  );
+
+  const chat = useSelector(
+    (state: RootState) =>
+      state.chat.chats.find(c => c._id === chatId)
   );
 
   const messages = useSelector(
@@ -59,10 +69,21 @@ export default function ChatScreen() {
 
   const typingUsers = useSelector(
     (state: RootState) =>
-      state.chat.typingUsers[chatId] || []
+      (state.chat.typingUsers[chatId] || [])
+        .filter(id => id !== currentUser?._id)
   );
 
   const [text, setText] = useState("");
+
+  /* ================= OTHER USER ================= */
+
+  const otherUser = useMemo(() => {
+    if (!chat || !currentUser) return null;
+
+    return chat.participants.find(
+      (p: any) => p._id !== currentUser._id
+    );
+  }, [chat, currentUser]);
 
   /* ================= INITIAL LOAD ================= */
 
@@ -71,36 +92,26 @@ export default function ChatScreen() {
     if (!chatId) return;
 
     dispatch(setActiveChat(chatId));
-
+    dispatch(markChatSeenLocally(chatId));
     joinChatRoom(chatId);
 
-    dispatch(setUnreadFromServer({
-      chatId,
-      unreadCount: 0
-    }));
-
     const loadMessages = async () => {
-      try {
-        const res = await api.get(
-          `/messages/${chatId}?page=1`
-        );
 
-        dispatch(setMessages({
-          chatId,
-          messages: res.data
-        }));
+      const res = await api.get(`/messages/${chatId}`);
 
-        emitMarkAsSeen(chatId);
+      dispatch(setMessages({
+        chatId,
+        messages: res.data
+      }));
 
-      } catch (err) {
-        console.log("Load messages error:", err);
-      }
+      emitMarkAsSeen(chatId);
     };
 
     loadMessages();
 
     return () => {
       dispatch(setActiveChat(undefined));
+      dispatch(clearChatMessages(chatId));
     };
 
   }, [chatId]);
@@ -115,43 +126,46 @@ export default function ChatScreen() {
 
   /* ================= SEND MESSAGE ================= */
 
- const sendMessage = () => {
+  const sendMessage = () => {
 
-  if (!text.trim() || !currentUser?._id) return;
+    if (!text.trim() || !currentUser?._id) return;
 
-  // 🔥 أنشئ tempId
-  const tempId = `temp-${Date.now()}`;
+    const tempId = `temp-${Date.now()}`;
 
-  const optimistic: MessageItem = {
-    _id: tempId,
-    clientTempId: tempId, // 🔥 مهم جداً
-    chat: chatId,
-    sender: currentUser._id,
-    type: "text",
-    content: text,
-    deliveryStatus: {
-      deliveredTo: [],
-      seenBy: []
-    },
-    reactions: [],
-    createdAt: new Date().toISOString(),
-    optimistic: true
+    const optimistic: MessageItem = {
+      _id: tempId,
+      clientTempId: tempId,
+      chat: chatId,
+      sender: currentUser._id,
+      type: "text",
+      content: text,
+      reactions: [],
+      deliveryStatus: {
+        deliveredTo: [],
+        seenBy: []
+      },
+      createdAt: new Date().toISOString(),
+      optimistic: true
+    };
+
+    dispatch(addMessage(optimistic));
+
+    sendSocketMessage(chatId, text, "text", tempId);
+
+    setText("");
   };
 
-  // 1️⃣ أضف optimistic
-  dispatch(addMessage(optimistic));
+  /* ================= ADD REACTION ================= */
 
-  // 2️⃣ أرسل مع clientTempId
-  sendSocketMessage(
-    chatId,
-    text,
-    "text",
-    tempId // 🔥 مهم
-  );
+  const toggleReaction = (message: MessageItem, emoji: string) => {
 
-  setText("");
-};
+    const updated = message.reactions || [];
 
+    dispatch(updateReaction({
+      messageId: message._id,
+      reactions: updated
+    }));
+  };
 
   /* ================= RENDER MESSAGE ================= */
 
@@ -159,54 +173,98 @@ export default function ChatScreen() {
 
     const isMe = item.sender === currentUser?._id;
 
+    if (item.deletedForEveryone) {
+      return (
+        <View style={styles.deletedBubble}>
+          <Text style={styles.deletedText}>
+            This message was deleted
+          </Text>
+        </View>
+      );
+    }
+
     return (
-      <View
-        style={[
-          styles.messageRow,
-          isMe ? styles.rowMe : styles.rowOther
-        ]}
-      >
-        <View
-          style={[
-            styles.bubble,
-            isMe ? styles.me : styles.other
-          ]}
+      <View style={[
+        styles.messageRow,
+        isMe ? styles.rowMe : styles.rowOther
+      ]}>
+
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onLongPress={() => toggleReaction(item, "❤️")}
         >
 
-          {item.type === "text" && (
+          <View style={[
+            styles.bubble,
+            isMe ? styles.me : styles.other
+          ]}>
+
             <Text style={isMe ? styles.meText : styles.otherText}>
               {item.content}
             </Text>
-          )}
 
-          {item.type === "image" && item.media && (
-            <Image
-              source={{ uri: item.media }}
-              style={styles.image}
-            />
-          )}
+            {!!item.reactions?.length && (
+              <View style={styles.reactionRow}>
+                {item.reactions.map((r, i) => (
+                  <Text key={i}>{r.emoji}</Text>
+                ))}
+              </View>
+            )}
 
-          {isMe && (
-            <View style={styles.statusRow}>
-              {item.deliveryStatus?.seenBy?.length ? (
-                <Ionicons name="checkmark-done" size={14} color="#60A5FA" />
-              ) : item.deliveryStatus?.deliveredTo?.length ? (
-                <Ionicons name="checkmark-done" size={14} color="#FFF" />
-              ) : (
-                <Ionicons name="checkmark" size={14} color="#FFF" />
-              )}
-            </View>
-          )}
+            {isMe && (
+              <View style={styles.statusRow}>
+                {item.deliveryStatus?.seenBy?.length ? (
+                  <Ionicons name="checkmark-done" size={16} color="#60A5FA" />
+                ) : item.deliveryStatus?.deliveredTo?.length ? (
+                  <Ionicons name="checkmark-done" size={16} color="#FFF" />
+                ) : (
+                  <Ionicons name="checkmark" size={16} color="#FFF" />
+                )}
+              </View>
+            )}
 
-        </View>
+          </View>
+        </TouchableOpacity>
+
       </View>
     );
   };
+
+  /* ================= BLOCKED CHECK ================= */
+
+  if (chat?.isBlocked) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <Text>This conversation is blocked</Text>
+      </SafeAreaView>
+    );
+  }
 
   /* ================= UI ================= */
 
   return (
     <SafeAreaView style={styles.container}>
+
+      <View style={styles.header}>
+        {otherUser?.avatar && (
+          <Image
+            source={{ uri: otherUser.avatar }}
+            style={styles.avatar}
+          />
+        )}
+
+        <View>
+          <Text style={styles.username}>
+            {otherUser?.username || "User"}
+          </Text>
+
+          {!!typingUsers.length && (
+            <Text style={styles.typing}>
+              typing...
+            </Text>
+          )}
+        </View>
+      </View>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -221,19 +279,22 @@ export default function ChatScreen() {
           contentContainerStyle={{ padding: 16 }}
         />
 
-        {typingUsers.length > 0 && (
-          <Text style={styles.typing}>
-            typing...
-          </Text>
-        )}
-
         <View style={styles.inputBar}>
 
           <TextInput
             value={text}
             onChangeText={(v) => {
+
               setText(v);
-              emitTyping(chatId);
+
+              emitTyping(chatId, true);
+
+              clearTimeout(typingTimeout.current);
+
+              typingTimeout.current = setTimeout(() => {
+                emitTyping(chatId, false);
+              }, 1500);
+
             }}
             style={styles.input}
             placeholder="Message..."
@@ -254,53 +315,27 @@ export default function ChatScreen() {
 /* ===================================================== */
 
 const styles = StyleSheet.create({
-
-  container: {
-    flex: 1,
-    backgroundColor: "#F9FAFB"
-  },
-
-  messageRow: {
-    marginVertical: 6
-  },
-
-  rowMe: {
-    alignItems: "flex-end"
-  },
-
-  rowOther: {
-    alignItems: "flex-start"
-  },
-
-  bubble: {
-    maxWidth: "75%",
+  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
-    borderRadius: 18
+    borderBottomWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFF"
   },
-
-  me: {
-    backgroundColor: "#4F46E5",
-    borderBottomRightRadius: 4
-  },
-
-  other: {
-    backgroundColor: "#E5E7EB",
-    borderBottomLeftRadius: 4
-  },
-
-  meText: {
-    color: "#FFF"
-  },
-
-  otherText: {
-    color: "#111827"
-  },
-
-  statusRow: {
-    marginTop: 4,
-    alignSelf: "flex-end"
-  },
-
+  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
+  username: { fontSize: 16, fontWeight: "600" },
+  messageRow: { marginVertical: 6 },
+  rowMe: { alignItems: "flex-end" },
+  rowOther: { alignItems: "flex-start" },
+  bubble: { maxWidth: "75%", padding: 12, borderRadius: 18 },
+  me: { backgroundColor: "#4F46E5", borderBottomRightRadius: 4 },
+  other: { backgroundColor: "#E5E7EB", borderBottomLeftRadius: 4 },
+  meText: { color: "#FFF" },
+  otherText: { color: "#111827" },
+  statusRow: { marginTop: 4, alignSelf: "flex-end" },
+  reactionRow: { flexDirection: "row", marginTop: 6 },
   inputBar: {
     flexDirection: "row",
     padding: 12,
@@ -309,7 +344,6 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     backgroundColor: "#FFF"
   },
-
   input: {
     flex: 1,
     backgroundColor: "#F3F4F6",
@@ -318,18 +352,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginRight: 10
   },
-
-  image: {
-    width: 180,
-    height: 180,
-    borderRadius: 12
-  },
-
-  typing: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginLeft: 16,
-    marginBottom: 4
-  }
-
+  typing: { fontSize: 12, color: "#6B7280" },
+  deletedBubble: { alignSelf: "center", marginVertical: 8 },
+  deletedText: { fontStyle: "italic", color: "#6B7280" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" }
 });

@@ -11,9 +11,32 @@ import {
 
 export interface ChatItem {
   _id: string;
-  participants: any[];
+
+  participants: {
+    _id: string;
+    username: string;
+    avatar?: string;
+    isOnline?: boolean;
+    lastSeen?: string;
+  }[];
+
   lastMessage?: any;
+  lastMessagePreview?: string;
+  lastMessageType?: string;
+
   unreadCount: number;
+  unreadCounts?: Record<string, number>;
+
+  isBlocked?: boolean;
+  blockedBy?: string;
+
+  isGroup?: boolean;
+
+  mutedBy?: string[];
+  archivedBy?: string[];
+  deletedFor?: string[];
+
+  createdAt: string;
   updatedAt: string;
 }
 
@@ -148,45 +171,38 @@ const chatSlice = createSlice({
 
     /* ================= ACTIVE CHAT ================= */
 
-    setActiveChat: (
-      state,
-      action: PayloadAction<string | undefined>
-    ) => {
+   setActiveChat: (
+  state,
+  action: PayloadAction<string | undefined>
+) => {
 
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🎯 setActiveChat");
-      console.log("New Active:", action.payload);
-      console.log("Old totalUnread:", state.totalUnread);
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("🎯 setActiveChat");
+  console.log("New Active:", action.payload);
 
-      state.activeChatId = action.payload;
+  /* 🔥 تنظيف typing للشات القديم */
+  if (state.activeChatId && state.typingUsers[state.activeChatId]) {
+    delete state.typingUsers[state.activeChatId];
+  }
 
-      if (!action.payload) {
-        console.log("⚠️ Active chat cleared");
-        return;
-      }
+  state.activeChatId = action.payload;
 
-      const chat = state.chats.find(
-        c => c._id === action.payload
-      );
+  if (!action.payload) return;
 
-      if (!chat) {
-        console.log("❌ Chat not found in state");
-        return;
-      }
+  const chat = state.chats.find(
+    c => c._id === action.payload
+  );
 
-      console.log("Unread before reset:", chat.unreadCount);
+  if (!chat) return;
 
-      state.totalUnread = Math.max(
-        0,
-        state.totalUnread - chat.unreadCount
-      );
+  state.totalUnread = Math.max(
+    0,
+    state.totalUnread - chat.unreadCount
+  );
 
-      chat.unreadCount = 0;
+  chat.unreadCount = 0;
+},
 
-      console.log("Unread after reset:", chat.unreadCount);
-      console.log("New totalUnread:", state.totalUnread);
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    },
 /* ================= MARK CHAT SEEN LOCALLY ================= */
 
 markChatSeenLocally: (
@@ -300,40 +316,38 @@ socketNewMessage: (
 
     /* ================= TYPING ================= */
 
-    setTyping: (
-      state,
-      action: PayloadAction<{
-        chatId: string;
-        userId: string;
-        typing: boolean;
-      }>
-    ) => {
+   setTyping: (
+  state,
+  action: PayloadAction<{
+    chatId: string;
+    userId: string;
+    typing: boolean;
+  }>
+) => {
 
-      const { chatId, userId, typing } =
-        action.payload;
+  const { chatId, userId, typing } = action.payload;
 
-      console.log("⌨️ Typing Event:", chatId, userId, typing);
+  if (state.activeChatId !== chatId) return;
 
-      if (!state.typingUsers[chatId]) {
-        state.typingUsers[chatId] = [];
-      }
+  if (!state.typingUsers[chatId]) {
+    state.typingUsers[chatId] = [];
+  }
 
-      if (typing) {
+  if (typing) {
 
-        if (!state.typingUsers[chatId].includes(userId)) {
-          state.typingUsers[chatId].push(userId);
-        }
-
-      } else {
-
-        state.typingUsers[chatId] =
-          state.typingUsers[chatId].filter(
-            id => id !== userId
-          );
-      }
-
-      console.log("TypingUsers:", state.typingUsers[chatId]);
+    if (!state.typingUsers[chatId].includes(userId)) {
+      state.typingUsers[chatId].push(userId);
     }
+
+  } else {
+
+    state.typingUsers[chatId] =
+      state.typingUsers[chatId].filter(
+        id => id !== userId
+      );
+  }
+},
+
 
   },
 

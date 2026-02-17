@@ -1,120 +1,111 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-    FlatList,
-    Image,
-    KeyboardAvoidingView,
-    ListRenderItem,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  ListRenderItem,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 
 import {
-    addOptimisticMessage,
-    fetchMessages,
-    MessageItem,
-    selectMessagesByChat
+  addMessage,
+  MessageItem,
+  setMessages
 } from "@/redux/slices/messageSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 
 import {
-    resetUnread,
-    setActiveChat
+  setActiveChat,
+  setUnreadFromServer
 } from "@/redux/slices/chatSlice";
 
 import {
-    emitMarkAsSeen,
-    emitTyping,
-    sendSocketMessage
+  emitMarkAsSeen,
+  emitTyping,
+  joinChatRoom,
+  sendSocketMessage
 } from "@/services/socket";
 
-/* =====================================================
-   TYPES
-===================================================== */
+import api from "@/services/api";
 
-import { useLocalSearchParams } from "expo-router";
+/* ===================================================== */
 
 export default function ChatScreen() {
 
   const { id } = useLocalSearchParams<{ id: string }>();
+  const chatId = id as string;
 
-  const chatId = id;
-
-
-const dispatch = useDispatch<AppDispatch>();
+  const dispatch = useDispatch<AppDispatch>();
   const flatListRef = useRef<FlatList<MessageItem>>(null);
-useEffect(() => {
-
-  if (!chatId) return;
-
-  dispatch(setActiveChat(chatId));
-  dispatch(resetUnread(chatId));
-
-  dispatch(fetchMessages({ chatId, page: 1 }));
-
-  emitMarkAsSeen(chatId);
-
-  return () => {
-    dispatch(setActiveChat(null));
-  };
-
-}, [chatId]);
-
-const messages = useSelector(
-  selectMessagesByChat(chatId)
-);
-useEffect(() => {
-
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("💬 CHAT SCREEN RENDER");
-  console.log("🆔 Chat ID:", chatId);
-  console.log("👤 Current User:", currentUser?._id);
-  console.log("📊 Messages Count:", messages.length);
-
-  if (messages.length > 0) {
-
-    const last = messages[messages.length - 1];
-
-    console.log("──────────────────────────────");
-    console.log("📝 Last Message ID:", last._id);
-    console.log("👤 Sender:", last.sender);
-    console.log("📦 Type:", last.type);
-    console.log("📄 Content:", last.content);
-    console.log("👁 Seen By:", last.deliveryStatus.seenBy.length);
-    console.log("📬 Delivered To:", last.deliveryStatus.deliveredTo.length);
-  }
-
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
-}, [messages]);
-
 
   const currentUser = useSelector(
     (state: RootState) => state.auth.user
   );
 
-  const typingUsers = useSelector(
-    (state: RootState) => state.chat.typingUsers
+  const messages = useSelector(
+    (state: RootState) =>
+      state.message.messages[chatId] || []
   );
-useEffect(() => {
 
-  console.log("⌨️ Typing Users:", typingUsers);
-
-}, [typingUsers]);
+  const typingUsers = useSelector(
+    (state: RootState) =>
+      state.chat.typingUsers[chatId] || []
+  );
 
   const [text, setText] = useState("");
-  const [replyTo, setReplyTo] = useState<MessageItem | null>(null);
 
+  /* ================= INITIAL LOAD ================= */
 
+  useEffect(() => {
 
-  /* ================= Auto Scroll ================= */
+    if (!chatId) return;
+
+    dispatch(setActiveChat(chatId));
+
+    joinChatRoom(chatId);
+
+    dispatch(setUnreadFromServer({
+      chatId,
+      unreadCount: 0
+    }));
+
+    const loadMessages = async () => {
+      try {
+        const res = await api.get(
+          `/messages/${chatId}?page=1`
+        );
+
+        dispatch(setMessages({
+          chatId,
+          messages: res.data
+        }));
+
+        emitMarkAsSeen(chatId);
+
+      } catch (err) {
+        console.log("Load messages error:", err);
+      }
+    };
+
+    loadMessages();
+
+    return () => {
+      dispatch(setActiveChat(undefined));
+    };
+
+  }, [chatId]);
+
+  /* ================= AUTO SCROLL ================= */
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -122,41 +113,51 @@ useEffect(() => {
     }
   }, [messages.length]);
 
-  /* ================= Send Text ================= */
+  /* ================= SEND MESSAGE ================= */
 
-  const sendMessage = () => {
+ const sendMessage = () => {
 
-    if (!text.trim()) return;
+  if (!text.trim() || !currentUser?._id) return;
 
-    const tempId = `temp-${Date.now()}`;
+  // 🔥 أنشئ tempId
+  const tempId = `temp-${Date.now()}`;
 
-    const optimisticMessage: MessageItem = {
-      _id: tempId,
-      chat: chatId,
-      sender: currentUser._id,
-      type: "text",
-      content: text,
-      deliveryStatus: { deliveredTo: [], seenBy: [] },
-      createdAt: new Date().toISOString(),
-      optimistic: true
-    };
-
-   dispatch(addOptimisticMessage(optimisticMessage));
-
-
-    sendSocketMessage(chatId, text, "text", null, replyTo);
-
-    setText("");
-    setReplyTo(null);
+  const optimistic: MessageItem = {
+    _id: tempId,
+    clientTempId: tempId, // 🔥 مهم جداً
+    chat: chatId,
+    sender: currentUser._id,
+    type: "text",
+    content: text,
+    deliveryStatus: {
+      deliveredTo: [],
+      seenBy: []
+    },
+    reactions: [],
+    createdAt: new Date().toISOString(),
+    optimistic: true
   };
 
-  /* =====================================================
-     RENDER MESSAGE (Typed Properly)
-  ===================================================== */
+  // 1️⃣ أضف optimistic
+  dispatch(addMessage(optimistic));
+
+  // 2️⃣ أرسل مع clientTempId
+  sendSocketMessage(
+    chatId,
+    text,
+    "text",
+    tempId // 🔥 مهم
+  );
+
+  setText("");
+};
+
+
+  /* ================= RENDER MESSAGE ================= */
 
   const renderMessage: ListRenderItem<MessageItem> = ({ item }) => {
 
-    const isMe = item.sender === currentUser._id;
+    const isMe = item.sender === currentUser?._id;
 
     return (
       <View
@@ -172,14 +173,6 @@ useEffect(() => {
           ]}
         >
 
-          {item.replyTo && (
-            <View style={styles.replyBox}>
-              <Text style={styles.replyText}>
-                {item.replyTo.content}
-              </Text>
-            </View>
-          )}
-
           {item.type === "text" && (
             <Text style={isMe ? styles.meText : styles.otherText}>
               {item.content}
@@ -193,13 +186,11 @@ useEffect(() => {
             />
           )}
 
-          {/* Status */}
-
           {isMe && (
             <View style={styles.statusRow}>
-              {item.deliveryStatus.seenBy.length > 0 ? (
+              {item.deliveryStatus?.seenBy?.length ? (
                 <Ionicons name="checkmark-done" size={14} color="#60A5FA" />
-              ) : item.deliveryStatus.deliveredTo.length > 0 ? (
+              ) : item.deliveryStatus?.deliveredTo?.length ? (
                 <Ionicons name="checkmark-done" size={14} color="#FFF" />
               ) : (
                 <Ionicons name="checkmark" size={14} color="#FFF" />
@@ -212,14 +203,7 @@ useEffect(() => {
     );
   };
 
-  /* ================= Typing Indicator ================= */
-
-  const isTyping = Object.keys(typingUsers)
-    .some(key => key.startsWith(chatId));
-
-  /* =====================================================
-     UI
-  ===================================================== */
+  /* ================= UI ================= */
 
   return (
     <SafeAreaView style={styles.container}>
@@ -237,7 +221,7 @@ useEffect(() => {
           contentContainerStyle={{ padding: 16 }}
         />
 
-        {isTyping && (
+        {typingUsers.length > 0 && (
           <Text style={styles.typing}>
             typing...
           </Text>
@@ -267,9 +251,7 @@ useEffect(() => {
   );
 }
 
-/* =====================================================
-   STYLES
-===================================================== */
+/* ===================================================== */
 
 const styles = StyleSheet.create({
 
@@ -341,18 +323,6 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     borderRadius: 12
-  },
-
-  replyBox: {
-    borderLeftWidth: 3,
-    borderColor: "#A5B4FC",
-    paddingLeft: 6,
-    marginBottom: 4
-  },
-
-  replyText: {
-    fontSize: 12,
-    color: "#6B7280"
   },
 
   typing: {

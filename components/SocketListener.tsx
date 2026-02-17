@@ -45,7 +45,6 @@
 
 //   return null;
 // }
-
 import {
   addNotificationFromSocket,
   setUnreadCount,
@@ -53,10 +52,18 @@ import {
 } from "@/redux/slices/notificationSlice";
 
 import {
+  setTyping,
   setUnreadFromServer,
-  socketNewMessage,
-  updateMessageStatus
+  socketNewMessage
 } from "@/redux/slices/chatSlice";
+
+import {
+  addMessage,
+  deleteMessageFromSocket,
+  markDeliveredFromSocket,
+  markSeenFromSocket,
+  updateReaction
+} from "@/redux/slices/messageSlice";
 
 import { RootState } from "@/redux/store";
 import { connectSocket, disconnectSocket } from "@/services/socket";
@@ -66,8 +73,7 @@ import { useDispatch, useSelector } from "react-redux";
 export default function SocketListener() {
 
   const dispatch = useDispatch();
-  const { token } = useSelector((state: RootState) => state.auth);
-  const { activeChatId } = useSelector((state: RootState) => state.chat);
+  const token = useSelector((state: RootState) => state.auth.token);
 
   useEffect(() => {
 
@@ -78,14 +84,7 @@ export default function SocketListener() {
 
     const socket = connectSocket(token);
 
-    socket.off("notification:new");
-    socket.off("notification:sync");
-    socket.off("notification:count");
-
-    socket.off("chat:new");
-    socket.off("unread:update");
-    socket.off("message:delivered");
-    socket.off("message:seen");
+    console.log("📡 Attaching socket listeners...");
 
     /* ================= NOTIFICATIONS ================= */
 
@@ -97,43 +96,84 @@ export default function SocketListener() {
       dispatch(syncNotificationsFromSocket(data));
     });
 
-    socket.on("notification:count", (count) => {
-      dispatch(setUnreadCount(count));
+    socket.on("notification:unreadTotal", (total) => {
+      dispatch(setUnreadCount(total));
     });
 
-    /* ================= CHAT ================= */
+    /* ================= NEW MESSAGE ================= */
 
     socket.on("chat:new", (message) => {
 
+      console.log("📥 chat:new RECEIVED:", message._id);
+
+      // 1️⃣ أضف الرسالة في messageSlice
+      dispatch(addMessage(message));
+
+      // 2️⃣ حدث chatSlice (unread + lastMessage)
       dispatch(socketNewMessage({
         chatId: message.chat,
-        message,
-        isActive: activeChatId === message.chat
+        message
       }));
 
     });
 
-    socket.on("unread:update", (data) => {
+    /* ================= DELIVERY UPDATE ================= */
+
+    socket.on("chat:delivery:update", (data) => {
+      console.log("📬 DELIVERY UPDATE:", data);
+      dispatch(markDeliveredFromSocket(data));
+    });
+
+    /* ================= SEEN UPDATE ================= */
+
+    socket.on("chat:seen:update", (data) => {
+      console.log("👁 SEEN UPDATE:", data);
+
+      dispatch(markSeenFromSocket(data));
+
+      dispatch(setUnreadFromServer({
+        chatId: data.chatId,
+        unreadCount: 0
+      }));
+    });
+
+    /* ================= UNREAD SYNC ================= */
+
+    socket.on("chat:unread:update", (data) => {
+      console.log("🔢 UNREAD UPDATE:", data);
       dispatch(setUnreadFromServer(data));
     });
 
-    socket.on("message:delivered", (data) => {
-      dispatch(updateMessageStatus({
+    /* ================= REACTIONS ================= */
+
+    socket.on("chat:reaction:update", (data) => {
+      dispatch(updateReaction(data));
+    });
+
+    /* ================= DELETE MESSAGE ================= */
+
+    socket.on("chat:message:deleted", (data) => {
+      dispatch(deleteMessageFromSocket(data));
+    });
+
+    /* ================= TYPING ================= */
+
+    socket.on("chat:typing", (data) => {
+      dispatch(setTyping({
         chatId: data.chatId,
-        messageId: data.messageId,
-        status: "delivered"
+        userId: data.userId,
+        typing: true
       }));
     });
 
-    socket.on("message:seen", (data) => {
-      dispatch(updateMessageStatus({
-        chatId: data.chatId,
-        messageId: data.messageId,
-        status: "seen"
-      }));
-    });
+    console.log("✅ Socket listeners attached");
 
-  }, [token, activeChatId]);
+    return () => {
+      console.log("🛑 Removing socket listeners");
+      socket.removeAllListeners();
+    };
+
+  }, [token]); // ✅ فقط token
 
   return null;
 }

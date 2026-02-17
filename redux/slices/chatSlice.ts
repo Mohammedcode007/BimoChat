@@ -1,308 +1,8 @@
-// import api from "@/services/api";
-// import {
-//     createAsyncThunk,
-//     createSlice,
-//     PayloadAction
-// } from "@reduxjs/toolkit";
-
-// /* =====================================================
-//    TYPES
-// ===================================================== */
-
-// export interface ChatItem {
-//   _id: string;
-
-//   participants: {
-//     _id: string;
-//     username: string;
-//     avatar?: string;
-//     isOnline: boolean;
-//   }[];
-
-//   lastMessage?: {
-//     _id: string;
-//     content?: string;
-//     type: string;
-//     createdAt: string;
-//     status?: "sent" | "delivered" | "seen";
-//   };
-
-//   unreadCount: number;
-//   updatedAt: string;
-// }
-
-// interface ChatState {
-//   chats: ChatItem[];
-//   totalUnread: number;
-//   activeChatId: string | null;
-//   typingUsers: Record<string, boolean>;
-//   loading: boolean;
-// }
-
-// const initialState: ChatState = {
-//   chats: [],
-//   totalUnread: 0,
-//   activeChatId: null,
-//   typingUsers: {},
-//   loading: false
-// };
-
-// /* =====================================================
-//    ASYNC THUNKS
-// ===================================================== */
-
-// export const fetchChats = createAsyncThunk<ChatItem[]>(
-//   "chat/fetch",
-//   async () => {
-//     const res = await api.get("/chats");
-//     return res.data;
-//   }
-// );
-
-// export const fetchTotalUnread = createAsyncThunk<number>(
-//   "chat/totalUnread",
-//   async () => {
-//     const res = await api.get("/chats/total-unread");
-//     return res.data.totalUnread;
-//   }
-// );
-
-// export const createChat = createAsyncThunk<
-//   ChatItem,
-//   string,
-//   { rejectValue: string }
-// >(
-//   "chat/create",
-//   async (targetId, thunkAPI) => {
-
-//     try {
-
-//       const res = await api.post("/chats/create", {
-//         targetId
-//       });
-
-//       return res.data as ChatItem;
-
-//     } catch (err: any) {
-
-//       return thunkAPI.rejectWithValue(
-//         err.response?.data?.message || "Create chat failed"
-//       );
-//     }
-//   }
-// );
-
-// /* =====================================================
-//    SLICE
-// ===================================================== */
-
-// const chatSlice = createSlice({
-//   name: "chat",
-//   initialState,
-//   reducers: {
-
-//     /* ================= ACTIVE ================= */
-
-//     setActiveChat: (
-//       state,
-//       action: PayloadAction<string | null>
-//     ) => {
-//       state.activeChatId = action.payload;
-//     },
-
-//     /* ================= SOCKET NEW MESSAGE ================= */
-
-//     socketNewMessage: (
-//       state,
-//       action: PayloadAction<{
-//         chatId: string;
-//         message: ChatItem["lastMessage"];
-//         isActive: boolean;
-//       }>
-//     ) => {
-
-//       const { chatId, message, isActive } = action.payload;
-
-//       const chat = state.chats.find(
-//         c => c._id === chatId
-//       );
-
-//       if (!chat) return;
-
-//       chat.lastMessage = message;
-//       chat.updatedAt = new Date().toISOString();
-
-//       if (!isActive) {
-//         chat.unreadCount += 1;
-//         state.totalUnread += 1;
-//       }
-
-//       /* 🔥 Move to top */
-//       state.chats = [
-//         chat,
-//         ...state.chats.filter(c => c._id !== chatId)
-//       ];
-//     },
-
-//     /* ================= SERVER UNREAD SYNC ================= */
-
-//     setUnreadFromServer: (
-//       state,
-//       action: PayloadAction<{
-//         chatId: string;
-//         unreadCount: number;
-//       }>
-//     ) => {
-
-//       const chat = state.chats.find(
-//         c => c._id === action.payload.chatId
-//       );
-
-//       if (!chat) return;
-
-//       const difference =
-//         action.payload.unreadCount - chat.unreadCount;
-
-//       chat.unreadCount = action.payload.unreadCount;
-//       state.totalUnread += difference;
-//     },
-
-//     /* ================= RESET UNREAD ================= */
-
-//     resetUnread: (
-//       state,
-//       action: PayloadAction<string>
-//     ) => {
-
-//       const chat = state.chats.find(
-//         c => c._id === action.payload
-//       );
-
-//       if (!chat) return;
-
-//       state.totalUnread -= chat.unreadCount;
-//       chat.unreadCount = 0;
-//     },
-
-//     /* ================= UPDATE MESSAGE STATUS ================= */
-
-//     updateMessageStatus: (
-//       state,
-//       action: PayloadAction<{
-//         chatId: string;
-//         messageId: string;
-//         status: "delivered" | "seen";
-//       }>
-//     ) => {
-
-//       const chat = state.chats.find(
-//         c => c._id === action.payload.chatId
-//       );
-
-//       if (!chat?.lastMessage) return;
-
-//       if (chat.lastMessage._id === action.payload.messageId) {
-//         chat.lastMessage.status = action.payload.status;
-//       }
-//     },
-
-//     /* ================= TYPING ================= */
-
-//     setTyping: (
-//       state,
-//       action: PayloadAction<{
-//         chatId: string;
-//         userId: string;
-//         typing: boolean;
-//       }>
-//     ) => {
-
-//       const key =
-//         `${action.payload.chatId}-${action.payload.userId}`;
-
-//       if (action.payload.typing) {
-//         state.typingUsers[key] = true;
-//       } else {
-//         delete state.typingUsers[key];
-//       }
-//     }
-
-//   },
-
-//   extraReducers: builder => {
-
-//     builder
-
-//       /* ================= FETCH CHATS ================= */
-
-//       .addCase(fetchChats.pending, (state) => {
-//         state.loading = true;
-//       })
-
-//       .addCase(fetchChats.fulfilled, (state, action) => {
-//         state.loading = false;
-//         state.chats = action.payload;
-//       })
-
-//       .addCase(fetchChats.rejected, (state) => {
-//         state.loading = false;
-//       })
-
-//       /* ================= TOTAL UNREAD ================= */
-
-//       .addCase(fetchTotalUnread.fulfilled, (state, action) => {
-//         state.totalUnread = action.payload;
-//       })
-
-//       /* ================= CREATE CHAT ================= */
-
-//       .addCase(createChat.pending, (state) => {
-//         state.loading = true;
-//       })
-
-//       .addCase(createChat.fulfilled, (state, action) => {
-
-//         state.loading = false;
-
-//         const exists = state.chats.find(
-//           c => c._id === action.payload._id
-//         );
-
-//         if (!exists) {
-//           state.chats.unshift(action.payload);
-//         }
-
-//         state.activeChatId = action.payload._id;
-//       })
-
-//       .addCase(createChat.rejected, (state) => {
-//         state.loading = false;
-//       });
-
-//   }
-
-// });
-
-// /* =====================================================
-//    EXPORTS
-// ===================================================== */
-
-// export const {
-//   setActiveChat,
-//   socketNewMessage,
-//   setUnreadFromServer,
-//   resetUnread,
-//   updateMessageStatus,
-//   setTyping
-// } = chatSlice.actions;
-
-// export default chatSlice.reducer;
-
 import api from "@/services/api";
 import {
-    createAsyncThunk,
-    createSlice,
-    PayloadAction
+  createAsyncThunk,
+  createSlice,
+  PayloadAction
 } from "@reduxjs/toolkit";
 
 /* =====================================================
@@ -311,112 +11,131 @@ import {
 
 export interface ChatItem {
   _id: string;
-
-  participants: {
-    _id: string;
-    username: string;
-    avatar?: string;
-    isOnline: boolean;
-  }[];
-
-  lastMessage?: {
-    _id: string;
-    content?: string;
-    type: string;
-    createdAt: string;
-    status?: "sent" | "delivered" | "seen";
-  };
-
+  participants: any[];
+  lastMessage?: any;
   unreadCount: number;
   updatedAt: string;
 }
 
 interface ChatState {
   chats: ChatItem[];
-  totalUnread: number;
-  activeChatId: string | null;
-  typingUsers: Record<string, boolean>;
+  activeChatId?: string;
+  typingUsers: Record<string, string[]>;
   loading: boolean;
+  totalUnread: number;
 }
 
 const initialState: ChatState = {
   chats: [],
-  totalUnread: 0,
-  activeChatId: null,
+  activeChatId: undefined,
   typingUsers: {},
-  loading: false
+  loading: false,
+  totalUnread: 0
 };
 
 /* =====================================================
    ASYNC THUNKS
 ===================================================== */
+export const markChatSeen = createAsyncThunk<
+  string,
+  string
+>("chat/markChatSeen", async (chatId, thunkAPI) => {
 
-export const fetchChats = createAsyncThunk<ChatItem[]>(
-  "chat/fetch",
-  async () => {
+  try {
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📋 FETCH CHATS START");
+    await api.post(`/chats/${chatId}/seen`);
+
+    return chatId;
+
+  } catch {
+
+    return thunkAPI.rejectWithValue(chatId);
+  }
+});
+
+export const fetchChats = createAsyncThunk<
+  ChatItem[]
+>("chat/fetchChats", async (_, thunkAPI) => {
+
+  console.log("📡 fetchChats START");
+
+  try {
 
     const res = await api.get("/chats");
 
-    console.log("📊 Chats received:", res.data?.length || 0);
-    console.log("📋 FETCH CHATS END");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("📡 fetchChats SUCCESS:", res.data.length);
 
     return res.data;
+
+  } catch (error) {
+
+    console.log("❌ fetchChats ERROR");
+
+    return thunkAPI.rejectWithValue("Failed to fetch chats");
   }
-);
-
-export const fetchTotalUnread = createAsyncThunk<number>(
-  "chat/totalUnread",
-  async () => {
-
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📊 FETCH TOTAL UNREAD START");
-
-    const res = await api.get("/chats/total-unread");
-
-    console.log("📊 Total unread:", res.data.totalUnread);
-    console.log("📊 FETCH TOTAL UNREAD END");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
-    return res.data.totalUnread;
-  }
-);
+});
 
 export const createChat = createAsyncThunk<
   ChatItem,
-  string,
-  { rejectValue: string }
->(
-  "chat/create",
-  async (targetId, thunkAPI) => {
+  string
+>("chat/createChat", async (targetId, thunkAPI) => {
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("💬 CREATE CHAT START");
-    console.log("🎯 Target:", targetId);
+  console.log("📤 createChat with:", targetId);
 
-    try {
+  try {
 
-      const res = await api.post("/chats/create", { targetId });
+    const res = await api.post("/chats", { targetId });
 
-      console.log("✅ Chat created:", res.data._id);
-      console.log("💬 CREATE CHAT END");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("✅ createChat SUCCESS:", res.data._id);
 
-      return res.data as ChatItem;
+    return res.data;
 
-    } catch (err: any) {
+  } catch {
 
-      console.log("❌ CREATE CHAT FAILED:", err?.response?.data?.message);
+    console.log("❌ createChat FAILED");
 
-      return thunkAPI.rejectWithValue(
-        err.response?.data?.message || "Create chat failed"
-      );
-    }
+    return thunkAPI.rejectWithValue("Failed to create chat");
   }
-);
+});
+
+export const deleteChat = createAsyncThunk<
+  string,
+  string
+>("chat/deleteChat", async (chatId, thunkAPI) => {
+
+  try {
+
+    await api.delete(`/chats/${chatId}`);
+
+    return chatId;
+
+  } catch {
+
+    return thunkAPI.rejectWithValue(chatId);
+  }
+});
+
+export const fetchTotalUnread = createAsyncThunk<
+  number
+>("chat/fetchTotalUnread", async (_, thunkAPI) => {
+
+  console.log("📊 fetchTotalUnread START");
+
+  try {
+
+    const res = await api.get("/chats/unread/total");
+
+    console.log("📊 totalUnread from server:", res.data.total);
+
+    return res.data.total;
+
+  } catch {
+
+    console.log("❌ fetchTotalUnread FAILED");
+
+    return thunkAPI.rejectWithValue("Failed to get unread");
+  }
+});
 
 /* =====================================================
    SLICE
@@ -427,61 +146,122 @@ const chatSlice = createSlice({
   initialState,
   reducers: {
 
-    /* ================= ACTIVE ================= */
+    /* ================= ACTIVE CHAT ================= */
 
-    setActiveChat: (state, action: PayloadAction<string | null>) => {
-
-      console.log("📍 ACTIVE CHAT SET:", action.payload);
-
-      state.activeChatId = action.payload;
-    },
-
-    /* ================= SOCKET NEW MESSAGE ================= */
-
-    socketNewMessage: (
+    setActiveChat: (
       state,
-      action: PayloadAction<{
-        chatId: string;
-        message: ChatItem["lastMessage"];
-        isActive: boolean;
-      }>
+      action: PayloadAction<string | undefined>
     ) => {
 
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📩 SOCKET NEW MESSAGE");
-      console.log("💬 Chat:", action.payload.chatId);
-      console.log("👁 Is Active:", action.payload.isActive);
+      console.log("🎯 setActiveChat");
+      console.log("New Active:", action.payload);
+      console.log("Old totalUnread:", state.totalUnread);
 
-      const { chatId, message, isActive } = action.payload;
+      state.activeChatId = action.payload;
 
-      const chat = state.chats.find(
-        c => c._id === chatId
-      );
-
-      if (!chat) {
-        console.log("⚠ Chat not found in state");
+      if (!action.payload) {
+        console.log("⚠️ Active chat cleared");
         return;
       }
 
-      chat.lastMessage = message;
-      chat.updatedAt = new Date().toISOString();
+      const chat = state.chats.find(
+        c => c._id === action.payload
+      );
 
-      if (!isActive) {
-        chat.unreadCount += 1;
-        state.totalUnread += 1;
-        console.log("📊 Increment unread");
+      if (!chat) {
+        console.log("❌ Chat not found in state");
+        return;
       }
 
-      state.chats = [
-        chat,
-        ...state.chats.filter(c => c._id !== chatId)
-      ];
+      console.log("Unread before reset:", chat.unreadCount);
 
-      console.log("📩 SOCKET NEW MESSAGE END");
+      state.totalUnread = Math.max(
+        0,
+        state.totalUnread - chat.unreadCount
+      );
+
+      chat.unreadCount = 0;
+
+      console.log("Unread after reset:", chat.unreadCount);
+      console.log("New totalUnread:", state.totalUnread);
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     },
+/* ================= MARK CHAT SEEN LOCALLY ================= */
 
-    /* ================= SERVER UNREAD SYNC ================= */
+markChatSeenLocally: (
+  state,
+  action: PayloadAction<string>
+) => {
+
+  const chatId = action.payload;
+
+  const chat = state.chats.find(
+    c => c._id === chatId
+  );
+
+  if (!chat) return;
+
+  state.totalUnread = Math.max(
+    0,
+    state.totalUnread - chat.unreadCount
+  );
+
+  chat.unreadCount = 0;
+},
+
+    /* ================= SOCKET NEW MESSAGE ================= */
+
+socketNewMessage: (
+  state,
+  action: PayloadAction<{
+    chatId: string;
+    message: any;
+  }>
+) => {
+
+  const { chatId, message } = action.payload;
+
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("📥 socketNewMessage RECEIVED");
+  console.log("ChatId:", chatId);
+
+  const chat = state.chats.find(
+    c => c._id === chatId
+  );
+
+  if (!chat) {
+    console.log("❌ Chat NOT FOUND in state");
+    console.log("Available chats:", state.chats);
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    return;
+  }
+
+  chat.lastMessage = message;
+  chat.updatedAt = message.createdAt;
+
+  const isActive = state.activeChatId === chatId;
+
+  if (!isActive) {
+    chat.unreadCount += 1;
+    state.totalUnread += 1;
+    console.log("🔢 Unread incremented");
+  } else {
+    console.log("👀 Chat is active → no unread increment");
+  }
+
+  console.log("Updated unread:", chat.unreadCount);
+  console.log("Updated totalUnread:", state.totalUnread);
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+  state.chats.sort(
+    (a, b) =>
+      new Date(b.updatedAt).getTime() -
+      new Date(a.updatedAt).getTime()
+  );
+},
+
+    /* ================= SYNC UNREAD ================= */
 
     setUnreadFromServer: (
       state,
@@ -491,64 +271,31 @@ const chatSlice = createSlice({
       }>
     ) => {
 
-      console.log("📡 UNREAD SYNC FROM SERVER");
-      console.log("💬 Chat:", action.payload.chatId);
-      console.log("📊 New unread:", action.payload.unreadCount);
+      const { chatId, unreadCount } = action.payload;
+
+      console.log("🔄 setUnreadFromServer");
+      console.log("Chat:", chatId);
+      console.log("Server unread:", unreadCount);
 
       const chat = state.chats.find(
-        c => c._id === action.payload.chatId
+        c => c._id === chatId
       );
 
-      if (!chat) return;
-
-      const difference =
-        action.payload.unreadCount - chat.unreadCount;
-
-      chat.unreadCount = action.payload.unreadCount;
-      state.totalUnread += difference;
-    },
-
-    /* ================= RESET UNREAD ================= */
-
-    resetUnread: (state, action: PayloadAction<string>) => {
-
-      console.log("🧹 RESET UNREAD:", action.payload);
-
-      const chat = state.chats.find(
-        c => c._id === action.payload
-      );
-
-      if (!chat) return;
-
-      state.totalUnread -= chat.unreadCount;
-      chat.unreadCount = 0;
-    },
-
-    /* ================= UPDATE MESSAGE STATUS ================= */
-
-    updateMessageStatus: (
-      state,
-      action: PayloadAction<{
-        chatId: string;
-        messageId: string;
-        status: "delivered" | "seen";
-      }>
-    ) => {
-
-      console.log("📦 UPDATE MESSAGE STATUS");
-      console.log("💬 Chat:", action.payload.chatId);
-      console.log("📩 Message:", action.payload.messageId);
-      console.log("📌 Status:", action.payload.status);
-
-      const chat = state.chats.find(
-        c => c._id === action.payload.chatId
-      );
-
-      if (!chat?.lastMessage) return;
-
-      if (chat.lastMessage._id === action.payload.messageId) {
-        chat.lastMessage.status = action.payload.status;
+      if (!chat) {
+        console.log("❌ Chat not found for unread sync");
+        return;
       }
+
+      state.totalUnread = Math.max(
+        0,
+        state.totalUnread - chat.unreadCount
+      );
+
+      chat.unreadCount = unreadCount;
+      state.totalUnread += unreadCount;
+
+      console.log("New unread:", chat.unreadCount);
+      console.log("New totalUnread:", state.totalUnread);
     },
 
     /* ================= TYPING ================= */
@@ -562,96 +309,133 @@ const chatSlice = createSlice({
       }>
     ) => {
 
-      const key =
-        `${action.payload.chatId}-${action.payload.userId}`;
+      const { chatId, userId, typing } =
+        action.payload;
 
-      console.log("⌨️ TYPING UPDATE");
-      console.log("💬 Chat:", action.payload.chatId);
-      console.log("👤 User:", action.payload.userId);
-      console.log("✏️ Typing:", action.payload.typing);
+      console.log("⌨️ Typing Event:", chatId, userId, typing);
 
-      if (action.payload.typing) {
-        state.typingUsers[key] = true;
-      } else {
-        delete state.typingUsers[key];
+      if (!state.typingUsers[chatId]) {
+        state.typingUsers[chatId] = [];
       }
+
+      if (typing) {
+
+        if (!state.typingUsers[chatId].includes(userId)) {
+          state.typingUsers[chatId].push(userId);
+        }
+
+      } else {
+
+        state.typingUsers[chatId] =
+          state.typingUsers[chatId].filter(
+            id => id !== userId
+          );
+      }
+
+      console.log("TypingUsers:", state.typingUsers[chatId]);
     }
 
   },
 
-  extraReducers: builder => {
+ extraReducers: builder => {
 
-    builder
+  builder
 
-      /* ================= FETCH CHATS ================= */
+    .addCase(fetchChats.pending, (state) => {
+      state.loading = true;
+    })
 
-      .addCase(fetchChats.pending, (state) => {
-        console.log("⏳ FETCH CHATS PENDING");
-        state.loading = true;
-      })
+    .addCase(fetchChats.fulfilled, (state, action) => {
+      state.loading = false;
+      state.chats = action.payload;
+      state.totalUnread = action.payload.reduce(
+        (sum, chat) => sum + chat.unreadCount,
+        0
+      );
+    })
 
-      .addCase(fetchChats.fulfilled, (state, action) => {
-        console.log("✅ FETCH CHATS SUCCESS");
-        state.loading = false;
-        state.chats = action.payload;
-      })
+    .addCase(fetchChats.rejected, (state) => {
+      state.loading = false;
+    })
 
-      .addCase(fetchChats.rejected, (state) => {
-        console.log("❌ FETCH CHATS FAILED");
-        state.loading = false;
-      })
+    .addCase(createChat.fulfilled, (state, action) => {
+      const exists = state.chats.find(
+        c => c._id === action.payload._id
+      );
+      if (!exists) {
+        state.chats.unshift(action.payload);
+      }
+    })
 
-      /* ================= TOTAL UNREAD ================= */
+    .addCase(fetchTotalUnread.fulfilled, (state, action) => {
+      state.totalUnread = action.payload;
+    })
 
-      .addCase(fetchTotalUnread.fulfilled, (state, action) => {
-        console.log("📊 TOTAL UNREAD UPDATED:", action.payload);
-        state.totalUnread = action.payload;
-      })
+    /* ================= MARK CHAT SEEN ================= */
 
-      /* ================= CREATE CHAT ================= */
+    .addCase(markChatSeen.fulfilled, (state, action) => {
 
-      .addCase(createChat.pending, (state) => {
-        console.log("⏳ CREATE CHAT PENDING");
-        state.loading = true;
-      })
+      const chatId = action.payload;
 
-      .addCase(createChat.fulfilled, (state, action) => {
+      const chat = state.chats.find(
+        c => c._id === chatId
+      );
 
-        console.log("✅ CREATE CHAT SUCCESS:", action.payload._id);
+      if (!chat) return;
 
-        state.loading = false;
+      state.totalUnread = Math.max(
+        0,
+        state.totalUnread - chat.unreadCount
+      );
 
-        const exists = state.chats.find(
-          c => c._id === action.payload._id
-        );
+      chat.unreadCount = 0;
 
-        if (!exists) {
-          state.chats.unshift(action.payload);
-        }
+    })
 
-        state.activeChatId = action.payload._id;
-      })
+    /* ================= DELETE CHAT ================= */
 
-      .addCase(createChat.rejected, (state) => {
-        console.log("❌ CREATE CHAT FAILED");
-        state.loading = false;
-      });
+    .addCase(deleteChat.pending, (state, action) => {
 
-  }
+      const chatId = action.meta.arg;
+
+      const chat = state.chats.find(c => c._id === chatId);
+      if (!chat) return;
+
+      state.totalUnread = Math.max(
+        0,
+        state.totalUnread - chat.unreadCount
+      );
+
+      state.chats = state.chats.filter(
+        c => c._id !== chatId
+      );
+
+      if (state.activeChatId === chatId) {
+        state.activeChatId = undefined;
+      }
+
+    })
+
+    .addCase(deleteChat.rejected, () => {
+      console.log("❌ deleteChat failed");
+    })
+
+    .addCase(deleteChat.fulfilled, () => {
+      console.log("🗑️ deleteChat success");
+    });
+
+}
+
 
 });
-
-/* =====================================================
-   EXPORTS
-===================================================== */
 
 export const {
   setActiveChat,
   socketNewMessage,
   setUnreadFromServer,
-  resetUnread,
-  updateMessageStatus,
-  setTyping
+  setTyping,
+  markChatSeenLocally
 } = chatSlice.actions;
+
 
 export default chatSlice.reducer;

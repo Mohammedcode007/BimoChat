@@ -1,6 +1,7 @@
 import { Colors } from '@/constants/theme';
 import {
   createChat,
+  fetchChats,
   setActiveChat
 } from '@/redux/slices/chatSlice';
 
@@ -10,10 +11,11 @@ import {
 } from '@/redux/slices/friendSlice';
 
 import {
-  fetchMessages
+  setMessages
 } from '@/redux/slices/messageSlice';
 
 import { AppDispatch, RootState } from '@/redux/store';
+import api from '@/services/api';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
@@ -51,13 +53,13 @@ export default function FriendsScreen() {
   const [creatingChatId, setCreatingChatId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  /* ======================= Fetch ======================= */
+  /* ================= Fetch Friends ================= */
 
   useEffect(() => {
     dispatch(getFriends());
   }, [dispatch]);
 
-  /* ======================= Filter ======================= */
+  /* ================= Filter ================= */
 
   const filteredFriends = useMemo(() => {
     return friends.filter((f) =>
@@ -65,7 +67,7 @@ export default function FriendsScreen() {
     );
   }, [friends, search]);
 
-  /* ======================= Last Seen Formatter ======================= */
+  /* ================= Format Last Seen ================= */
 
   const formatLastSeen = (date?: string) => {
 
@@ -83,7 +85,7 @@ export default function FriendsScreen() {
     return `${Math.floor(diff / 86400)}d ago`;
   };
 
-  /* ======================= Pull To Refresh ======================= */
+  /* ================= Pull To Refresh ================= */
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -91,13 +93,13 @@ export default function FriendsScreen() {
     setRefreshing(false);
   };
 
-  /* ======================= Delete ======================= */
+  /* ================= Remove Friend ================= */
 
   const deleteFriendHandler = (id: string) => {
     dispatch(removeFriend(id));
   };
 
-  /* ======================= Open Chat ======================= */
+  /* ================= Open Chat (Updated) ================= */
 
   const openChat = async (targetUserId: string) => {
 
@@ -107,14 +109,25 @@ export default function FriendsScreen() {
 
       setCreatingChatId(targetUserId);
 
+      // 🔥 استخدم thunk بدلاً من axios مباشر
       const chat = await dispatch(
         createChat(targetUserId)
       ).unwrap();
 
       dispatch(setActiveChat(chat._id));
 
-      /* 🔥 Prefetch messages قبل الدخول */
-      dispatch(fetchMessages({ chatId: chat._id, page: 1 }));
+      // تحديث قائمة الشات لضمان الظهور
+      dispatch(fetchChats());
+
+      // جلب الرسائل
+      const messagesRes = await api.get(
+        `/messages/${chat._id}?page=1`
+      );
+
+      dispatch(setMessages({
+        chatId: chat._id,
+        messages: messagesRes.data
+      }));
 
       router.push(`/chat/${chat._id}`);
 
@@ -125,7 +138,7 @@ export default function FriendsScreen() {
     }
   };
 
-  /* ======================= Swipe ======================= */
+  /* ================= Swipe ================= */
 
   const renderRightActions = (item: any) => (
     <View style={styles.actions}>
@@ -139,12 +152,10 @@ export default function FriendsScreen() {
     </View>
   );
 
-  /* ======================= Render ======================= */
+  /* ================= Render ================= */
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-
-      {/* TOP BAR */}
 
       <View style={styles.topBar}>
 
@@ -168,8 +179,6 @@ export default function FriendsScreen() {
 
       </View>
 
-      {/* LIST */}
-
       <FlatList
         data={filteredFriends}
         keyExtractor={(item) => item._id}
@@ -188,9 +197,6 @@ export default function FriendsScreen() {
               <Ionicons name="people-outline" size={60} color="#CBD5E1" />
               <Text style={styles.emptyTitle}>
                 {search ? "No matching friends" : "No friends yet"}
-              </Text>
-              <Text style={styles.emptySubtitle}>
-                Start adding friends to begin chatting.
               </Text>
             </View>
           )

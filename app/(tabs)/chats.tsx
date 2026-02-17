@@ -1,9 +1,13 @@
 import { Colors } from '@/constants/theme';
 import {
+  deleteChat,
   fetchChats,
-  resetUnread,
-  setActiveChat
+  fetchTotalUnread,
+  setActiveChat,
+  setUnreadFromServer
 } from '@/redux/slices/chatSlice';
+
+import { emitMarkAsSeen } from '@/services/socket';
 
 import { AppDispatch, RootState } from '@/redux/store';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -11,10 +15,8 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-  ActivityIndicator,
   FlatList,
   Image,
-  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -31,76 +33,39 @@ export default function ChatListScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+const [menuOpen, setMenuOpen] = useState<string | null>(null);
+const [refreshing, setRefreshing] = useState(false);
 
-  const { chats, loading } = useSelector(
+  useEffect(() => {
+    dispatch(fetchChats());
+    dispatch(fetchTotalUnread());
+  }, []);
+
+const onRefresh = async () => {
+
+  setRefreshing(true);
+
+  try {
+    await dispatch(fetchChats()).unwrap();
+    await dispatch(fetchTotalUnread()).unwrap();
+  } catch (error) {
+    console.log("Refresh failed");
+  }
+
+  setRefreshing(false);
+};
+
+  const { chats, typingUsers } = useSelector(
     (state: RootState) => state.chat
   );
-/* ================= Debug Chats ================= */
-
-useEffect(() => {
-
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("📥 CHAT LIST UPDATED");
-  console.log("📊 Total Chats:", chats.length);
-
-  chats.forEach((chat, index) => {
-
-    const other = chat.participants?.find(
-      p => p._id !== currentUser?._id
-    );
-
-    console.log("──────────────────────────────");
-    console.log(`💬 Chat #${index + 1}`);
-    console.log("🆔 Chat ID:", chat._id);
-    console.log("👤 With:", other?.username);
-    console.log("📨 Last Message:", chat.lastMessage?.content);
-    console.log("📌 Last Type:", chat.lastMessage?.type);
-    console.log("🕒 Updated At:", chat.updatedAt);
-    console.log("🔔 Unread:", chat.unreadCount);
-  });
-
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
-}, [chats]);
+  console.log(chats,'465465465465');
+  
 
   const currentUser = useSelector(
     (state: RootState) => state.auth.user
   );
 
   const [search, setSearch] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-
-  /* ================= Fetch ================= */
-
-  useEffect(() => {
-    dispatch(fetchChats());
-  }, [dispatch]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await dispatch(fetchChats());
-    setRefreshing(false);
-  };
-
-  /* ================= Time Formatter ================= */
-
-  const formatTime = (date: string) => {
-
-    const messageDate = new Date(date);
-    const now = new Date();
-
-    const isToday =
-      messageDate.toDateString() === now.toDateString();
-
-    if (isToday) {
-      return messageDate.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
-
-    return messageDate.toLocaleDateString();
-  };
 
   /* ================= Filter ================= */
 
@@ -110,8 +75,8 @@ useEffect(() => {
 
     return chats.filter(chat => {
 
-      const other = chat.participants.find(
-        p => p._id !== currentUser._id
+      const other = chat.participants?.find(
+        (p: any) => p?._id !== currentUser._id
       );
 
       if (!other?.username) return false;
@@ -123,25 +88,74 @@ useEffect(() => {
 
   }, [chats, search, currentUser]);
 
+  /* ================= Format Time ================= */
+
+  const formatTime = (date?: string) => {
+
+    if (!date) return "";
+
+    const d = new Date(date);
+    const now = new Date();
+
+    if (d.toDateString() === now.toDateString()) {
+      return d.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    return d.toLocaleDateString();
+  };
+
+  /* ================= Format Last Message ================= */
+
+  const formatLastMessage = (chat: any) => {
+
+    if (!chat.lastMessage) return "Start chatting...";
+
+    if (chat.lastMessage.deletedForEveryone)
+      return "Message deleted";
+
+    if (chat.lastMessage.type === "image")
+      return "📷 Photo";
+
+    if (chat.lastMessage.type === "audio")
+      return "🎙 Voice message";
+
+    return chat.lastMessage.content;
+  };
+
   /* ================= Open Chat ================= */
 
   const openChat = (chatId: string) => {
 
     dispatch(setActiveChat(chatId));
-    dispatch(resetUnread(chatId));
+
+    // تصفير unread محليًا
+    dispatch(setUnreadFromServer({
+      chatId,
+      unreadCount: 0
+    }));
+
+    // إرسال seen للسيرفر
+    emitMarkAsSeen(chatId);
 
     router.push({
       pathname: "/chat/[id]",
       params: { id: chatId }
     });
   };
+const handleDelete = (chatId: string) => {
+  setMenuOpen(null);
+  dispatch(deleteChat(chatId));
+};
 
   /* ================= Render ================= */
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
 
-      {/* ================= Search ================= */}
+      {/* Search */}
 
       <View style={[styles.searchBox, { backgroundColor: theme.card }]}>
         <Ionicons name="search" size={16} color="#9CA3AF" />
@@ -154,125 +168,163 @@ useEffect(() => {
         />
       </View>
 
-      {/* ================= List ================= */}
+      {/* List */}
 
-      <FlatList
-        data={filteredChats}
-        keyExtractor={(item) => item._id}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-          />
-        }
-        ListEmptyComponent={
-          loading ? (
-            <ActivityIndicator size="large" />
-          ) : (
-            <View style={styles.empty}>
-              <Ionicons
-                name="chatbubbles-outline"
-                size={60}
-                color="#CBD5E1"
-              />
-              <Text style={styles.emptyTitle}>
-                No conversations yet
+    <FlatList
+  data={filteredChats}
+  keyExtractor={(item) => item._id}
+  showsVerticalScrollIndicator={false}
+    refreshing={refreshing}
+  onRefresh={onRefresh}
+  extraData={menuOpen}
+  renderItem={({ item }) => {
+
+    if (!currentUser?._id) return null;
+
+    const otherUser = item.participants?.find(
+      (p: any) => p?._id !== currentUser._id
+    );
+
+    if (!otherUser) return null;
+
+    const isTyping =
+      typingUsers[item._id]?.length > 0;
+
+    return (
+      <View style={{ position: 'relative' }}>
+
+        <TouchableOpacity
+          style={[styles.card, { backgroundColor: theme.card }]}
+          onPress={() => {
+            setMenuOpen(null);
+            openChat(item._id);
+          }}
+          activeOpacity={0.85}
+        >
+
+          {/* Avatar */}
+
+          <View style={styles.avatarWrapper}>
+            <Image
+              source={{
+                uri:
+                  otherUser.avatar ||
+                  `https://i.pravatar.cc/150?u=${otherUser._id}`,
+              }}
+              style={styles.avatar}
+            />
+            {otherUser.isOnline && (
+              <View style={styles.onlineDot} />
+            )}
+          </View>
+
+          {/* Info */}
+
+          <View style={{ flex: 1 }}>
+
+            {/* Top Row */}
+
+            <View style={styles.row}>
+
+              <Text
+                style={[
+                  styles.name,
+                  {
+                    color:
+                      item.unreadCount > 0
+                        ? theme.text
+                        : '#6B7280'
+                  }
+                ]}
+                numberOfLines={1}
+              >
+                {otherUser.username}
               </Text>
-            </View>
-          )
-        }
-        renderItem={({ item }) => {
 
-          if (!currentUser?._id) return null;
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
 
-          const otherUser = item.participants.find(
-            p => p._id !== currentUser._id
-          );
+                <Text style={styles.time}>
+                  {formatTime(item.updatedAt)}
+                </Text>
 
-          if (!otherUser) return null;
+                {/* Three Dots */}
 
-          return (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={[styles.card, { backgroundColor: theme.card }]}
-              onPress={() => openChat(item._id)}
-            >
-
-              {/* Avatar */}
-
-              <View style={styles.avatarWrapper}>
-                <Image
-                  source={{
-                    uri:
-                      otherUser.avatar ||
-                      `https://i.pravatar.cc/150?u=${otherUser._id}`,
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(
+                      menuOpen === item._id
+                        ? null
+                        : item._id
+                    );
                   }}
-                  style={styles.avatar}
-                />
-                {otherUser.isOnline && (
-                  <View style={styles.onlineDot} />
-                )}
-              </View>
-
-              {/* Info */}
-
-              <View style={{ flex: 1 }}>
-
-                <View style={styles.row}>
-                  <Text
-                    style={[
-                      styles.name,
-                      {
-                        color:
-                          item.unreadCount > 0
-                            ? theme.text
-                            : '#6B7280'
-                      }
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {otherUser.username}
-                  </Text>
-
-                  {item.updatedAt && (
-                    <Text style={styles.time}>
-                      {formatTime(item.updatedAt)}
-                    </Text>
-                  )}
-                </View>
-
-                <View style={styles.row}>
-
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.lastMessage,
-                      {
-                        fontWeight:
-                          item.unreadCount > 0 ? '600' : '400'
-                      }
-                    ]}
-                  >
-                    {item.lastMessage?.content || 'Start chatting...'}
-                  </Text>
-
-                  {item.unreadCount > 0 && (
-                    <View style={styles.unreadBadge}>
-                      <Text style={styles.unreadText}>
-                        {item.unreadCount}
-                      </Text>
-                    </View>
-                  )}
-
-                </View>
+                  style={{ marginLeft: 8, padding: 4 }}
+                >
+                  <Ionicons
+                    name="ellipsis-vertical"
+                    size={16}
+                    color="#9CA3AF"
+                  />
+                </TouchableOpacity>
 
               </View>
 
+            </View>
+
+            {/* Bottom Row */}
+
+            <View style={styles.row}>
+
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.lastMessage,
+                  {
+                    fontWeight:
+                      item.unreadCount > 0 ? '600' : '400',
+                    color: isTyping ? '#22C55E' : '#6B7280'
+                  }
+                ]}
+              >
+                {isTyping
+                  ? "Typing..."
+                  : formatLastMessage(item)}
+              </Text>
+
+              {item.unreadCount > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadText}>
+                    {item.unreadCount}
+                  </Text>
+                </View>
+              )}
+
+            </View>
+
+          </View>
+
+        </TouchableOpacity>
+
+        {/* Dropdown */}
+
+        {menuOpen === item._id && (
+          <View style={[styles.dropdown, { backgroundColor: theme.card }]}>
+            <TouchableOpacity
+              onPress={() => handleDelete(item._id)}
+              style={styles.dropdownItem}
+            >
+              <Text style={styles.deleteText}>
+                Delete Chat
+              </Text>
             </TouchableOpacity>
-          );
-        }}
-      />
+          </View>
+        )}
+
+      </View>
+    );
+  }}
+/>
+
 
     </View>
   );
@@ -309,10 +361,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 20,
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
   },
 
   avatarWrapper: {
@@ -353,9 +401,32 @@ const styles = StyleSheet.create({
 
   lastMessage: {
     fontSize: 13,
-    color: '#6B7280',
     maxWidth: '75%'
   },
+dropdown: {
+  position: 'absolute',
+  top: 55,
+  right: 20,
+  borderRadius: 14,
+  paddingVertical: 8,
+  paddingHorizontal: 14,
+  elevation: 8,
+  shadowColor: '#000',
+  shadowOpacity: 0.15,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 4 },
+  zIndex: 999,
+},
+
+dropdownItem: {
+  paddingVertical: 6,
+},
+
+deleteText: {
+  color: '#EF4444',
+  fontWeight: '600',
+  fontSize: 14,
+},
 
   time: {
     fontSize: 11,
@@ -375,17 +446,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 11,
     fontWeight: '600'
-  },
-
-  empty: {
-    marginTop: 120,
-    alignItems: 'center'
-  },
-
-  emptyTitle: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#9CA3AF'
   }
 
 });

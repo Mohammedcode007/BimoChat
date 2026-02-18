@@ -36,10 +36,19 @@ export default function ChatListScreen() {
 const [menuOpen, setMenuOpen] = useState<string | null>(null);
 const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+useEffect(() => {
+  dispatch(fetchChats());
+  dispatch(fetchTotalUnread());
+}, []);
+
+useEffect(() => {
+  const interval = setInterval(() => {
     dispatch(fetchChats());
-    dispatch(fetchTotalUnread());
-  }, []);
+  }, 60000); // كل دقيقة
+
+  return () => clearInterval(interval);
+}, []);
+
 
 const onRefresh = async () => {
 
@@ -176,7 +185,7 @@ const handleDelete = (chatId: string) => {
   showsVerticalScrollIndicator={false}
     refreshing={refreshing}
   onRefresh={onRefresh}
-  extraData={menuOpen}
+extraData={[menuOpen, typingUsers]}
   renderItem={({ item }) => {
 
     if (!currentUser?._id) return null;
@@ -244,8 +253,14 @@ const handleDelete = (chatId: string) => {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
 
                 <Text style={styles.time}>
-                  {formatTime(item.updatedAt)}
-                </Text>
+  {otherUser.isOnline
+    ? "Online"
+    : otherUser.lastSeen
+      ? formatTime(otherUser.lastSeen)
+      : formatTime(item.updatedAt)
+  }
+</Text>
+
 
                 {/* Three Dots */}
 
@@ -286,9 +301,12 @@ const handleDelete = (chatId: string) => {
                   }
                 ]}
               >
-                {isTyping
-                  ? "Typing..."
-                  : formatLastMessage(item)}
+             {isTyping
+  ? "Typing..."
+  : otherUser.isOnline
+    ? formatLastMessage(item)
+    : formatLastMessage(item)}
+
               </Text>
 
               {item.unreadCount > 0 && (

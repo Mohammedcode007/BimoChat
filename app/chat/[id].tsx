@@ -41,6 +41,7 @@ import {
 } from "@/services/socket";
 
 import api from "@/services/api";
+import { formatLastSeen } from "@/utils/timeAgo";
 
 /* ===================================================== */
 
@@ -112,6 +113,8 @@ export default function ChatScreen() {
     return () => {
       dispatch(setActiveChat(undefined));
       dispatch(clearChatMessages(chatId));
+        clearTimeout(typingTimeout.current);
+
     };
 
   }, [chatId]);
@@ -254,15 +257,28 @@ export default function ChatScreen() {
         )}
 
         <View>
-          <Text style={styles.username}>
-            {otherUser?.username || "User"}
-          </Text>
+       
 
-          {!!typingUsers.length && (
-            <Text style={styles.typing}>
-              typing...
-            </Text>
-          )}
+       <View>
+  <Text style={styles.username}>
+    {otherUser?.username || "User"}
+  </Text>
+
+  {!!typingUsers.length ? (
+    <Text style={styles.typing}>
+      typing...
+    </Text>
+  ) : otherUser?.isOnline ? (
+    <Text style={styles.onlineText}>
+      Online
+    </Text>
+  ) : otherUser?.lastSeen ? (
+    <Text style={styles.lastSeen}>
+      Last seen {formatLastSeen(otherUser.lastSeen)}
+    </Text>
+  ) : null}
+</View>
+
         </View>
       </View>
 
@@ -336,6 +352,18 @@ const styles = StyleSheet.create({
   otherText: { color: "#111827" },
   statusRow: { marginTop: 4, alignSelf: "flex-end" },
   reactionRow: { flexDirection: "row", marginTop: 6 },
+  onlineText: {
+  fontSize: 12,
+  color: "#22C55E",
+  marginTop: 2
+},
+
+lastSeen: {
+  fontSize: 12,
+  color: "#6B7280",
+  marginTop: 2
+},
+
   inputBar: {
     flexDirection: "row",
     padding: 12,

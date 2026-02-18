@@ -225,7 +225,31 @@ markChatSeenLocally: (
 
   chat.unreadCount = 0;
 },
+updateChatPresence: (
+  state,
+  action: PayloadAction<{
+    userId: string;
+    isOnline: boolean;
+    lastSeen?: string | null;
+  }>
+) => {
 
+  const { userId, isOnline, lastSeen } = action.payload;
+
+  state.chats.forEach(chat => {
+
+    chat.participants.forEach(participant => {
+
+      if (participant._id === userId) {
+        participant.isOnline = isOnline;
+        participant.lastSeen = lastSeen || undefined;
+      }
+
+    });
+
+  });
+
+},
     /* ================= SOCKET NEW MESSAGE ================= */
 
 socketNewMessage: (
@@ -448,6 +472,7 @@ export const {
   socketNewMessage,
   setUnreadFromServer,
   setTyping,
+  updateChatPresence,
   markChatSeenLocally
 } = chatSlice.actions;
 

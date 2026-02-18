@@ -592,33 +592,37 @@ const friendSlice = createSlice({
 
   reducers: {
 
-    updateOnlineStatus: (
-      state,
-      action: PayloadAction<{
-        userId: string;
-        status: "online" | "offline";
-        lastSeen?: string;
-      }>
-    ) => {
+ updateOnlineStatus: (
+  state,
+  action: PayloadAction<{
+    userId: string;
+    isOnline: boolean;
+    lastSeen?: string | null;
+  }>
+) => {
 
-      const update = (list: UserItem[]) => {
-        const user = list.find(u => u._id === action.payload.userId);
-        if (!user) return;
+  const { userId, isOnline, lastSeen } = action.payload;
 
-        if (action.payload.status === "online") {
-          user.isOnline = true;
-          user.lastSeen = undefined;
-        } else {
-          user.isOnline = false;
-          user.lastSeen = action.payload.lastSeen;
-        }
-      };
+  const update = (list: UserItem[]) => {
 
-      update(state.searchResults);
-      update(state.friends);
-      update(state.pendingRequests);
-      update(state.blockedUsers);
-    },
+    const user = list.find(u => u._id === userId);
+    if (!user) return;
+
+    user.isOnline = isOnline;
+
+    if (isOnline) {
+      user.lastSeen = undefined;
+    } else {
+      user.lastSeen = lastSeen || undefined;
+    }
+  };
+
+  update(state.searchResults);
+  update(state.friends);
+  update(state.pendingRequests);
+  update(state.blockedUsers);
+},
+
 
     clearFriendError: (state) => {
       state.error = undefined;

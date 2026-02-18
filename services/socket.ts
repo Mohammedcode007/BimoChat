@@ -4,7 +4,8 @@ import { io, Socket } from "socket.io-client";
 import {
   setTyping,
   setUnreadFromServer,
-  socketNewMessage
+  socketNewMessage,
+  updateChatPresence
 } from "@/redux/slices/chatSlice";
 
 import {
@@ -42,7 +43,7 @@ export const connectSocket = (token: string): Socket => {
 
   console.log("🔌 Creating new socket connection...");
 
-  socket = io("http://192.168.1.6:5000", {
+  socket = io("http://192.168.0.101:5000", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true,
@@ -178,19 +179,25 @@ export const attachSocketListeners = (
 
   /* ================= PRESENCE ================= */
 
-  socket.on("presence:update", (data) => {
+ socket.on("presence:update", (data) => {
 
-    console.log("🟢 PRESENCE UPDATE:", data);
+  console.log("🟢 PRESENCE UPDATE:", data);
 
-    const currentUserId = getState().auth.user?._id;
-    if (data.userId === currentUserId) return;
+  const currentUserId = getState().auth.user?._id;
+  if (data.userId === currentUserId) return;
 
-    dispatch(updateOnlineStatus({
-      userId: data.userId,
-      status: data.status,
-      lastSeen: data.lastSeen
-    }));
-  });
+  dispatch(updateOnlineStatus({
+    userId: data.userId,
+    isOnline: data.isOnline,
+    lastSeen: data.lastSeen
+  }));
+    dispatch(updateChatPresence({
+    userId: data.userId,
+    isOnline: data.isOnline,
+    lastSeen: data.lastSeen
+  }));
+});
+
 
   console.log("✅ All socket listeners attached");
 };

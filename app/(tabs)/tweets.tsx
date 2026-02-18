@@ -12,7 +12,7 @@ import {
   toggleRetweet
 } from '@/redux/slices/tweetSlice';
 import { AppDispatch, RootState } from '@/redux/store';
-import { timeAgo } from '@/utils/timeAgo';
+import { timeAgo } from '@/utils/helpFunctions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ResizeMode, Video } from 'expo-av';
 import { useRouter } from 'expo-router';

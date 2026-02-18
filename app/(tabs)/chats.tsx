@@ -25,6 +25,7 @@ import {
   View,
 } from 'react-native';
 
+import { truncateText } from '@/utils/helpFunctions';
 import { useDispatch, useSelector } from 'react-redux';
 
 export default function ChatListScreen() {
@@ -33,42 +34,42 @@ export default function ChatListScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
-const [menuOpen, setMenuOpen] = useState<string | null>(null);
-const [refreshing, setRefreshing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-useEffect(() => {
-  dispatch(fetchChats());
-  dispatch(fetchTotalUnread());
-}, []);
-
-useEffect(() => {
-  const interval = setInterval(() => {
+  useEffect(() => {
     dispatch(fetchChats());
-  }, 60000); // كل دقيقة
+    dispatch(fetchTotalUnread());
+  }, []);
 
-  return () => clearInterval(interval);
-}, []);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      dispatch(fetchChats());
+    }, 60000); // كل دقيقة
+
+    return () => clearInterval(interval);
+  }, []);
 
 
-const onRefresh = async () => {
+  const onRefresh = async () => {
 
-  setRefreshing(true);
+    setRefreshing(true);
 
-  try {
-    await dispatch(fetchChats()).unwrap();
-    await dispatch(fetchTotalUnread()).unwrap();
-  } catch (error) {
-    console.log("Refresh failed");
-  }
+    try {
+      await dispatch(fetchChats()).unwrap();
+      await dispatch(fetchTotalUnread()).unwrap();
+    } catch (error) {
+      console.log("Refresh failed");
+    }
 
-  setRefreshing(false);
-};
+    setRefreshing(false);
+  };
 
   const { chats, typingUsers } = useSelector(
     (state: RootState) => state.chat
   );
-  console.log(chats,'465465465465');
-  
+  console.log(chats, '465465465465');
+
 
   const currentUser = useSelector(
     (state: RootState) => state.auth.user
@@ -154,10 +155,10 @@ const onRefresh = async () => {
       params: { id: chatId }
     });
   };
-const handleDelete = (chatId: string) => {
-  setMenuOpen(null);
-  dispatch(deleteChat(chatId));
-};
+  const handleDelete = (chatId: string) => {
+    setMenuOpen(null);
+    dispatch(deleteChat(chatId));
+  };
 
   /* ================= Render ================= */
 
@@ -179,169 +180,179 @@ const handleDelete = (chatId: string) => {
 
       {/* List */}
 
-    <FlatList
-  data={filteredChats}
-  keyExtractor={(item) => item._id}
-  showsVerticalScrollIndicator={false}
-    refreshing={refreshing}
-  onRefresh={onRefresh}
-extraData={[menuOpen, typingUsers]}
-  renderItem={({ item }) => {
+      <FlatList
+        data={filteredChats}
+        keyExtractor={(item) => item._id}
+        showsVerticalScrollIndicator={false}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        extraData={[menuOpen, typingUsers]}
+        ItemSeparatorComponent={() => (
+          <View style={styles.separator} />
+        )}
+        renderItem={({ item }) => {
 
-    if (!currentUser?._id) return null;
+          if (!currentUser?._id) return null;
 
-    const otherUser = item.participants?.find(
-      (p: any) => p?._id !== currentUser._id
-    );
+          const otherUser = item.participants?.find(
+            (p: any) => p?._id !== currentUser._id
+          );
 
-    if (!otherUser) return null;
 
-    const isTyping =
-      typingUsers[item._id]?.length > 0;
+          if (!otherUser) return null;
 
-    return (
-      <View style={{ position: 'relative' }}>
+          const isTyping = (
+            (typingUsers[item._id] || [])
+              .filter((id: string) => id !== currentUser?._id)
+              .length > 0
+          );
 
-        <TouchableOpacity
-          style={[styles.card, { backgroundColor: theme.card }]}
-          onPress={() => {
-            setMenuOpen(null);
-            openChat(item._id);
-          }}
-          activeOpacity={0.85}
-        >
+          console.log(isTyping,'isTyping');
+          
+          return (
+            <View style={{ position: 'relative' }}>
 
-          {/* Avatar */}
-
-          <View style={styles.avatarWrapper}>
-            <Image
-              source={{
-                uri:
-                  otherUser.avatar ||
-                  `https://i.pravatar.cc/150?u=${otherUser._id}`,
-              }}
-              style={styles.avatar}
-            />
-            {otherUser.isOnline && (
-              <View style={styles.onlineDot} />
-            )}
-          </View>
-
-          {/* Info */}
-
-          <View style={{ flex: 1 }}>
-
-            {/* Top Row */}
-
-            <View style={styles.row}>
-
-              <Text
-                style={[
-                  styles.name,
-                  {
-                    color:
-                      item.unreadCount > 0
-                        ? theme.text
-                        : '#6B7280'
-                  }
-                ]}
-                numberOfLines={1}
+              <TouchableOpacity
+                style={[styles.card, { backgroundColor: theme.card }]}
+                onPress={() => {
+                  setMenuOpen(null);
+                  openChat(item._id);
+                }}
+                activeOpacity={0.85}
               >
-                {otherUser.username}
-              </Text>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {/* Avatar */}
 
-                <Text style={styles.time}>
-  {otherUser.isOnline
-    ? "Online"
-    : otherUser.lastSeen
-      ? formatTime(otherUser.lastSeen)
-      : formatTime(item.updatedAt)
-  }
-</Text>
-
-
-                {/* Three Dots */}
-
-                <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setMenuOpen(
-                      menuOpen === item._id
-                        ? null
-                        : item._id
-                    );
-                  }}
-                  style={{ marginLeft: 8, padding: 4 }}
-                >
-                  <Ionicons
-                    name="ellipsis-vertical"
-                    size={16}
-                    color="#9CA3AF"
+                <View style={styles.avatarWrapper}>
+                  <Image
+                    source={{
+                      uri:
+                        otherUser.avatar ||
+                        `https://i.pravatar.cc/150?u=${otherUser._id}`,
+                    }}
+                    style={styles.avatar}
                   />
-                </TouchableOpacity>
+                  {otherUser.isOnline && (
+                    <View style={styles.onlineDot} />
+                  )}
+                </View>
 
-              </View>
+                {/* Info */}
 
-            </View>
+                <View style={{ flex: 1 }}>
 
-            {/* Bottom Row */}
+                  {/* Top Row */}
 
-            <View style={styles.row}>
+                  <View style={styles.row}>
 
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.lastMessage,
-                  {
-                    fontWeight:
-                      item.unreadCount > 0 ? '600' : '400',
-                    color: isTyping ? '#22C55E' : '#6B7280'
-                  }
-                ]}
-              >
-             {isTyping
-  ? "Typing..."
-  : otherUser.isOnline
-    ? formatLastMessage(item)
-    : formatLastMessage(item)}
+                    <Text
+                      style={[
+                        styles.name,
+                        {
+                          color:
+                            item.unreadCount > 0
+                              ? theme.text
+                              : '#6B7280'
+                        }
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {truncateText(otherUser.username, 18)}
+                    </Text>
 
-              </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
 
-              {item.unreadCount > 0 && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadText}>
-                    {item.unreadCount}
-                  </Text>
+                      <Text style={styles.time}>
+                        {otherUser.isOnline
+                          ? "Online"
+                          : otherUser.lastSeen
+                            ? formatTime(otherUser.lastSeen)
+                            : formatTime(item.updatedAt)
+                        }
+                      </Text>
+
+
+                      {/* Three Dots */}
+
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setMenuOpen(
+                            menuOpen === item._id
+                              ? null
+                              : item._id
+                          );
+                        }}
+                        style={{ marginLeft: 8, padding: 4 }}
+                      >
+                        <Ionicons
+                          name="ellipsis-vertical"
+                          size={16}
+                          color="#9CA3AF"
+                        />
+                      </TouchableOpacity>
+
+                    </View>
+
+                  </View>
+
+                  {/* Bottom Row */}
+
+                  <View style={styles.row}>
+
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.lastMessage,
+                        {
+                          fontWeight:
+                            item.unreadCount > 0 ? '600' : '400',
+                          color: isTyping ? '#22C55E' : '#6B7280'
+                        }
+                      ]}
+                    >
+
+                      {isTyping
+                        ? "typing..."
+                        : truncateText(formatLastMessage(item), 28)}
+
+
+
+                    </Text>
+
+                    {item.unreadCount > 0 && (
+                      <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadText}>
+                          {item.unreadCount}
+                        </Text>
+                      </View>
+                    )}
+
+                  </View>
+
+                </View>
+
+              </TouchableOpacity>
+
+              {/* Dropdown */}
+
+              {menuOpen === item._id && (
+                <View style={[styles.dropdown, { backgroundColor: theme.card }]}>
+                  <TouchableOpacity
+                    onPress={() => handleDelete(item._id)}
+                    style={styles.dropdownItem}
+                  >
+                    <Text style={styles.deleteText}>
+                      Delete Chat
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
             </View>
-
-          </View>
-
-        </TouchableOpacity>
-
-        {/* Dropdown */}
-
-        {menuOpen === item._id && (
-          <View style={[styles.dropdown, { backgroundColor: theme.card }]}>
-            <TouchableOpacity
-              onPress={() => handleDelete(item._id)}
-              style={styles.dropdownItem}
-            >
-              <Text style={styles.deleteText}>
-                Delete Chat
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-      </View>
-    );
-  }}
-/>
+          );
+        }}
+      />
 
 
     </View>
@@ -372,14 +383,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
   },
-
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 20,
-    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
+
 
   avatarWrapper: {
     width: 56,
@@ -391,6 +401,16 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: '600',
+    maxWidth: '65%',
+  },
+
+  lastMessage: {
+    fontSize: 13,
+    maxWidth: '70%',
   },
 
   onlineDot: {
@@ -411,40 +431,37 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
 
-  name: {
-    fontSize: 16,
+
+
+  separator: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+
+  dropdown: {
+    position: 'absolute',
+    top: 55,
+    right: 20,
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    zIndex: 999,
+  },
+
+  dropdownItem: {
+    paddingVertical: 6,
+  },
+
+  deleteText: {
+    color: '#EF4444',
     fontWeight: '600',
-    maxWidth: '70%'
+    fontSize: 14,
   },
-
-  lastMessage: {
-    fontSize: 13,
-    maxWidth: '75%'
-  },
-dropdown: {
-  position: 'absolute',
-  top: 55,
-  right: 20,
-  borderRadius: 14,
-  paddingVertical: 8,
-  paddingHorizontal: 14,
-  elevation: 8,
-  shadowColor: '#000',
-  shadowOpacity: 0.15,
-  shadowRadius: 8,
-  shadowOffset: { width: 0, height: 4 },
-  zIndex: 999,
-},
-
-dropdownItem: {
-  paddingVertical: 6,
-},
-
-deleteText: {
-  color: '#EF4444',
-  fontWeight: '600',
-  fontSize: 14,
-},
 
   time: {
     fontSize: 11,

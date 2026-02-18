@@ -18,7 +18,8 @@ import {
 
 import {
   addNotificationFromSocket,
-  setUnreadCount
+  setUnreadCount,
+  syncNotificationsFromSocket
 } from "@/redux/slices/notificationSlice";
 
 import { updateOnlineStatus } from "@/redux/slices/friendSlice";
@@ -83,20 +84,28 @@ export const attachSocketListeners = (
     return;
   }
 
-  console.log("📡 Attaching socket listeners...");
+  console.log("📡 Attaching ALL socket listeners...");
   isListenersAttached = true;
+
+  /* ================= CLEAN OLD LISTENERS ================= */
+
+  socket.removeAllListeners("chat:new");
+  socket.removeAllListeners("chat:delivery:update");
+  socket.removeAllListeners("chat:seen:update");
+  socket.removeAllListeners("chat:unread:update");
+  socket.removeAllListeners("chat:reaction:update");
+  socket.removeAllListeners("chat:message:deleted");
+  socket.removeAllListeners("chat:typing");
+  socket.removeAllListeners("notification:new");
+  socket.removeAllListeners("notification:sync");
+  socket.removeAllListeners("notification:unreadTotal");
+  socket.removeAllListeners("presence:update");
 
   /* ================= NEW MESSAGE ================= */
 
   socket.on("chat:new", (message) => {
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📥 chat:new RECEIVED");
-    console.log("MessageId:", message._id);
-    console.log("Chat:", message.chat);
-
-    const activeChatId = getState().chat.activeChatId;
-    console.log("Active Chat:", activeChatId);
+    console.log("📥 chat:new RECEIVED:", message._id);
 
     dispatch(addMessage(message));
 
@@ -104,9 +113,6 @@ export const attachSocketListeners = (
       chatId: message.chat,
       message,
     }));
-
-    console.log("✅ Message dispatched to redux");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   });
 
   /* ================= DELIVERY ================= */
@@ -120,7 +126,7 @@ export const attachSocketListeners = (
 
   socket.on("chat:seen:update", (data) => {
 
-    console.log("👁 SEEN UPDATE:", data);
+    console.log("👁 SEEN UPDATE FULL:", JSON.stringify(data));
 
     dispatch(markSeenFromSocket(data));
 
@@ -133,7 +139,7 @@ export const attachSocketListeners = (
   /* ================= UNREAD ================= */
 
   socket.on("chat:unread:update", (data) => {
-    console.log("🔢 UNREAD UPDATE FROM SERVER:", data);
+    console.log("🔢 UNREAD UPDATE:", data);
     dispatch(setUnreadFromServer(data));
   });
 
@@ -153,23 +159,27 @@ export const attachSocketListeners = (
 
   /* ================= TYPING ================= */
 
- socket.on("chat:typing", (data) => {
+  socket.on("chat:typing", (data) => {
 
-  console.log("⌨️ CHAT TYPING RECEIVED:", data);
+    console.log("⌨️ TYPING RECEIVED:", data);
 
-  dispatch(setTyping({
-    chatId: data.chatId,
-    userId: data.userId,
-    typing: data.typing
-  }));
-
-});
+    dispatch(setTyping({
+      chatId: data.chatId,
+      userId: data.userId,
+      typing: data.typing
+    }));
+  });
 
   /* ================= NOTIFICATIONS ================= */
 
   socket.on("notification:new", (notification) => {
     console.log("🔔 NEW NOTIFICATION:", notification._id);
     dispatch(addNotificationFromSocket(notification));
+  });
+
+  socket.on("notification:sync", (data) => {
+    console.log("🔄 NOTIFICATION SYNC");
+    dispatch(syncNotificationsFromSocket(data));
   });
 
   socket.on("notification:unreadTotal", (total) => {
@@ -188,19 +198,21 @@ export const attachSocketListeners = (
 
   dispatch(updateOnlineStatus({
     userId: data.userId,
-    isOnline: data.isOnline,
+    isOnline: data.isOnline,   // ✅ Boolean
     lastSeen: data.lastSeen
   }));
-    dispatch(updateChatPresence({
+
+  dispatch(updateChatPresence({
     userId: data.userId,
-    isOnline: data.isOnline,
+    isOnline: data.isOnline,   // ✅ Boolean
     lastSeen: data.lastSeen
   }));
 });
 
 
-  console.log("✅ All socket listeners attached");
+  console.log("✅ All socket listeners attached successfully");
 };
+
 
 /* =====================================================
    JOIN ROOM
@@ -237,6 +249,7 @@ export const sendSocketMessage = (
   chatId: string,
   content: string,
   type: string,
+  clientTempId: string,   // 🔥 مهم جدًا
   media?: any,
   replyTo?: any
 ) => {
@@ -250,18 +263,21 @@ export const sendSocketMessage = (
   console.log("📤 EMIT chat:send");
   console.log("Chat:", chatId);
   console.log("Content:", content);
+  console.log("ClientTempId:", clientTempId);
 
   socket.emit("chat:send", {
     chatId,
     content,
     type,
     media,
-    replyTo
+    replyTo,
+    clientTempId   // 🔥 إرسال الـ tempId للسيرفر
   });
 
   console.log("✅ chat:send emitted");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 };
+
 
 /* =====================================================
    TYPING

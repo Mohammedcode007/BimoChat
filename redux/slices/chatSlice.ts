@@ -351,7 +351,7 @@ socketNewMessage: (
 
   const { chatId, userId, typing } = action.payload;
 
-  if (state.activeChatId !== chatId) return;
+  // if (state.activeChatId !== chatId) return;
 
   if (!state.typingUsers[chatId]) {
     state.typingUsers[chatId] = [];

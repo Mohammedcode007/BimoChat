@@ -425,6 +425,8 @@ export interface UserItem {
   avatar?: string;
   isOnline: boolean;
   lastSeen?: string;
+    bio?: string;
+
   relationshipStatus: FriendshipStatus;
 }
 
@@ -433,6 +435,8 @@ interface FriendState {
   pendingRequests: UserItem[];
   blockedUsers: UserItem[];
   friends: UserItem[];
+    bio?: string;
+
   loading: boolean;
   error?: string;
 }

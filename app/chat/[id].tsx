@@ -41,7 +41,7 @@ import {
 } from "@/services/socket";
 
 import api from "@/services/api";
-import { formatLastSeen } from "@/utils/timeAgo";
+import { formatLastSeen, formatTime } from "@/utils/helpFunctions";
 
 /* ===================================================== */
 
@@ -113,7 +113,7 @@ export default function ChatScreen() {
     return () => {
       dispatch(setActiveChat(undefined));
       dispatch(clearChatMessages(chatId));
-        clearTimeout(typingTimeout.current);
+      clearTimeout(typingTimeout.current);
 
     };
 
@@ -153,7 +153,12 @@ export default function ChatScreen() {
 
     dispatch(addMessage(optimistic));
 
-    sendSocketMessage(chatId, text, "text", tempId);
+    sendSocketMessage(
+      chatId,
+      text,
+      "text",
+      tempId   // 🔥 هنا
+    );
 
     setText("");
   };
@@ -206,6 +211,42 @@ export default function ChatScreen() {
               {item.content}
             </Text>
 
+            <View style={styles.timeRow}>
+
+              <Text style={[
+                styles.timeText,
+                isMe ? styles.timeMe : styles.timeOther
+              ]}>
+                {formatTime(item.createdAt)}
+              </Text>
+
+              {isMe && (
+                <View style={styles.statusIcon}>
+                  {item.deliveryStatus?.seenBy?.length ? (
+                    <Ionicons
+                      name="checkmark-done"
+                      size={14}
+                      color="#60A5FA"
+                    />
+                  ) : item.deliveryStatus?.deliveredTo?.length ? (
+                    <Ionicons
+                      name="checkmark-done"
+                      size={14}
+                      color="#E5E7EB"
+                    />
+                  ) : (
+                    <Ionicons
+                      name="checkmark"
+                      size={14}
+                      color="#E5E7EB"
+                    />
+                  )}
+                </View>
+              )}
+
+            </View>
+
+
             {!!item.reactions?.length && (
               <View style={styles.reactionRow}>
                 {item.reactions.map((r, i) => (
@@ -214,17 +255,7 @@ export default function ChatScreen() {
               </View>
             )}
 
-            {isMe && (
-              <View style={styles.statusRow}>
-                {item.deliveryStatus?.seenBy?.length ? (
-                  <Ionicons name="checkmark-done" size={16} color="#60A5FA" />
-                ) : item.deliveryStatus?.deliveredTo?.length ? (
-                  <Ionicons name="checkmark-done" size={16} color="#FFF" />
-                ) : (
-                  <Ionicons name="checkmark" size={16} color="#FFF" />
-                )}
-              </View>
-            )}
+       
 
           </View>
         </TouchableOpacity>
@@ -257,27 +288,27 @@ export default function ChatScreen() {
         )}
 
         <View>
-       
 
-       <View>
-  <Text style={styles.username}>
-    {otherUser?.username || "User"}
-  </Text>
 
-  {!!typingUsers.length ? (
-    <Text style={styles.typing}>
-      typing...
-    </Text>
-  ) : otherUser?.isOnline ? (
-    <Text style={styles.onlineText}>
-      Online
-    </Text>
-  ) : otherUser?.lastSeen ? (
-    <Text style={styles.lastSeen}>
-      Last seen {formatLastSeen(otherUser.lastSeen)}
-    </Text>
-  ) : null}
-</View>
+          <View>
+            <Text style={styles.username}>
+              {otherUser?.username || "User"}
+            </Text>
+
+            {!!typingUsers.length ? (
+              <Text style={styles.typing}>
+                typing...
+              </Text>
+            ) : otherUser?.isOnline ? (
+              <Text style={styles.onlineText}>
+                Online
+              </Text>
+            ) : otherUser?.lastSeen ? (
+              <Text style={styles.lastSeen}>
+                Last seen {formatLastSeen(otherUser.lastSeen)}
+              </Text>
+            ) : null}
+          </View>
 
         </View>
       </View>
@@ -353,16 +384,39 @@ const styles = StyleSheet.create({
   statusRow: { marginTop: 4, alignSelf: "flex-end" },
   reactionRow: { flexDirection: "row", marginTop: 6 },
   onlineText: {
-  fontSize: 12,
-  color: "#22C55E",
-  marginTop: 2
-},
+    fontSize: 12,
+    color: "#22C55E",
+    marginTop: 2
+  },
 
-lastSeen: {
-  fontSize: 12,
-  color: "#6B7280",
-  marginTop: 2
-},
+  lastSeen: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2
+  },
+  timeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginTop: 6
+  },
+
+  timeText: {
+    fontSize: 11,
+    marginRight: 4
+  },
+
+  timeMe: {
+    color: "#E5E7EB"
+  },
+
+  timeOther: {
+    color: "#6B7280"
+  },
+
+  statusIcon: {
+    marginLeft: 2
+  },
 
   inputBar: {
     flexDirection: "row",

@@ -27,6 +27,8 @@ export interface MessageItem {
   content: string;
   media?: string;
   replyTo?: any;
+  status?: "sent" | "delivered" | "seen"; // 🔥 أضف هذا
+
   reactions?: Reaction[];
   deliveryStatus?: DeliveryStatus;
   deletedForEveryone?: boolean;
@@ -102,20 +104,19 @@ addMessage: (
 
   const messages = state.messages[chatId];
 
-  /* =====================================================
-     1) لو الرسالة قادمة من السيرفر
-        استخدم clientTempId لاستبدال optimistic
-  ===================================================== */
+  /* ==========================================
+     1) Replace optimistic via clientTempId
+  ========================================== */
 
-  if (!incoming.optimistic && incoming.clientTempId) {
+  if (incoming.clientTempId) {
 
     const optimisticIndex = messages.findIndex(
-      m => m._id === incoming.clientTempId
+      m =>
+        m.clientTempId &&
+        m.clientTempId === incoming.clientTempId
     );
 
     if (optimisticIndex !== -1) {
-
-      console.log("🔁 Replacing optimistic via clientTempId");
 
       messages[optimisticIndex] = {
         ...incoming,
@@ -126,9 +127,9 @@ addMessage: (
     }
   }
 
-  /* =====================================================
-     2) منع duplicate بالـ _id الحقيقي
-  ===================================================== */
+  /* ==========================================
+     2) Prevent duplicate by real _id
+  ========================================== */
 
   const exists = messages.find(
     m => m._id === incoming._id
@@ -144,10 +145,9 @@ addMessage: (
         seenBy: []
       }
     });
-
   }
-
 },
+
 
 
     /* ================= DELIVERY UPDATE ================= */
@@ -179,30 +179,37 @@ addMessage: (
 
     /* ================= SEEN UPDATE ================= */
 
-    markSeenFromSocket: (
-      state,
-      action: PayloadAction<{
-        chatId: string;
-        userId: string;
-      }>
-    ) => {
+markSeenFromSocket: (
+  state,
+  action: PayloadAction<{
+    chatId: string;
+    userId: string;
+    messageIds: string[];
+  }>
+) => {
 
-      console.log("👁 markSeenFromSocket",
-        action.payload);
+  const { chatId, userId, messageIds } =
+    action.payload;
 
-      const { chatId, userId } = action.payload;
-      const msgs = state.messages[chatId];
-      if (!msgs) return;
+  const msgs = state.messages[chatId];
+  if (!msgs) return;
 
-      msgs.forEach(msg => {
+  msgs.forEach(msg => {
 
-        if (!msg.deliveryStatus) return;
+    if (!messageIds.includes(msg._id)) return;
 
-        if (!msg.deliveryStatus.seenBy.includes(userId)) {
-          msg.deliveryStatus.seenBy.push(userId);
-        }
-      });
-    },
+    if (!msg.deliveryStatus) return;
+
+    if (!msg.deliveryStatus.seenBy.includes(userId)) {
+      msg.deliveryStatus.seenBy.push(userId);
+    }
+
+    msg.status = "seen";
+  });
+},
+
+
+
 
     /* ================= REACTION UPDATE ================= */
 

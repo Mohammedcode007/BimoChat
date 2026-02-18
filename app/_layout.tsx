@@ -1,16 +1,17 @@
 
 
-import SocketListener from '@/components/SocketListener';
 import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { store } from '@/redux/store';
+import { RootState, store } from '@/redux/store';
+import { attachSocketListeners, connectSocket, disconnectSocket } from '@/services/socket';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
-import { Provider } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 
 function RootStack() {
   const { language } = useLanguage();
@@ -53,7 +54,55 @@ function RootStack() {
   );
 }
 
+
+
+
+
+/* ============================================= */
+/*               INNER APP LAYER                 */
+/* ============================================= */
+
+function AppContent() {
+
+  const token = useSelector(
+    (state: RootState) => state.auth.token
+  );
+
+  useEffect(() => {
+
+    if (!token) {
+      console.log("🔴 No token → disconnect socket");
+      disconnectSocket();
+      return;
+    }
+
+    console.log("🟢 Token found → connect socket");
+
+    connectSocket(token);
+    attachSocketListeners(store.dispatch, store.getState);
+
+    return () => {
+      console.log("🛑 Cleanup socket");
+      disconnectSocket();
+    };
+
+  }, [token]);
+
+  return (
+    <>
+      <RootStack />
+      <Toast />
+      <StatusBar style="auto" />
+    </>
+  );
+}
+
+/* ============================================= */
+/*                 ROOT LAYOUT                   */
+/* ============================================= */
+
 export default function RootLayout() {
+
   const colorScheme = useColorScheme();
 
   return (
@@ -61,11 +110,7 @@ export default function RootLayout() {
       <Provider store={store}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <RootStack />
-            {/* 🔥 SOCKET LISTENER HERE */}
-            <SocketListener />
-            <Toast />
-            <StatusBar style="auto" />
+            <AppContent />
           </ThemeProvider>
         </GestureHandlerRootView>
       </Provider>

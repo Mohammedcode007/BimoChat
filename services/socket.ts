@@ -44,7 +44,7 @@ export const connectSocket = (token: string): Socket => {
 
   console.log("🔌 Creating new socket connection...");
 
-  socket = io("http://192.168.0.101:5000", {
+  socket = io("http://192.168.0.100:5000", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true,

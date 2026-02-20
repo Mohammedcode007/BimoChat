@@ -1,6 +1,7 @@
 import { Colors } from '@/constants/theme';
 import i18n from '@/localization/i18n';
 import { logout, toggleInvisible } from '@/redux/slices/authSlice';
+import { resetChatState } from '@/redux/slices/chatSlice';
 import { AppDispatch, RootState } from '@/redux/store';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -39,6 +40,7 @@ const handleToggleOnline = (value: boolean) => {
 
   const handleLogout = async () => {
     await dispatch(logout());
+    dispatch(resetChatState());
   };
   return (
     <ScrollView

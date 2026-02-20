@@ -7,12 +7,11 @@ import {
   setUnreadFromServer
 } from '@/redux/slices/chatSlice';
 
-import { emitMarkAsSeen } from '@/services/socket';
 
 import { AppDispatch, RootState } from '@/redux/store';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   FlatList,
@@ -25,6 +24,7 @@ import {
   View,
 } from 'react-native';
 
+import { selectSortedChats } from '@/redux/selectors';
 import { truncateText } from '@/utils/helpFunctions';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -42,13 +42,6 @@ export default function ChatListScreen() {
     dispatch(fetchTotalUnread());
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      dispatch(fetchChats());
-    }, 60000); // كل دقيقة
-
-    return () => clearInterval(interval);
-  }, []);
 
 
   const onRefresh = async () => {
@@ -65,10 +58,12 @@ export default function ChatListScreen() {
     setRefreshing(false);
   };
 
-  const { chats, typingUsers } = useSelector(
-    (state: RootState) => state.chat
-  );
+const chats = useSelector(selectSortedChats);
+const typingUsers = useSelector(
+  (state: RootState) => state.chat.typingUsers
+);
   console.log(chats, '465465465465');
+
 
 
   const currentUser = useSelector(
@@ -79,25 +74,53 @@ export default function ChatListScreen() {
 
   /* ================= Filter ================= */
 
-  const filteredChats = useMemo(() => {
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log("🔎 FILTER EXECUTION START");
+console.log("Search value:", search);
+console.log("Chats length:", chats.length);
+console.log("CurrentUser:", currentUser?._id);
 
-    if (!currentUser?._id) return [];
+const filteredChats = chats.filter(chat => {
 
-    return chats.filter(chat => {
+  console.log("------");
+  console.log("🗂 Checking chat:", chat._id);
+  console.log("🕒 updatedAt:", chat.updatedAt);
+  console.log("📝 lastMessageId:", chat.lastMessage?._id);
 
-      const other = chat.participants?.find(
-        (p: any) => p?._id !== currentUser._id
-      );
+  if (!currentUser?._id) {
+    console.log("⛔ No current user");
+    return false;
+  }
 
-      if (!other?.username) return false;
+  const other = chat.participants?.find(
+    (p: any) => p?._id !== currentUser._id
+  );
 
-      return other.username
-        .toLowerCase()
-        .includes(search.toLowerCase());
-    });
+  console.log("👤 Other user:", other?._id);
+  console.log("👤 Other username:", other?.username);
 
-  }, [chats, search, currentUser]);
+  if (!other?.username) {
+    console.log("⛔ No username");
+    return false;
+  }
 
+  const match = other.username
+    .toLowerCase()
+    .includes(search.toLowerCase());
+
+  console.log("🔍 Search match:", match);
+
+  return match;
+
+});
+
+console.log("✅ FILTERED RESULT LENGTH:", filteredChats.length);
+
+filteredChats.forEach(c => {
+  console.log("📦 Result Chat:", c._id, "updatedAt:", c.updatedAt);
+});
+
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━");
   /* ================= Format Time ================= */
 
   const formatTime = (date?: string) => {
@@ -148,7 +171,7 @@ export default function ChatListScreen() {
     }));
 
     // إرسال seen للسيرفر
-    emitMarkAsSeen(chatId);
+    // emitMarkAsSeen(chatId);
 
     router.push({
       pathname: "/chat/[id]",
@@ -182,14 +205,19 @@ export default function ChatListScreen() {
 
       <FlatList
         data={filteredChats}
-        keyExtractor={(item) => item._id}
-        showsVerticalScrollIndicator={false}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        extraData={[menuOpen, typingUsers]}
-        ItemSeparatorComponent={() => (
-          <View style={styles.separator} />
-        )}
+  keyExtractor={(item) => item._id}
+  showsVerticalScrollIndicator={false}
+  refreshing={refreshing}
+  onRefresh={onRefresh}
+  extraData={{
+    menuOpen,
+    typingUsers,
+    search,
+    chatsLength: filteredChats.length
+  }}
+  ItemSeparatorComponent={() => (
+    <View style={styles.separator} />
+  )}
         renderItem={({ item }) => {
 
           if (!currentUser?._id) return null;

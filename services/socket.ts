@@ -44,7 +44,7 @@ export const connectSocket = (token: string): Socket => {
 
   console.log("🔌 Creating new socket connection...");
 
-  socket = io("http://192.168.0.100:5000", {
+  socket = io("http://192.168.1.6:5000", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true,
@@ -130,10 +130,10 @@ export const attachSocketListeners = (
 
     dispatch(markSeenFromSocket(data));
 
-    dispatch(setUnreadFromServer({
-      chatId: data.chatId,
-      unreadCount: 0
-    }));
+    // dispatch(setUnreadFromServer({
+    //   chatId: data.chatId,
+    //   unreadCount: 0
+    // }));
   });
 
   /* ================= UNREAD ================= */

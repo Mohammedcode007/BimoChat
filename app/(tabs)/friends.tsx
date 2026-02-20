@@ -397,7 +397,6 @@
 import { Colors } from '@/constants/theme';
 import {
   createChat,
-  fetchChats,
   setActiveChat
 } from '@/redux/slices/chatSlice';
 
@@ -493,7 +492,7 @@ export default function FriendsScreen() {
       ).unwrap();
 
       dispatch(setActiveChat(chat._id));
-      dispatch(fetchChats());
+      // dispatch(fetchChats());
 
       const messagesRes = await api.get(
         `/messages/${chat._id}?page=1`

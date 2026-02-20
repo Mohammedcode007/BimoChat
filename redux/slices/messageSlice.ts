@@ -35,7 +35,7 @@ export interface MessageItem {
   sender: string;
   type: string;
   content: string;
-media?: MediaPayload;
+  media?: MediaPayload;
   replyTo?: any;
   status?: "sent" | "delivered" | "seen"; // 🔥 أضف هذا
 
@@ -65,39 +65,25 @@ interface MessageState {
 }
 
 export const loadMessages = createAsyncThunk<
-  { chatId: string; messages: MessageItem[] },
-  string
+  { chatId: string; messages: MessageItem[]; page: number },
+  { chatId: string; page: number }
 >(
   "message/loadMessages",
-  async (chatId, { rejectWithValue }) => {
+  async ({ chatId, page }, { rejectWithValue }) => {
     try {
-
-      console.log("━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📥 loadMessages CALLED");
-      console.log("Chat ID:", chatId);
-
-      const res = await api.get(`/messages/${chatId}`);
-
-      console.log("✅ API Response Status:", res.status);
-      console.log("📦 Messages Count:", res.data?.length);
-      console.log("📨 Messages Data:", res.data);
-      console.log("━━━━━━━━━━━━━━━━━━━━━━");
-
-      // 🔥 إعلام السيرفر أن الرسائل تمت رؤيتها
-      // emitMarkAsSeen(chatId);
+      const res = await api.get(
+        `/messages/${chatId}?page=${page}`
+      );
 
       return {
         chatId,
-        messages: res.data
+        messages: res.data,
+        page
       };
 
     } catch (error: any) {
-
-      console.log("❌ loadMessages ERROR:");
-      console.log(error?.response?.data || error.message);
-
       return rejectWithValue(
-        error?.response?.data || "Failed to load messages"
+        error?.response?.data || "Failed"
       );
     }
   }
@@ -175,8 +161,10 @@ const messageSlice = createSlice({
 
           messages[optimisticIndex] = {
             ...incoming,
-            optimistic: false
+            optimistic: false,
+            clientTempId: undefined
           };
+
 
           return;
         }
@@ -186,21 +174,29 @@ const messageSlice = createSlice({
          2) Prevent duplicate by real _id
       ========================================== */
 
+      /* ==========================================
+      2) Prevent duplicate by real _id
+   ========================================== */
+
       const exists = messages.find(
         m => m._id === incoming._id
       );
 
       if (!exists) {
 
-        messages.push({
-          ...incoming,
-          reactions: incoming.reactions || [],
-          deliveryStatus: incoming.deliveryStatus || {
-            deliveredTo: [],
-            seenBy: []
-          }
-        });
+        state.messages[chatId] = [
+          {
+            ...incoming,
+            reactions: incoming.reactions || [],
+            deliveryStatus: incoming.deliveryStatus || {
+              deliveredTo: [],
+              seenBy: []
+            }
+          },
+          ...messages
+        ];
       }
+
     },
 
 
@@ -342,26 +338,49 @@ const messageSlice = createSlice({
         state.loading = true;
       })
 
-      .addCase(loadMessages.fulfilled, (state, action) => {
+    .addCase(loadMessages.fulfilled, (state, action) => {
+  const { chatId, messages, page } = action.payload;
 
-        const { chatId, messages } = action.payload;
+  state.loading = false;
 
-        state.loading = false;
+  const normalized = messages.map(msg => ({
+    ...msg,
+    reactions: msg.reactions || [],
+    deliveryStatus: msg.deliveryStatus || {
+      deliveredTo: [],
+      seenBy: []
+    }
+  }));
 
-        state.messages[chatId] = messages.map(msg => ({
-          ...msg,
-          reactions: msg.reactions || [],
-          deliveryStatus: msg.deliveryStatus || {
-            deliveredTo: [],
-            seenBy: []
-          }
-        }));
-      })
+  if (page === 1) {
+    // أول تحميل
+    state.messages[chatId] = normalized;
+  } else {
+    const existing = state.messages[chatId] || [];
+
+    // إنشاء Set بجميع الـ IDs الموجودة
+    const existingIds = new Set(existing.map(m => m._id));
+
+    // فلترة الرسائل الجديدة لمنع التكرار
+    const filtered = normalized.filter(
+      m => !existingIds.has(m._id)
+    );
+
+    // دمج بدون تكرار (مع inverted نضيف القديمة في النهاية)
+    state.messages[chatId] = [
+      ...existing,
+      ...filtered
+    ];
+  }
+})
+
+
 
       .addCase(loadMessages.rejected, (state) => {
         state.loading = false;
       });
   }
+
 
 });
 

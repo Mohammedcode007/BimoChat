@@ -253,68 +253,68 @@ const chatSlice = createSlice({
 
     },
     /* ================= SOCKET NEW MESSAGE ================= */
- socketNewMessage: (
-  state,
-  action: PayloadAction<{
-    chatId: string;
-    message: any;
-  }>
-) => {
+    socketNewMessage: (
+      state,
+      action: PayloadAction<{
+        chatId: string;
+        message: any;
+      }>
+    ) => {
 
-  const { chatId, message } = action.payload;
+      const { chatId, message } = action.payload;
 
-  console.log("━━━━━━━━ SOCKET NEW MESSAGE ━━━━━━━━");
-  console.log("Incoming chatId:", chatId);
-  console.log("Incoming messageId:", message?._id);
+      console.log("━━━━━━━━ SOCKET NEW MESSAGE ━━━━━━━━");
+      console.log("Incoming chatId:", chatId);
+      console.log("Incoming messageId:", message?._id);
 
-  const index = state.chats.findIndex(c => c._id === chatId);
+      const index = state.chats.findIndex(c => c._id === chatId);
 
-  if (index === -1) {
-    console.log("❌ Chat NOT FOUND in state");
-    return;
-  }
+      if (index === -1) {
+        console.log("❌ Chat NOT FOUND in state");
+        return;
+      }
 
-  const oldChat = state.chats[index];
+      const oldChat = state.chats[index];
 
-  console.log("📌 BEFORE UPDATE");
-  console.log("Old lastMessageId:", oldChat.lastMessage?._id);
-  console.log("Old updatedAt:", oldChat.updatedAt);
+      console.log("📌 BEFORE UPDATE");
+      console.log("Old lastMessageId:", oldChat.lastMessage?._id);
+      console.log("Old updatedAt:", oldChat.updatedAt);
 
-  const oldReference = oldChat;
+      const oldReference = oldChat;
 
- const newChat = {
-  ...oldChat,
-  lastMessage: message,
-  lastMessagePreview: message.content,
-  lastMessageType: message.type,
-  updatedAt: message.updatedAt || message.createdAt
-};
-  console.log("📌 AFTER PREPARE NEW OBJECT");
-  console.log("New lastMessageId:", newChat.lastMessage?._id);
-  console.log("New updatedAt:", newChat.updatedAt);
+      const newChat = {
+        ...oldChat,
+        lastMessage: message,
+        lastMessagePreview: message.content,
+        lastMessageType: message.type,
+        updatedAt: message.updatedAt || message.createdAt
+      };
+      console.log("📌 AFTER PREPARE NEW OBJECT");
+      console.log("New lastMessageId:", newChat.lastMessage?._id);
+      console.log("New updatedAt:", newChat.updatedAt);
 
-  console.log(
-    "🧠 Same message?",
-    oldChat.lastMessage?._id === message?._id
-  );
+      console.log(
+        "🧠 Same message?",
+        oldChat.lastMessage?._id === message?._id
+      );
 
-  console.log(
-    "🧠 Same updatedAt?",
-    oldChat.updatedAt === message.createdAt
-  );
+      console.log(
+        "🧠 Same updatedAt?",
+        oldChat.updatedAt === message.createdAt
+      );
 
-  state.chats[index] = newChat;
+      state.chats[index] = newChat;
 
-  console.log("📌 AFTER REPLACEMENT");
+      console.log("📌 AFTER REPLACEMENT");
 
-  console.log(
-    "🔁 Reference changed?",
-    oldReference !== state.chats[index]
-  );
+      console.log(
+        "🔁 Reference changed?",
+        oldReference !== state.chats[index]
+      );
 
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-},
+    },
 
 
 
@@ -423,74 +423,74 @@ const chatSlice = createSlice({
         state.loading = true;
       })
 
-.addCase(fetchChats.fulfilled, (state, action) => {
+      .addCase(fetchChats.fulfilled, (state, action) => {
 
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("📥 fetchChats.fulfilled START");
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("📥 fetchChats.fulfilled START");
 
-  state.loading = false;
+        state.loading = false;
 
-  const { chats: serverChats, userId } = action.payload;
+        const { chats: serverChats, userId } = action.payload;
 
-  console.log("👤 Incoming userId:", userId);
-  console.log("📦 Server chats count:", serverChats.length);
-  console.log("📦 Local chats BEFORE merge:", state.chats.length);
+        console.log("👤 Incoming userId:", userId);
+        console.log("📦 Server chats count:", serverChats.length);
+        console.log("📦 Local chats BEFORE merge:", state.chats.length);
 
-  state.currentUserId = userId;
+        state.currentUserId = userId;
 
-  serverChats.forEach(serverChat => {
+        serverChats.forEach(serverChat => {
 
-    console.log("--------------------------------------------------");
-    console.log("🔎 Processing chat:", serverChat._id);
-    console.log("🕒 Server updatedAt:", serverChat.updatedAt);
+          console.log("--------------------------------------------------");
+          console.log("🔎 Processing chat:", serverChat._id);
+          console.log("🕒 Server updatedAt:", serverChat.updatedAt);
 
-    const existingChat = state.chats.find(
-      c => c._id === serverChat._id
-    );
+          const existingChat = state.chats.find(
+            c => c._id === serverChat._id
+          );
 
-    if (!existingChat) {
+          if (!existingChat) {
 
-      console.log("🆕 Chat not found locally → PUSH");
-      state.chats.push(serverChat);
+            console.log("🆕 Chat not found locally → PUSH");
+            state.chats.push(serverChat);
 
-    } else {
+          } else {
 
-      console.log("✅ Chat exists locally");
-      console.log("🕒 Local updatedAt:", existingChat.updatedAt);
+            console.log("✅ Chat exists locally");
+            console.log("🕒 Local updatedAt:", existingChat.updatedAt);
 
-      const localTime = new Date(existingChat.updatedAt).getTime();
-      const serverTime = new Date(serverChat.updatedAt).getTime();
+            const localTime = new Date(existingChat.updatedAt).getTime();
+            const serverTime = new Date(serverChat.updatedAt).getTime();
 
-      console.log("⏱ Local timestamp:", localTime);
-      console.log("⏱ Server timestamp:", serverTime);
+            console.log("⏱ Local timestamp:", localTime);
+            console.log("⏱ Server timestamp:", serverTime);
 
-      // 🔥 لا تستبدل إلا لو السيرفر أحدث
-      if (serverTime > localTime) {
+            // 🔥 لا تستبدل إلا لو السيرفر أحدث
+            if (serverTime > localTime) {
 
-        console.log("🔄 Server is NEWER → REPLACING local chat");
+              console.log("🔄 Server is NEWER → REPLACING local chat");
 
-        Object.assign(existingChat, serverChat);
+              Object.assign(existingChat, serverChat);
 
-      } else {
+            } else {
 
-        console.log("⛔ Local is newer or equal → SKIP replace");
+              console.log("⛔ Local is newer or equal → SKIP replace");
 
-      }
+            }
 
-    }
+          }
 
-  });
+        });
 
-  state.totalUnread = state.chats.reduce(
-    (sum, chat) => sum + chat.unreadCount,
-    0
-  );
+        state.totalUnread = state.chats.reduce(
+          (sum, chat) => sum + chat.unreadCount,
+          0
+        );
 
-  console.log("📦 Local chats AFTER merge:", state.chats.length);
-  console.log("🔢 totalUnread recalculated:", state.totalUnread);
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("📦 Local chats AFTER merge:", state.chats.length);
+        console.log("🔢 totalUnread recalculated:", state.totalUnread);
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-})
+      })
       .addCase(fetchChats.rejected, (state) => {
         state.loading = false;
       })

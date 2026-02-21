@@ -8,6 +8,7 @@ import profileReducer from "./slices/profileSlice";
 import tweetReducer from "./slices/tweetSlice";
 
 import chatReducer from "./slices/chatSlice";
+import roomReducer from "./slices/room.slice";
 
 
 
@@ -16,12 +17,14 @@ export const store = configureStore({
   reducer: {
     auth: authReducer,
     friends: friendReducer,
-    notification:notificationReducer,
-    profile:profileReducer,
+    notification: notificationReducer,
+    profile: profileReducer,
     tweets: tweetReducer,
     follow: followReducer,
-        chat: chatReducer,
+    chat: chatReducer,
     message: messageReducer,
+        room: roomReducer,
+
 
 
   },

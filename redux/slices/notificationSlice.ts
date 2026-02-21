@@ -59,11 +59,9 @@ export const fetchNotifications = createAsyncThunk<
   try {
     const res = await api.get("/notifications");
 
-    console.log("📥 [Redux] fetchNotifications:", res.data);
 
     return res.data;
   } catch (err: any) {
-    console.log("❌ fetchNotifications error:", err);
     return thunkAPI.rejectWithValue(
       err.response?.data?.message || "Failed to fetch notifications"
     );
@@ -78,7 +76,6 @@ export const fetchUnreadCount = createAsyncThunk<
   try {
     const res = await api.get("/notifications/unread-count");
 
-    console.log("🔢 [Redux] unreadCount:", res.data.unreadCount);
 
     return res.data.unreadCount;
   } catch (err: any) {
@@ -94,7 +91,6 @@ export const markNotificationAsRead = createAsyncThunk<
   { rejectValue: string }
 >("notifications/readOne", async (notificationId, thunkAPI) => {
   try {
-    console.log("📌 Mark as read:", notificationId);
 
     await api.patch(`/notifications/${notificationId}/read`);
     return notificationId;
@@ -111,7 +107,6 @@ export const deleteNotification = createAsyncThunk<
   { rejectValue: string }
 >("notifications/delete", async (notificationId, thunkAPI) => {
   try {
-    console.log("🗑 Delete notification:", notificationId);
 
     await api.delete(`/notifications/${notificationId}`);
     return notificationId;
@@ -138,7 +133,6 @@ const notificationSlice = createSlice({
       action: PayloadAction<NotificationItem>
     ) => {
 
-      console.log("🔔 [Socket] New notification:", action.payload);
 
       state.notifications.unshift(action.payload);
       state.unreadCount += 1;
@@ -154,14 +148,12 @@ const notificationSlice = createSlice({
       }>
     ) => {
 
-      console.log("🔄 [Socket] Sync:", action.payload);
 
       state.notifications = action.payload.notifications;
       state.unreadCount = action.payload.unreadCount;
     },
 
     setUnreadCount: (state, action: PayloadAction<number>) => {
-      console.log("🔢 [Socket] Count updated:", action.payload);
       state.unreadCount = action.payload;
     },
 
@@ -185,7 +177,6 @@ const notificationSlice = createSlice({
         action: PayloadAction<NotificationItem[]>
       ) => {
 
-        console.log("✅ Notifications stored:", action.payload);
 
         state.loading = false;
         state.notifications = action.payload;
@@ -219,7 +210,6 @@ const notificationSlice = createSlice({
           state.unreadCount = Math.max(0, state.unreadCount - 1);
         }
 
-        console.log("📊 After read unreadCount:", state.unreadCount);
       })
 
       /* ===== DELETE ===== */
@@ -240,7 +230,6 @@ const notificationSlice = createSlice({
           (n: NotificationItem) => n._id !== action.payload
         );
 
-        console.log("📊 After delete unreadCount:", state.unreadCount);
       });
 
   }

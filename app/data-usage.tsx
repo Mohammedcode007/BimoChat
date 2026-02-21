@@ -2,13 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import React, { useEffect, useState } from 'react';
 import {
-    AppState,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View,
+  AppState,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 /* ================= SCREEN ================= */
@@ -30,7 +30,6 @@ export default function DataUsageScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', state => {
       if (state !== 'active' && !backgroundData) {
-        console.log('Background data blocked');
       }
     });
 

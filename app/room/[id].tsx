@@ -1,20 +1,32 @@
+// app/(tabs)/room/[id].tsx
+// ✅ تعديل شامل ليتوافق مع الدوال/الأحداث الجديدة في الباك + تحسينات:
+// 1) عرض Active Online من Redux (activeCountByRoom) بدل الاعتماد على usersCount
+// 2) تغيير الـ Role عبر Socket ACK (room:role:set) + التحديث الحقيقي يصل عبر room:roles:update
+// 3) حذف الرسالة: يسمح لصاحب الرسالة + (creator/owner/admin)
+// 4) إصلاح scrollToBottom مع inverted list
+// 5) تحسين mapReduxToUIMessage: قراءة reactions من الباك إن وجدت (أول reaction للعرض)
+// 6) تنظيف audio timers + unload sound عند الخروج
+
 import { Ionicons } from "@expo/vector-icons";
 import { Audio, ResizeMode, Video } from "expo-av";
+import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    Animated,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Animated,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,62 +34,398 @@ import { SafeAreaView } from "react-native-safe-area-context";
 // ✅ Redux
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
-    fetchRoomMessages,
-    leaveRoomAndExit,
-    selectRoomLoadingMessages,
-    selectRoomMessages,
-    sendRoomMessage
+  fetchRoomMessages,
+  fetchRoomStats,
+  fetchRoomUsers,
+  leaveRoomAndExit,
+  selectRoomActiveCount,
+  selectRoomLoadingMessages,
+  selectRoomMessages,
+  selectRoomUsers,
+  sendRoomMessage,
+  socketRoleSetFailed,
+  socketRoleSetRequested,
+  socketRoleSetSucceeded
 } from "@/redux/slices/room.slice";
 
 // ✅ Socket helpers
 import {
-    deleteRoomSocketMessage,
-    joinRoomSocket,
-    leaveRoomSocket,
-    toggleRoomReaction as toggleRoomReactionSocket
+  deleteRoomSocketMessage,
+  joinRoomSocket,
+  leaveRoomSocket,
+  setRoomUserRoleSocket,
+  toggleRoomReaction as toggleRoomReactionSocket
 } from "@/services/socket";
 
 /* ================= TYPES ================= */
 
 type Reaction = "👍" | "❤️" | "😂" | "😮" | "😢" | "😡";
 
-type User = {
+type UserUI = {
   id: string;
   name: string;
-  avatar: string;
+  avatar?: string;
+  role?: "creator" | "owner" | "admin" | "member";
+  isOnline?: boolean;
 };
 
-type Message = {
+type MessageUI = {
   id: string;
   type: "text" | "image" | "file" | "audio" | "video" | "system";
-  systemType?: "join" | "leave" | "announcement" | "promotion" | "ban"; // اختياري
+  systemType?: "join" | "leave" | "announcement" | "promotion" | "ban" | "role";
 
   text?: string;
   uri?: string;
 
-  sender?: User;        // ✅ قد تكون undefined في رسائل النظام
+  sender?: UserUI;
   time: string;
 
-  replyTo?: Message;
+  replyTo?: MessageUI;
   reaction?: Reaction;
 
-  deletedForEveryone?: boolean; // ✅ مهم
-};
-/* ================= CONSTANTS ================= */
-
-const COLORS = {
-  me: "#6D5DF6",
-  other: "#F2F2F2",
-  bg: "#FFFFFF",
-  time: "#9CA3AF"
+  deletedForEveryone?: boolean;
 };
 
 const REACTIONS: Reaction[] = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 
-/* ================= CURRENT USER ================= */
+const COLORS = {
+  me: "#6D5DF6",
+  other: "#FFFFFF",
+  bg: "#F6F7FB",
+  time: "#9CA3AF"
+};
+// ✅ 1) أضف هذه الدوال/الثوابت داخل ملف room/[id].tsx (يفضّل فوق MessageItem)
 
+// ألوان النجمة حسب الدور
+const ROLE_STAR_COLOR: Record<string, string> = {
+  creator: "#F59E0B", // ذهبي
+  owner: "#8B5CF6",   // بنفسجي
+  admin: "#3B82F6"    // أزرق
+};
 
-/* ================= COMPONENT ================= */
+// هل يظهر Star؟
+const shouldShowStar = (role?: "creator" | "owner" | "admin" | "member") =>
+  role === "creator" || role === "owner" || role === "admin";
+
+// لون النجمة
+const getStarColor = (role?: "creator" | "owner" | "admin" | "member") =>
+  role ? ROLE_STAR_COLOR[role] || "#111827" : "#111827";
+
+/* =====================================================
+   ✅ MESSAGE ITEM
+===================================================== */
+
+function MessageItem({
+  item,
+  isMe,
+  showName,
+  onLongPress,
+  onPressImage,
+  onTogglePlay,
+  playingId,
+  progressAnim
+}: {
+  item: MessageUI;
+  isMe: boolean;
+  showName: boolean;
+  onLongPress: () => void;
+  onPressImage: (uri: string) => void;
+  onTogglePlay: (uri: string, id: string) => void;
+  playingId: string | null;
+  progressAnim: Animated.Value;
+}) {
+  if (item.type === "system") {
+    return (
+      <View style={bubbleStyles.sysWrap}>
+        <View style={bubbleStyles.sysBubble}>
+          <Text style={bubbleStyles.sysText}>{item.text}</Text>
+          <Text style={bubbleStyles.sysTime}>{item.time}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const senderRole = item.sender?.role;
+  const showStar = showName && !isMe && shouldShowStar(senderRole);
+  const starColor = getStarColor(senderRole);
+  const copyMessageContent = async () => {
+    if (item.type === "system") return;
+    if (item.deletedForEveryone) return;
+
+    // ننسخ حسب النوع
+    const value =
+      item.type === "text"
+        ? (item.text || "")
+        : item.type === "file"
+          ? (item.text || item.uri || "")
+          : item.type === "image" || item.type === "video" || item.type === "audio"
+            ? (item.uri || "")
+            : "";
+
+    const v = String(value || "").trim();
+    if (!v) return;
+
+    await Clipboard.setStringAsync(v);
+    Alert.alert("Copied", "تم نسخ محتوى الرسالة");
+  };
+  return (
+    <View style={[bubbleStyles.row, isMe ? bubbleStyles.rowMe : bubbleStyles.rowOther]}>
+      {!isMe ? (
+        <View style={bubbleStyles.avatarWrap}>
+          <Image
+            source={{ uri: item.sender?.avatar || "https://i.pravatar.cc/150?img=12" }}
+            style={bubbleStyles.avatar}
+          />
+
+          {/* ✅ النجمة بجانب الصورة: أعلى يمين */}
+          {shouldShowStar(senderRole) && (
+            <Text style={[bubbleStyles.avatarStar, { color: starColor }]}>★</Text>
+          )}
+        </View>
+      ) : (
+        <View style={bubbleStyles.avatarSpacer} />
+      )}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onLongPress={onLongPress}
+        onPress={() => {
+          // ✅ لا ننسخ عند الضغط على أنواع لها تفاعل خاص داخل الفقاعة
+          // (الصورة/الصوت لهم Touchables خاصة بهم بالفعل)
+          if (item.type === "text" || item.type === "file") {
+            copyMessageContent();
+          }
+        }}
+        style={[bubbleStyles.bubble, isMe ? bubbleStyles.bubbleMe : bubbleStyles.bubbleOther]}
+      >
+        {showName && !isMe && !!item.sender?.name && (
+          <View style={bubbleStyles.nameWrap}>
+            <View style={bubbleStyles.nameRow}>
+              {/* {showStar && <Text style={[bubbleStyles.roleStar, { color: starColor }]}>★</Text>} */}
+
+              <Text style={bubbleStyles.senderName} numberOfLines={1}>
+                {item.sender.name}
+              </Text>
+            </View>
+
+            {/* ✅ خط تحت الاسم */}
+            <View style={bubbleStyles.nameUnderline} />
+          </View>
+        )}
+
+        {!!item.deletedForEveryone ? (
+          <Text style={bubbleStyles.msgTextMuted}>🚫 تم حذف الرسالة</Text>
+        ) : (
+          <>
+            {item.type === "text" && <Text style={bubbleStyles.msgText}>{item.text}</Text>}
+
+            {item.type === "image" && item.uri ? (
+              <TouchableOpacity activeOpacity={0.9} onPress={() => onPressImage(item.uri!)}>
+                <Image source={{ uri: item.uri }} style={bubbleStyles.media} />
+              </TouchableOpacity>
+            ) : null}
+
+            {item.type === "video" && item.uri ? (
+              <View style={bubbleStyles.videoWrapper}>
+                <Video
+                  source={{ uri: item.uri }}
+                  style={bubbleStyles.video}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
+                  isLooping={false}
+                />
+              </View>
+            ) : null}
+
+            {item.type === "file" ? (
+              <View style={bubbleStyles.fileRow}>
+                <Text style={bubbleStyles.fileIcon}>📄</Text>
+                <Text style={bubbleStyles.fileName} numberOfLines={1}>
+                  {item.text || "File"}
+                </Text>
+              </View>
+            ) : null}
+
+            {item.type === "audio" && item.uri ? (
+              <TouchableOpacity
+                style={bubbleStyles.audioRow}
+                activeOpacity={0.85}
+                onPress={() => onTogglePlay(item.uri!, item.id)}
+              >
+                <Ionicons
+                  name={playingId === item.id ? "pause" : "play"}
+                  size={20}
+                  color={isMe ? "#FFF" : "#111827"}
+                />
+
+                <View style={bubbleStyles.audioProgressWrapper}>
+                  <View style={bubbleStyles.audioProgressBg}>
+                    <Animated.View
+                      style={[
+                        bubbleStyles.audioProgressFill,
+                        {
+                          width:
+                            playingId === item.id
+                              ? progressAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: ["0%", "100%"]
+                              })
+                              : "0%",
+                          backgroundColor: isMe ? "#FFF" : "#6D5DF6"
+                        }
+                      ]}
+                    />
+                  </View>
+                  <Text style={[bubbleStyles.audioLabel, { color: isMe ? "#E5E7EB" : "#374151" }]}>
+                    Voice message
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : null}
+          </>
+        )}
+
+        {item.reaction && (
+          <View style={bubbleStyles.reaction}>
+            <Text>{item.reaction}</Text>
+          </View>
+        )}
+
+        {/* <Text style={[bubbleStyles.time, { color: isMe ? "#E5E7EB" : COLORS.time }]}>{item.time}</Text> */}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+/* =====================================================
+   ✅ USERS MODAL
+===================================================== */
+
+function UsersModal({
+  visible,
+  onClose,
+  users,
+  myUserId,
+  myRole,
+  onCopyUser,
+  onChangeRole
+}: {
+  visible: boolean;
+  onClose: () => void;
+  users: UserUI[];
+  myUserId: string;
+  myRole?: UserUI["role"];
+  onCopyUser: (u: UserUI) => void;
+  onChangeRole: (u: UserUI, newRole: UserUI["role"]) => void;
+}) {
+  const canManage = myRole === "creator" || myRole === "owner" || myRole === "admin";
+
+  const roleLabel = (r?: string) => {
+    if (r === "creator") return "Creator";
+    if (r === "owner") return "Owner";
+    if (r === "admin") return "Admin";
+    return "Member";
+  };
+
+  const RoleChip = ({
+    title,
+    active,
+    onPress
+  }: {
+    title: string;
+    active: boolean;
+    onPress: () => void;
+  }) => (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[usersStyles.roleChip, active && usersStyles.roleChipActive]}
+      activeOpacity={0.85}
+    >
+      <Text style={[usersStyles.roleChipText, active && usersStyles.roleChipTextActive]}>{title}</Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <Pressable style={usersStyles.overlay} onPress={onClose}>
+        <Pressable style={usersStyles.sheet} onPress={() => { }}>
+          <View style={usersStyles.header}>
+            <Text style={usersStyles.title}>Users</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={22} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={usersStyles.note}>
+            <Text style={usersStyles.noteText}>
+              اضغط على المستخدم لنسخ الاسم/المعرف.{" "}
+              {canManage ? "يمكنك أيضًا تغيير الدور." : "ليس لديك صلاحية لتغيير الأدوار."}
+            </Text>
+          </View>
+
+          <View style={usersStyles.list}>
+            {users.map((u) => {
+              const isMe = u.id === myUserId;
+              return (
+                <TouchableOpacity
+                  key={u.id}
+                  style={usersStyles.row}
+                  onPress={() => onCopyUser(u)}
+                  activeOpacity={0.85}
+                >
+                  <Image
+                    source={{ uri: u.avatar || "https://i.pravatar.cc/150?img=12" }}
+                    style={usersStyles.avatar}
+                  />
+
+                  <View style={{ flex: 1 }}>
+                    <View style={usersStyles.rowTop}>
+                      <Text style={usersStyles.name} numberOfLines={1}>
+                        {u.name} {isMe ? "(You)" : ""}
+                      </Text>
+                      <View style={usersStyles.badge}>
+                        <Text style={usersStyles.badgeText}>{roleLabel(u.role)}</Text>
+                      </View>
+                    </View>
+
+                    <Text style={usersStyles.sub} numberOfLines={1}>
+                      ID: {u.id}
+                    </Text>
+
+                    {canManage && !isMe && (
+                      <View style={usersStyles.rolesRow}>
+                        <RoleChip
+                          title="Member"
+                          active={(u.role || "member") === "member"}
+                          onPress={() => onChangeRole(u, "member")}
+                        />
+                        <RoleChip
+                          title="Admin"
+                          active={u.role === "admin"}
+                          onPress={() => onChangeRole(u, "admin")}
+                        />
+                        <RoleChip
+                          title="Owner"
+                          active={u.role === "owner"}
+                          onPress={() => onChangeRole(u, "owner")}
+                        />
+                      </View>
+                    )}
+                  </View>
+
+                  <Ionicons name="copy-outline" size={18} color="#6B7280" />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+/* =====================================================
+   ✅ MAIN SCREEN
+===================================================== */
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -87,50 +435,78 @@ export default function ChatScreen() {
   const roomId = String(id || "");
 
   const flatListRef = useRef<any>(null);
+
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
-const authUser = useAppSelector((state) => state.auth.user);
-const myUserId = String(authUser?._id || authUser?.id || ""); // ✅ حسب شكل user عندك
-const myName = String(authUser?.username || authUser?.name || "Me");
-const myAvatar = String(authUser?.avatar || "https://i.pravatar.cc/150?img=32");
-const currentUser: User = {
-  id: myUserId,
-  name: myName,
-  avatar: myAvatar
-};
-  /**
-   * ✅ تعديل مهم ليناسب الكود الجديد:
-   * selectRoomMessages و selectRoomUsers أصبحت memoized selectors بـ createSelector
-   * وبالتالي نستخدمها بالشكل التالي:
-   * useAppSelector((state) => selectRoomMessages(state, roomId))
-   */
+
+  const authUser = useAppSelector((state) => state.auth.user);
+  const myUserId = String(authUser?._id || authUser?.id || "");
+  const myName = String(authUser?.username || authUser?.name || "Me");
+  const myAvatar = String(authUser?.avatar || "https://i.pravatar.cc/150?img=32");
+
   const reduxMessages = useAppSelector((state) => selectRoomMessages(state, roomId));
   const loadingMessages = useAppSelector(selectRoomLoadingMessages);
+  const roomUsers = useAppSelector((state) => selectRoomUsers(state, roomId));
+
+  // ✅ Active online count from slice (socket + stats)
+  const activeCount = useAppSelector((state) => selectRoomActiveCount(state, roomId));
+
+  // ✅ دوري في الغرفة
+  const myRole = useMemo<UserUI["role"]>(() => {
+    const me = (roomUsers || []).find((u: any) => String(u?._id) === myUserId);
+    return me?.role;
+  }, [roomUsers, myUserId]);
+
+  const canModerate = useMemo(
+    () => myRole === "creator" || myRole === "owner" || myRole === "admin",
+    [myRole]
+  );
+
+  const usersMap = useMemo(() => {
+    const map = new Map<string, { username?: string; avatar?: string; role?: any }>();
+    for (const u of roomUsers || []) {
+      if (u?._id) map.set(String(u._id), { username: u.username, avatar: u.avatar, role: u.role });
+    }
+    if (myUserId) map.set(myUserId, { username: myName, avatar: myAvatar, role: myRole });
+    return map;
+  }, [roomUsers, myUserId, myName, myAvatar, myRole]);
 
   // UI states
   const [text, setText] = useState("");
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+
+  const [replyTo, setReplyTo] = useState<MessageUI | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<MessageUI | null>(null);
   const [showActions, setShowActions] = useState(false);
+
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
-  const [recordDuration, setRecordDuration] = useState(0);
-  const recordTimer = useRef<number | null>(null);
-
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [playbackDuration, setPlaybackDuration] = useState(1);
-  const [activeAudio, setActiveAudio] = useState<Message | null>(null);
+  const [activeAudio, setActiveAudio] = useState<MessageUI | null>(null);
+
+  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
+  const [recordDuration, setRecordDuration] = useState(0);
+  const recordTimer = useRef<any>(null);
+
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  /* =====================================================
-     HELPERS
-  ===================================================== */
+  // ✅ Menu
+  const [showRoomMenu, setShowRoomMenu] = useState(false);
+  const [showUsersModal, setShowUsersModal] = useState(false);
 
+  // ✅ لمنع leave مرتين
+  const didLeaveRef = useRef(false);
+
+  /* ================= HELPERS ================= */
+
+  // ✅ inverted list => bottom is offset 0
   const scrollToBottom = () => {
-    // قائمة inverted -> الأسفل = index 0
-    flatListRef.current?.scrollToPosition?.(0, 0, true);
+    try {
+      flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+    } catch {
+      // ignore
+    }
   };
 
   const formatTime = (millis: number) => {
@@ -140,81 +516,135 @@ const currentUser: User = {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
-const mapReduxToUIMessage = (m: any): Message => {
-  const backendType = String(m.type || "text");
+  const resolveUserNameById = (id?: string) => {
+    if (!id) return "";
+    const v = usersMap.get(String(id));
+    return String(v?.username || "");
+  };
 
-  // =====================================================
-  // استخراج المرسل (إن وجد)
-  // =====================================================
+  const resolveAvatarById = (id?: string) => {
+    if (!id) return "";
+    const v = usersMap.get(String(id));
+    return String(v?.avatar || "");
+  };
 
-  const senderObj =
-    typeof m.sender === "object" && m.sender
-      ? m.sender
-      : m.sender
-      ? { _id: String(m.sender), username: "User", avatar: undefined }
-      : null;
+  const normalizeRoleLabelAr = (role?: string) => {
+    if (!role) return "عضو";
+    if (role === "creator") return "منشئ";
+    if (role === "owner") return "مالك";
+    if (role === "admin") return "مشرف";
+    return "عضو";
+  };
 
-  // =====================================================
-  // تحديد هل الرسالة system
-  // =====================================================
+  /* ================= MAP MESSAGE ================= */
 
-  const isSystem =
-    backendType === "system" ||
-    backendType === "announcement" ||
-    backendType === "join" ||
-    backendType === "leave" ||
-    backendType === "promotion" ||
-    backendType === "ban";
+  const mapReduxToUIMessage = (m: any): MessageUI => {
+    // ✅ طباعات مختصرة ويمكن التحكم بها
+    const DEBUG_MAP = true; // اجعلها false في الإنتاج
+    const log = (...args: any[]) => DEBUG_MAP && console.log("[mapReduxToUIMessage]", ...args);
 
-  // =====================================================
-  // اسم المستخدم في رسائل السيستم
-  // =====================================================
+    const backendType = String(m?.type || "text");
 
-  let systemUserName = "";
+    const isSystem =
+      backendType === "system" ||
+      backendType === "announcement" ||
+      backendType === "join" ||
+      backendType === "leave" ||
+      backendType === "promotion" ||
+      backendType === "ban" ||
+      backendType === "role"; // اتركها للتوافق مع رسائل قديمة إن وُجدت
 
-  // 1) لو فيه sender object
-  if (senderObj?.username) {
-    systemUserName = senderObj.username;
-  }
+    const senderObj =
+      typeof m?.sender === "object" && m?.sender
+        ? m.sender
+        : m?.sender
+          ? { _id: String(m.sender), username: "", avatar: "" }
+          : null;
 
-  // 2) لو فيه mentions (مثلاً join/leave)
-  if (!systemUserName && Array.isArray(m.mentions) && m.mentions.length > 0) {
-    const mentioned = m.mentions[0];
+    const senderId = senderObj?._id ? String(senderObj._id) : "";
 
-    if (typeof mentioned === "object") {
-      systemUserName = mentioned.username || "User";
-    } else {
-      systemUserName = "User";
+    let systemUserName =
+      String(senderObj?.username || "").trim() ||
+      String(m?.senderUsername || m?.actorName || m?.username || "").trim();
+
+    if (!systemUserName && senderId) systemUserName = String(resolveUserNameById(senderId) || "").trim();
+    if (!systemUserName && senderId && myUserId && senderId === myUserId) systemUserName = myName;
+    if (!systemUserName) systemUserName = "مستخدم";
+
+    // ✅ طباعات أساسية
+    log("IN", {
+      id: String(m?._id || ""),
+      backendType,
+      isSystem,
+      senderId,
+      senderUsername: String(senderObj?.username || ""),
+      systemUserName,
+      createdAt: m?.createdAt
+    });
+
+    // ✅ نصوص النظام
+    let systemText = String(m?.content || "");
+
+    if (backendType === "join") {
+      systemText = `✅ ${systemUserName} Join`;
+      log("SYSTEM join", { systemText });
+    } else if (backendType === "leave") {
+      systemText = `🚪 ${systemUserName} Left`;
+      log("SYSTEM leave", { systemText });
+    } else if (backendType === "promotion") {
+      // ✅ promotion قد يكون "ترقية عامة" أو "تغيير دور" (role:set) داخل promotion
+      const action = String(m?.action || m?.meta?.action || "");
+
+      const actor =
+        String(m?.actorName || m?.meta?.actorName || "").trim() ||
+        systemUserName ||
+        "مشرف";
+
+      const target = String(m?.targetName || m?.meta?.targetName || "").trim();
+      const roleRaw = String(m?.role || m?.meta?.role || "").trim();
+
+      const isRoleChange =
+        action === "role:set" ||
+        Boolean(
+          m?.actorName ||
+          m?.targetName ||
+          m?.role ||
+          m?.meta?.actorName ||
+          m?.meta?.targetName ||
+          m?.meta?.role
+        );
+
+      log("SYSTEM promotion meta", { action, actor, target, roleRaw, isRoleChange });
+
+      if (isRoleChange) {
+        const targetName = target || "مستخدم";
+        const roleAr = roleRaw ? normalizeRoleLabelAr(roleRaw) : "";
+
+        systemText = `⭐ تم ترقية ${targetName}${roleAr ? ` إلى ${roleAr}` : ""} بواسطة ${actor}`;
+        log("SYSTEM role-change-as-promotion", { systemText });
+      } else {
+        systemText = `⭐ تمت ترقية ${systemUserName}`;
+        log("SYSTEM promotion default", { systemText });
+      }
+    } else if (backendType === "ban") {
+      systemText = `⛔ تم حظر ${systemUserName}`;
+      log("SYSTEM ban", { systemText });
+    } else if (backendType === "announcement") {
+      systemText = `📢 ${m?.content || ""}`;
+      log("SYSTEM announcement", { systemText });
+    } else if (backendType === "role") {
+      // ✅ للتوافق مع بيانات قديمة لو عندك type=role مخزن سابقًا
+      const actor = String(m?.actorName || systemUserName || "مشرف");
+      const target = String(m?.targetName || "مستخدم");
+      const r = normalizeRoleLabelAr(String(m?.role || ""));
+      systemText = `⭐ تم ترقية ${target}${r ? ` إلى ${r}` : ""} بواسطة ${actor}`;
+      log("SYSTEM legacy role", { actor, target, r, systemText });
     }
-  }
 
-  if (!systemUserName) systemUserName = "User";
-
-  // =====================================================
-  // نص رسائل السيستم
-  // =====================================================
-
-  let systemText = String(m.content || "");
-
-  if (backendType === "join") {
-    systemText = `✅ ${systemUserName} joined the room`;
-  } else if (backendType === "leave") {
-    systemText = `🚪 ${systemUserName} left the room`;
-  } else if (backendType === "promotion") {
-    systemText = `⭐ ${systemUserName} was promoted`;
-  } else if (backendType === "ban") {
-    systemText = `⛔ ${systemUserName} was banned`;
-  } else if (backendType === "announcement") {
-    systemText = `📢 ${m.content || ""}`;
-  }
-
-  // =====================================================
-  // Reply
-  // =====================================================
-
-  const uiReplyTo: Message | undefined =
-    m.replyTo && typeof m.replyTo === "object"
-      ? {
+    // replyTo
+    const uiReplyTo: MessageUI | undefined =
+      m?.replyTo && typeof m.replyTo === "object"
+        ? {
           id: String(m.replyTo._id || "reply"),
           type: "text",
           text: String(m.replyTo.content || "Media message"),
@@ -226,77 +656,126 @@ const mapReduxToUIMessage = (m: any): Message => {
           },
           time: ""
         }
+        : undefined;
+
+    let uiType: MessageUI["type"] = "text";
+    if (isSystem) uiType = "system";
+    else if (backendType === "image") uiType = "image";
+    else if (backendType === "video") uiType = "video";
+    else if (backendType === "audio") uiType = "audio";
+    else if (backendType === "file") uiType = "file";
+
+    const time = new Date(m?.createdAt || Date.now()).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    const fallbackName =
+      String(senderObj?.username || "").trim() ||
+      String(resolveUserNameById(senderId) || "").trim() ||
+      (senderId && senderId === myUserId ? myName : "") ||
+      "User";
+
+    const fallbackAvatar =
+      String(senderObj?.avatar || "").trim() ||
+      String(resolveAvatarById(senderId) || "").trim() ||
+      (senderId === myUserId ? myAvatar : "");
+
+    // ✅ عرض أول Reaction إن وجدت
+    const firstReactionEmoji =
+      Array.isArray(m?.reactions) && m.reactions.length ? String(m.reactions[0]?.emoji || "") : "";
+
+    const uiReaction = REACTIONS.includes(firstReactionEmoji as any)
+      ? (firstReactionEmoji as Reaction)
       : undefined;
 
-  // =====================================================
-  // تحويل نوع الرسالة
-  // =====================================================
-
-  let uiType: Message["type"] = "text";
-  if (isSystem) uiType = "system";
-  else if (backendType === "image") uiType = "image";
-  else if (backendType === "video") uiType = "video";
-  else if (backendType === "audio") uiType = "audio";
-  else if (backendType === "file") uiType = "file";
-  else uiType = "text";
-
-  // =====================================================
-  // الوقت
-  // =====================================================
-
-  const time = new Date(m.createdAt || Date.now()).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-
-  return {
-    id: String(m._id),
-    type: uiType,
-
-    systemType: isSystem ? (backendType as any) : undefined,
-
-    text: isSystem ? systemText : String(m.content || ""),
-    uri: m.media?.url,
-
-    sender: isSystem
-      ? undefined
-      : {
-          id: String(senderObj?._id || "unknown"),
-          name: String(senderObj?.username || "User"),
-          avatar: String(senderObj?.avatar || "")
+    const out: MessageUI = {
+      id: String(m?._id),
+      type: uiType,
+      systemType: isSystem ? (backendType as any) : undefined,
+      text: isSystem ? systemText : String(m?.content || ""),
+      uri: m?.media?.url,
+      sender: isSystem
+        ? undefined
+        : {
+          id: String(senderId || "unknown"),
+          name: fallbackName,
+          avatar: fallbackAvatar,
+          role: usersMap.get(senderId)?.role
         },
+      replyTo: uiReplyTo,
+      reaction: uiReaction,
+      deletedForEveryone: Boolean(m?.deletedForEveryone),
+      time
+    };
 
-    replyTo: uiReplyTo,
-    reaction: undefined,
+    // ✅ طباعات للخروج (مختصرة)
+    log("OUT", {
+      id: out.id,
+      uiType: out.type,
+      systemType: out.systemType,
+      text: out.text,
+      sender: out.sender?.name,
+      hasReplyTo: Boolean(out.replyTo),
+      reaction: out.reaction,
+      deletedForEveryone: out.deletedForEveryone
+    });
 
-    deletedForEveryone: Boolean(m.deletedForEveryone),
-
-    time
+    return out;
   };
-};
-  const uiMessages: Message[] = useMemo(() => {
+
+  const uiMessages: MessageUI[] = useMemo(() => {
     if (!reduxMessages) return [];
     return reduxMessages.map(mapReduxToUIMessage);
-  }, [reduxMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reduxMessages, roomUsers, myUserId, myName, myAvatar]);
 
-  /* =====================================================
-     FETCH + SOCKET JOIN/LEAVE
-  ===================================================== */
+  const usersUI: UserUI[] = useMemo(() => {
+    return (roomUsers || []).map((u: any) => ({
+      id: String(u?._id),
+      name: String(u?.username || "User"),
+      avatar: String(u?.avatar || ""),
+      role: u?.role,
+      isOnline: Boolean(u?.isOnline)
+    }));
+  }, [roomUsers]);
+
+  /* ================= FETCH + SOCKET ================= */
 
   useEffect(() => {
     if (!roomId) return;
 
     dispatch(fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false }));
+    dispatch(fetchRoomUsers(roomId));
+    dispatch(fetchRoomStats(roomId));
+
     joinRoomSocket(roomId);
 
     return () => {
-      leaveRoomSocket(roomId);
+      if (!didLeaveRef.current) leaveRoomSocket(roomId);
     };
   }, [roomId, dispatch]);
 
-  /* =====================================================
-     AUDIO PLAY
-  ===================================================== */
+  // ✅ cleanup sound/timer
+  useEffect(() => {
+    return () => {
+      try {
+        if (recordTimer.current) clearInterval(recordTimer.current);
+      } catch { }
+
+      (async () => {
+        try {
+          if (sound) {
+            await sound.stopAsync();
+            await sound.unloadAsync();
+          }
+        } catch { }
+      })();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ================= AUDIO ================= */
 
   const togglePlay = async (uri: string, id: string) => {
     if (recording) return;
@@ -327,7 +806,7 @@ const mapReduxToUIMessage = (m: any): Message => {
     const { sound: newSound } = await Audio.Sound.createAsync({ uri });
     setSound(newSound);
     setPlayingId(id);
-    setActiveAudio({ id, uri } as Message);
+    setActiveAudio({ id, uri, type: "audio", time: "" } as any);
 
     newSound.setOnPlaybackStatusUpdate((status) => {
       if (!status.isLoaded) return;
@@ -345,16 +824,6 @@ const mapReduxToUIMessage = (m: any): Message => {
     await newSound.playAsync();
   };
 
-  const seekBy = async (offset: number) => {
-    if (!sound) return;
-    const status = await sound.getStatusAsync();
-    if (!status.isLoaded) return;
-
-    let newPos = status.positionMillis + offset;
-    newPos = Math.max(0, Math.min(newPos, status.durationMillis || 0));
-    await sound.setPositionAsync(newPos);
-  };
-
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: playbackDuration ? playbackProgress / playbackDuration : 0,
@@ -363,9 +832,7 @@ const mapReduxToUIMessage = (m: any): Message => {
     }).start();
   }, [playbackProgress, playbackDuration, progressAnim]);
 
-  /* =====================================================
-     SEND TEXT (REAL)
-  ===================================================== */
+  /* ================= SEND TEXT ================= */
 
   const sendText = async () => {
     const content = text.trim();
@@ -385,33 +852,31 @@ const mapReduxToUIMessage = (m: any): Message => {
       setReplyTo(null);
       scrollToBottom();
     } catch (e: any) {
-      console.log("Send failed:", e?.message || e);
+      Alert.alert("Error", e?.message || "Send failed");
     }
   };
 
-  /* =====================================================
-     MEDIA (UI فقط - حاليا محلي)
-  ===================================================== */
+  /* ================= MEDIA ================= */
 
-const sendImage = async () => {
-  const res = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    quality: 0.8
-  });
+  const sendImage = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8
+    });
 
-  if (!res.canceled) {
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        content: "📷 Image selected",
-        type: "image",
-        media: { url: res.assets[0].uri }
-      })
-    ).unwrap();
+    if (!res.canceled) {
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          content: "📷 Image",
+          type: "image",
+          media: { url: res.assets[0].uri }
+        })
+      ).unwrap();
 
-    scrollToBottom();
-  }
-};
+      scrollToBottom();
+    }
+  };
 
   const sendPDF = async () => {
     const res = await DocumentPicker.getDocumentAsync({ type: "application/pdf" });
@@ -422,9 +887,14 @@ const sendImage = async () => {
           roomId,
           content: res.assets[0].name,
           type: "file",
-          media: { url: res.assets[0].uri, fileName: res.assets[0].name, mimeType: "application/pdf" }
+          media: {
+            url: res.assets[0].uri,
+            fileName: res.assets[0].name,
+            mimeType: "application/pdf"
+          }
         })
-      );
+      ).unwrap();
+
       scrollToBottom();
     }
   };
@@ -439,18 +909,17 @@ const sendImage = async () => {
       await dispatch(
         sendRoomMessage({
           roomId,
-          content: "🎬 Video selected",
+          content: "🎬 Video",
           type: "video",
           media: { url: res.assets[0].uri }
         })
-      );
+      ).unwrap();
+
       scrollToBottom();
     }
   };
 
-  /* =====================================================
-     RECORDING
-  ===================================================== */
+  /* ================= RECORDING ================= */
 
   const startRecording = async () => {
     try {
@@ -475,9 +944,9 @@ const sendImage = async () => {
       setIsRecordingPaused(false);
       setRecordDuration(0);
 
-      recordTimer.current = setInterval(() => setRecordDuration((prev) => prev + 1), 1000) as any;
-    } catch (e) {
-      console.log("Recording error:", e);
+      recordTimer.current = setInterval(() => setRecordDuration((prev) => prev + 1), 1000);
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Record failed");
     }
   };
 
@@ -499,7 +968,7 @@ const sendImage = async () => {
     await recording.stopAndUnloadAsync();
     const uri = recording.getURI();
 
-    if (recordTimer.current !== null) {
+    if (recordTimer.current) {
       clearInterval(recordTimer.current);
       recordTimer.current = null;
     }
@@ -518,7 +987,8 @@ const sendImage = async () => {
           type: "audio",
           media: { url: uri }
         })
-      );
+      ).unwrap();
+
       scrollToBottom();
     }
   };
@@ -536,9 +1006,7 @@ const sendImage = async () => {
     }
   }, [recording, pulseAnim]);
 
-  /* =====================================================
-     ACTIONS: REACTION / REPLY / DELETE
-  ===================================================== */
+  /* ================= ACTIONS (Reaction/Reply/Delete) ================= */
 
   const addReaction = (messageId: string, emoji: Reaction) => {
     toggleRoomReactionSocket({ roomId, messageId, emoji });
@@ -550,20 +1018,100 @@ const sendImage = async () => {
     setShowActions(false);
   };
 
-  /* =====================================================
-     LEAVE ROOM
-  ===================================================== */
+  /* ================= ROOM MENU ACTIONS ================= */
+
+  const onRefreshRoom = async () => {
+    try {
+      setShowRoomMenu(false);
+      await dispatch(fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false })).unwrap();
+      await dispatch(fetchRoomUsers(roomId)).unwrap();
+      await dispatch(fetchRoomStats(roomId)).unwrap();
+      scrollToBottom();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Refresh failed");
+    }
+  };
+
+  const onOpenUsers = async () => {
+    try {
+      setShowRoomMenu(false);
+      await dispatch(fetchRoomUsers(roomId)).unwrap();
+      setShowUsersModal(true);
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to load users");
+    }
+  };
+
+  const onOpenStats = async () => {
+    try {
+      setShowRoomMenu(false);
+      const stats: any = await dispatch(fetchRoomStats(roomId)).unwrap();
+      Alert.alert(
+        "Room Stats",
+        `Active: ${stats?.activeCount ?? "-"}\nTotal: ${stats?.totalUsersCount ?? "-"}\nMessages: ${stats?.messagesCount ?? "-"
+        }\nLevel: ${stats?.level ?? "-"}`
+      );
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to load stats");
+    }
+  };
+
+  /* ================= LEAVE ROOM ================= */
 
   const onLeaveRoom = async () => {
     if (!roomId) return;
+    if (didLeaveRef.current) return;
 
     try {
+      setShowRoomMenu(false);
+      didLeaveRef.current = true;
+
       leaveRoomSocket(roomId);
       await dispatch(leaveRoomAndExit({ roomId, cleanup: true })).unwrap();
-    } catch (e) {
-      console.log("Leave failed:", e);
-    } finally {
       router.back();
+    } catch (e: any) {
+      didLeaveRef.current = false;
+      Alert.alert("Error", e?.message || "Failed to leave room");
+    }
+  };
+
+  /* ================= USERS: COPY + CHANGE ROLE ================= */
+
+  const onCopyUser = async (u: UserUI) => {
+    await Clipboard.setStringAsync(`${u.name} (${u.id})`);
+    Alert.alert("Copied", `Copied: ${u.name}`);
+  };
+
+  // ✅ تغيير Role عبر السوكت مع ACK
+  const onChangeRole = async (u: UserUI, newRole: UserUI["role"]) => {
+    try {
+      if (!canModerate) {
+        Alert.alert("No permission", "ليس لديك صلاحية لتغيير الدور");
+        return;
+      }
+
+      if (!u?.id || u.id === myUserId) return;
+      if (!roomId) return;
+
+      dispatch(socketRoleSetRequested({ roomId, targetId: u.id, role: newRole as any }));
+
+      const ack = await setRoomUserRoleSocket({
+        roomId,
+        targetId: u.id,
+        role: newRole as any
+      });
+
+      if (ack?.ok) {
+        dispatch(socketRoleSetSucceeded());
+        // لا نعدل الدور محلياً هنا — التحديث الحقيقي سيصل عبر room:roles:update
+        Alert.alert("Success", `${u.name} => ${newRole}`);
+      } else {
+        dispatch(socketRoleSetFailed({ message: ack?.message || "Set role failed" }));
+        Alert.alert("Error", ack?.message || "Failed to change role");
+      }
+    } catch (e: any) {
+      dispatch(socketRoleSetFailed({ message: e?.message || "Set role failed" }));
+      Alert.alert("Error", e?.message || "Failed to change role");
     }
   };
 
@@ -572,34 +1120,75 @@ const sendImage = async () => {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior="padding"
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >
       <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.bg }}>
         {/* ================= HEADER ================= */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <TouchableOpacity onPress={onLeaveRoom}>
+            <TouchableOpacity onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={22} />
             </TouchableOpacity>
 
             <Image source={{ uri: "https://i.pravatar.cc/150?img=12" }} style={styles.avatar} />
 
             <View>
-              <Text style={styles.name}>React Native Room</Text>
+              <Text style={styles.name}>Room</Text>
               <Text style={styles.online}>
-                {loadingMessages ? "Loading..." : `${uiMessages.length} Messages`}
+                {loadingMessages ? "Loading..." : `Online: ${activeCount} • ${uiMessages.length} Messages`}
               </Text>
             </View>
           </View>
 
           <View style={styles.headerRight}>
-            <Ionicons name="call-outline" size={22} />
-            <Ionicons name="videocam-outline" size={22} />
-            <Ionicons name="ellipsis-vertical" size={20} />
+            <TouchableOpacity onPress={() => setShowRoomMenu(true)} hitSlop={10}>
+              <Ionicons name="ellipsis-vertical" size={20} />
+            </TouchableOpacity>
           </View>
         </View>
 
+        {/* ================= ROOM MENU ================= */}
+        <Modal transparent visible={showRoomMenu} animationType="fade" onRequestClose={() => setShowRoomMenu(false)}>
+          <TouchableOpacity activeOpacity={1} style={styles.menuOverlay} onPress={() => setShowRoomMenu(false)}>
+            <View style={styles.menuBox}>
+              <TouchableOpacity style={styles.menuItem} onPress={onRefreshRoom}>
+                <Ionicons name="refresh" size={18} color="#111827" />
+                <Text style={styles.menuText}>Refresh</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.menuItem} onPress={onOpenUsers}>
+                <Ionicons name="people" size={18} color="#111827" />
+                <Text style={styles.menuText}>Users</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.menuItem} onPress={onOpenStats}>
+                <Ionicons name="stats-chart" size={18} color="#111827" />
+                <Text style={styles.menuText}>Stats</Text>
+              </TouchableOpacity>
+
+              <View style={styles.menuDivider} />
+
+              <TouchableOpacity style={styles.menuItem} onPress={onLeaveRoom}>
+                <Ionicons name="exit-outline" size={18} color="#EF4444" />
+                <Text style={[styles.menuText, { color: "#EF4444" }]}>Leave Room</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* ================= USERS MODAL ================= */}
+        <UsersModal
+          visible={showUsersModal}
+          onClose={() => setShowUsersModal(false)}
+          users={usersUI}
+          myUserId={myUserId}
+          myRole={myRole}
+          onCopyUser={onCopyUser}
+          onChangeRole={onChangeRole}
+        />
+
+        {/* ================= GLOBAL AUDIO BAR (اختياري) ================= */}
         {activeAudio && (
           <View style={styles.globalAudioPlayer}>
             <View style={styles.audioIcon}>
@@ -607,45 +1196,42 @@ const sendImage = async () => {
             </View>
 
             <View style={styles.audioCenter}>
-              <View style={styles.audioControls}>
-                <TouchableOpacity onPress={() => seekBy(-10000)}>
-                  <Ionicons name="play-back" size={22} color="#374151" />
-                </TouchableOpacity>
+              <Text style={styles.audioNow}>Playing voice…</Text>
 
-                <TouchableOpacity
-                  style={styles.playBtn}
-                  onPress={() => togglePlay(activeAudio.uri!, activeAudio.id)}
-                >
-                  <Ionicons name={playingId ? "pause" : "play"} size={26} color="#FFF" />
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => seekBy(10000)}>
-                  <Ionicons name="play-forward" size={22} color="#374151" />
-                </TouchableOpacity>
+              <View style={styles.globalProgressBg}>
+                <Animated.View
+                  style={[
+                    styles.globalProgressFill,
+                    {
+                      width: progressAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ["0%", "100%"]
+                      })
+                    }
+                  ]}
+                />
               </View>
 
-              <View style={styles.progressSection}>
+              <View style={styles.audioTimes}>
                 <Text style={styles.timeText}>{formatTime(playbackProgress)}</Text>
-
-                <View style={styles.globalProgressBg}>
-                  <Animated.View
-                    style={[
-                      styles.globalProgressFill,
-                      {
-                        width: progressAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: ["0%", "100%"]
-                        })
-                      }
-                    ]}
-                  />
-                </View>
-
                 <Text style={styles.timeText}>{formatTime(playbackDuration)}</Text>
               </View>
             </View>
 
-            <TouchableOpacity onPress={() => setActiveAudio(null)}>
+            <TouchableOpacity
+              onPress={async () => {
+                try {
+                  if (sound) {
+                    await sound.stopAsync();
+                    await sound.unloadAsync();
+                  }
+                } catch { }
+                setSound(null);
+                setPlayingId(null);
+                setActiveAudio(null);
+                setPlaybackProgress(0);
+              }}
+            >
               <Ionicons name="close" size={22} color="#6B7280" />
             </TouchableOpacity>
           </View>
@@ -657,168 +1243,34 @@ const sendImage = async () => {
           data={uiMessages}
           inverted
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 16 }}
-        renderItem={({ item, index }) => {
-            
-  // ✅ رسائل system: وسط + شكل مختلف
-if (item.type === "system") {
-  const label =
-    item.systemType === "join"
-      ? "✅ انضم"
-      : item.systemType === "leave"
-      ? "🚪 خرج"
-      : item.systemType === "ban"
-      ? "⛔ حظر"
-      : item.systemType === "promotion"
-      ? "⭐ ترقية"
-      : item.systemType === "announcement"
-      ? "📢 إعلان"
-      : "ℹ️ نظام";
+          contentContainerStyle={{ padding: 14 }}
+          renderItem={({ item, index }) => {
+            const isMe = Boolean(myUserId) && item.sender?.id === myUserId;
 
-  return (
-    <View style={styles.systemWrap}>
-      <View style={styles.systemBubble}>
-        <Text style={styles.systemLabel}>{label}</Text>
-        <Text style={styles.systemText}>{item.text}</Text>
-        <Text style={styles.systemTime}>{item.time}</Text>
-      </View>
-    </View>
-  );
-}
 
-  // ✅ رسائل عادية
-const isMe = Boolean(myUserId) && item.sender?.id === myUserId;
-  const previousMessage = uiMessages[index + 1];
-  const showName =
-    !previousMessage ||
-    previousMessage.type === "system" ||
-    previousMessage.sender?.id !== item.sender?.id;
+            const previousMessage = uiMessages[index + 1];
+            const showName =
+              !previousMessage ||
+              previousMessage.type === "system" ||
+              previousMessage.sender?.id !== item.sender?.id;
 
-  return (
-    <View style={{ marginBottom: 12 }}>
-{showName && item.type !== "system" && (
-  <Text style={[styles.outsideName, { alignSelf: isMe ? "flex-end" : "flex-start" }]}>
-    {isMe ? currentUser.name : item.sender.name}
-  </Text>
-)}
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onLongPress={() => {
-          setSelectedMessage(item);
-          setShowActions(true);
-        }}
-        style={[styles.bubble, isMe ? styles.me : styles.other]}
-      >
-        <>
-          {/* ✅ لو الرسالة محذوفة للجميع */}
-          {item.deletedForEveryone ? (
-            <Text style={[styles.text, { opacity: 0.6 }, isMe && { color: "#FFF" }]}>
-              🚫 This message was deleted
-            </Text>
-          ) : (
-            <>
-              {item.replyTo && (
-                <View style={styles.replyBox}>
-                  <Text style={styles.replyName}>
-                    {item.replyTo.sender?.id === currentUser.id ? "You" : item.replyTo.sender?.name || "User"}
-                  </Text>
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.replyText, { color: isMe ? "#fff" : "#111827" }]}
-                  >
-                    {item.replyTo.text || "Media message"}
-                  </Text>
-                </View>
-              )}
-
-              {item.type === "text" && (
-                <Text style={[styles.text, isMe && { color: "#FFF" }]}>{item.text}</Text>
-              )}
-
-              {item.type === "video" && item.uri && (
-                <View style={styles.videoWrapper}>
-                  <Video
-                    source={{ uri: item.uri }}
-                    style={styles.video}
-                    useNativeControls
-                    resizeMode={ResizeMode.CONTAIN}
-                    isLooping={false}
-                  />
-                </View>
-              )}
-
-              {item.type === "image" && item.uri && (
-                <TouchableOpacity activeOpacity={0.9} onPress={() => setPreviewImage(item.uri!)}>
-                  <Image source={{ uri: item.uri }} style={styles.media} />
-                </TouchableOpacity>
-              )}
-
-              {item.type === "file" && (
-                <View style={styles.pdfRow}>
-                  <Ionicons name="document-text-outline" size={22} color={isMe ? "#fff" : "#111827"} />
-                  <Text
-                    numberOfLines={1}
-                    style={{ color: isMe ? "#fff" : "#111827", maxWidth: 220 }}
-                  >
-                    {item.text || "File"}
-                  </Text>
-                </View>
-              )}
-
-              {item.type === "audio" && item.uri && (
-                <TouchableOpacity
-                  style={styles.audioRow}
-                  activeOpacity={0.8}
-                  onPress={() => togglePlay(item.uri!, item.id)}
-                >
-                  <Ionicons
-                    name={playingId === item.id ? "pause" : "play"}
-                    size={22}
-                    color={isMe ? "#FFF" : "#000"}
-                  />
-
-                  <View style={styles.audioProgressWrapper}>
-                    <View style={styles.audioProgressBg}>
-                      <Animated.View
-                        style={[
-                          styles.audioProgressFill,
-                          {
-                            width:
-                              playingId === item.id
-                                ? progressAnim.interpolate({
-                                    inputRange: [0, 1],
-                                    outputRange: ["0%", "100%"]
-                                  })
-                                : "0%",
-                            backgroundColor: isMe ? "#FFF" : "#6D5DF6"
-                          }
-                        ]}
-                      />
-                    </View>
-
-                    <Text style={[styles.audioLabel, { color: isMe ? "#FFF" : "#000" }]}>
-                      Voice message
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-
-          {item.reaction && (
-            <View style={styles.reaction}>
-              <Text>{item.reaction}</Text>
-            </View>
-          )}
-
-          <Text style={[styles.time, { color: isMe ? "#E5E7EB" : COLORS.time }]}>
-            {item.time}
-          </Text>
-        </>
-      </TouchableOpacity>
-    </View>
-  );
-}}
+            return (
+              <MessageItem
+                item={item}
+                isMe={isMe}
+                showName={showName}
+                onPressImage={(uri) => setPreviewImage(uri)}
+                onTogglePlay={togglePlay}
+                playingId={playingId}
+                progressAnim={progressAnim}
+                onLongPress={() => {
+                  // لا تعرض منيو على رسائل النظام أو الرسائل المحذوفة (اختياري)
+                  setSelectedMessage(item);
+                  setShowActions(true);
+                }}
+              />
+            );
+          }}
         />
 
         {/* ================= REPLY PREVIEW ================= */}
@@ -831,6 +1283,7 @@ const isMe = Boolean(myUserId) && item.sender?.id === myUserId;
           </View>
         )}
 
+        {/* ================= RECORD INFO ================= */}
         {recording && (
           <View style={styles.recordInfo}>
             <Text style={{ color: "#EF4444" }}>
@@ -845,9 +1298,9 @@ const isMe = Boolean(myUserId) && item.sender?.id === myUserId;
 
         {/* ================= INPUT ================= */}
         <View style={styles.inputBar}>
-        <TouchableOpacity onPress={() => sendImage()}>
-  <Ionicons name="image-outline" size={24} />
-</TouchableOpacity>
+          <TouchableOpacity onPress={sendImage}>
+            <Ionicons name="image-outline" size={24} />
+          </TouchableOpacity>
 
           <TouchableOpacity onPress={sendPDF}>
             <Ionicons name="document-outline" size={24} />
@@ -879,15 +1332,12 @@ const isMe = Boolean(myUserId) && item.sender?.id === myUserId;
         </View>
 
         {/* ================= ACTIONS MODAL ================= */}
-        <Modal transparent visible={showActions} animationType="fade">
+        <Modal transparent visible={showActions} animationType="fade" onRequestClose={() => setShowActions(false)}>
           <View style={styles.actionsOverlay}>
             <View style={styles.actionsBox}>
               <View style={styles.reactionsRow}>
                 {REACTIONS.map((r) => (
-                  <TouchableOpacity
-                    key={r}
-                    onPress={() => selectedMessage && addReaction(selectedMessage.id, r)}
-                  >
+                  <TouchableOpacity key={r} onPress={() => selectedMessage && addReaction(selectedMessage.id, r)}>
                     <Text style={{ fontSize: 22 }}>{r}</Text>
                   </TouchableOpacity>
                 ))}
@@ -902,11 +1352,14 @@ const isMe = Boolean(myUserId) && item.sender?.id === myUserId;
                 <Text style={styles.action}>Reply</Text>
               </TouchableOpacity>
 
-              {selectedMessage?.sender?.id === currentUser.id && (
-                <TouchableOpacity onPress={() => selectedMessage && deleteMessage(selectedMessage.id)}>
-                  <Text style={[styles.action, { color: "red" }]}>Delete</Text>
-                </TouchableOpacity>
-              )}
+              {/* ✅ Delete permission: صاحب الرسالة أو المشرف */}
+              {(selectedMessage?.sender?.id === myUserId || canModerate) &&
+                selectedMessage?.type !== "system" &&
+                !selectedMessage?.deletedForEveryone && (
+                  <TouchableOpacity onPress={() => selectedMessage && deleteMessage(selectedMessage.id)}>
+                    <Text style={[styles.action, { color: "red" }]}>Delete</Text>
+                  </TouchableOpacity>
+                )}
 
               <TouchableOpacity onPress={() => setShowActions(false)}>
                 <Text style={styles.cancel}>Cancel</Text>
@@ -916,12 +1369,7 @@ const isMe = Boolean(myUserId) && item.sender?.id === myUserId;
         </Modal>
 
         {/* ================= IMAGE PREVIEW MODAL ================= */}
-        <Modal
-          visible={!!previewImage}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setPreviewImage(null)}
-        >
+        <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
           <View style={styles.imagePreviewOverlay}>
             <TouchableOpacity style={styles.imagePreviewClose} onPress={() => setPreviewImage(null)}>
               <Ionicons name="close" size={28} color="#FFF" />
@@ -935,113 +1383,113 @@ const isMe = Boolean(myUserId) && item.sender?.id === myUserId;
   );
 }
 
-/* ================= STYLES ================= */
+/* =====================================================
+   STYLES
+===================================================== */
 
-const styles = StyleSheet.create({
-  header: {
-    height: 56,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    alignItems: "center",
-    borderBottomWidth: 0.5,
-    borderColor: "#E5E7EB"
+const bubbleStyles = StyleSheet.create({
+  row: { flexDirection: "row", marginBottom: 10, alignItems: "flex-start" },
+  rowOther: { justifyContent: "flex-start" },
+  rowMe: { justifyContent: "flex-end" },
+
+
+  avatarStar: {
+    position: "absolute",
+    top: -6,
+    left: -10,
+    fontSize: 14,
+    fontWeight: "900",
+    textShadowColor: "rgba(0,0,0,0.25)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerRight: { flexDirection: "row", gap: 16 },
-  avatar: { width: 36, height: 36, borderRadius: 18 },
-  name: { fontSize: 16, fontWeight: "600" },
-  online: { fontSize: 12, color: "#22C55E" },
+  avatarWrap: {
+    width: 40,
+    height: 40,
+    marginRight: 8,
+    position: "relative",
+  },
+
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#EEE"
+  },
+
+  avatarSpacer: {
+    width: 40,
+    marginRight: 8
+  },
 
   bubble: {
-    maxWidth: "75%",
-    padding: 12,
-    borderRadius: 16,
-    marginBottom: 12
-  },
-  me: { alignSelf: "flex-end", backgroundColor: COLORS.me },
-  other: { alignSelf: "flex-start", backgroundColor: COLORS.other },
-
-  text: { fontSize: 15 },
-  time: { fontSize: 11, marginTop: 4 },
-
-  media: { width: 180, height: 180, borderRadius: 12 },
-
-  pdfRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-
-  inputBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    padding: 10,
-    borderTopWidth: 0.5,
-    borderColor: "#E5E7EB"
-  },
-  input: {
-    flex: 1,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 20,
-    paddingHorizontal: 14,
+    maxWidth: "78%",
+    borderRadius: 14,
     paddingVertical: 8,
-    maxHeight: 120
+    paddingHorizontal: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2
   },
-systemWrap: {
-  width: "100%",
-  alignItems: "center",
-  marginBottom: 10
-},
 
+  bubbleOther: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 6
+  },
 
-  replyBox: {
-    borderLeftWidth: 3,
-    borderColor: "#A5B4FC",
-    paddingLeft: 8,
+  bubbleMe: {
+    backgroundColor: "#FFFFFF",
+    borderTopRightRadius: 6
+  },
+
+  senderName: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#2563EB",
+    marginBottom: 4
+  },
+
+  msgText: { fontSize: 15, color: "#111827", lineHeight: 20 },
+  msgTextMuted: { fontSize: 14, color: "#6B7280" },
+
+  time: { fontSize: 11, marginTop: 6, alignSelf: "flex-end" },
+  nameWrap: {
     marginBottom: 6
   },
-  replyName: { fontSize: 12, fontWeight: "600" },
-  replyText: { fontSize: 12 },
-
-  outsideName: {
-    fontSize: 12,
-    fontWeight: "700",
-    marginBottom: 4,
-    marginHorizontal: 6,
-    color: "#6D5DF6"
-  },
-
-systemBubble: {
-  maxWidth: "85%",
-  paddingVertical: 8,
-  paddingHorizontal: 12,
-  borderRadius: 14,
-  backgroundColor: "#F3F4F6",
-  borderWidth: 1,
-  borderColor: "#E5E7EB"
-},
-systemLabel: {
-  fontSize: 12,
-  fontWeight: "700",
-  color: "#6B7280",
-  marginBottom: 2,
-  textAlign: "center"
-},
-systemText: {
-  fontSize: 13,
-  color: "#111827",
-  textAlign: "center"
-},
-systemTime: {
-  fontSize: 11,
-  color: "#9CA3AF",
-  textAlign: "center",
-  marginTop: 4
-},
-  audioRow: {
+  nameRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10
+    gap: 6
   },
-  audioProgressWrapper: { flex: 1 },
+  roleStar: {
+    fontSize: 12,
+    fontWeight: "900"
+  },
+  nameUnderline: {
+    marginTop: 4,
+    height: 1,
+    backgroundColor: "#E5E7EB",
+    width: "100%"
+  },
+  media: { width: 220, height: 220, borderRadius: 12, marginTop: 4 },
+
+  videoWrapper: {
+    width: 240,
+    height: 170,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#000",
+    marginTop: 6
+  },
+  video: { width: "100%", height: "100%" },
+
+  fileRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+  fileIcon: { fontSize: 18 },
+  fileName: { maxWidth: 200, fontSize: 14, color: "#111827" },
+
+  audioRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
+  audioProgressWrapper: { flex: 1, minWidth: 160 },
   audioProgressBg: {
     height: 3,
     width: "100%",
@@ -1051,15 +1499,112 @@ systemTime: {
     marginBottom: 6
   },
   audioProgressFill: { height: "100%", borderRadius: 2 },
-  audioLabel: { fontSize: 12, opacity: 0.9 },
+  audioLabel: { fontSize: 12 },
 
   reaction: {
     position: "absolute",
-    bottom: -8,
-    right: 8,
+    bottom: -10,
+    right: 10,
     backgroundColor: "#FFF",
     borderRadius: 12,
-    paddingHorizontal: 6
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: "#E5E7EB"
+  },
+
+  sysWrap: { width: "100%", alignItems: "center", marginVertical: 6 },
+  sysBubble: {
+    backgroundColor: "#EEF2FF",
+    borderColor: "#C7D2FE",
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 14
+  },
+  sysText: { fontSize: 13, color: "#111827", textAlign: "center", fontWeight: "600" },
+  sysTime: { fontSize: 11, color: "#6B7280", textAlign: "center", marginTop: 4 }
+});
+
+const usersStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
+  sheet: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 18,
+    maxHeight: "80%"
+  },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  title: { fontSize: 16, fontWeight: "800" },
+  note: { marginTop: 10, backgroundColor: "#F3F4F6", padding: 10, borderRadius: 12 },
+  noteText: { fontSize: 12, color: "#374151", lineHeight: 18 },
+  list: { marginTop: 12 },
+
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6"
+  },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#EEE" },
+  rowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  name: { fontSize: 14, fontWeight: "800", color: "#111827", maxWidth: 220 },
+  sub: { fontSize: 12, color: "#6B7280", marginTop: 2 },
+
+  badge: { backgroundColor: "#EEF2FF", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  badgeText: { fontSize: 11, color: "#3730A3", fontWeight: "800" },
+
+  rolesRow: { flexDirection: "row", gap: 8, marginTop: 8, flexWrap: "wrap" },
+  roleChip: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999
+  },
+  roleChipActive: { backgroundColor: "#6D5DF6", borderColor: "#6D5DF6" },
+  roleChipText: { fontSize: 12, fontWeight: "700", color: "#111827" },
+  roleChipTextActive: { color: "#FFF" }
+});
+
+const styles = StyleSheet.create({
+  header: {
+    height: 56,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    alignItems: "center",
+    borderBottomWidth: 0.5,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFF"
+  },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  headerRight: { flexDirection: "row", gap: 16 },
+  avatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#EEE" },
+  name: { fontSize: 16, fontWeight: "800" },
+  online: { fontSize: 12, color: "#6B7280" },
+
+  inputBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderTopWidth: 0.5,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFF"
+  },
+  input: {
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    maxHeight: 120
   },
 
   replyPreview: {
@@ -1073,7 +1618,8 @@ systemTime: {
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 12,
-    paddingVertical: 6
+    paddingVertical: 6,
+    backgroundColor: "#FFF"
   },
 
   actionsOverlay: {
@@ -1093,17 +1639,37 @@ systemTime: {
     justifyContent: "space-between",
     marginBottom: 12
   },
-  action: { fontSize: 16, paddingVertical: 10 },
-  cancel: { textAlign: "center", marginTop: 8, color: "#6B7280" },
+  action: { fontSize: 16, paddingVertical: 10, fontWeight: "700" },
+  cancel: { textAlign: "center", marginTop: 8, color: "#6B7280", fontWeight: "700" },
 
-  videoWrapper: {
-    width: 220,
-    height: 160,
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#000"
+  imagePreviewOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+    justifyContent: "center",
+    alignItems: "center"
   },
-  video: { width: "100%", height: "100%" },
+  fullImage: { width: "100%", height: "100%" },
+  imagePreviewClose: { position: "absolute", top: 50, right: 20, zIndex: 10 },
+
+  menuOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.12)" },
+  menuBox: {
+    position: "absolute",
+    top: 60,
+    right: 12,
+    width: 190,
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 6
+  },
+  menuItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  menuText: { fontSize: 14, color: "#111827", fontWeight: "800" },
+  menuDivider: { height: 1, backgroundColor: "#E5E7EB", marginVertical: 6 },
 
   globalAudioPlayer: {
     flexDirection: "row",
@@ -1112,11 +1678,7 @@ systemTime: {
     paddingVertical: 10,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 0.5,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 3
+    borderColor: "#E5E7EB"
   },
   audioIcon: {
     width: 34,
@@ -1128,42 +1690,40 @@ systemTime: {
     marginRight: 10
   },
   audioCenter: { flex: 1 },
-  audioControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 18,
-    marginBottom: 6
-  },
-  playBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#6D5DF6",
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  progressSection: { flexDirection: "row", alignItems: "center", gap: 8 },
+  audioNow: { fontSize: 12, color: "#111827", fontWeight: "800", marginBottom: 6 },
   globalProgressBg: {
-    flex: 1,
+    width: "100%",
     height: 3,
     backgroundColor: "#E5E7EB",
     borderRadius: 2,
     overflow: "hidden"
   },
   globalProgressFill: { height: "100%", backgroundColor: "#6D5DF6" },
-  timeText: {
-    fontSize: 11,
-    color: "#6B7280",
-    width: 40,
-    textAlign: "center"
+  audioTimes: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
+  timeText: { fontSize: 11, color: "#6B7280" },
+
+
+  avatarWrap: {
+    width: 34,
+    height: 34,
+    marginRight: 8,
+    position: "relative",
   },
 
-  imagePreviewOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.95)",
-    justifyContent: "center",
-    alignItems: "center"
+  avatarStar: {
+    position: "absolute",
+    top: -6,     // أعلى
+    right: -10,  // يمين وبجانب الصورة (خارجها)
+    fontSize: 14,
+    fontWeight: "900",
+    textShadowColor: "rgba(0,0,0,0.25)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  fullImage: { width: "100%", height: "100%" },
-  imagePreviewClose: { position: "absolute", top: 50, right: 20, zIndex: 10 }
+
+  avatarStarText: {
+    fontSize: 11,
+    fontWeight: "900",
+    lineHeight: 12
+  },
 });

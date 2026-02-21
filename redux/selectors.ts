@@ -17,7 +17,6 @@ const selectAuthState = (state: RootState) => state.auth;
 export const selectCurrentUser = createSelector(
   [selectAuthState],
   (auth) => {
-    console.log("🧠 selectCurrentUser RUN");
     return auth.user;
   }
 );
@@ -30,19 +29,10 @@ export const selectSortedChats = createSelector(
   [selectChats],
   (chats) => {
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("🧠 selectSortedChats RUN");
-    console.log("Chats length:", chats.length);
+
 
     chats.forEach(c => {
-      console.log(
-        "Chat:",
-        c._id,
-        "| updatedAt:",
-        c.updatedAt,
-        "| lastMessageId:",
-        c.lastMessage?._id
-      );
+   
     });
 
     const sorted = [...chats].sort(
@@ -51,13 +41,8 @@ export const selectSortedChats = createSelector(
         new Date(a.updatedAt).getTime()
     );
 
-    console.log(
-      "🔝 First after sort:",
-      sorted[0]?._id,
-      sorted[0]?.updatedAt
-    );
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
 
     return sorted;
   }
@@ -75,14 +60,9 @@ export const selectFilteredChats = createSelector(
   ],
   (chats, search, currentUserId) => {
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("🔎 selectFilteredChats RUN");
-    console.log("Search:", search);
-    console.log("CurrentUser:", currentUserId);
-    console.log("Incoming chats length:", chats.length);
+ 
 
     if (!currentUserId) {
-      console.log("⛔ No current user");
       return [];
     }
 
@@ -94,14 +74,7 @@ export const selectFilteredChats = createSelector(
         (p: any) => p._id !== currentUserId
       );
 
-      console.log(
-        "Checking chat:",
-        chat._id,
-        "| updatedAt:",
-        chat.updatedAt,
-        "| lastMessageId:",
-        chat.lastMessage?._id
-      );
+     
 
       if (!other?.username) return false;
 
@@ -109,25 +82,15 @@ export const selectFilteredChats = createSelector(
         .toLowerCase()
         .includes(normalizedSearch);
 
-      console.log("Match:", match);
 
       return match;
     });
 
-    console.log("✅ Filtered result length:", result.length);
 
     result.forEach(c => {
-      console.log(
-        "Result chat:",
-        c._id,
-        "| updatedAt:",
-        c.updatedAt,
-        "| lastMessageId:",
-        c.lastMessage?._id
-      );
+    
     });
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     return result;
   }
@@ -141,19 +104,11 @@ export const selectChatById = (chatId: string) =>
   createSelector(
     [selectChats],
     (chats) => {
-      console.log("🔍 selectChatById RUN:", chatId);
 
       const chat = chats.find(c => c._id === chatId) || null;
 
       if (chat) {
-        console.log(
-          "Found chat:",
-          chat._id,
-          "| updatedAt:",
-          chat.updatedAt,
-          "| lastMessageId:",
-          chat.lastMessage?._id
-        );
+
       }
 
       return chat;
@@ -171,12 +126,7 @@ export const selectMessagesByChatId = (chatId: string) =>
 
       const messages = messageState.messages[chatId] ?? [];
 
-      console.log(
-        "💬 selectMessagesByChatId RUN:",
-        chatId,
-        "| count:",
-        messages.length
-      );
+    
 
       return messages;
     }
@@ -198,12 +148,7 @@ export const selectTypingUsersByChatId = (
         (typingUsers[chatId] || [])
           .filter(id => id !== currentUserId);
 
-      console.log(
-        "⌨️ selectTypingUsersByChatId RUN:",
-        chatId,
-        "| typing:",
-        filtered
-      );
+   
 
       return filtered;
     }
@@ -221,11 +166,9 @@ export const selectOtherUser = (
     [selectChats],
     (chats) => {
 
-      console.log("👤 selectOtherUser RUN:", chatId);
 
       const chat = chats.find(c => c._id === chatId);
       if (!chat) {
-        console.log("❌ Chat not found");
         return null;
       }
 
@@ -233,7 +176,6 @@ export const selectOtherUser = (
         (p: any) => p._id !== currentUserId
       ) || null;
 
-      console.log("Other user:", other?._id);
 
       return other;
     }

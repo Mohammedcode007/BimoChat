@@ -104,19 +104,16 @@ export const createChat = createAsyncThunk<
   string
 >("chat/createChat", async (targetId, thunkAPI) => {
 
-  console.log("📤 createChat with:", targetId);
 
   try {
 
     const res = await api.post("/chats", { targetId });
 
-    console.log("✅ createChat SUCCESS:", res.data._id);
 
     return res.data;
 
   } catch {
 
-    console.log("❌ createChat FAILED");
 
     return thunkAPI.rejectWithValue("Failed to create chat");
   }
@@ -143,19 +140,16 @@ export const fetchTotalUnread = createAsyncThunk<
   number
 >("chat/fetchTotalUnread", async (_, thunkAPI) => {
 
-  console.log("📊 fetchTotalUnread START");
 
   try {
 
     const res = await api.get("/chats/unread/total");
 
-    console.log("📊 totalUnread from server:", res.data.total);
 
     return res.data.total;
 
   } catch {
 
-    console.log("❌ fetchTotalUnread FAILED");
 
     return thunkAPI.rejectWithValue("Failed to get unread");
   }
@@ -178,9 +172,7 @@ const chatSlice = createSlice({
       action: PayloadAction<string | undefined>
     ) => {
 
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("🎯 setActiveChat");
-      console.log("New Active:", action.payload);
+  
 
       /* 🔥 تنظيف typing للشات القديم */
       if (state.activeChatId && state.typingUsers[state.activeChatId]) {
@@ -263,23 +255,17 @@ const chatSlice = createSlice({
 
       const { chatId, message } = action.payload;
 
-      console.log("━━━━━━━━ SOCKET NEW MESSAGE ━━━━━━━━");
-      console.log("Incoming chatId:", chatId);
-      console.log("Incoming messageId:", message?._id);
+     
 
       const index = state.chats.findIndex(c => c._id === chatId);
 
       if (index === -1) {
-        console.log("❌ Chat NOT FOUND in state");
         return;
       }
 
       const oldChat = state.chats[index];
 
-      console.log("📌 BEFORE UPDATE");
-      console.log("Old lastMessageId:", oldChat.lastMessage?._id);
-      console.log("Old updatedAt:", oldChat.updatedAt);
-
+  
       const oldReference = oldChat;
 
       const newChat = {
@@ -289,30 +275,14 @@ const chatSlice = createSlice({
         lastMessageType: message.type,
         updatedAt: message.updatedAt || message.createdAt
       };
-      console.log("📌 AFTER PREPARE NEW OBJECT");
-      console.log("New lastMessageId:", newChat.lastMessage?._id);
-      console.log("New updatedAt:", newChat.updatedAt);
+  
 
-      console.log(
-        "🧠 Same message?",
-        oldChat.lastMessage?._id === message?._id
-      );
-
-      console.log(
-        "🧠 Same updatedAt?",
-        oldChat.updatedAt === message.createdAt
-      );
+ 
 
       state.chats[index] = newChat;
 
-      console.log("📌 AFTER REPLACEMENT");
+  
 
-      console.log(
-        "🔁 Reference changed?",
-        oldReference !== state.chats[index]
-      );
-
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     },
 
@@ -343,40 +313,6 @@ const chatSlice = createSlice({
       );
     }
     ,
-    // setUnreadFromServer: (
-    //   state,
-    //   action: PayloadAction<{
-    //     chatId: string;
-    //     unreadCount: number;
-    //   }>
-    // ) => {
-
-    //   const { chatId, unreadCount } = action.payload;
-
-    //   console.log("🔄 setUnreadFromServer");
-    //   console.log("Chat:", chatId);
-    //   console.log("Server unread:", unreadCount);
-
-    //   const chat = state.chats.find(
-    //     c => c._id === chatId
-    //   );
-
-    //   if (!chat) {
-    //     console.log("❌ Chat not found for unread sync");
-    //     return;
-    //   }
-
-    //   state.totalUnread = Math.max(
-    //     0,
-    //     state.totalUnread - chat.unreadCount
-    //   );
-
-    //   chat.unreadCount = unreadCount;
-    //   state.totalUnread += unreadCount;
-
-    //   console.log("New unread:", chat.unreadCount);
-    //   console.log("New totalUnread:", state.totalUnread);
-    // },
 
     /* ================= TYPING ================= */
 
@@ -419,30 +355,22 @@ const chatSlice = createSlice({
 
     builder
       .addCase(fetchChats.pending, (state) => {
-        console.log("🚨 fetchChats.pending CALLED AGAIN");
         state.loading = true;
       })
 
       .addCase(fetchChats.fulfilled, (state, action) => {
 
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("📥 fetchChats.fulfilled START");
-
         state.loading = false;
 
         const { chats: serverChats, userId } = action.payload;
 
-        console.log("👤 Incoming userId:", userId);
-        console.log("📦 Server chats count:", serverChats.length);
-        console.log("📦 Local chats BEFORE merge:", state.chats.length);
+       
 
         state.currentUserId = userId;
 
         serverChats.forEach(serverChat => {
 
-          console.log("--------------------------------------------------");
-          console.log("🔎 Processing chat:", serverChat._id);
-          console.log("🕒 Server updatedAt:", serverChat.updatedAt);
+ 
 
           const existingChat = state.chats.find(
             c => c._id === serverChat._id
@@ -450,30 +378,24 @@ const chatSlice = createSlice({
 
           if (!existingChat) {
 
-            console.log("🆕 Chat not found locally → PUSH");
             state.chats.push(serverChat);
 
           } else {
 
-            console.log("✅ Chat exists locally");
-            console.log("🕒 Local updatedAt:", existingChat.updatedAt);
+        
 
             const localTime = new Date(existingChat.updatedAt).getTime();
             const serverTime = new Date(serverChat.updatedAt).getTime();
 
-            console.log("⏱ Local timestamp:", localTime);
-            console.log("⏱ Server timestamp:", serverTime);
 
             // 🔥 لا تستبدل إلا لو السيرفر أحدث
             if (serverTime > localTime) {
 
-              console.log("🔄 Server is NEWER → REPLACING local chat");
 
               Object.assign(existingChat, serverChat);
 
             } else {
 
-              console.log("⛔ Local is newer or equal → SKIP replace");
 
             }
 
@@ -486,9 +408,6 @@ const chatSlice = createSlice({
           0
         );
 
-        console.log("📦 Local chats AFTER merge:", state.chats.length);
-        console.log("🔢 totalUnread recalculated:", state.totalUnread);
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
       })
       .addCase(fetchChats.rejected, (state) => {
@@ -554,11 +473,9 @@ const chatSlice = createSlice({
       })
 
       .addCase(deleteChat.rejected, () => {
-        console.log("❌ deleteChat failed");
       })
 
       .addCase(deleteChat.fulfilled, () => {
-        console.log("🗑️ deleteChat success");
       });
 
   }

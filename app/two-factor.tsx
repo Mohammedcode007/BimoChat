@@ -1,13 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -30,7 +30,6 @@ export default function TwoFactorScreen() {
     setGeneratedCode(otp);
 
     // محاكاة إرسال الكود
-    console.log('OTP Code:', otp);
     Alert.alert(
       'رمز التحقق',
       'تم إرسال رمز التحقق (محاكاة – راجع Console)'

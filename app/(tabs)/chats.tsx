@@ -52,7 +52,6 @@ export default function ChatListScreen() {
       await dispatch(fetchChats()).unwrap();
       await dispatch(fetchTotalUnread()).unwrap();
     } catch (error) {
-      console.log("Refresh failed");
     }
 
     setRefreshing(false);
@@ -62,7 +61,6 @@ const chats = useSelector(selectSortedChats);
 const typingUsers = useSelector(
   (state: RootState) => state.chat.typingUsers
 );
-  console.log(chats, '465465465465');
 
 
 
@@ -72,23 +70,13 @@ const typingUsers = useSelector(
 
   const [search, setSearch] = useState('');
 
-  /* ================= Filter ================= */
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━");
-console.log("🔎 FILTER EXECUTION START");
-console.log("Search value:", search);
-console.log("Chats length:", chats.length);
-console.log("CurrentUser:", currentUser?._id);
 
 const filteredChats = chats.filter(chat => {
 
-  console.log("------");
-  console.log("🗂 Checking chat:", chat._id);
-  console.log("🕒 updatedAt:", chat.updatedAt);
-  console.log("📝 lastMessageId:", chat.lastMessage?._id);
+
 
   if (!currentUser?._id) {
-    console.log("⛔ No current user");
     return false;
   }
 
@@ -96,11 +84,9 @@ const filteredChats = chats.filter(chat => {
     (p: any) => p?._id !== currentUser._id
   );
 
-  console.log("👤 Other user:", other?._id);
-  console.log("👤 Other username:", other?.username);
+
 
   if (!other?.username) {
-    console.log("⛔ No username");
     return false;
   }
 
@@ -108,19 +94,15 @@ const filteredChats = chats.filter(chat => {
     .toLowerCase()
     .includes(search.toLowerCase());
 
-  console.log("🔍 Search match:", match);
 
   return match;
 
 });
 
-console.log("✅ FILTERED RESULT LENGTH:", filteredChats.length);
 
 filteredChats.forEach(c => {
-  console.log("📦 Result Chat:", c._id, "updatedAt:", c.updatedAt);
 });
 
-console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━");
   /* ================= Format Time ================= */
 
   const formatTime = (date?: string) => {
@@ -235,7 +217,6 @@ console.log("━━━━━━━━━━━━━━━━━━━━━━�
               .length > 0
           );
 
-          console.log(isTyping,'isTyping');
           
           return (
             <View style={{ position: 'relative' }}>

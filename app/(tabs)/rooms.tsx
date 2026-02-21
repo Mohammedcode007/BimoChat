@@ -1,18 +1,14 @@
+// rooms.tsx
 
-// RoomsScreen.tsx (or the same file you pasted)
-// ✅ تم دمج room.slice.ts (الذي أرسلته) داخل الصفحة بدون تغيير الشكل العام (UI/Styles)
-
-// =======================
-// Imports (UNCHANGED UI)
-// =======================
 import { Colors } from "@/constants/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Image,
   Modal,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -21,29 +17,24 @@ import {
   View
 } from "react-native";
 
-// ✅ Redux hooks
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 
-// ✅ Room Slice: selectors + actions + thunks (من السلايس الذي أرسلته)
 import {
   createRoom as createRoomThunk,
-  // thunks
   fetchRoomsByType,
   joinRoomAndEnter,
-  // selectors
+  searchRooms as searchRoomsThunk,
+  selectRoomActiveCount,
   selectRoomError,
   selectRoomLoadingRooms,
   selectRooms
 } from "@/redux/slices/room.slice";
 
-/* =======================
-   Types (UI only)
-======================= */
-
 type RoomUI = {
   id: string;
   name: string;
   members: number;
+  maxUsers?: number;
   image: string;
 
   isVIP?: boolean;
@@ -53,40 +44,10 @@ type RoomUI = {
   isTrending?: boolean;
 };
 
-/* =======================
-   Constants
-======================= */
-
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 30;
 
 const TABS = ["All", "Trending", "VIP", "Voice", "Private"] as const;
 type TabType = (typeof TABS)[number];
-
-/* =======================
-   Mock Generator (Fallback)
-   - سيستخدم فقط لو قائمة Redux فاضية
-======================= */
-
-const generateRooms = (count: number): RoomUI[] => {
-  return Array.from({ length: count }).map((_, i) => {
-    const id = `${Date.now()}-${i}`;
-    return {
-      id,
-      name: `Room ${id.slice(-3)}`,
-      members: Math.floor(Math.random() * 50) + 1,
-      image: `https://picsum.photos/200/200?random=${id}`,
-      isVIP: Math.random() > 0.75,
-      isPrivate: Math.random() > 0.8,
-      isVoice: Math.random() > 0.6,
-      isVerified: Math.random() > 0.7,
-      isTrending: Math.random() > 0.65
-    };
-  });
-};
-
-/* =======================
-   Badge Component
-======================= */
 
 const Badge = ({
   icon,
@@ -103,29 +64,70 @@ const Badge = ({
   </View>
 );
 
-/* =======================
-   Helpers (Redux -> UI mapping)
-======================= */
-
 const mapRoomToUI = (r: any): RoomUI => {
   const id = r._id || r.id;
   const type = r.type;
+  const maxUsers = typeof r.maxUsers === "number" && r.maxUsers > 0 ? r.maxUsers : 50;
 
   return {
     id,
     name: r.name || "Room",
     members: Number(r.usersCount ?? r.members ?? 0),
+    maxUsers,
     image: r.avatar || r.image || `https://picsum.photos/200/200?seed=${id}`,
 
-    // UI flags derived من الباك
     isVIP: Boolean(r.isVIP || (typeof r.premiumLevel === "number" && r.premiumLevel > 0)),
     isPrivate: type === "private" || type === "protected",
-    // ملاحظة: الباك عندك "voice seats" في endpoint منفصل، لذلك هنا نحاول أفضل تقدير
     isVoice: Boolean(r.isVoice || (typeof r.maxVoiceSeats === "number" && r.maxVoiceSeats > 0)),
     isVerified: Boolean(r.isVerified),
     isTrending: Boolean(r.isTrending || (typeof r.boostLevel === "number" && r.boostLevel > 0))
   };
 };
+
+/* =====================================================
+   ✅ Room Card (Component مستقل) — هنا نستخدم Hooks بأمان
+===================================================== */
+function RoomCard({
+  item,
+  theme,
+  onPress
+}: {
+  item: RoomUI;
+  theme: any;
+  onPress: (id: string) => void;
+}) {
+  const online = useAppSelector((state) => selectRoomActiveCount(state, item.id));
+  const max = item.maxUsers ?? 50;
+
+  return (
+    <TouchableOpacity onPress={() => onPress(item.id)} style={[styles.card, { backgroundColor: theme.background }]}>
+      <Image source={{ uri: item.image }} style={styles.image} />
+
+      <View style={styles.info}>
+        <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
+
+        <View style={styles.metaRow}>
+          <Text style={styles.members}>
+            {item.members}/{max} members
+          </Text>
+
+          <View style={styles.onlinePill}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.onlineText}>{online} online</Text>
+          </View>
+        </View>
+
+        <View style={styles.badges}>
+          {item.isTrending && <Badge icon="flame" label="Trending" color="#F97316" />}
+          {item.isVIP && <Badge icon="star" label="VIP" color="#F59E0B" />}
+          {item.isVerified && <Badge icon="checkmark-circle" label="Verified" color="#22C55E" />}
+          {item.isVoice && <Badge icon="mic" label="Voice" color="#4F46E5" />}
+          {item.isPrivate && <Badge icon="lock-closed" label="Private" color="#EF4444" />}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function RoomsScreen() {
   const router = useRouter();
@@ -134,86 +136,103 @@ export default function RoomsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
 
-  // ✅ Rooms from Redux
   const reduxRooms = useAppSelector(selectRooms);
   const reduxError = useAppSelector(selectRoomError);
   const loadingRooms = useAppSelector(selectRoomLoadingRooms);
 
-  // ✅ Local UI state (لا نغير الشكل)
-  const [rooms, setRooms] = useState<RoomUI[]>([]);
-  const [page, setPage] = useState(1);
-
   const [tab, setTab] = useState<TabType>("All");
   const [search, setSearch] = useState("");
 
-  // Modal
+  const [page, setPage] = useState(1);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  const accRef = useRef<Map<string, RoomUI>>(new Map());
+  const [rooms, setRooms] = useState<RoomUI[]>([]);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [error, setError] = useState("");
 
-  /* =======================
-     Initial Fetch (from backend)
-     - بدون تغيير الشكل: نجلب قائمة أولية
-     - لأن الباك يحتاج type، سنستخدم "public" كافتراضي لـ All
-  ======================= */
+  const backendType: "public" | "private" = tab === "Private" ? "private" : "public";
 
   useEffect(() => {
-    dispatch(fetchRoomsByType({ type: "public", page: 1, limit: 30 }));
-  }, [dispatch]);
-
-  /* =======================
-     Optional: Fetch on Tab change (بدون تغيير الشكل)
-     - Private tab: نجيب private
-     - باقي التابات: نخليها على public ونفلتر محلياً (Trending/VIP/Voice)
-  ======================= */
-
-  useEffect(() => {
-    // إعادة الصفحة UI
     setPage(1);
+    accRef.current = new Map();
+    setRooms([]);
 
-    if (tab === "Private") {
-      dispatch(fetchRoomsByType({ type: "private", page: 1, limit: 30 }));
-      return;
-    }
-
-    // All/Trending/VIP/Voice: نخلي المصدر public (ثم فلترة محلية)
-    dispatch(fetchRoomsByType({ type: "public", page: 1, limit: 30 }));
-  }, [tab, dispatch]);
-
-  /* =======================
-     Map Redux -> UI rooms (بدون تغيير الشكل)
-     - لو reduxRooms فيها بيانات فعلية: نعرضها
-     - لو فاضية: نكمل mock زي ما كنت تعمل
-  ======================= */
+    dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
+  }, [dispatch, backendType]);
 
   useEffect(() => {
-    if (reduxRooms && reduxRooms.length > 0) {
-      const mapped: RoomUI[] = reduxRooms.map(mapRoomToUI);
-      setRooms(mapped);
-      return;
-    }
+    if (!reduxRooms) return;
 
-    // fallback (mock)
-    setRooms((prev) => (prev.length ? prev : generateRooms(PAGE_SIZE)));
+    for (const r of reduxRooms) {
+      const ui = mapRoomToUI(r);
+      accRef.current.set(ui.id, ui);
+    }
+    setRooms(Array.from(accRef.current.values()));
   }, [reduxRooms]);
 
-  /* =======================
-     Load More (Pagination UI)
-     - في حالة redux: UI فقط (نفس الشكل)؛ لو تريد Pagination حقيقي،
-       وفّر page/limit من الباك ثم استعمل append في السلايس (حالياً السلايس يستبدل)
-  ======================= */
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      setError("");
+
+      setPage(1);
+      accRef.current = new Map();
+      setRooms([]);
+
+      if (search.trim()) {
+        await dispatch(searchRoomsThunk({ q: search.trim(), type: backendType, limit: PAGE_SIZE })).unwrap();
+      } else {
+        await dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE })).unwrap();
+      }
+    } catch (e: any) {
+      setError(e?.message || "Refresh failed");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (loadingRooms || isLoadingMore) return;
+    if (search.trim()) return;
+
+    try {
+      setIsLoadingMore(true);
+      const next = page + 1;
+      setPage(next);
+      await dispatch(fetchRoomsByType({ type: backendType, page: next, limit: PAGE_SIZE })).unwrap();
+    } catch (e: any) {
+      setError(e?.message || "Load more failed");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
-    // لو ما عندك reduxRooms أو فاضية، استمر في mock pagination
-    if (!reduxRooms || reduxRooms.length === 0) {
-      if (page === 1) return;
-      setRooms((prev) => [...prev, ...generateRooms(PAGE_SIZE)]);
-    }
-  }, [page, reduxRooms]);
+    const q = search.trim();
+    const t = setTimeout(async () => {
+      try {
+        setError("");
+        accRef.current = new Map();
+        setRooms([]);
+        setPage(1);
 
-  /* =======================
-     Sorting (Smart Order)
-  ======================= */
+        if (!q) {
+          dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
+          return;
+        }
+
+        await dispatch(searchRoomsThunk({ q, type: backendType, limit: PAGE_SIZE })).unwrap();
+      } catch (e: any) {
+        setError(e?.message || "Search failed");
+      }
+    }, 450);
+
+    return () => clearTimeout(t);
+  }, [search, backendType, dispatch]);
 
   const sortRooms = (list: RoomUI[]) => {
     return [...list].sort((a, b) => {
@@ -228,10 +247,6 @@ export default function RoomsScreen() {
     });
   };
 
-  /* =======================
-     Filtering
-  ======================= */
-
   const filteredRooms = useMemo(() => {
     let data = rooms;
 
@@ -241,124 +256,69 @@ export default function RoomsScreen() {
     if (tab === "Private") data = data.filter((r) => r.isPrivate);
 
     if (search.trim()) {
-      data = data.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
+      const qq = search.trim().toLowerCase();
+      data = data.filter((r) => r.name.toLowerCase().includes(qq));
     }
 
     return tab === "All" ? sortRooms(data) : data;
   }, [rooms, tab, search]);
 
-  /* =======================
-     Add Room (UI + Backend)
-     - بدون تغيير الشكل: نفس المودال ونفس UI
-     - لكن الآن: dispatch(createRoomThunk) مع optimistic UI
-  ======================= */
-
   const addRoom = async () => {
     const name = roomName.trim();
-
-    if (!name) {
-      setError("Room name is required");
-      return;
-    }
+    if (!name) return setError("Room name is required");
 
     const exists = rooms.some((r) => r.name.toLowerCase() === name.toLowerCase());
-    if (exists) {
-      setError("Room name already exists");
-      return;
-    }
+    if (exists) return setError("Room name already exists");
 
-    // ✅ Optimistic UI (نفس الشكل)
     const tempId = `temp-${Date.now()}`;
     const newRoom: RoomUI = {
       id: tempId,
       name,
       members: 1,
+      maxUsers: 50,
       image: `https://picsum.photos/200/200?new=${encodeURIComponent(name)}`,
       isTrending: true
     };
 
-    setRooms((prev) => [newRoom, ...prev]);
+    accRef.current.set(tempId, newRoom);
+    setRooms(Array.from(accRef.current.values()));
+
     setRoomName("");
     setError("");
     setModalVisible(false);
 
     try {
-      // ✅ Backend create
-      // (اختر type الافتراضي public حتى لا يتغير الشكل/التدفق)
-      const created = await dispatch(
-        createRoomThunk({
-          name,
-          type: "public"
-        })
-      ).unwrap();
+      const created = await dispatch(createRoomThunk({ name, type: backendType })).unwrap();
 
-      // ✅ استبدال المؤقت بالفعلي
+      accRef.current.delete(tempId);
       const createdUI = mapRoomToUI(created);
-      setRooms((prev) => {
-        // احذف temp وأضف الحقيقي في نفس المكان تقريباً
-        const withoutTemp = prev.filter((x) => x.id !== tempId);
-        return [createdUI, ...withoutTemp];
-      });
+      accRef.current.set(createdUI.id, createdUI);
+      setRooms(Array.from(accRef.current.values()));
     } catch (e: any) {
-      // ✅ Rollback
-      setRooms((prev) => prev.filter((x) => x.id !== tempId));
+      accRef.current.delete(tempId);
+      setRooms(Array.from(accRef.current.values()));
       setError(e?.message || "Create room failed");
       setModalVisible(true);
     }
   };
 
-  /* =======================
-     Open Room
-  ======================= */
+  const openRoom = async (roomId: string) => {
+    try {
+      const action = await dispatch(joinRoomAndEnter({ roomId, preload: true }));
+      if (joinRoomAndEnter.rejected.match(action)) {
+        const msg = (action.payload as any) || (action.error?.message as any) || "Join failed";
+        setError(String(msg));
+        return;
+      }
 
-
-const openRoom = async (roomId: string) => {
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("🟦 openRoom START");
-  console.log("roomId:", roomId);
-  console.log("thunk typePrefix:", joinRoomAndEnter.typePrefix);
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
-  try {
-    // dispatch يرجّع action فيه meta / payload
-    const action = await dispatch(joinRoomAndEnter({ roomId, preload: true }));
-
-    console.log("➡️ dispatched meta:", action.meta);
-
-    // لو حصل رفض
-    if (joinRoomAndEnter.rejected.match(action)) {
-      // في حالة rejectWithValue: payload غالبًا string
-      const msg =
-        (action.payload as any) ||
-        (action.error?.message as any) ||
-        "Join failed";
-
-      console.log("❌ joinRoomAndEnter REJECTED:", msg);
-      setError(String(msg));
-      return;
+      router.push({ pathname: "/room/[id]", params: { id: roomId } });
+    } catch (e: any) {
+      setError(e?.message || "Join failed");
     }
-
-    // نجاح
-    console.log("✅ joinRoomAndEnter FULFILLED:", action.payload);
-
-    router.push({
-      pathname: "/room/[id]",
-      params: { id: roomId }
-    });
-
-    console.log("🟩 openRoom DONE");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  } catch (e: any) {
-    // هذا نادر مع RTK إلا لو حصل runtime crash خارج thunk
-    const msg = e?.message || "Join failed";
-    console.log("🟥 openRoom CATCH:", msg);
-    setError(msg);
-  }
-};
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Search */}
       <View style={[styles.searchBox, { backgroundColor: theme.background }]}>
         <Ionicons name="search" size={16} color="#9CA3AF" />
         <TextInput
@@ -370,17 +330,11 @@ const openRoom = async (roomId: string) => {
         />
       </View>
 
-      {/* Tabs */}
       <View style={[styles.tabs, { backgroundColor: theme.background }]}>
         {TABS.map((t) => {
           const active = tab === t;
           return (
-            <TouchableOpacity
-              key={t}
-              onPress={() => setTab(t)}
-              activeOpacity={0.7}
-              style={styles.tabBtn}
-            >
+            <TouchableOpacity key={t} onPress={() => setTab(t)} activeOpacity={0.7} style={styles.tabBtn}>
               <Text style={[styles.tabText, active && styles.activeTabText]}>{t}</Text>
               {active && <View style={styles.indicator} />}
             </TouchableOpacity>
@@ -388,57 +342,37 @@ const openRoom = async (roomId: string) => {
         })}
       </View>
 
-      {/* Rooms */}
+      {!!(error || reduxError) && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+          <Text style={styles.errorBannerText}>{error || reduxError}</Text>
+        </View>
+      )}
+
       <FlatList
         data={filteredRooms}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
-        onEndReached={() => setPage((p) => p + 1)}
+        keyExtractor={(item) => item.id}
+        onEndReached={loadMore}
         onEndReachedThreshold={0.4}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="people-outline" size={48} color="#9CA3AF" />
-            <Text style={styles.emptyText}>
-              {reduxError
-                ? reduxError
-                : loadingRooms
-                  ? "Loading..."
-                  : "No rooms found"}
-            </Text>
+            <Text style={styles.emptyText}>{loadingRooms ? "Loading..." : "No rooms found"}</Text>
           </View>
         }
         renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => openRoom(item.id)}
-            style={[styles.card, { backgroundColor: theme.background }]}
-          >
-            <Image source={{ uri: item.image }} style={styles.image} />
-
-            <View style={styles.info}>
-              <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
-              <Text style={styles.members}>{item.members}/50 members</Text>
-
-              <View style={styles.badges}>
-                {item.isTrending && <Badge icon="flame" label="Trending" color="#F97316" />}
-                {item.isVIP && <Badge icon="star" label="VIP" color="#F59E0B" />}
-                {item.isVerified && (
-                  <Badge icon="checkmark-circle" label="Verified" color="#22C55E" />
-                )}
-                {item.isVoice && <Badge icon="mic" label="Voice" color="#4F46E5" />}
-                {item.isPrivate && (
-                  <Badge icon="lock-closed" label="Private" color="#EF4444" />
-                )}
-              </View>
-            </View>
-          </TouchableOpacity>
+          <RoomCard item={item} theme={theme} onPress={openRoom} />
         )}
+        ListFooterComponent={
+          isLoadingMore ? <Text style={styles.loadingMoreText}>Loading more...</Text> : null
+        }
       />
 
-      {/* Add Room Button */}
       <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
         <Ionicons name="add" size={28} color="#FFF" />
       </TouchableOpacity>
 
-      {/* Add Room Modal */}
       <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
@@ -472,16 +406,8 @@ const openRoom = async (roomId: string) => {
   );
 }
 
-/* =======================
-   Styles (UNCHANGED)
-======================= */
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F4F6FA",
-    padding: 14
-  },
+  container: { flex: 1, backgroundColor: "#F4F6FA", padding: 14 },
 
   searchBox: {
     flexDirection: "row",
@@ -491,85 +417,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10
   },
+  searchInput: { marginLeft: 8, fontSize: 13, flex: 1 },
 
-  searchInput: {
-    marginLeft: 8,
-    fontSize: 13,
-    flex: 1
-  },
+  card: { flexDirection: "row", backgroundColor: "#FFF", padding: 12, borderRadius: 18, marginBottom: 12 },
+  image: { width: 64, height: 64, borderRadius: 14, marginRight: 12 },
+  info: { flex: 1 },
+  name: { fontSize: 15, fontWeight: "600" },
 
-  tab: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: "#E5E7EB"
-  },
+  members: { fontSize: 12, color: "#6B7280", marginTop: 2 },
 
-  activeTab: {
-    backgroundColor: "#4F46E5"
-  },
+  metaRow: { marginTop: 2, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
 
-  card: {
-    flexDirection: "row",
-    backgroundColor: "#FFF",
-    padding: 12,
-    borderRadius: 18,
-    marginBottom: 12
-  },
-
-  image: {
-    width: 64,
-    height: 64,
-    borderRadius: 14,
-    marginRight: 12
-  },
-
-  info: {
-    flex: 1
-  },
-
-  name: {
-    fontSize: 15,
-    fontWeight: "600"
-  },
-
-  members: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 2
-  },
-
-  badges: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 6
-  },
-
-  badge: {
+  onlinePill: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    gap: 4
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: "#F3F4F6"
   },
+  onlineDot: { width: 7, height: 7, borderRadius: 999, backgroundColor: "#22C55E" },
+  onlineText: { fontSize: 11, fontWeight: "600", color: "#374151" },
 
-  badgeText: {
-    fontSize: 11,
-    fontWeight: "600"
-  },
+  badges: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
+  badge: { flexDirection: "row", alignItems: "center", borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, gap: 4 },
+  badgeText: { fontSize: 11, fontWeight: "600" },
 
-  empty: {
-    marginTop: 80,
-    alignItems: "center"
-  },
-
-  emptyText: {
-    marginTop: 10,
-    color: "#9CA3AF"
-  },
+  empty: { marginTop: 80, alignItems: "center" },
+  emptyText: { marginTop: 10, color: "#9CA3AF" },
 
   fab: {
     position: "absolute",
@@ -583,88 +459,35 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "center", justifyContent: "center" },
+  modal: { width: "85%", backgroundColor: "#FFF", borderRadius: 16, padding: 16 },
+  modalTitle: { fontSize: 16, fontWeight: "600", marginBottom: 10 },
+  modalInput: { backgroundColor: "#F3F4F6", borderRadius: 12, padding: 10, fontSize: 13 },
+  error: { marginTop: 6, color: "#EF4444", fontSize: 12 },
+
+  modalActions: { flexDirection: "row", justifyContent: "flex-end", marginTop: 14, gap: 16 },
+  cancel: { color: "#6B7280" },
+  confirm: { color: "#4F46E5", fontWeight: "600" },
+
+  tabs: { flexDirection: "row", alignItems: "center", marginBottom: 12, backgroundColor: "#FFFFFF", borderRadius: 16, padding: 6 },
+  tabBtn: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 8, borderRadius: 12 },
+  tabText: { fontSize: 13, fontWeight: "500", color: "#6B7280" },
+  activeTabText: { color: "#4F46E5", fontWeight: "700" },
+  indicator: { marginTop: 6, width: 20, height: 3, borderRadius: 2, backgroundColor: "#4F46E5" },
+
+  errorBanner: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center"
-  },
-
-  modal: {
-    width: "85%",
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    padding: 16
-  },
-
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: "600",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
     marginBottom: 10
   },
+  errorBannerText: { color: "#B91C1C", fontSize: 12, fontWeight: "600", flex: 1 },
 
-  modalInput: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    padding: 10,
-    fontSize: 13
-  },
-
-  error: {
-    marginTop: 6,
-    color: "#EF4444",
-    fontSize: 12
-  },
-
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginTop: 14,
-    gap: 16
-  },
-
-  cancel: {
-    color: "#6B7280"
-  },
-
-  confirm: {
-    color: "#4F46E5",
-    fontWeight: "600"
-  },
-
-  tabs: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 6
-  },
-
-  tabBtn: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 8,
-    borderRadius: 12
-  },
-
-  tabText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#6B7280"
-  },
-
-  activeTabText: {
-    color: "#4F46E5",
-    fontWeight: "700"
-  },
-
-  indicator: {
-    marginTop: 6,
-    width: 20,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: "#4F46E5"
-  }
+  loadingMoreText: { textAlign: "center", marginBottom: 16, fontSize: 11, color: "#9CA3AF" }
 });

@@ -21,7 +21,6 @@ export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
 const { user } = useSelector((state: RootState) => state.auth);
-console.log(user,'454545454');
 
   const [darkMode, setDarkMode] = React.useState(false);
   const [notifications, setNotifications] = React.useState(true);

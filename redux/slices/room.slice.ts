@@ -1,11 +1,6 @@
 // room.slice.ts
 import api from "@/services/api";
-import {
-    createAsyncThunk,
-    createSelector,
-    createSlice,
-    PayloadAction
-} from "@reduxjs/toolkit";
+import { createAsyncThunk, createSelector, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "../store";
 
 /* =====================================================
@@ -39,16 +34,20 @@ export type RoomMessageType =
   | "announcement"
   | "join"
   | "leave"
-  | "gif"        // ✅ أضفها
-  | "sticker"    // ✅ أضفها
+  | "gif"
+  | "sticker"
   | "promotion"
+  | "role"
   | "ban"
   | "gift";
+
+export type RoomMessageSender = RoomUser | string | null;
 
 export type RoomMessage = {
   _id: string;
   room: string;
-  sender?: RoomUser | string;
+
+  sender?: RoomMessageSender;
 
   type: RoomMessageType;
   content: string;
@@ -56,10 +55,15 @@ export type RoomMessage = {
   replyTo?: any;
   mentions?: string[];
 
+  // رسائل النظام (تغيير دور/حظر/طرد..)
+  actorName?: string;
+  targetName?: string;
+  role?: "owner" | "admin" | "member";
+
   media?: {
     url: string;
     fileName?: string;
-    fileSize?: number;
+    fileSize?: string;
     mimeType?: string;
   };
 
@@ -130,6 +134,9 @@ type RoomState = {
   rooms: RoomItem[];
   activeRoomId?: string;
 
+  // Active count per room
+  activeCountByRoom: Record<string, number>;
+
   usersByRoom: Record<string, RoomUser[]>;
   messagesByRoom: Record<string, RoomMessage[]>;
 
@@ -148,7 +155,7 @@ type RoomState = {
 const initialState: RoomState = {
   rooms: [],
   activeRoomId: undefined,
-
+  activeCountByRoom: {},
   usersByRoom: {},
   messagesByRoom: {},
 
@@ -168,10 +175,22 @@ const initialState: RoomState = {
    HELPERS
 ===================================================== */
 
-const errMsg = (e: any, fallback: string) =>
-  e?.response?.data?.message || e?.message || fallback;
+const errMsg = (e: any, fallback: string) => e?.response?.data?.message || e?.message || fallback;
 
 const dataOf = (res: any) => res?.data?.data ?? res?.data;
+
+const toStr = (x: any) => (x === null || x === undefined ? "" : String(x));
+
+const findRoomIdByMessageId = (
+  messagesByRoom: Record<string, RoomMessage[]>,
+  messageId: string
+) => {
+  for (const rid of Object.keys(messagesByRoom)) {
+    const list = messagesByRoom[rid] || [];
+    if (list.some((m) => m?._id === messageId)) return rid;
+  }
+  return undefined;
+};
 
 /* =====================================================
    ASYNC THUNKS
@@ -210,28 +229,10 @@ export const fetchRoomStats = createAsyncThunk<RoomStats, string, { state: RootS
 export const joinRoom = createAsyncThunk<{ roomId: string }, string, { state: RootState }>(
   "room/joinRoom",
   async (roomId, thunkAPI) => {
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("🟨 joinRoom START");
-    console.log("roomId:", roomId);
-    console.log("endpoint:", `/rooms/${roomId}/join`);
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
     try {
-      console.log("➡️ joinRoom BEFORE api.post");
-      const res = await api.post(`/rooms/${roomId}/join`);
-      console.log("✅ joinRoom AFTER api.post");
-      console.log("status:", res?.status);
-      console.log("data:", res?.data);
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
+      await api.post(`/rooms/${roomId}/join`);
       return { roomId };
     } catch (e: any) {
-      console.log("❌ joinRoom ERROR");
-      console.log("message:", e?.message);
-      console.log("status:", e?.response?.status);
-      console.log("data:", e?.response?.data);
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
       return thunkAPI.rejectWithValue(errMsg(e, "Join failed"));
     }
   }
@@ -264,7 +265,6 @@ export const autoRejoin = createAsyncThunk<string[], void, { state: RootState }>
 
 /* ================= MESSAGES ================= */
 
-// ✅ إرسال رسالة (REST)
 export const sendRoomMessage = createAsyncThunk<
   { roomId: string; message: RoomMessage },
   {
@@ -287,7 +287,6 @@ export const sendRoomMessage = createAsyncThunk<
   }
 });
 
-// ✅ جلب رسائل الغرفة (GET /rooms/:roomId/messages?limit&before)
 export const fetchRoomMessages = createAsyncThunk<
   { roomId: string; messages: RoomMessage[]; append: boolean },
   { roomId: string; pagination?: Pagination; append?: boolean },
@@ -308,7 +307,6 @@ export const fetchRoomMessages = createAsyncThunk<
   }
 });
 
-// ✅ Pin message
 export const pinRoomMessage = createAsyncThunk<
   { roomId: string; message: RoomMessage },
   { roomId: string; messageId: string; pinned?: boolean },
@@ -323,9 +321,12 @@ export const pinRoomMessage = createAsyncThunk<
   }
 });
 
-// ✅ Toggle reaction
 export const toggleRoomReaction = createAsyncThunk<
-  { roomId: string; messageId: string; reactions: { user: string; emoji: string; createdAt: string }[] },
+  {
+    roomId: string;
+    messageId: string;
+    reactions: { user: string; emoji: string; createdAt: string }[];
+  },
   { roomId: string; messageId: string; emoji: string },
   { state: RootState }
 >("room/toggleRoomReaction", async ({ roomId, messageId, emoji }, thunkAPI) => {
@@ -471,18 +472,17 @@ export const toggleAntiSpam = createAsyncThunk<
 
 /* ================= VIP ================= */
 
-export const addVip = createAsyncThunk<
-  any,
-  { roomId: string; targetId: string; days: number },
-  { state: RootState }
->("room/addVip", async ({ roomId, targetId, days }, thunkAPI) => {
-  try {
-    const res = await api.post(`/rooms/${roomId}/vip`, { targetId, days });
-    return dataOf(res);
-  } catch (e: any) {
-    return thunkAPI.rejectWithValue(errMsg(e, "VIP add failed"));
+export const addVip = createAsyncThunk<any, { roomId: string; targetId: string; days: number }, { state: RootState }>(
+  "room/addVip",
+  async ({ roomId, targetId, days }, thunkAPI) => {
+    try {
+      const res = await api.post(`/rooms/${roomId}/vip`, { targetId, days });
+      return dataOf(res);
+    } catch (e: any) {
+      return thunkAPI.rejectWithValue(errMsg(e, "VIP add failed"));
+    }
   }
-});
+);
 
 export const removeVip = createAsyncThunk<any, { roomId: string; targetId: string }, { state: RootState }>(
   "room/removeVip",
@@ -511,18 +511,17 @@ export const startPoll = createAsyncThunk<
   }
 });
 
-export const votePoll = createAsyncThunk<
-  any,
-  { roomId: string; optionIndex: number },
-  { state: RootState }
->("room/votePoll", async ({ roomId, optionIndex }, thunkAPI) => {
-  try {
-    const res = await api.patch(`/rooms/${roomId}/poll/vote`, { optionIndex });
-    return dataOf(res);
-  } catch (e: any) {
-    return thunkAPI.rejectWithValue(errMsg(e, "Vote failed"));
+export const votePoll = createAsyncThunk<any, { roomId: string; optionIndex: number }, { state: RootState }>(
+  "room/votePoll",
+  async ({ roomId, optionIndex }, thunkAPI) => {
+    try {
+      const res = await api.patch(`/rooms/${roomId}/poll/vote`, { optionIndex });
+      return dataOf(res);
+    } catch (e: any) {
+      return thunkAPI.rejectWithValue(errMsg(e, "Vote failed"));
+    }
   }
-});
+);
 
 export const endPoll = createAsyncThunk<any, { roomId: string }, { state: RootState }>(
   "room/endPoll",
@@ -592,18 +591,17 @@ export const addXP = createAsyncThunk<any, { roomId: string; amount: number }, {
 
 /* ================= BOOST ================= */
 
-export const boostRoom = createAsyncThunk<
-  RoomItem,
-  { roomId: string; level: number; hours: number },
-  { state: RootState }
->("room/boostRoom", async ({ roomId, level, hours }, thunkAPI) => {
-  try {
-    const res = await api.post(`/rooms/${roomId}/boost`, { level, hours });
-    return dataOf(res);
-  } catch (e: any) {
-    return thunkAPI.rejectWithValue(errMsg(e, "Boost failed"));
+export const boostRoom = createAsyncThunk<RoomItem, { roomId: string; level: number; hours: number }, { state: RootState }>(
+  "room/boostRoom",
+  async ({ roomId, level, hours }, thunkAPI) => {
+    try {
+      const res = await api.post(`/rooms/${roomId}/boost`, { level, hours });
+      return dataOf(res);
+    } catch (e: any) {
+      return thunkAPI.rejectWithValue(errMsg(e, "Boost failed"));
+    }
   }
-});
+);
 
 /* ================= MODERATION ================= */
 
@@ -642,24 +640,12 @@ export const joinRoomAndEnter = createAsyncThunk<
   { roomId: string; preload?: boolean },
   { state: RootState }
 >("room/joinRoomAndEnter", async ({ roomId, preload }, thunkAPI) => {
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("🚪 JOIN ROOM & ENTER START");
-  console.log("RoomId:", roomId);
-  console.log("Preload:", preload);
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
   try {
-    console.log("➡️ Dispatch joinRoom...");
     await thunkAPI.dispatch(joinRoom(roomId)).unwrap();
-    console.log("✅ joinRoom success");
 
-    console.log("➡️ setActiveRoom...");
     thunkAPI.dispatch(setActiveRoom(roomId));
-    console.log("✅ setActiveRoom done");
 
     if (preload) {
-      console.log("➡️ Preloading users/messages/stats...");
-
       try {
         await Promise.all([
           thunkAPI.dispatch(fetchRoomUsers(roomId)).unwrap(),
@@ -674,26 +660,13 @@ export const joinRoomAndEnter = createAsyncThunk<
             .unwrap(),
           thunkAPI.dispatch(fetchRoomStats(roomId)).unwrap()
         ]);
-
-        console.log("✅ Preload success");
       } catch (preloadError: any) {
-        const msg =
-          typeof preloadError === "string"
-            ? preloadError
-            : preloadError?.message || preloadError?.response?.data?.message || "Preload failed";
-        console.log("⚠️ Preload failed:", msg);
+        void preloadError;
       }
     }
 
-    console.log("🎉 JOIN ROOM & ENTER COMPLETED");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
     return { roomId };
   } catch (e: any) {
-    console.log("❌ JOIN ROOM & ENTER FAILED");
-    console.log("Error message:", e?.message);
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
     return thunkAPI.rejectWithValue(errMsg(e, "Join failed"));
   }
 });
@@ -718,7 +691,7 @@ export const leaveRoomAndExit = createAsyncThunk<
 });
 
 /* =====================================================
-   SLICE
+   SOCKET-DRIVEN REDUCERS
 ===================================================== */
 
 const roomSlice = createSlice({
@@ -727,17 +700,200 @@ const roomSlice = createSlice({
   reducers: {
     resetRoomState: () => initialState,
 
+    // ==========================
+    // CHANGE ROLE (Socket only)
+    // ==========================
+    socketRoleSetRequested: (
+      state,
+      _action: PayloadAction<{ roomId: string; targetId: string; role: "owner" | "admin" | "member" }>
+    ) => {
+      state.mutatingRoom = true;
+      state.error = undefined;
+    },
+
+    socketRoleSetFailed: (state, action: PayloadAction<{ message: string }>) => {
+      state.mutatingRoom = false;
+      state.error = action.payload.message || "Set role failed";
+    },
+
+    socketRoleSetSucceeded: (state) => {
+      // سيتم تحديث الدور فعلياً عند وصول room:roles:update
+      state.mutatingRoom = false;
+    },
+
     setActiveRoom: (state, action: PayloadAction<string | undefined>) => {
       state.activeRoomId = action.payload;
       state.error = undefined;
     },
 
-    socketUserJoined: (state, action: PayloadAction<{ roomId: string; userId: string }>) => {
-      const { roomId, userId } = action.payload;
+    /**
+     * room:activeCount:update
+     */
+    socketRoomActiveCount: (state, action: PayloadAction<{ roomId: string; activeCount: number }>) => {
+      const { roomId, activeCount } = action.payload;
+      state.activeCountByRoom[roomId] = Number(activeCount) || 0;
+    },
+
+    /**
+     * room:users:update (إشارة فقط)
+     */
+    socketRoomUsersUpdate: (state, _action: PayloadAction<{ roomId: string }>) => {
+      void state;
+    },
+
+    /**
+     * room:roles:update
+     */
+    socketRoomRolesUpdate: (
+      state,
+      action: PayloadAction<{
+        roomId: string;
+        owners?: string[];
+        admins?: string[];
+        members?: string[];
+        creatorId?: string;
+      }>
+    ) => {
+      const { roomId, owners = [], admins = [], members = [], creatorId } = action.payload;
+
       const list = state.usersByRoom[roomId];
-      if (!list) return;
-      const exists = list.some((u) => u._id === userId);
-      if (!exists) list.unshift({ _id: userId, username: "User" });
+      if (!list) {
+        state.mutatingRoom = false;
+        return;
+      }
+
+      const ownerSet = new Set(owners.map(toStr));
+      const adminSet = new Set(admins.map(toStr));
+      const memberSet = new Set(members.map(toStr));
+      const creator = creatorId ? toStr(creatorId) : "";
+
+      for (const u of list) {
+        const id = toStr(u._id);
+
+        if (creator && id === creator) {
+          u.role = "creator";
+          continue;
+        }
+
+        if (ownerSet.has(id)) u.role = "owner";
+        else if (adminSet.has(id)) u.role = "admin";
+        else if (memberSet.has(id)) u.role = "member";
+        else u.role = undefined;
+      }
+
+      state.mutatingRoom = false;
+    },
+
+    /**
+     * room:update
+     */
+    socketRoomUpdated: (state, action: PayloadAction<RoomItem>) => {
+      const updated = action.payload;
+      if (!updated?._id) return;
+
+      const idx = state.rooms.findIndex((r) => r._id === updated._id);
+      if (idx >= 0) state.rooms[idx] = { ...state.rooms[idx], ...updated };
+      else state.rooms.unshift(updated);
+
+      if (state.activeCountByRoom[updated._id] === undefined) {
+        state.activeCountByRoom[updated._id] = 0;
+      }
+    },
+
+    /**
+     * room:type:update
+     */
+    socketRoomTypeUpdate: (state, action: PayloadAction<{ roomId: string; type: RoomType }>) => {
+      const { roomId, type } = action.payload;
+      const room = state.rooms.find((r) => r._id === roomId);
+      if (room) room.type = type;
+    },
+
+    /**
+     * room:premium:update
+     */
+    socketRoomPremiumUpdate: (
+      state,
+      action: PayloadAction<{ roomId: string; premiumLevel: RoomPremiumLevel }>
+    ) => {
+      const { roomId, premiumLevel } = action.payload;
+      const room = state.rooms.find((r) => r._id === roomId);
+      if (room) room.premiumLevel = premiumLevel;
+    },
+
+    /**
+     * room:lock:update
+     */
+    socketRoomLockUpdate: (state, action: PayloadAction<{ roomId: string; isLocked: boolean }>) => {
+      const { roomId, isLocked } = action.payload;
+      const room = state.rooms.find((r) => r._id === roomId);
+      if (room) room.isLocked = isLocked;
+    },
+
+    /**
+     * room:slowmode:update
+     */
+    socketRoomSlowModeUpdate: (
+      state,
+      action: PayloadAction<{ roomId: string; slowModeSeconds: number }>
+    ) => {
+      const { roomId, slowModeSeconds } = action.payload;
+      const room = state.rooms.find((r) => r._id === roomId);
+      if (room) room.slowModeSeconds = slowModeSeconds;
+    },
+
+    /**
+     * room:antispam:update
+     */
+    socketRoomAntiSpamUpdate: (
+      state,
+      action: PayloadAction<{ roomId: string; enabled: boolean; max?: number }>
+    ) => {
+      const { roomId, enabled, max } = action.payload;
+      const room = state.rooms.find((r) => r._id === roomId);
+      if (room) {
+        room.antiSpamEnabled = Boolean(enabled);
+        if (typeof max === "number") room.maxMessagesPerMinute = max;
+      }
+    },
+
+    /**
+     * room:boost:update
+     */
+    socketRoomBoostUpdate: (
+      state,
+      action: PayloadAction<{ roomId: string; boostLevel: number; boostExpiresAt?: string }>
+    ) => {
+      const { roomId, boostLevel, boostExpiresAt } = action.payload;
+      const room = state.rooms.find((r) => r._id === roomId);
+      if (room) {
+        room.boostLevel = Number(boostLevel) || 0;
+        if (boostExpiresAt) room.boostExpiresAt = boostExpiresAt;
+      }
+    },
+
+    /**
+     * room:deleted
+     */
+    socketRoomDeleted: (state, action: PayloadAction<{ roomId: string }>) => {
+      const { roomId } = action.payload;
+
+      state.rooms = state.rooms.filter((r) => r._id !== roomId);
+      delete state.usersByRoom[roomId];
+      delete state.messagesByRoom[roomId];
+      delete state.activeCountByRoom[roomId];
+
+      if (state.activeRoomId === roomId) state.activeRoomId = undefined;
+    },
+
+    /**
+     * room:user:joined / room:user:left
+     *
+     * ملاحظة: الأفضل عدم إضافة placeholder "User"
+     * واعتماد room:users:update ثم fetchRoomUsers للحصول على بيانات صحيحة.
+     */
+    socketUserJoined: (state, _action: PayloadAction<{ roomId: string; userId: string }>) => {
+      void state;
     },
 
     socketUserLeft: (state, action: PayloadAction<{ roomId: string; userId: string }>) => {
@@ -747,6 +903,9 @@ const roomSlice = createSlice({
       state.usersByRoom[roomId] = list.filter((u) => u._id !== userId);
     },
 
+    /**
+     * room:message:new
+     */
     socketNewRoomMessage: (state, action: PayloadAction<{ roomId: string; message: RoomMessage }>) => {
       const { roomId, message } = action.payload;
 
@@ -762,8 +921,14 @@ const roomSlice = createSlice({
       }
     },
 
-    socketMessagePinned: (state, action: PayloadAction<{ roomId: string; message: RoomMessage }>) => {
-      const { roomId, message } = action.payload;
+    /**
+     * room:message:pinned / room:message:edited (دمج نفس reducer)
+     */
+    socketMessagePinned: (state, action: PayloadAction<{ roomId?: string; message: RoomMessage }>) => {
+      const { message } = action.payload;
+      const roomId = action.payload.roomId || toStr(message.room) || state.activeRoomId;
+      if (!roomId) return;
+
       const list = state.messagesByRoom[roomId];
       if (!list) return;
 
@@ -771,8 +936,14 @@ const roomSlice = createSlice({
       if (idx >= 0) list[idx] = { ...list[idx], ...message };
     },
 
-    socketMessageHighlighted: (state, action: PayloadAction<{ roomId: string; message: RoomMessage }>) => {
-      const { roomId, message } = action.payload;
+    /**
+     * room:message:highlighted
+     */
+    socketMessageHighlighted: (state, action: PayloadAction<{ roomId?: string; message: RoomMessage }>) => {
+      const { message } = action.payload;
+      const roomId = action.payload.roomId || toStr(message.room) || state.activeRoomId;
+      if (!roomId) return;
+
       const list = state.messagesByRoom[roomId];
       if (!list) return;
 
@@ -780,8 +951,20 @@ const roomSlice = createSlice({
       if (idx >= 0) list[idx] = { ...list[idx], ...message };
     },
 
-    socketMessageDeleted: (state, action: PayloadAction<{ roomId: string; messageId: string }>) => {
-      const { roomId, messageId } = action.payload;
+    /**
+     * room:message:deleted
+     * يدعم وصول payload بدون roomId
+     */
+    socketMessageDeleted: (state, action: PayloadAction<{ roomId?: string; messageId: string }>) => {
+      const { messageId } = action.payload;
+
+      const roomId =
+        action.payload.roomId ||
+        findRoomIdByMessageId(state.messagesByRoom, messageId) ||
+        state.activeRoomId;
+
+      if (!roomId) return;
+
       const list = state.messagesByRoom[roomId];
       if (!list) return;
 
@@ -790,15 +973,27 @@ const roomSlice = createSlice({
       );
     },
 
+    /**
+     * room:reaction:update
+     * يدعم وصول payload بدون roomId
+     */
     socketReactionUpdate: (
       state,
       action: PayloadAction<{
-        roomId: string;
+        roomId?: string;
         messageId: string;
         reactions: { user: string; emoji: string; createdAt: string }[];
       }>
     ) => {
-      const { roomId, messageId, reactions } = action.payload;
+      const { messageId, reactions } = action.payload;
+
+      const roomId =
+        action.payload.roomId ||
+        findRoomIdByMessageId(state.messagesByRoom, messageId) ||
+        state.activeRoomId;
+
+      if (!roomId) return;
+
       const list = state.messagesByRoom[roomId];
       if (!list) return;
 
@@ -806,6 +1001,29 @@ const roomSlice = createSlice({
       if (!msg) return;
 
       msg.reactions = reactions;
+    },
+
+    /**
+     * room:kicked
+     */
+    socketRoomKicked: (state, action: PayloadAction<{ roomId: string }>) => {
+      const { roomId } = action.payload;
+      if (state.activeRoomId === roomId) state.activeRoomId = undefined;
+      delete state.usersByRoom[roomId];
+      delete state.messagesByRoom[roomId];
+      delete state.activeCountByRoom[roomId];
+    },
+
+    /**
+     * room:banned
+     */
+    socketRoomBanned: (state, action: PayloadAction<{ roomId: string; reason?: string }>) => {
+      const { roomId } = action.payload;
+      state.error = action.payload?.reason ? `Banned: ${action.payload.reason}` : "Banned";
+      if (state.activeRoomId === roomId) state.activeRoomId = undefined;
+      delete state.usersByRoom[roomId];
+      delete state.messagesByRoom[roomId];
+      delete state.activeCountByRoom[roomId];
     }
   },
 
@@ -836,6 +1054,7 @@ const roomSlice = createSlice({
 
         delete state.usersByRoom[roomId];
         delete state.messagesByRoom[roomId];
+        delete state.activeCountByRoom[roomId];
       })
       .addCase(leaveRoomAndExit.rejected, (state, action) => {
         state.mutatingRoom = false;
@@ -859,8 +1078,18 @@ const roomSlice = createSlice({
         state.mutatingRoom = true;
         state.error = undefined;
       })
-      .addCase(fetchRoomStats.fulfilled, (state) => {
+      .addCase(fetchRoomStats.fulfilled, (state, action) => {
         state.mutatingRoom = false;
+
+        const stats = action.payload;
+        if (!stats?.roomId) return;
+
+        state.activeCountByRoom[stats.roomId] = Number(stats.activeCount) || 0;
+
+        const room = state.rooms.find((r) => r._id === stats.roomId);
+        if (room) {
+          room.messagesCount = Number(stats.messagesCount) || room.messagesCount;
+        }
       })
       .addCase(fetchRoomStats.rejected, (state, action) => {
         state.mutatingRoom = false;
@@ -894,7 +1123,6 @@ const roomSlice = createSlice({
         state.error = (action.payload as any) || "Send failed";
       })
 
-      // ✅ (مطلوب) ريدوسر جلب الرسائل
       .addCase(fetchRoomMessages.pending, (state) => {
         state.loadingMessages = true;
         state.error = undefined;
@@ -925,6 +1153,10 @@ const roomSlice = createSlice({
       .addCase(fetchRoomsByType.fulfilled, (state, action) => {
         state.loadingRooms = false;
         state.rooms = action.payload.items;
+
+        for (const r of action.payload.items) {
+          if (state.activeCountByRoom[r._id] === undefined) state.activeCountByRoom[r._id] = 0;
+        }
       })
       .addCase(fetchRoomsByType.rejected, (state, action) => {
         state.loadingRooms = false;
@@ -940,6 +1172,8 @@ const roomSlice = createSlice({
         const room = action.payload;
         const exists = state.rooms.some((r) => r._id === room._id);
         if (!exists) state.rooms.unshift(room);
+
+        if (state.activeCountByRoom[room._id] === undefined) state.activeCountByRoom[room._id] = 0;
       })
       .addCase(createRoom.rejected, (state, action) => {
         state.loadingRooms = false;
@@ -953,6 +1187,10 @@ const roomSlice = createSlice({
       .addCase(searchRooms.fulfilled, (state, action) => {
         state.loadingRooms = false;
         state.rooms = action.payload.items;
+
+        for (const r of action.payload.items) {
+          if (state.activeCountByRoom[r._id] === undefined) state.activeCountByRoom[r._id] = 0;
+        }
       })
       .addCase(searchRooms.rejected, (state, action) => {
         state.loadingRooms = false;
@@ -992,9 +1230,13 @@ const roomSlice = createSlice({
         (action) =>
           action.type.startsWith("room/") &&
           action.type.endsWith("/fulfilled") &&
-          [updateRoomInfo.typePrefix, changeRoomType.typePrefix, changeRoomPremium.typePrefix, toggleAntiSpam.typePrefix, boostRoom.typePrefix].some((p) =>
-            action.type.startsWith(p)
-          ),
+          [
+            updateRoomInfo.typePrefix,
+            changeRoomType.typePrefix,
+            changeRoomPremium.typePrefix,
+            toggleAntiSpam.typePrefix,
+            boostRoom.typePrefix
+          ].some((p) => action.type.startsWith(p)),
         (state, action: any) => {
           state.mutatingRoom = false;
           const updated: RoomItem = action.payload;
@@ -1013,6 +1255,7 @@ const roomSlice = createSlice({
               state.rooms = state.rooms.filter((r) => r._id !== roomId);
               delete state.usersByRoom[roomId];
               delete state.messagesByRoom[roomId];
+              delete state.activeCountByRoom[roomId];
               if (state.activeRoomId === roomId) state.activeRoomId = undefined;
             }
           }
@@ -1051,27 +1294,46 @@ const roomSlice = createSlice({
 });
 
 /* =====================================================
-   EXPORTS (كما طلبت)
+   EXPORTS
 ===================================================== */
 
 export const {
   setActiveRoom,
   resetRoomState,
 
+  // CHANGE ROLE (Socket only)
+  socketRoleSetRequested,
+  socketRoleSetFailed,
+  socketRoleSetSucceeded,
+
   socketUserJoined,
   socketUserLeft,
+  socketRoomActiveCount,
 
   socketNewRoomMessage,
   socketMessagePinned,
   socketMessageHighlighted,
   socketMessageDeleted,
-  socketReactionUpdate
+  socketReactionUpdate,
+
+  socketRoomUsersUpdate,
+  socketRoomRolesUpdate,
+  socketRoomUpdated,
+  socketRoomTypeUpdate,
+  socketRoomPremiumUpdate,
+  socketRoomLockUpdate,
+  socketRoomSlowModeUpdate,
+  socketRoomAntiSpamUpdate,
+  socketRoomBoostUpdate,
+  socketRoomDeleted,
+  socketRoomKicked,
+  socketRoomBanned
 } = roomSlice.actions;
 
 export default roomSlice.reducer;
 
 /* =====================================================
-   SELECTORS (Fix warning + إضافة جلب الرسائل)
+   SELECTORS
 ===================================================== */
 
 const EMPTY_USERS: RoomUser[] = [];
@@ -1095,3 +1357,8 @@ export const selectRoomLoadingMessages = (state: RootState) => state.room.loadin
 export const selectRoomLoadingRooms = (state: RootState) => state.room.loadingRooms;
 
 export const selectRoomError = (state: RootState) => state.room.error;
+
+export const selectRoomActiveCount = createSelector(
+  [(state: RootState) => state.room.activeCountByRoom, (_: RootState, roomId: string) => roomId],
+  (map, roomId) => map[roomId] ?? 0
+);

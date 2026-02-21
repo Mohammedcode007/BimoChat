@@ -127,7 +127,6 @@ export default function ChatScreen() {
       setIsRecording(true);
 
     } catch (err) {
-      console.log("Start recording error:", err);
     }
   };
   const stopRecording = async () => {
@@ -148,7 +147,6 @@ export default function ChatScreen() {
       setRecordedUri(uri);
 
     } catch (err) {
-      console.log("Stop recording error:", err);
     }
   };
 
@@ -185,26 +183,6 @@ export default function ChatScreen() {
 
   }, [chatId]);
 
-  // useEffect(() => {
-  //   if (!chatId) return;
-  //   if (!currentUser?._id) return;
-
-  //   if (messages.length > 0) {
-  //     emitMarkAsSeen(chatId);
-  //   }
-
-  // }, [messages.length]);
-
-  // useEffect(() => {
-  //   if (!chatId || !currentUser?._id) return;
-
-  //   console.log("👀 Attempting mark as seen");
-  //   console.log("Active Chat:", chatId);
-  //   console.log("Messages count:", messages.length);
-
-  //   emitMarkAsSeen(chatId);
-
-  // }, [messages.length]);
 
   useEffect(() => {
     if (!chatId) return;
@@ -305,7 +283,6 @@ export default function ChatScreen() {
       }
 
     } catch (error) {
-      console.log("Image pick error:", error);
     }
   };
 
@@ -367,7 +344,6 @@ export default function ChatScreen() {
 
     } catch (err) {
 
-      console.log("Upload error:", err);
     }
   };
 
@@ -401,7 +377,6 @@ export default function ChatScreen() {
       }
 
     } catch (error) {
-      console.log("Audio pick error:", error);
     }
   };
 
@@ -412,7 +387,6 @@ export default function ChatScreen() {
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== "granted") {
-        console.log("Media permission denied");
       }
     };
 

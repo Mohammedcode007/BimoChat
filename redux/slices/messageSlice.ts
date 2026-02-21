@@ -110,10 +110,7 @@ const messageSlice = createSlice({
       }>
     ) => {
 
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📥 setMessages CALLED");
-      console.log("ChatId:", action.payload.chatId);
-      console.log("Messages count:", action.payload.messages.length);
+    
 
       state.messages[action.payload.chatId] =
         action.payload.messages.map(msg => ({
@@ -125,8 +122,6 @@ const messageSlice = createSlice({
           }
         }));
 
-      console.log("✅ Messages stored in state");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     },
 
     /* ================= ADD NEW MESSAGE ================= */
@@ -211,8 +206,7 @@ const messageSlice = createSlice({
       }>
     ) => {
 
-      console.log("📬 markDeliveredFromSocket",
-        action.payload);
+    
 
       const { chatId, userId } = action.payload;
       const msgs = state.messages[chatId];
@@ -272,8 +266,7 @@ const messageSlice = createSlice({
       }>
     ) => {
 
-      console.log("❤️ updateReaction",
-        action.payload.messageId);
+    
 
       Object.values(state.messages).forEach(list => {
 
@@ -296,9 +289,7 @@ const messageSlice = createSlice({
       }>
     ) => {
 
-      console.log("🗑 deleteMessageFromSocket",
-        action.payload.messageId);
-
+   
       Object.values(state.messages).forEach(list => {
 
         const msg = list.find(
@@ -320,8 +311,7 @@ const messageSlice = createSlice({
       action: PayloadAction<string>
     ) => {
 
-      console.log("🧹 clearChatMessages",
-        action.payload);
+    
 
       delete state.messages[action.payload];
     }

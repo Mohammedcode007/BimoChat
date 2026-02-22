@@ -13,6 +13,7 @@ import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import LottieView from "lottie-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import RenderHTML from "react-native-render-html";
 
@@ -20,6 +21,7 @@ import {
   Alert,
   Animated,
   Image,
+  ImageSourcePropType,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -55,6 +57,7 @@ import {
 } from "@/redux/slices/room.slice";
 
 // ✅ Socket helpers
+import { boostRoom } from "@/redux/slices/roomControl.slice";
 import {
   deleteRoomSocketMessage,
   joinRoomSocket,
@@ -77,7 +80,7 @@ type UserUI = {
 
 type MessageUI = {
   id: string;
-  type: "text" | "image" | "file" | "audio" | "video" | "system";
+  type: "text" | "image" | "file" | "audio" | "video" | "system" | "gift"; // ✅ أضف gift
   systemType?: "join" | "leave" | "announcement" | "promotion" | "ban" | "role";
 
   text?: string;
@@ -121,6 +124,17 @@ const getStarColor = (role?: "creator" | "owner" | "admin" | "member") =>
    ✅ MESSAGE ITEM
 ===================================================== */
 
+// ✅ Gifts الموجودة في assets
+// ✅ Gifts Lottie الموجودة في assets (ملفات json)
+const GIFT_LOTTIES: Record<string, any> = {
+  boost_rocket: require("../../assets/lottie/rocket_boot.json"),
+  // أضف المزيد حسب الحاجة
+};
+
+const getGiftLottieSource = (key?: string) => {
+  if (!key) return null;
+  return GIFT_LOTTIES[key] || null;
+};
 function MessageItem({
   item,
   isMe,
@@ -129,7 +143,9 @@ function MessageItem({
   onPressImage,
   onTogglePlay,
   playingId,
-  progressAnim
+  progressAnim,
+  giftDone,
+  onGiftDone
 }: {
   item: MessageUI;
   isMe: boolean;
@@ -139,8 +155,11 @@ function MessageItem({
   onTogglePlay: (uri: string, id: string) => void;
   playingId: string | null;
   progressAnim: Animated.Value;
+  giftDone?: boolean;
+  onGiftDone?: () => void;
 }) {
   const { width } = useWindowDimensions();
+
   if (item.type === "system") {
     return (
       <View style={bubbleStyles.sysWrap}>
@@ -233,7 +252,22 @@ function MessageItem({
         ) : (
           <>
             {item.type === "text" && <Text style={bubbleStyles.msgText}>{item.text}</Text>}
+       {item.type === "gift" ? (
+  (() => {
+    const lottieSrc = getGiftLottieSource(item.text);
+    if (!lottieSrc) return <Text style={bubbleStyles.msgTextMuted}>🎁 Gift</Text>;
 
+    // ✅ بعد انتهاء Fullscreen (giftDone=true) اعرض تمثيل ثابت داخل الشات
+    if (giftDone) {
+      return <Text style={bubbleStyles.msgTextMuted}>🚀 Boost</Text>;
+    }
+
+    // ✅ قبل ما ينتهي (أثناء 5 ثواني) ممكن:
+    // - تعرض نص بسيط بدل تكرار الـ lottie داخل الفقاعة
+    // - أو تعرض lottie صغير داخل الفقاعة
+    return <Text style={bubbleStyles.msgTextMuted}>🎁 Boosting…</Text>;
+  })()
+) : null}
             {item.type === "image" && item.uri ? (
               <TouchableOpacity activeOpacity={0.9} onPress={() => onPressImage(item.uri!)}>
                 <Image source={{ uri: item.uri }} style={bubbleStyles.media} />
@@ -508,7 +542,17 @@ export default function ChatScreen() {
   const [replyTo, setReplyTo] = useState<MessageUI | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<MessageUI | null>(null);
   const [showActions, setShowActions] = useState(false);
+const [giftDoneById, setGiftDoneById] = useState<Record<string, boolean>>({});
+const markGiftDone = (id: string) => setGiftDoneById((prev) => ({ ...prev, [id]: true }));
 
+// ✅ Fullscreen Gift Overlay
+const [giftOverlay, setGiftOverlay] = useState<{
+  visible: boolean;
+  messageId: string | null;
+  giftKey: string | null;
+}>({ visible: false, messageId: null, giftKey: null });
+
+const giftOverlayTimerRef = useRef<any>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(0);
@@ -521,8 +565,8 @@ export default function ChatScreen() {
   const [recordDuration, setRecordDuration] = useState(0);
   const recordTimer = useRef<any>(null);
   const [pinPreviewMessageId, setPinPreviewMessageId] = useState<string | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  // ✅ Menu
+  const [previewImage, setPreviewImage] = useState<string | ImageSourcePropType | null>(null);
+  // بدل string | null  // ✅ Menu
   const [showRoomMenu, setShowRoomMenu] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
 
@@ -608,6 +652,7 @@ export default function ChatScreen() {
 
     const backendType = String(m?.type || "text");
 
+    // ✅ gift ليست System
     const isSystem =
       backendType === "system" ||
       backendType === "announcement" ||
@@ -615,7 +660,7 @@ export default function ChatScreen() {
       backendType === "leave" ||
       backendType === "promotion" ||
       backendType === "ban" ||
-      backendType === "role"; // اتركها للتوافق مع رسائل قديمة إن وُجدت
+      backendType === "role";
 
     const senderObj =
       typeof m?.sender === "object" && m?.sender
@@ -659,9 +704,7 @@ export default function ChatScreen() {
       const action = String(m?.action || m?.meta?.action || "");
 
       const actor =
-        String(m?.actorName || m?.meta?.actorName || "").trim() ||
-        systemUserName ||
-        "مشرف";
+        String(m?.actorName || m?.meta?.actorName || "").trim() || systemUserName || "مشرف";
 
       const target = String(m?.targetName || m?.meta?.targetName || "").trim();
       const roleRaw = String(m?.role || m?.meta?.role || "").trim();
@@ -682,7 +725,6 @@ export default function ChatScreen() {
       if (isRoleChange) {
         const targetName = target || "مستخدم";
         const roleAr = roleRaw ? normalizeRoleLabelAr(roleRaw) : "";
-
         systemText = `⭐ تم ترقية ${targetName}${roleAr ? ` إلى ${roleAr}` : ""} بواسطة ${actor}`;
         log("SYSTEM role-change-as-promotion", { systemText });
       } else {
@@ -721,8 +763,10 @@ export default function ChatScreen() {
         }
         : undefined;
 
+    // ✅ تحديد نوع رسالة UI (أضفنا gift)
     let uiType: MessageUI["type"] = "text";
     if (isSystem) uiType = "system";
+    else if (backendType === "gift") uiType = "gift";
     else if (backendType === "image") uiType = "image";
     else if (backendType === "video") uiType = "video";
     else if (backendType === "audio") uiType = "audio";
@@ -732,17 +776,6 @@ export default function ChatScreen() {
       hour: "2-digit",
       minute: "2-digit"
     });
-
-    const fallbackName =
-      String(senderObj?.username || "").trim() ||
-      String(resolveUserNameById(senderId) || "").trim() ||
-      (senderId && senderId === myUserId ? myName : "") ||
-      "User";
-
-    const fallbackAvatar =
-      String(senderObj?.avatar || "").trim() ||
-      String(resolveAvatarById(senderId) || "").trim() ||
-      (senderId === myUserId ? myAvatar : "");
 
     // ✅ عرض أول Reaction إن وجدت
     const firstReactionEmoji =
@@ -769,22 +802,24 @@ export default function ChatScreen() {
       role: usersMap.get(senderId)?.role
     };
 
+    // ✅ نص الرسالة النهائي:
+    // - System => systemText
+    // - Gift   => content = giftKey مثل "boost_rocket"
+    // - غير ذلك => content الطبيعي
+    const messageText = isSystem ? systemText : String(m?.content || "");
+
     const out: MessageUI = {
       id: String(m?._id),
       type: uiType,
       systemType: isSystem ? (backendType as any) : undefined,
-      text: isSystem ? systemText : String(m?.content || ""),
+
+      text: messageText,
       uri: m?.media?.url,
 
-      // ✅ هنا التعديل المهم:
-      // - announcement نُظهر فيه المرسل
-      // - باقي system نُخفي المرسل (كما تريد)
-      sender:
-        backendType === "announcement"
-          ? senderUI
-          : isSystem
-            ? undefined
-            : senderUI,
+      // ✅ إعلان announcement نُظهر فيه المرسل
+      // ✅ باقي system نخفي المرسل
+      // ✅ gift رسالة عادية => نُظهر المرسل
+      sender: backendType === "announcement" ? senderUI : isSystem ? undefined : senderUI,
 
       replyTo: uiReplyTo,
       reaction: uiReaction,
@@ -874,7 +909,42 @@ export default function ChatScreen() {
   }, []);
 
   /* ================= AUDIO ================= */
+useEffect(() => {
+  // ✅ ابحث عن أحدث رسالة gift لم يتم التعامل معها بعد
+  const latestGift = [...uiMessages].find(
+    (m) => m.type === "gift" && !giftDoneById[m.id] && !m.deletedForEveryone
+  );
 
+  if (!latestGift) return;
+
+  // ✅ لو Overlay شغال بالفعل لنفس الرسالة لا تعيد التشغيل
+  if (giftOverlay.visible && giftOverlay.messageId === latestGift.id) return;
+
+  // ✅ جهّز Fullscreen
+  const giftKey = String(latestGift.text || "");
+  if (!giftKey) {
+    // حتى لو giftKey ناقص، اعتبرها "تمت" حتى لا تتكرر
+    markGiftDone(latestGift.id);
+    return;
+  }
+
+  // افتح Overlay
+  setGiftOverlay({ visible: true, messageId: latestGift.id, giftKey });
+
+  // اقفل أي تايمر سابق
+  if (giftOverlayTimerRef.current) clearTimeout(giftOverlayTimerRef.current);
+
+  // ✅ بعد 5 ثواني: أخفِ الـ overlay وعلّم الرسالة كـ done
+  giftOverlayTimerRef.current = setTimeout(() => {
+    setGiftOverlay({ visible: false, messageId: null, giftKey: null });
+    markGiftDone(latestGift.id);
+  }, 6000);
+
+  return () => {
+    // cleanup عند أي re-render
+  };
+  // ملاحظة: نراقب uiMessages و giftDoneById
+}, [uiMessages, giftDoneById, giftOverlay.visible, giftOverlay.messageId]);
   const togglePlay = async (uri: string, id: string) => {
     if (recording) return;
 
@@ -1221,6 +1291,48 @@ export default function ChatScreen() {
     }
   };
 
+
+  // ✅ داخل ChatScreen() استبدل onBoostRoom بهذا الشكل (يستخدم boostRoom من roomControl.slice)
+  // ملاحظة: افترضت أنك مستورد boostRoom من roomControl.slice.ts
+  // import { boostRoom } from "@/redux/slices/roomControl.slice";
+
+ const onBoostRoom = async () => {
+  try {
+    if (!canModerate) {
+      Alert.alert("No permission", "You don't have permission to boost this room.");
+      return;
+    }
+    if (!roomId) return;
+
+    const level = 1;
+    const hours = 24;
+
+    // ✅ لازم نستلم نتيجة البوست
+    const r = await dispatch(boostRoom({ roomId, level, hours })).unwrap();
+
+    // ✅ شرط نجاح "مؤكد"
+    if (!r?.boostExpiresAt && typeof r?.boostLevel !== "number") {
+      Alert.alert("Error", "Boost did not succeed.");
+      return; // ❌ لا ترسل Gift
+    }
+
+    // ✅ الآن فقط: أرسل Gift
+    await dispatch(
+      sendRoomMessage({
+        roomId,
+        type: "gift",
+        content: "boost_rocket",
+        gift: { name: "boost", value: level, animation: "rocket" }
+      } as any)
+    ).unwrap();
+
+    const content = `🚀 <b>${myName}</b> boosted the room!`;
+    await dispatch(sendRoomMessage({ roomId, content, type: "announcement" })).unwrap();
+
+  } catch (e: any) {
+    Alert.alert("Error", e?.message || String(e) || "Boost failed");
+  }
+};
   /* ================= RENDER ================= */
 
   return (
@@ -1255,7 +1367,14 @@ export default function ChatScreen() {
             </View>
           </View>
 
+
           <View style={styles.headerRight}>
+            {/* 🚀 Boost */}
+            <TouchableOpacity onPress={onBoostRoom} hitSlop={10} style={{ marginRight: 10 }}>
+              <Ionicons name="rocket-outline" size={20} />
+            </TouchableOpacity>
+
+            {/* Menu */}
             <TouchableOpacity onPress={() => setShowRoomMenu(true)} hitSlop={10}>
               <Ionicons name="ellipsis-vertical" size={20} />
             </TouchableOpacity>
@@ -1421,15 +1540,24 @@ export default function ChatScreen() {
                 item={item}
                 isMe={isMe}
                 showName={showName}
-                onPressImage={(uri) => setPreviewImage(uri)}
-                onTogglePlay={togglePlay}
+               onPressImage={(payload) => {
+    if (String(payload).startsWith("gift:")) {
+      // لم نعد نفتح صورة، لكن يمكنك ترك هذا إن احتجته لاحقًا
+      return;
+    }
+    setPreviewImage(payload);
+  }}
+                 onTogglePlay={togglePlay}
                 playingId={playingId}
                 progressAnim={progressAnim}
                 onLongPress={() => {
                   // لا تعرض منيو على رسائل النظام أو الرسائل المحذوفة (اختياري)
                   setSelectedMessage(item);
                   setShowActions(true);
+                  
                 }}
+                 giftDone={Boolean(giftDoneById[item.id])}
+  onGiftDone={() => markGiftDone(item.id)}
               />
             );
           }}
@@ -1531,15 +1659,24 @@ export default function ChatScreen() {
         </Modal>
 
         {/* ================= IMAGE PREVIEW MODAL ================= */}
-        <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
-          <View style={styles.imagePreviewOverlay}>
-            <TouchableOpacity style={styles.imagePreviewClose} onPress={() => setPreviewImage(null)}>
-              <Ionicons name="close" size={28} color="#FFF" />
-            </TouchableOpacity>
+     <Modal
+  visible={!!previewImage}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setPreviewImage(null)}
+>
+  <View style={styles.imagePreviewOverlay}>
+    <TouchableOpacity style={styles.imagePreviewClose} onPress={() => setPreviewImage(null)}>
+      <Ionicons name="close" size={28} color="#FFF" />
+    </TouchableOpacity>
 
-            <Image source={{ uri: previewImage! }} style={styles.fullImage} resizeMode="contain" />
-          </View>
-        </Modal>
+    <Image
+      source={typeof previewImage === "string" ? { uri: previewImage } : previewImage!}
+      style={styles.fullImage}
+      resizeMode="contain"
+    />
+  </View>
+</Modal>
         <Modal
           transparent
           visible={showPinModal}
@@ -1709,6 +1846,35 @@ export default function ChatScreen() {
             </Pressable>
           </Pressable>
         </Modal>
+        {/* ================= GIFT FULLSCREEN OVERLAY ================= */}
+<Modal
+  transparent
+  visible={giftOverlay.visible}
+  animationType="fade"
+  onRequestClose={() => {
+    // اختياري: لا تسمح بالإغلاق اليدوي أو اسمح
+    // هنا سنسمح بالإغلاق اليدوي مع إنهاء المؤقت
+    if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
+    if (giftOverlayTimerRef.current) clearTimeout(giftOverlayTimerRef.current);
+    setGiftOverlay({ visible: false, messageId: null, giftKey: null });
+  }}
+>
+  <View style={styles.giftFullOverlay}>
+    {(() => {
+      const src = getGiftLottieSource(giftOverlay.giftKey || "");
+      if (!src) return null;
+
+      return (
+        <LottieView
+          source={src}
+          autoPlay
+          loop
+          style={styles.giftFullLottie}
+        />
+      );
+    })()}
+  </View>
+</Modal>
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -1722,7 +1888,19 @@ const bubbleStyles = StyleSheet.create({
   row: { flexDirection: "row", marginBottom: 10, alignItems: "flex-start" },
   rowOther: { justifyContent: "flex-start" },
   rowMe: { justifyContent: "flex-end" },
-
+giftWrap: {
+  marginTop: 6,
+  width: 220,
+  height: 220,
+  borderRadius: 12,
+  overflow: "hidden",
+  alignItems: "center",
+  justifyContent: "center"
+},
+giftLottie: {
+  width: "100%",
+  height: "100%"
+},
 
   avatarStar: {
     position: "absolute",
@@ -1941,7 +2119,7 @@ const styles = StyleSheet.create({
     height: 56,
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 25,
+    paddingRight: 75,
     alignItems: "center",
     borderBottomWidth: 0.5,
     borderColor: "#E5E7EB",
@@ -2095,6 +2273,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10
   },
+  giftFullOverlay: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.95)",
+  justifyContent: "center",
+  alignItems: "center"
+},
+giftFullLottie: {
+  width: "100%",
+  height: "100%"
+},
   fullMeta: { fontSize: 12, color: "#6B7280", marginBottom: 10, fontWeight: "700" },
   fullTitle: { fontSize: 14, fontWeight: "800", color: "#111827" },
   fullText: { fontSize: 13, color: "#111827", lineHeight: 20 },

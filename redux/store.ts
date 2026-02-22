@@ -5,6 +5,7 @@ import friendReducer from "./slices/friendSlice";
 import messageReducer from "./slices/messageSlice";
 import notificationReducer from "./slices/notificationSlice";
 import profileReducer from "./slices/profileSlice";
+import storeControlReducer from "./slices/storeControl.slice";
 import tweetReducer from "./slices/tweetSlice";
 
 import chatReducer from "./slices/chatSlice";
@@ -26,6 +27,8 @@ export const store = configureStore({
     message: messageReducer,
         room: roomReducer,
             roomControl: roomControlReducer,
+                storeControl: storeControlReducer
+
 
 
 

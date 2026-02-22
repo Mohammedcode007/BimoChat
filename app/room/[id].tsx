@@ -14,6 +14,8 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import RenderHTML from "react-native-render-html";
+
 import {
   Alert,
   Animated,
@@ -26,6 +28,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View
 } from "react-native";
 import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
@@ -38,9 +41,12 @@ import {
   fetchRoomStats,
   fetchRoomUsers,
   leaveRoomAndExit,
+  pinRoomMessage,
   selectRoomActiveCount,
+  selectRoomAvatarById,
   selectRoomLoadingMessages,
   selectRoomMessages,
+  selectRoomNameById,
   selectRoomUsers,
   sendRoomMessage,
   socketRoleSetFailed,
@@ -134,11 +140,22 @@ function MessageItem({
   playingId: string | null;
   progressAnim: Animated.Value;
 }) {
+  const { width } = useWindowDimensions();
   if (item.type === "system") {
     return (
       <View style={bubbleStyles.sysWrap}>
         <View style={bubbleStyles.sysBubble}>
-          <Text style={bubbleStyles.sysText}>{item.text}</Text>
+          <RenderHTML
+            contentWidth={width - 40}
+            source={{ html: String(item.text || "") }}
+            baseStyle={{
+              fontSize: 13,
+              color: "#111827",
+              textAlign: "center",
+              fontWeight: "600",
+              lineHeight: 18
+            }}
+          />
           <Text style={bubbleStyles.sysTime}>{item.time}</Text>
         </View>
       </View>
@@ -170,20 +187,17 @@ function MessageItem({
   };
   return (
     <View style={[bubbleStyles.row, isMe ? bubbleStyles.rowMe : bubbleStyles.rowOther]}>
-      {!isMe ? (
-        <View style={bubbleStyles.avatarWrap}>
+      {!isMe && (
+        <View style={bubbleStyles.avatarWrapLeft}>
           <Image
             source={{ uri: item.sender?.avatar || "https://i.pravatar.cc/150?img=12" }}
             style={bubbleStyles.avatar}
           />
 
-          {/* ✅ النجمة بجانب الصورة: أعلى يمين */}
           {shouldShowStar(senderRole) && (
             <Text style={[bubbleStyles.avatarStar, { color: starColor }]}>★</Text>
           )}
         </View>
-      ) : (
-        <View style={bubbleStyles.avatarSpacer} />
       )}
       <TouchableOpacity
         activeOpacity={0.85}
@@ -195,9 +209,11 @@ function MessageItem({
             copyMessageContent();
           }
         }}
-        style={[bubbleStyles.bubble, isMe ? bubbleStyles.bubbleMe : bubbleStyles.bubbleOther]}
-      >
-        {showName && !isMe && !!item.sender?.name && (
+        style={[
+          bubbleStyles.bubble,
+          isMe ? bubbleStyles.bubbleMe : bubbleStyles.bubbleOther
+        ]}      >
+        {showName && !!item.sender?.name && (
           <View style={bubbleStyles.nameWrap}>
             <View style={bubbleStyles.nameRow}>
               {/* {showStar && <Text style={[bubbleStyles.roleStar, { color: starColor }]}>★</Text>} */}
@@ -292,6 +308,18 @@ function MessageItem({
 
         {/* <Text style={[bubbleStyles.time, { color: isMe ? "#E5E7EB" : COLORS.time }]}>{item.time}</Text> */}
       </TouchableOpacity>
+      {isMe && (
+        <View style={bubbleStyles.avatarWrapRight}>
+          <Image
+            source={{ uri: item.sender?.avatar || "https://i.pravatar.cc/150?img=12" }}
+            style={bubbleStyles.avatar}
+          />
+
+          {shouldShowStar(senderRole) && (
+            <Text style={[bubbleStyles.avatarStarRight, { color: starColor }]}>★</Text>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -430,10 +458,11 @@ function UsersModal({
 export default function ChatScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { width } = useWindowDimensions();
 
   const { id } = useLocalSearchParams<{ id: string }>();
   const roomId = String(id || "");
-
+  const [pinHtml, setPinHtml] = useState<string>("");
   const flatListRef = useRef<any>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -447,7 +476,8 @@ export default function ChatScreen() {
   const reduxMessages = useAppSelector((state) => selectRoomMessages(state, roomId));
   const loadingMessages = useAppSelector(selectRoomLoadingMessages);
   const roomUsers = useAppSelector((state) => selectRoomUsers(state, roomId));
-
+  const roomName = useAppSelector((state) => selectRoomNameById(state, roomId));
+  const roomAvatar = useAppSelector((state) => selectRoomAvatarById(state, roomId));
   // ✅ Active online count from slice (socket + stats)
   const activeCount = useAppSelector((state) => selectRoomActiveCount(state, roomId));
 
@@ -484,13 +514,14 @@ export default function ChatScreen() {
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [playbackDuration, setPlaybackDuration] = useState(1);
   const [activeAudio, setActiveAudio] = useState<MessageUI | null>(null);
-
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinSelectedId, setPinSelectedId] = useState<string | null>(null);
+  const [pinPreviewFull, setPinPreviewFull] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [recordDuration, setRecordDuration] = useState(0);
   const recordTimer = useRef<any>(null);
-
+  const [pinPreviewMessageId, setPinPreviewMessageId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-
   // ✅ Menu
   const [showRoomMenu, setShowRoomMenu] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
@@ -499,6 +530,38 @@ export default function ChatScreen() {
   const didLeaveRef = useRef(false);
 
   /* ================= HELPERS ================= */
+  const stripHtmlToText = (input: string) => {
+    // ✅ لا ننفّذ HTML — فقط نزيل التاجز ونحافظ على النص
+    const s = String(input || "");
+    // إزالة script/style بالكامل
+    const noScripts = s.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
+    const noStyles = noScripts.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "");
+    // تحويل <br> و </p> إلى سطر جديد
+    const withBreaks = noStyles
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n");
+    // إزالة باقي التاجز
+    const textOnly = withBreaks.replace(/<[^>]+>/g, "");
+    // فك بعض الـ entities الأساسية (بدون مكتبات)
+    return textOnly
+      .replace(/&nbsp;/g, " ")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&")
+      .trim();
+  };
+
+  const clipText = (s: string, max = 120) => {
+    const t = String(s || "");
+    if (t.length <= max) return t;
+    return t.slice(0, max - 1) + "…";
+  };
+
+  const safeDisplayText = (content: string) => {
+    // ✅ للعرض في قائمة التثبيت: نستخدم النص المنقّى
+    const cleaned = stripHtmlToText(content);
+    return cleaned || "—";
+  };
 
   // ✅ inverted list => bottom is offset 0
   const scrollToBottom = () => {
@@ -689,20 +752,40 @@ export default function ChatScreen() {
       ? (firstReactionEmoji as Reaction)
       : undefined;
 
+    // ✅ جهّز sender UI مرة واحدة
+    const senderUI: UserUI = {
+      id: String(senderId || "unknown"),
+      name:
+        String(senderObj?.username || "").trim() ||
+        String(senderObj?.name || "").trim() ||
+        String(senderObj?.fullName || "").trim() ||
+        String(resolveUserNameById(senderId) || "").trim() ||
+        (senderId && senderId === myUserId ? myName : "") ||
+        "User",
+      avatar:
+        String(senderObj?.avatar || "").trim() ||
+        String(resolveAvatarById(senderId) || "").trim() ||
+        (senderId === myUserId ? myAvatar : ""),
+      role: usersMap.get(senderId)?.role
+    };
+
     const out: MessageUI = {
       id: String(m?._id),
       type: uiType,
       systemType: isSystem ? (backendType as any) : undefined,
       text: isSystem ? systemText : String(m?.content || ""),
       uri: m?.media?.url,
-      sender: isSystem
-        ? undefined
-        : {
-          id: String(senderId || "unknown"),
-          name: fallbackName,
-          avatar: fallbackAvatar,
-          role: usersMap.get(senderId)?.role
-        },
+
+      // ✅ هنا التعديل المهم:
+      // - announcement نُظهر فيه المرسل
+      // - باقي system نُخفي المرسل (كما تريد)
+      sender:
+        backendType === "announcement"
+          ? senderUI
+          : isSystem
+            ? undefined
+            : senderUI,
+
       replyTo: uiReplyTo,
       reaction: uiReaction,
       deletedForEveryone: Boolean(m?.deletedForEveryone),
@@ -724,6 +807,21 @@ export default function ChatScreen() {
     return out;
   };
 
+  /* ✅ ضع latestPinned هنا */
+  const latestPinned = useMemo(() => {
+    const list = reduxMessages || [];
+    const pinned = list.filter((m: any) => Boolean(m?.isPinned) && !m?.deletedForEveryone);
+    if (!pinned.length) return null;
+
+    pinned.sort((a: any, b: any) => {
+      const ta = new Date(a?.updatedAt || a?.createdAt || 0).getTime();
+      const tb = new Date(b?.updatedAt || b?.createdAt || 0).getTime();
+      return tb - ta;
+    });
+
+    return mapReduxToUIMessage(pinned[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reduxMessages, roomUsers, myUserId, myName, myAvatar, myRole]);
   const uiMessages: MessageUI[] = useMemo(() => {
     if (!reduxMessages) return [];
     return reduxMessages.map(mapReduxToUIMessage);
@@ -749,11 +847,11 @@ export default function ChatScreen() {
     dispatch(fetchRoomUsers(roomId));
     dispatch(fetchRoomStats(roomId));
 
+    // ✅ دخول السوكت عند فتح الشاشة
     joinRoomSocket(roomId);
 
-    return () => {
-      if (!didLeaveRef.current) leaveRoomSocket(roomId);
-    };
+    // ✅ لا تعمل leave هنا إطلاقًا
+    return () => { };
   }, [roomId, dispatch]);
 
   // ✅ cleanup sound/timer
@@ -875,6 +973,14 @@ export default function ChatScreen() {
       ).unwrap();
 
       scrollToBottom();
+    }
+  };
+  const unpinMessage = async (messageId: string) => {
+    try {
+      await dispatch(pinRoomMessage({ roomId, messageId, pinned: false })).unwrap();
+      Alert.alert("Done", "تم إلغاء التثبيت");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Unpin failed");
     }
   };
 
@@ -1131,10 +1237,18 @@ export default function ChatScreen() {
               <Ionicons name="arrow-back" size={22} />
             </TouchableOpacity>
 
-            <Image source={{ uri: "https://i.pravatar.cc/150?img=12" }} style={styles.avatar} />
+            <Image
+              source={{
+                uri: roomAvatar || "https://i.pravatar.cc/150?img=12"
+              }}
+              style={styles.avatar}
+            />
 
-            <View>
-              <Text style={styles.name}>Room</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.name} numberOfLines={1}>
+                {roomName}
+              </Text>
+
               <Text style={styles.online}>
                 {loadingMessages ? "Loading..." : `Online: ${activeCount} • ${uiMessages.length} Messages`}
               </Text>
@@ -1166,7 +1280,30 @@ export default function ChatScreen() {
                 <Ionicons name="stats-chart" size={18} color="#111827" />
                 <Text style={styles.menuText}>Stats</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowRoomMenu(false);
+                  setShowPinModal(true);
+                }}
+              >
+                <Ionicons name="pin" size={18} color="#111827" />
+                <Text style={styles.menuText}>Pin Message</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowRoomMenu(false);
 
+                  router.push({
+                    pathname: "/room/[id]/settings",
+                    params: { id: roomId }, // تأكد أن roomId موجود
+                  });
+                }}
+              >
+                <Ionicons name="settings-outline" size={18} color="#111827" />
+                <Text style={styles.menuText}>Setting Room</Text>
+              </TouchableOpacity>
               <View style={styles.menuDivider} />
 
               <TouchableOpacity style={styles.menuItem} onPress={onLeaveRoom}>
@@ -1236,7 +1373,32 @@ export default function ChatScreen() {
             </TouchableOpacity>
           </View>
         )}
+        {latestPinned && (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.pinnedBar}
+            onPress={() => {
+              setPinPreviewMessageId(latestPinned.id);
+              setPinPreviewFull(true);
+            }}
+          >
+            <View style={styles.pinnedLeft}>
+              <Ionicons name="pin" size={18} color="#6D5DF6" />
+              <Text style={styles.pinnedTitle}>Pinned</Text>
+            </View>
 
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.pinnedText} numberOfLines={1}>
+                {clipText(safeDisplayText(latestPinned.text || ""), 80)}
+              </Text>
+              <Text style={styles.pinnedMeta} numberOfLines={1}>
+                {latestPinned.sender?.name ? `${latestPinned.sender.name} • ` : ""}{latestPinned.time}
+              </Text>
+            </View>
+
+            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
+        )}
         {/* ================= CHAT ================= */}
         <KeyboardAwareFlatList
           ref={flatListRef}
@@ -1378,6 +1540,175 @@ export default function ChatScreen() {
             <Image source={{ uri: previewImage! }} style={styles.fullImage} resizeMode="contain" />
           </View>
         </Modal>
+        <Modal
+          transparent
+          visible={showPinModal}
+          animationType="fade"
+          onRequestClose={() => setShowPinModal(false)}
+        >
+          <Pressable style={styles.pinOverlay} onPress={() => setShowPinModal(false)}>
+            <Pressable style={styles.pinSheet} onPress={() => { }}>
+              <View style={styles.pinHeader}>
+                <Text style={styles.pinTitle}>Pin a message</Text>
+
+                <TouchableOpacity onPress={() => setShowPinModal(false)} style={styles.pinCloseBtn}>
+                  <Ionicons name="close" size={20} color="#111827" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.pinList}>
+                <Text style={styles.pinLabel}>رسالة التثبيت</Text>
+
+                <View style={styles.pinInputWrap}>
+                  <Ionicons name="text-outline" size={18} color="#6B7280" />
+                  <TextInput
+                    style={styles.pinInput}
+                    placeholder="اكتب رسالة التثبيت (تقبل HTML مثل <b>...</b> و <br /> )"
+                    placeholderTextColor="#9CA3AF"
+                    value={pinHtml}
+                    onChangeText={setPinHtml}
+                    multiline
+                  />
+                </View>
+
+                {!!pinHtml.trim() && (
+                  <View style={styles.pinPreviewBox}>
+                    <Text style={styles.pinPreviewTitle}>معاينة</Text>
+
+                    <RenderHTML
+                      contentWidth={width - 60}
+                      source={{ html: String(pinHtml) }}
+                      baseStyle={{ fontSize: 13, color: "#111827", lineHeight: 20 }}
+                    />
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.pinActions}>
+                <TouchableOpacity
+                  style={[styles.pinBtn, styles.pinBtnCancel]}
+                  onPress={() => setShowPinModal(false)}
+                >
+                  <Text style={styles.pinBtnCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.pinBtn, !pinHtml.trim() && styles.pinBtnDisabled]}
+                  disabled={!pinHtml.trim()}
+                  onPress={async () => {
+                    try {
+                      const content = pinHtml.trim();
+                      if (!content) return;
+
+                      // 1) إنشاء رسالة announcement
+                      const created = await dispatch(
+                        sendRoomMessage({
+                          roomId,
+                          content,
+                          type: "announcement",
+                        })
+                      ).unwrap();
+
+                      // ✅ 2) استخراج messageId الصحيح حسب نوع الـ thunk عندك
+                      const messageId = created?.message?._id;
+
+                      if (!messageId) {
+                        Alert.alert("Error", "لم يتم الحصول على id للرسالة الجديدة.");
+                        return;
+                      }
+
+                      // 3) تثبيت الرسالة
+                      await dispatch(pinRoomMessage({ roomId, messageId, pinned: true })).unwrap();
+
+                      setShowPinModal(false);
+                      setPinHtml("");
+                      Alert.alert("Done", "تم إرسال الرسالة وتثبيتها");
+                    } catch (e: any) {
+                      Alert.alert("Error", e?.message || "Pin failed");
+                    }
+                  }}
+                >
+                  <Ionicons name="pin" size={16} color="#FFF" />
+                  <Text style={styles.pinBtnText}>Pin</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* ✅ Preview Full (Safe text only) */}
+              <Modal
+                transparent
+                visible={pinPreviewFull}
+                animationType="fade"
+                onRequestClose={() => setPinPreviewFull(false)}
+              >
+                <Pressable style={styles.fullOverlay} onPress={() => setPinPreviewFull(false)}>
+                  <Pressable style={styles.fullBox} onPress={() => { }}>
+                    <View style={styles.fullHeader}>
+                      <Text style={styles.fullTitle}>Full preview</Text>
+                      <TouchableOpacity onPress={() => setPinPreviewFull(false)}>
+                        <Ionicons name="close" size={20} color="#111827" />
+                      </TouchableOpacity>
+                    </View>
+
+                    {(() => {
+                      const msg = uiMessages.find((x) => x.id === pinSelectedId);
+                      const raw = msg?.text || "";
+                      const cleaned = safeDisplayText(raw);
+
+                      return (
+                        <Text style={styles.fullText}>
+                          {cleaned}
+                        </Text>
+                      );
+                    })()}
+                  </Pressable>
+                </Pressable>
+              </Modal>
+            </Pressable>
+          </Pressable>
+        </Modal>
+        <Modal
+          transparent
+          visible={pinPreviewFull}
+          animationType="fade"
+          onRequestClose={() => setPinPreviewFull(false)}
+        >
+          <Pressable style={styles.fullOverlay} onPress={() => setPinPreviewFull(false)}>
+            <Pressable style={styles.fullBox} onPress={() => { }}>
+              <View style={styles.fullHeader}>
+                <Text style={styles.fullTitle}>Pinned message</Text>
+
+                {latestPinned && canModerate && (
+                  <TouchableOpacity onPress={() => unpinMessage(latestPinned.id)}>
+                    <Text style={{ color: "red", fontWeight: "800" }}>Unpin</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => setPinPreviewFull(false)}>
+                  <Ionicons name="close" size={20} color="#111827" />
+                </TouchableOpacity>
+              </View>
+
+              {(() => {
+                // نعتمد على latestPinned لأنه أحدث مثبت، ولو حبيت لاحقًا تدعم أكثر من مثبت
+                const msg = latestPinned;
+                const raw = msg?.text || "";
+
+                return (
+                  <>
+                    <Text style={styles.fullMeta}>
+                      {msg?.sender?.name ? `${msg.sender.name} • ` : ""}{msg?.time || ""}
+                    </Text>
+
+                    <RenderHTML
+                      contentWidth={width - 40}
+                      source={{ html: String(raw || "") }}
+                      baseStyle={{ fontSize: 13, color: "#111827", lineHeight: 20 }}
+                    />
+                  </>
+                );
+              })()}
+            </Pressable>
+          </Pressable>
+        </Modal>
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -1490,6 +1821,39 @@ const bubbleStyles = StyleSheet.create({
 
   audioRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
   audioProgressWrapper: { flex: 1, minWidth: 160 },
+  avatarWrapLeft: {
+    width: 40,
+    height: 40,
+    marginRight: 8,
+    position: "relative"
+  },
+  avatarStarLeft: {
+    position: "absolute",
+    top: -6,
+    right: -10, // ⭐ للآخرين: أعلى يمين الصورة
+    fontSize: 14,
+    fontWeight: "900",
+    textShadowColor: "rgba(0,0,0,0.25)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2
+  },
+
+  avatarStarRight: {
+    position: "absolute",
+    top: -6,
+    right: -10, // ⭐ لك: أعلى يسار الصورة
+    fontSize: 14,
+    fontWeight: "900",
+    textShadowColor: "rgba(0,0,0,0.25)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2
+  },
+  avatarWrapRight: {
+    width: 40,
+    height: 40,
+    marginLeft: 8,
+    position: "relative"
+  },
   audioProgressBg: {
     height: 3,
     width: "100%",
@@ -1537,7 +1901,7 @@ const usersStyles = StyleSheet.create({
     paddingBottom: 18,
     maxHeight: "80%"
   },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  header: { flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
   title: { fontSize: 16, fontWeight: "800" },
   note: { marginTop: 10, backgroundColor: "#F3F4F6", padding: 10, borderRadius: 12 },
   noteText: { fontSize: 12, color: "#374151", lineHeight: 18 },
@@ -1577,14 +1941,165 @@ const styles = StyleSheet.create({
     height: 56,
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
+    paddingHorizontal: 25,
     alignItems: "center",
     borderBottomWidth: 0.5,
     borderColor: "#E5E7EB",
     backgroundColor: "#FFF"
   },
+  pinOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "flex-end"
+  },
+  pinSheet: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 14,
+    maxHeight: "80%"
+  },
+  pinHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  pinTitle: { fontSize: 16, fontWeight: "800", color: "#111827" },
+  pinCloseBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
+  pinHint: { marginTop: 8, fontSize: 12, color: "#6B7280", lineHeight: 18 },
+
+  pinList: { marginTop: 12 },
+  pinRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginBottom: 10
+  },
+  pinRowActive: { borderColor: "#6D5DF6", backgroundColor: "#EEF2FF" },
+  pinRowTitle: { fontSize: 12, fontWeight: "800", color: "#111827" },
+  pinRowText: { fontSize: 13, color: "#374151", marginTop: 4, lineHeight: 18 },
+  pinMore: { marginTop: 6, fontSize: 12, color: "#2563EB", fontWeight: "800" },
+
+  pinActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 6
+  },
+  pinBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: "#6D5DF6"
+  },
+  pinBtnText: { color: "#FFF", fontWeight: "800" },
+  pinBtnCancel: { backgroundColor: "#F3F4F6" },
+  pinBtnCancelText: { color: "#111827", fontWeight: "800" },
+  pinBtnDisabled: { opacity: 0.5 },
+
+
+  pinnedBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 0.5,
+    borderColor: "#E5E7EB",
+    paddingHorizontal: 12,
+    paddingVertical: 10
+  },
+  pinnedLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6
+  },
+  pinnedTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#111827"
+  },
+  pinnedText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#374151"
+  },
+  pinLabel: { marginTop: 6, fontSize: 12, fontWeight: "800", color: "#111827" },
+
+  pinInputWrap: {
+    marginTop: 8,
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB"
+  },
+
+  pinInput: {
+    flex: 1,
+    minHeight: 110,
+    maxHeight: 180,
+    fontSize: 13,
+    color: "#111827",
+    lineHeight: 18
+  },
+
+  pinPreviewBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#EEF2FF",
+    borderWidth: 1,
+    borderColor: "#C7D2FE"
+  },
+
+  pinPreviewTitle: { fontSize: 12, fontWeight: "900", color: "#111827" },
+  pinPreviewNote: { marginTop: 6, fontSize: 12, color: "#374151", lineHeight: 18 },
+  pinnedMeta: {
+    marginTop: 2,
+    fontSize: 11,
+    color: "#6B7280"
+  },
+
+  fullOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16
+  },
+  fullBox: {
+    width: "100%",
+    maxHeight: "70%",
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    padding: 14
+  },
+  fullHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10
+  },
+  fullMeta: { fontSize: 12, color: "#6B7280", marginBottom: 10, fontWeight: "700" },
+  fullTitle: { fontSize: 14, fontWeight: "800", color: "#111827" },
+  fullText: { fontSize: 13, color: "#111827", lineHeight: 20 },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerRight: { flexDirection: "row", gap: 16 },
+  headerRight: { flexDirection: "row", gap: 16, paddingRight: 15 },
   avatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#EEE" },
   name: { fontSize: 16, fontWeight: "800" },
   online: { fontSize: 12, color: "#6B7280" },

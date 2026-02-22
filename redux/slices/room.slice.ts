@@ -1357,7 +1357,20 @@ export const selectRoomLoadingMessages = (state: RootState) => state.room.loadin
 export const selectRoomLoadingRooms = (state: RootState) => state.room.loadingRooms;
 
 export const selectRoomError = (state: RootState) => state.room.error;
+export const selectRoomById = createSelector(
+  [selectRooms, (_: RootState, roomId: string) => roomId],
+  (rooms, roomId) => rooms.find((r) => r._id === roomId)
+);
 
+export const selectRoomNameById = createSelector(
+  [selectRoomById],
+  (room) => room?.name || "Room"
+);
+
+export const selectRoomAvatarById = createSelector(
+  [selectRoomById],
+  (room) => room?.avatar || ""
+);
 export const selectRoomActiveCount = createSelector(
   [(state: RootState) => state.room.activeCountByRoom, (_: RootState, roomId: string) => roomId],
   (map, roomId) => map[roomId] ?? 0

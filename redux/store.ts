@@ -9,6 +9,7 @@ import tweetReducer from "./slices/tweetSlice";
 
 import chatReducer from "./slices/chatSlice";
 import roomReducer from "./slices/room.slice";
+import roomControlReducer from "./slices/roomControl.slice";
 
 
 
@@ -24,6 +25,8 @@ export const store = configureStore({
     chat: chatReducer,
     message: messageReducer,
         room: roomReducer,
+            roomControl: roomControlReducer,
+
 
 
 

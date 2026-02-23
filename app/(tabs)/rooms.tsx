@@ -30,12 +30,15 @@ import {
   selectRooms
 } from "@/redux/slices/room.slice";
 
+
 type RoomUI = {
   id: string;
   name: string;
   members: number;
   maxUsers?: number;
   image: string;
+  roomType?: "public" | "private" | "protected" | "subscription";
+  isProtected?: boolean;
 
   isVIP?: boolean;
   isPrivate?: boolean;
@@ -66,8 +69,11 @@ const Badge = ({
 
 const mapRoomToUI = (r: any): RoomUI => {
   const id = r._id || r.id;
-  const type = r.type;
+  const type = r.type as RoomUI["roomType"];
   const maxUsers = typeof r.maxUsers === "number" && r.maxUsers > 0 ? r.maxUsers : 50;
+
+  const isProtected = type === "protected";
+  const isPrivate = type === "private"; // ✅ private فقط
 
   return {
     id,
@@ -76,8 +82,11 @@ const mapRoomToUI = (r: any): RoomUI => {
     maxUsers,
     image: r.avatar || r.image || `https://picsum.photos/200/200?seed=${id}`,
 
+    roomType: type,
+    isProtected,
+
     isVIP: Boolean(r.isVIP || (typeof r.premiumLevel === "number" && r.premiumLevel > 0)),
-    isPrivate: type === "private" || type === "protected",
+    isPrivate: isPrivate, // ✅ private فقط
     isVoice: Boolean(r.isVoice || (typeof r.maxVoiceSeats === "number" && r.maxVoiceSeats > 0)),
     isVerified: Boolean(r.isVerified),
     isTrending: Boolean(r.isTrending || (typeof r.boostLevel === "number" && r.boostLevel > 0))
@@ -122,7 +131,8 @@ function RoomCard({
           {item.isVIP && <Badge icon="star" label="VIP" color="#F59E0B" />}
           {item.isVerified && <Badge icon="checkmark-circle" label="Verified" color="#22C55E" />}
           {item.isVoice && <Badge icon="mic" label="Voice" color="#4F46E5" />}
-          {item.isPrivate && <Badge icon="lock-closed" label="Private" color="#EF4444" />}
+          {item.isProtected && <Badge icon="lock-closed" label="Protected" color="#EF4444" />}
+          {item.isPrivate && <Badge icon="eye-off" label="Private" color="#EF4444" />}
         </View>
       </View>
     </TouchableOpacity>
@@ -135,7 +145,10 @@ export default function RoomsScreen() {
 
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
-
+const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
+const [passwordInput, setPasswordInput] = useState("");
+const [joining, setJoining] = useState(false);
   const reduxRooms = useAppSelector(selectRooms);
   const reduxError = useAppSelector(selectRoomError);
   const loadingRooms = useAppSelector(selectRoomLoadingRooms);
@@ -301,21 +314,60 @@ export default function RoomsScreen() {
       setModalVisible(true);
     }
   };
+const doJoin = async (roomId: string, password?: string) => {
+  try {
+    setJoining(true);
+    setError("");
 
-  const openRoom = async (roomId: string) => {
-    try {
-      const action = await dispatch(joinRoomAndEnter({ roomId, preload: true }));
-      if (joinRoomAndEnter.rejected.match(action)) {
-        const msg = (action.payload as any) || (action.error?.message as any) || "Join failed";
-        setError(String(msg));
-        return;
-      }
+    const action = await dispatch(joinRoomAndEnter({ roomId, preload: true, password }));
 
-      router.push({ pathname: "/room/[id]", params: { id: roomId } });
-    } catch (e: any) {
-      setError(e?.message || "Join failed");
+    if (joinRoomAndEnter.rejected.match(action)) {
+      const msg =
+        (action.payload as any) ||
+        (action.error?.message as any) ||
+        "Join failed";
+      setError(String(msg));
+      return;
     }
-  };
+
+    router.push({ pathname: "/room/[id]", params: { id: roomId } });
+  } catch (e: any) {
+    setError(e?.message || "Join failed");
+  } finally {
+    setJoining(false);
+  }
+};
+ const openRoom = async (roomId: string) => {
+  const room = accRef.current.get(roomId); // ✅ عندك Map جاهز
+
+  // ✅ لو الغرفة محمية: افتح مودال الباسورد
+  if (room?.isProtected) {
+    setPendingRoomId(roomId);
+    setPasswordInput("");
+    setPasswordModalVisible(true);
+    setError("");
+    return;
+  }
+
+  // ✅ غير محمية: دخول مباشر
+  await doJoin(roomId);
+};
+const confirmJoinWithPassword = async () => {
+  const rid = pendingRoomId;
+  const pw = passwordInput.trim();
+
+  if (!rid) return;
+
+  if (!pw) {
+    setError("Password is required");
+    return;
+  }
+
+  setPasswordModalVisible(false);
+  setPendingRoomId(null);
+
+  await doJoin(rid, pw);
+};
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -402,6 +454,43 @@ export default function RoomsScreen() {
           </View>
         </View>
       </Modal>
+      <Modal visible={passwordModalVisible} transparent animationType="fade">
+  <View style={styles.modalOverlay}>
+    <View style={styles.modal}>
+      <Text style={styles.modalTitle}>Enter Password</Text>
+
+      <TextInput
+        placeholder="Room password"
+        value={passwordInput}
+        onChangeText={(t) => {
+          setPasswordInput(t);
+          setError("");
+        }}
+        secureTextEntry
+        style={styles.modalInput}
+      />
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <View style={styles.modalActions}>
+        <TouchableOpacity
+          onPress={() => {
+            setPasswordModalVisible(false);
+            setPendingRoomId(null);
+            setPasswordInput("");
+          }}
+          disabled={joining}
+        >
+          <Text style={styles.cancel}>Cancel</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={confirmJoinWithPassword} disabled={joining}>
+          <Text style={styles.confirm}>{joining ? "Joining..." : "Join"}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
     </View>
   );
 }

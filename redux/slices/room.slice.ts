@@ -257,18 +257,22 @@ export const fetchRoomStats = createAsyncThunk<RoomStats, string, { state: RootS
 
 /* ================= MEMBERSHIP ================= */
 
-export const joinRoom = createAsyncThunk<{ roomId: string }, string, { state: RootState }>(
+export const joinRoom = createAsyncThunk<
+  { roomId: string },
+  { roomId: string; password?: string },
+  { state: RootState }
+>(
   "room/joinRoom",
-  async (roomId, thunkAPI) => {
+  async ({ roomId, password }, thunkAPI) => {
     try {
-      await api.post(`/rooms/${roomId}/join`);
+      // ✅ إرسال password في body
+      await api.post(`/rooms/${roomId}/join`, { password });
       return { roomId };
     } catch (e: any) {
       return thunkAPI.rejectWithValue(errMsg(e, "Join failed"));
     }
   }
 );
-
 export const leaveRoom = createAsyncThunk<{ roomId: string }, string, { state: RootState }>(
   "room/leaveRoom",
   async (roomId, thunkAPI) => {
@@ -744,11 +748,21 @@ export const deleteRoom = createAsyncThunk<{ roomId: string }, { roomId: string 
 
 export const joinRoomAndEnter = createAsyncThunk<
   { roomId: string },
-  { roomId: string; preload?: boolean },
+  { roomId: string; preload?: boolean; password?: string },
   { state: RootState }
->("room/joinRoomAndEnter", async ({ roomId, preload }, thunkAPI) => {
+>("room/joinRoomAndEnter", async ({ roomId, preload, password }, thunkAPI) => {
   try {
-    await thunkAPI.dispatch(joinRoom(roomId)).unwrap();
+    // (اختياري) تحقق سريع من نوع الغرفة من الستور لو متاح
+    const state = thunkAPI.getState();
+    const room = state.room.rooms.find((r) => r._id === roomId);
+
+    // ✅ لو الغرفة محمية والباسورد غير موجود، افشل برسالة واضحة
+    if (room?.type === "protected" && !String(password || "").trim()) {
+      return thunkAPI.rejectWithValue("Password required");
+    }
+
+    // ✅ مرّر الباسورد
+    await thunkAPI.dispatch(joinRoom({ roomId, password })).unwrap();
 
     thunkAPI.dispatch(setActiveRoom(roomId));
 
@@ -777,7 +791,6 @@ export const joinRoomAndEnter = createAsyncThunk<
     return thunkAPI.rejectWithValue(errMsg(e, "Join failed"));
   }
 });
-
 export const leaveRoomAndExit = createAsyncThunk<
   { roomId: string },
   { roomId: string; cleanup?: boolean },

@@ -1,38 +1,43 @@
 // app/(tabs)/room/[id]/settings.tsx
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
-    boostRoom,
-    changeRoomPremiumLevel,
-    changeRoomType,
-    clearRoomControlError,
-    deleteRoomControl,
-    getRoomControl,
-    selectRoomControl,
-    selectRoomControlDeleting,
-    selectRoomControlError,
-    selectRoomControlLoading,
-    selectRoomControlSaving,
-    setRoomAntiSpam,
-    setRoomLock,
-    setRoomSlowMode,
-    updateRoomInfo
+  boostRoom,
+  changeRoomPremiumLevel,
+  changeRoomType,
+  clearRoomControlError,
+  deleteRoomControl,
+  getRoomControl,
+  selectRoomControl,
+  selectRoomControlDeleting,
+  selectRoomControlError,
+  selectRoomControlLoading,
+  selectRoomControlSaving,
+  setRoomAntiSpam,
+  setRoomLock,
+  setRoomSlowMode,
+  updateRoomInfo
 } from "@/redux/slices/roomControl.slice";
+import { uploadToCloudinary } from "@/services/upload.service";
+
+// ✅ استيراد دالة الرفع (ضعها في مكان مناسب عندك)
+// مثال: src/services/cloudinary.ts أو src/utils/uploadToCloudinary.ts
 
 type RoomType = "public" | "private" | "protected" | "subscription";
 type RoomPremiumLevel = 0 | 1 | 2 | 3 | 4;
@@ -62,7 +67,6 @@ type RoomDTO = {
   tags?: string[];
   isVerified?: boolean;
 
-  // هذه قد لا تعود من getControl، إن لم تكن موجودة اتركها اختيارية
   usersCount?: number;
   messagesCount?: number;
 };
@@ -92,7 +96,7 @@ export default function RoomSettingsScreen() {
   const [tags, setTags] = useState(""); // comma separated
 
   const [type, setType] = useState<RoomType>("public");
-  const [protectedPassword, setProtectedPassword] = useState(""); // ✅ فقط لو type protected
+  const [protectedPassword, setProtectedPassword] = useState("");
   const [premiumLevel, setPremiumLevel] = useState<RoomPremiumLevel>(0);
 
   const [maxUsers, setMaxUsers] = useState("50");
@@ -104,23 +108,26 @@ export default function RoomSettingsScreen() {
   const [antiSpamEnabled, setAntiSpamEnabled] = useState(false);
   const [maxMessagesPerMinute, setMaxMessagesPerMinute] = useState("10");
 
-  // Optional boost UI inputs (لو عندك UI له، اتركه أو احذفه)
+  // Boost UI inputs
   const [boostLevel, setBoostLevel] = useState("0");
   const [boostHours, setBoostHours] = useState("1");
+
+  // ✅ Uploading states (Avatar/Cover)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   useEffect(() => {
     if (!roomId) return;
     dispatch(getRoomControl({ roomId }));
   }, [roomId]);
 
-  // إذا حصل خطأ من السلايس اعرضه مرة
   useEffect(() => {
     if (!error) return;
     Alert.alert("خطأ", error);
     dispatch(clearRoomControlError());
   }, [error]);
 
-  // ✅ مزامنة الـ local form من Redux room
+  // ✅ sync local form
   useEffect(() => {
     if (!roomControl) return;
 
@@ -186,27 +193,73 @@ export default function RoomSettingsScreen() {
     dispatch(getRoomControl({ roomId }));
   };
 
+  // =========================
+  // ✅ Image Picker + Cloudinary Upload
+  // =========================
+  const ensureMediaPermission = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("تنبيه", "يجب السماح بالوصول للصور لاختيار صورة.");
+      return false;
+    }
+    return true;
+  };
+
+  const pickAndUploadImage = async (kind: "avatar" | "cover") => {
+    const ok = await ensureMediaPermission();
+    if (!ok) return;
+
+    try {
+      kind === "avatar" ? setUploadingAvatar(true) : setUploadingCover(true);
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: kind === "cover" ? [16, 9] : [1, 1],
+        quality: 0.85
+      });
+
+      if (result.canceled) return;
+
+      const uri = result.assets?.[0]?.uri;
+      if (!uri) {
+        Alert.alert("خطأ", "لم يتم الحصول على مسار الصورة.");
+        return;
+      }
+
+      const url = await uploadToCloudinary(uri, "image");
+
+      if (kind === "avatar") setAvatar(url);
+      else setCover(url);
+
+      Alert.alert("تم", `تم رفع صورة ${kind === "avatar" ? "الأفاتار" : "الكفر"} بنجاح`);
+    } catch (e: any) {
+      Alert.alert("خطأ", String(e?.message || e || "فشل رفع الصورة"));
+    } finally {
+      kind === "avatar" ? setUploadingAvatar(false) : setUploadingCover(false);
+    }
+  };
+
   /**
    * ✅ الحفظ الصحيح حسب endpoints في الباك
-   * - updateInfo: name/description/avatar/cover/tags/maxUsers/slowModeSeconds
-   * - type: /type (مع password/subscriptionPrice حسب النوع)
-   * - premium: /premium
-   * - lock: /lock
-   * - antispam: /antispam
-   * - slowmode: /slowmode (موجودة أيضًا داخل updateInfo لكن نضمن التزامن)
    */
   const saveAll = async () => {
     if (!roomControl) return;
 
-    // تحضير قيم مقننة
+    // منع الحفظ أثناء رفع الصور
+    if (uploadingAvatar || uploadingCover) {
+      Alert.alert("تنبيه", "انتظر حتى يكتمل رفع الصور أولاً.");
+      return;
+    }
+
     const nextTags = tagsToArray(tags);
-    const nextMaxUsers = clampInt(maxUsers, 1, 100000, 50);
+const nextMaxUsers = clampInt(maxUsers, 1, 100, 50);
     const nextSlow = clampInt(slowModeSeconds, 0, 3600, 0);
     const nextMPM = clampInt(maxMessagesPerMinute, 1, 1000, 10);
     const nextSubPrice = Math.max(0, Number(subscriptionPrice) || 0);
 
     try {
-      // 1) info (يشمل maxUsers + slowModeSeconds + tags ... )
+      // 1) info
       await dispatch(
         updateRoomInfo({
           roomId,
@@ -221,11 +274,13 @@ export default function RoomSettingsScreen() {
       ).unwrap();
 
       // 2) type
-      if (type !== roomControl.type || (type === "subscription" && nextSubPrice !== (roomControl.subscriptionPrice ?? 0))) {
+      if (
+        type !== roomControl.type ||
+        (type === "subscription" && nextSubPrice !== (roomControl.subscriptionPrice ?? 0))
+      ) {
         const payload: any = { roomId, type };
 
         if (type === "protected") {
-          // ⚠️ الباك يفرض password
           const pass = protectedPassword.trim();
           if (!pass) {
             Alert.alert("تنبيه", "يجب إدخال كلمة مرور عند اختيار Protected.");
@@ -265,20 +320,18 @@ export default function RoomSettingsScreen() {
         ).unwrap();
       }
 
-      // 6) slowmode endpoint (اختياري لكنه مفيد لضمان التزامن لو اعتمدت عليه في الباك لاحقاً)
+      // 6) slowmode endpoint
       if (nextSlow !== Number(roomControl.slowModeSeconds ?? 0)) {
         await dispatch(setRoomSlowMode({ roomId, seconds: nextSlow })).unwrap();
       }
 
       Alert.alert("تم", "تم حفظ إعدادات الغرفة بنجاح");
-      // إعادة تحميل للتأكيد
       reload();
     } catch (e: any) {
       Alert.alert("خطأ", String(e || "فشل الحفظ"));
     }
   };
 
-  // ✅ تبديل القفل مباشرة عبر slice (بدون api)
   const toggleLockRemote = async (next: boolean) => {
     setIsLocked(next);
     try {
@@ -401,8 +454,91 @@ export default function RoomSettingsScreen() {
           multiline
         />
 
-        <Field label="Avatar URL" value={avatar} onChange={setAvatar} placeholder="https://..." />
-        <Field label="Cover URL" value={cover} onChange={setCover} placeholder="https://..." />
+        {/* ✅ Avatar Upload */}
+        <View style={{ marginBottom: 12 }}>
+          <Text style={styles.label}>Avatar</Text>
+
+          <View style={styles.imageRow}>
+            <View style={styles.imagePreviewBox}>
+              {avatar ? (
+                <Image source={{ uri: avatar }} style={styles.imagePreview} />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Ionicons name="image-outline" size={22} color="#6b7280" />
+                  <Text style={styles.imagePlaceholderText}>لا يوجد</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={{ flex: 1, gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.secondaryBtn, uploadingAvatar && { opacity: 0.6 }]}
+                disabled={uploadingAvatar || saving || deleting}
+                onPress={() => pickAndUploadImage("avatar")}
+              >
+                {uploadingAvatar ? (
+                  <ActivityIndicator />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={18} color="#111827" />
+                    <Text style={styles.secondaryBtnText}>اختيار ورفع Avatar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <Field
+                label="Avatar URL"
+                value={avatar}
+                onChange={setAvatar}
+                placeholder="https://..."
+                hint="يمكنك تركه أو تعديله يدويًا"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* ✅ Cover Upload */}
+        <View style={{ marginBottom: 12 }}>
+          <Text style={styles.label}>Cover</Text>
+
+          <View style={styles.imageRow}>
+            <View style={[styles.imagePreviewBox, styles.coverPreviewBox]}>
+              {cover ? (
+                <Image source={{ uri: cover }} style={styles.coverPreview} />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Ionicons name="image-outline" size={22} color="#6b7280" />
+                  <Text style={styles.imagePlaceholderText}>لا يوجد</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={{ flex: 1, gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.secondaryBtn, uploadingCover && { opacity: 0.6 }]}
+                disabled={uploadingCover || saving || deleting}
+                onPress={() => pickAndUploadImage("cover")}
+              >
+                {uploadingCover ? (
+                  <ActivityIndicator />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={18} color="#111827" />
+                    <Text style={styles.secondaryBtnText}>اختيار ورفع Cover</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <Field
+                label="Cover URL"
+                value={cover}
+                onChange={setCover}
+                placeholder="https://..."
+                hint="يمكنك تركه أو تعديله يدويًا"
+              />
+            </View>
+          </View>
+        </View>
 
         <Field
           label="Tags"
@@ -420,13 +556,26 @@ export default function RoomSettingsScreen() {
           <Switch value={isLocked} onValueChange={toggleLockRemote} />
         </Row>
 
-        <Field
-          label="الحد الأقصى للمستخدمين"
-          value={maxUsers}
-          onChange={setMaxUsers}
-          keyboard="numeric"
-          placeholder="50"
-        />
+   <Field
+  label="الحد الأقصى للمستخدمين"
+  value={maxUsers}
+  onChange={(v) => {
+    // ✅ اقبل فقط أرقام
+    const digits = String(v || "").replace(/[^\d]/g, "");
+
+    // ✅ اسمح بالفراغ (حتى يقدر يمسح)
+    if (!digits) {
+      setMaxUsers("");
+      return;
+    }
+
+    // ✅ حد أقصى 100
+    const n = Math.min(100, Math.max(1, Number(digits) || 1));
+    setMaxUsers(String(n));
+  }}
+  keyboard="numeric"
+  placeholder="50"
+/>
 
         <Field
           label="Slow Mode (ثواني)"
@@ -503,7 +652,7 @@ export default function RoomSettingsScreen() {
         />
       </Section>
 
-      {/* Boost (اختياري) */}
+      {/* Boost */}
       <Section title="Boost" icon="flash-outline">
         <Field
           label="Boost Level (0-10)"
@@ -532,8 +681,11 @@ export default function RoomSettingsScreen() {
       {/* Actions */}
       <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.primaryBtn, (!dirty || saving || deleting) && { opacity: 0.6 }]}
-          disabled={!dirty || saving || deleting}
+          style={[
+            styles.primaryBtn,
+            (!dirty || saving || deleting || uploadingAvatar || uploadingCover) && { opacity: 0.6 }
+          ]}
+          disabled={!dirty || saving || deleting || uploadingAvatar || uploadingCover}
           onPress={saveAll}
         >
           {saving ? <ActivityIndicator /> : <Text style={styles.primaryBtnText}>حفظ التغييرات</Text>}
@@ -559,7 +711,7 @@ export default function RoomSettingsScreen() {
 }
 
 /* =========================
-   UI Helpers (كما هي)
+   UI Helpers
 ========================= */
 
 function Section({
@@ -674,7 +826,7 @@ function clampInt(v: string, min: number, max: number, fallback: number) {
 }
 
 /* =========================
-   Styles (كما هي)
+   Styles
 ========================= */
 
 const styles = StyleSheet.create({
@@ -794,6 +946,49 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   primaryBtnText: { color: "#fff", fontWeight: "900" },
+
+  // ✅ زر ثانوي لرفع الصور
+  secondaryBtn: {
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8
+  },
+  secondaryBtnText: { color: "#111827", fontWeight: "900" },
+
+  // ✅ معاينة الصور
+  imageRow: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "flex-start"
+  },
+  imagePreviewBox: {
+    width: 86,
+    height: 86,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#f3f4f6",
+    borderWidth: 1,
+    borderColor: "#e5e7eb"
+  },
+  coverPreviewBox: {
+    width: 130,
+    height: 86
+  },
+  imagePreview: { width: "100%", height: "100%" },
+  coverPreview: { width: "100%", height: "100%", resizeMode: "cover" },
+  imagePlaceholder: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6
+  },
+  imagePlaceholderText: { fontSize: 11, color: "#6b7280", fontWeight: "800" },
 
   dangerBtn: {
     height: 48,

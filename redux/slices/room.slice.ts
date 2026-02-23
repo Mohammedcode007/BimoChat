@@ -9,7 +9,38 @@ import { RootState } from "../store";
 
 export type RoomType = "public" | "private" | "protected" | "subscription";
 export type RoomPremiumLevel = 0 | 1 | 2 | 3 | 4;
+export type UserPublicSnapshot = {
+  _id: string;
+  username: string;
+  atUsername?: string;
+  avatar?: string;
+  coverImage?: string;
+  isOnline?: boolean;
+  lastSeen?: string | null;
+  role?: string;
 
+  // customization
+  activeCustomization?: {
+    avatarFrame?: string;
+    messageEffect?: string;
+    profileEntryAnimation?: string;
+    badges?: string[];
+    verificationType?: "none" | "blue" | "gold" | "business";
+  };
+
+  verificationType?: "none" | "blue" | "gold" | "business";
+  avatarFrame?: string;
+  badges?: string[];
+  ownedMessageEffects?: string[];
+  ownedGifts?: string[];
+  profileEntryAnimation?: string;
+
+  followersCount?: number;
+  followingCount?: number;
+  totalLikesReceived?: number;
+  totalRetweetsReceived?: number;
+  profileViews?: number;
+};
 export type RoomUser = {
   _id: string;
   username: string;
@@ -48,7 +79,7 @@ export type RoomMessage = {
   room: string;
 
   sender?: RoomMessageSender;
-
+senderSnapshot?: UserPublicSnapshot;
   type: RoomMessageType;
   content: string;
 
@@ -278,11 +309,52 @@ export const sendRoomMessage = createAsyncThunk<
   },
   { state: RootState }
 >("room/sendRoomMessage", async (payload, thunkAPI) => {
+  const DEBUG = true; // ❗ اجعلها false في الإنتاج
+
   try {
+    if (DEBUG) {
+      console.log("========== SEND ROOM MESSAGE ==========");
+      console.log("Payload:", {
+        roomId: payload.roomId,
+        type: payload.type,
+        content: payload.content,
+        replyTo: payload.replyTo,
+        hasMedia: !!payload.media,
+        hasGift: !!payload.gift,
+      });
+    }
+
     const res = await api.post(`/rooms/${payload.roomId}/messages`, payload);
+
+    if (DEBUG) {
+      console.log("Raw Response:", res);
+    }
+
     const msg: RoomMessage = dataOf(res);
+
+    if (DEBUG) {
+      console.log("Parsed Message:", {
+        _id: msg?._id,
+        type: msg?.type,
+        content: msg?.content,
+        sender: msg?.sender,
+        senderSnapshot: msg?.senderSnapshot,
+        createdAt: msg?.createdAt,
+        gift: msg?.gift,
+      });
+      console.log("=======================================");
+    }
+
     return { roomId: payload.roomId, message: msg };
+
   } catch (e: any) {
+    if (DEBUG) {
+      console.log("❌ SEND ROOM MESSAGE ERROR");
+      console.log("Error Object:", e);
+      console.log("Response Data:", e?.response?.data);
+      console.log("=======================================");
+    }
+
     return thunkAPI.rejectWithValue(errMsg(e, "Send failed"));
   }
 });
@@ -293,17 +365,52 @@ export const fetchRoomMessages = createAsyncThunk<
   { state: RootState }
 >("room/fetchRoomMessages", async ({ roomId, pagination, append }, thunkAPI) => {
   try {
+    console.log("======================================");
+    console.log("[fetchRoomMessages] START");
+    console.log("Room ID:", roomId);
+    console.log("Pagination:", pagination);
+    console.log("Append:", append);
+
     const params = new URLSearchParams();
-    if (pagination?.limit) params.set("limit", String(pagination.limit));
-    if (pagination?.before) params.set("before", String(pagination.before));
+
+    if (pagination?.limit) {
+      params.set("limit", String(pagination.limit));
+      console.log("Limit param set:", pagination.limit);
+    }
+
+    if (pagination?.before) {
+      params.set("before", String(pagination.before));
+      console.log("Before param set:", pagination.before);
+    }
 
     const qs = params.toString() ? `?${params.toString()}` : "";
-    const res = await api.get(`/rooms/${roomId}/messages${qs}`);
+    const finalUrl = `/rooms/${roomId}/messages${qs}`;
+
+    console.log("Final URL:", finalUrl);
+
+    const res = await api.get(finalUrl);
+
+    console.log("Raw response:", res?.data);
 
     const messages: RoomMessage[] = dataOf(res) ?? [];
+
+    console.log("Parsed messages count:", messages.length);
+    console.log("[fetchRoomMessages] SUCCESS");
+    console.log("======================================");
+
     return { roomId, messages, append: Boolean(append) };
   } catch (e: any) {
-    return thunkAPI.rejectWithValue(errMsg(e, "Failed to fetch messages"));
+    console.error("======================================");
+    console.error("[fetchRoomMessages] ERROR");
+    console.error("Room ID:", roomId);
+    console.error("Error object:", e);
+    console.error("Error response:", e?.response?.data);
+    console.error("Error message:", e?.message);
+    console.error("======================================");
+
+    return thunkAPI.rejectWithValue(
+      errMsg(e, "Failed to fetch messages")
+    );
   }
 });
 

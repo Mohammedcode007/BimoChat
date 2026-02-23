@@ -67,14 +67,63 @@ import {
 } from "@/services/socket";
 
 /* ================= TYPES ================= */
+type BadgeKey = string;
 
+// ✅ ألوان/أيقونات البادجات حسب النوع
+const BADGE_META: Record<BadgeKey, { label: string; icon?: string; bg: string; fg: string }> = {
+  gold: { label: "GOLD", icon: "🏅", bg: "#FEF3C7", fg: "#92400E" },
+blue: {
+  label: "",
+  icon: "twitter-verified", // سنعالجها يدويًا في الرندر
+  bg: "transparent",
+  fg: "#1DA1F2"
+},
+  business: { label: "BUSINESS", icon: "🏢", bg: "#E5E7EB", fg: "#111827" },
+
+  // أمثلة إضافية إن أحببت
+  vip: { label: "VIP", icon: "💎", bg: "#EDE9FE", fg: "#5B21B6" },
+  pro: { label: "PRO", icon: "⚡", bg: "#DCFCE7", fg: "#166534" },
+};
+
+// ✅ تنظيف + توحيد + إزالة تكرار
+const normalizeBadges = (badges?: string[]) => {
+  const arr = Array.isArray(badges) ? badges : [];
+  const cleaned = arr
+    .map((x) => String(x || "").trim().toLowerCase())
+    .filter(Boolean);
+
+  // إزالة التكرار مع الحفاظ على الترتيب
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const b of cleaned) {
+    if (!seen.has(b)) {
+      seen.add(b);
+      out.push(b);
+    }
+  }
+  return out;
+};
+
+// ✅ إن أردت اعتبار verificationType Badge أيضًا (اختياري)
+// لو لا تريد ذلك، احذف هذا كله ولن يتأثر شيء
+const verificationToBadge = (verificationType?: string) => {
+  const v = String(verificationType || "").trim().toLowerCase();
+  if (!v || v === "none") return null;
+  // قد يجيك "gold" أو "blue" أو "business"
+  return v;
+};
 type Reaction = "👍" | "❤️" | "😂" | "😮" | "😢" | "😡";
-
+type RoomRole = "creator" | "owner" | "admin" | "member";
+type SnapshotRole = string; // ✅ أي قيمة (user / moderator / ...)
 type UserUI = {
   id: string;
   name: string;
   avatar?: string;
-  role?: "creator" | "owner" | "admin" | "member";
+  role?: RoomRole;
+  activeBadges?: string[];
+
+  // ✅ دور snapshot (للبادجات/التحقق... إلخ)
+  snapshotRole?: SnapshotRole;
   isOnline?: boolean;
 };
 
@@ -113,13 +162,11 @@ const ROLE_STAR_COLOR: Record<string, string> = {
 };
 
 // هل يظهر Star؟
-const shouldShowStar = (role?: "creator" | "owner" | "admin" | "member") =>
+const shouldShowStar = (role?: RoomRole) =>
   role === "creator" || role === "owner" || role === "admin";
 
-// لون النجمة
-const getStarColor = (role?: "creator" | "owner" | "admin" | "member") =>
+const getStarColor = (role?: RoomRole) =>
   role ? ROLE_STAR_COLOR[role] || "#111827" : "#111827";
-
 /* =====================================================
    ✅ MESSAGE ITEM
 ===================================================== */
@@ -135,6 +182,73 @@ const getGiftLottieSource = (key?: string) => {
   if (!key) return null;
   return GIFT_LOTTIES[key] || null;
 };
+
+const BADGE_ORDER: BadgeKey[] = [
+  "gold",
+  "blue",
+  "business",
+  "vip",
+  "pro"
+];
+
+const pickPrimaryBadge = (badges?: string[]) => {
+  const list = normalizeBadges(badges);
+  if (!list.length) return null;
+
+  // اختر أول بادج مهمة حسب ترتيبك
+  for (const key of BADGE_ORDER) {
+    if (list.includes(key)) return key;
+  }
+  // لو لا يوجد من القائمة، خذ أول واحدة
+  return list[0];
+};
+
+
+const NameBadge = ({ badgeKey }: { badgeKey?: string | null }) => {
+  if (!badgeKey) return null;
+
+  const meta = BADGE_META[badgeKey];
+
+  if (!meta) return null;
+
+  // ✅ حالة التوثيق الأزرق مثل تويتر
+  if (badgeKey === "blue") {
+    return (
+      <Ionicons
+        name="checkmark-circle"
+        size={16}
+        color="#1DA1F2"
+        style={{ marginLeft: 6 }}
+      />
+    );
+  }
+
+  // ✅ باقي البادجات بشكل chip
+  return (
+    <View style={[nameBadgeStyles.badge, { backgroundColor: meta.bg }]}>
+      {!!meta.icon && (
+        <Text style={[nameBadgeStyles.icon, { color: meta.fg }]}>
+          {meta.icon}
+        </Text>
+      )}
+      {/* {!!meta.label && (
+        <Text style={[nameBadgeStyles.text, { color: meta.fg }]}>
+          {meta.label}
+        </Text>
+      )} */}
+    </View>
+  );
+};
+
+const nameBadgeStyles = StyleSheet.create({
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 999
+  },
+  icon: { fontSize: 14 },
+  text: { fontSize: 11, fontWeight: "900" }
+});
 function MessageItem({
   item,
   isMe,
@@ -235,12 +349,13 @@ function MessageItem({
         {showName && !!item.sender?.name && (
           <View style={bubbleStyles.nameWrap}>
             <View style={bubbleStyles.nameRow}>
-              {/* {showStar && <Text style={[bubbleStyles.roleStar, { color: starColor }]}>★</Text>} */}
+  <Text style={bubbleStyles.senderName} numberOfLines={1}>
+    {item.sender.name}
+  </Text>
 
-              <Text style={bubbleStyles.senderName} numberOfLines={1}>
-                {item.sender.name}
-              </Text>
-            </View>
+  {/* ✅ بادج بجانب الاسم */}
+  <NameBadge badgeKey={pickPrimaryBadge(item.sender?.activeBadges)} />
+</View>
 
             {/* ✅ خط تحت الاسم */}
             <View style={bubbleStyles.nameUnderline} />
@@ -252,22 +367,22 @@ function MessageItem({
         ) : (
           <>
             {item.type === "text" && <Text style={bubbleStyles.msgText}>{item.text}</Text>}
-       {item.type === "gift" ? (
-  (() => {
-    const lottieSrc = getGiftLottieSource(item.text);
-    if (!lottieSrc) return <Text style={bubbleStyles.msgTextMuted}>🎁 Gift</Text>;
+            {item.type === "gift" ? (
+              (() => {
+                const lottieSrc = getGiftLottieSource(item.text);
+                if (!lottieSrc) return <Text style={bubbleStyles.msgTextMuted}>🎁 Gift</Text>;
 
-    // ✅ بعد انتهاء Fullscreen (giftDone=true) اعرض تمثيل ثابت داخل الشات
-    if (giftDone) {
-      return <Text style={bubbleStyles.msgTextMuted}>🚀 Boost</Text>;
-    }
+                // ✅ بعد انتهاء Fullscreen (giftDone=true) اعرض تمثيل ثابت داخل الشات
+                if (giftDone) {
+                  return <Text style={bubbleStyles.msgTextMuted}>🚀 Boost</Text>;
+                }
 
-    // ✅ قبل ما ينتهي (أثناء 5 ثواني) ممكن:
-    // - تعرض نص بسيط بدل تكرار الـ lottie داخل الفقاعة
-    // - أو تعرض lottie صغير داخل الفقاعة
-    return <Text style={bubbleStyles.msgTextMuted}>🎁 Boosting…</Text>;
-  })()
-) : null}
+                // ✅ قبل ما ينتهي (أثناء 5 ثواني) ممكن:
+                // - تعرض نص بسيط بدل تكرار الـ lottie داخل الفقاعة
+                // - أو تعرض lottie صغير داخل الفقاعة
+                return <Text style={bubbleStyles.msgTextMuted}>🎁 Boosting…</Text>;
+              })()
+            ) : null}
             {item.type === "image" && item.uri ? (
               <TouchableOpacity activeOpacity={0.9} onPress={() => onPressImage(item.uri!)}>
                 <Image source={{ uri: item.uri }} style={bubbleStyles.media} />
@@ -542,17 +657,17 @@ export default function ChatScreen() {
   const [replyTo, setReplyTo] = useState<MessageUI | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<MessageUI | null>(null);
   const [showActions, setShowActions] = useState(false);
-const [giftDoneById, setGiftDoneById] = useState<Record<string, boolean>>({});
-const markGiftDone = (id: string) => setGiftDoneById((prev) => ({ ...prev, [id]: true }));
+  const [giftDoneById, setGiftDoneById] = useState<Record<string, boolean>>({});
+  const markGiftDone = (id: string) => setGiftDoneById((prev) => ({ ...prev, [id]: true }));
 
-// ✅ Fullscreen Gift Overlay
-const [giftOverlay, setGiftOverlay] = useState<{
-  visible: boolean;
-  messageId: string | null;
-  giftKey: string | null;
-}>({ visible: false, messageId: null, giftKey: null });
+  // ✅ Fullscreen Gift Overlay
+  const [giftOverlay, setGiftOverlay] = useState<{
+    visible: boolean;
+    messageId: string | null;
+    giftKey: string | null;
+  }>({ visible: false, messageId: null, giftKey: null });
 
-const giftOverlayTimerRef = useRef<any>(null);
+  const giftOverlayTimerRef = useRef<any>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(0);
@@ -643,113 +758,240 @@ const giftOverlayTimerRef = useRef<any>(null);
     return "عضو";
   };
 
-  /* ================= MAP MESSAGE ================= */
+const pretty = (x: any) => {
+  try {
+    return JSON.stringify(x, null, 2);
+  } catch {
+    return String(x);
+  }
+};
 
-  const mapReduxToUIMessage = (m: any): MessageUI => {
-    // ✅ طباعات مختصرة ويمكن التحكم بها
-    const DEBUG_MAP = true; // اجعلها false في الإنتاج
-    const log = (...args: any[]) => DEBUG_MAP && console.log("[mapReduxToUIMessage]", ...args);
+const safeUserLog = (obj: any) => {
+  // ✅ لا تطبع أي توكن/سيكرتس حتى لو وصلتك بالغلط
+  const clone = obj ? JSON.parse(JSON.stringify(obj)) : obj;
 
-    const backendType = String(m?.type || "text");
+  // إن وجدت حقول حساسة امسحها
+  if (clone?.token) delete clone.token;
+  if (clone?.accessToken) delete clone.accessToken;
+  if (clone?.refreshToken) delete clone.refreshToken;
+  if (clone?.authorization) delete clone.authorization;
 
-    // ✅ gift ليست System
-    const isSystem =
-      backendType === "system" ||
-      backendType === "announcement" ||
-      backendType === "join" ||
-      backendType === "leave" ||
-      backendType === "promotion" ||
-      backendType === "ban" ||
-      backendType === "role";
+  return clone;
+};
 
-    const senderObj =
-      typeof m?.sender === "object" && m?.sender
-        ? m.sender
-        : m?.sender
-          ? { _id: String(m.sender), username: "", avatar: "" }
-          : null;
 
-    const senderId = senderObj?._id ? String(senderObj._id) : "";
 
-    let systemUserName =
-      String(senderObj?.username || "").trim() ||
-      String(m?.senderUsername || m?.actorName || m?.username || "").trim();
+// ✅ Helpers for user extraction + debug (ضعهم فوق mapReduxToUIMessage)
 
-    if (!systemUserName && senderId) systemUserName = String(resolveUserNameById(senderId) || "").trim();
-    if (!systemUserName && senderId && myUserId && senderId === myUserId) systemUserName = myName;
-    if (!systemUserName) systemUserName = "مستخدم";
+const DEBUG_USER = true;
 
-    // ✅ طباعات أساسية
-    log("IN", {
-      id: String(m?._id || ""),
-      backendType,
-      isSystem,
-      senderId,
-      senderUsername: String(senderObj?.username || ""),
-      systemUserName,
-      createdAt: m?.createdAt
-    });
+const logSenderFromMessage = (m: any, tag = "SENDER_DUMP") => {
+  try {
+    const snap = m?.senderSnapshot;
+    const active = snap?.activeCustomization;
 
-    // ✅ نصوص النظام
-    let systemText = String(m?.content || "");
+    const dump = {
+      tag,
+      messageId: String(m?._id || ""),
+      backendType: String(m?.type || ""),
+      senderRaw: m?.sender, // قد يكون string id أو object
+      senderSnapshot: snap
+        ? {
+            _id: String(snap?._id || ""),
+            username: String(snap?.username || ""),
+            atUsername: String(snap?.atUsername || ""),
+            avatar: String(snap?.avatar || ""),
+            verificationType: String(snap?.verificationType || ""),
+            avatarFrame: String(snap?.avatarFrame || ""),
+            badgesRoot: Array.isArray(snap?.badges) ? snap.badges : [],
+            profileEntryAnimation: String(snap?.profileEntryAnimation || ""),
+            activeCustomization: active
+              ? {
+                  avatarFrame: String(active?.avatarFrame || ""),
+                  messageEffect: String(active?.messageEffect || ""),
+                  profileEntryAnimation: String(active?.profileEntryAnimation || ""),
+                  badges: Array.isArray(active?.badges) ? active.badges : [],
+                  verificationType: String(active?.verificationType || "")
+                }
+              : null
+          }
+        : null
+    };
 
-    if (backendType === "join") {
-      systemText = `✅ ${systemUserName} Join`;
-      log("SYSTEM join", { systemText });
-    } else if (backendType === "leave") {
-      systemText = `🚪 ${systemUserName} Left`;
-      log("SYSTEM leave", { systemText });
-    } else if (backendType === "promotion") {
-      // ✅ promotion قد يكون "ترقية عامة" أو "تغيير دور" (role:set) داخل promotion
-      const action = String(m?.action || m?.meta?.action || "");
+    console.log(`[${tag}]`, dump);
+  } catch (e) {
+    console.log(`[${tag}] FAILED`, e);
+  }
+};
 
-      const actor =
-        String(m?.actorName || m?.meta?.actorName || "").trim() || systemUserName || "مشرف";
+const pickSenderFromMessage = (m: any) => {
+  // sender قد يكون Object أو String
+  const senderObj =
+    typeof m?.sender === "object" && m?.sender
+      ? m.sender
+      : m?.sender
+        ? { _id: String(m.sender), username: "", avatar: "" }
+        : null;
 
-      const target = String(m?.targetName || m?.meta?.targetName || "").trim();
-      const roleRaw = String(m?.role || m?.meta?.role || "").trim();
+  const snap = m?.senderSnapshot || null;
 
-      const isRoleChange =
-        action === "role:set" ||
-        Boolean(
-          m?.actorName ||
+  const senderId = String(
+    snap?._id ||
+      senderObj?._id ||
+      m?.senderId ||
+      ""
+  ).trim();
+
+  // ✅ الاسم: Snapshot ثم senderObj ثم حقول fallback
+  const username = String(
+    snap?.username ||
+      senderObj?.username ||
+      m?.senderUsername ||
+      m?.actorName ||
+      m?.username ||
+      ""
+  ).trim();
+
+  const avatar = String(
+    snap?.avatar ||
+      senderObj?.avatar ||
+      ""
+  ).trim();
+
+  // ✅ snapshotRole: غالبًا موجودة داخل senderSnapshot.role أو sender.role
+  const snapshotRole = String(
+    snap?.role || senderObj?.role || ""
+  ).trim();
+const verificationType = String(
+  snap?.verificationType || senderObj?.verificationType || ""
+).trim();
+  // ✅ badges: المكان الصحيح حسب لوجك
+  const activeBadges: string[] =
+    Array.isArray(snap?.activeCustomization?.badges) && snap.activeCustomization.badges.length
+      ? snap.activeCustomization.badges
+      : Array.isArray(snap?.badges) && snap.badges.length
+        ? snap.badges
+        : [];
+
+  return {
+    senderId,
+    username,
+    avatar,
+    snapshotRole: snapshotRole || undefined,
+    activeBadges,
+    verificationType
+  };
+};
+
+
+const mapReduxToUIMessage = (m: any): MessageUI => {
+  // ✅ ديبج: طباعة بيانات المستخدم كاملة من الرسالة
+  if (DEBUG_USER) {
+    logSenderFromMessage(m, "MAP_MESSAGE_USER_DUMP");
+  }
+
+  const backendType = String(m?.type || "text");
+
+  const isSystem =
+    backendType === "system" ||
+    backendType === "announcement" ||
+    backendType === "join" ||
+    backendType === "leave" ||
+    backendType === "promotion" ||
+    backendType === "ban" ||
+    backendType === "role";
+
+  // ✅ استخراج المرسل من الرسالة نفسها (snapshot أولاً)
+  const picked = pickSenderFromMessage(m);
+  const senderId = picked.senderId;
+
+  // ✅ دمج البادجات + (اختياري) اعتبار verificationType كبادج
+  const verificationToBadge = (verificationType?: string) => {
+    const v = String(verificationType || "").trim().toLowerCase();
+    if (!v || v === "none") return null;
+    // متوقع: blue | gold | business
+    return v;
+  };
+
+  const normalizeBadges = (badges?: string[]) => {
+    const arr = Array.isArray(badges) ? badges : [];
+    const cleaned = arr
+      .map((x) => String(x || "").trim().toLowerCase())
+      .filter(Boolean);
+
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const b of cleaned) {
+      if (!seen.has(b)) {
+        seen.add(b);
+        out.push(b);
+      }
+    }
+    return out;
+  };
+
+  // لو pickSenderFromMessage بيرجع verificationType ضمّه هنا، وإلا ساعتها هيبقى ""
+  const extraBadge = verificationToBadge((picked as any)?.verificationType);
+
+  const mergedBadges = normalizeBadges([
+    ...(picked.activeBadges || []),
+    ...(extraBadge ? [extraBadge] : [])
+  ]);
+
+  // اسم المستخدم للنظام/العرض
+  let systemUserName = String(picked.username || "").trim();
+
+  if (!systemUserName && senderId) systemUserName = String(resolveUserNameById(senderId) || "").trim();
+  if (!systemUserName && senderId && myUserId && senderId === myUserId) systemUserName = myName;
+  if (!systemUserName) systemUserName = "مستخدم";
+
+  // ✅ نصوص النظام
+  let systemText = String(m?.content || "");
+
+  if (backendType === "join") {
+    systemText = `✅ ${systemUserName} Join`;
+  } else if (backendType === "leave") {
+    systemText = `🚪 ${systemUserName} Left`;
+  } else if (backendType === "promotion") {
+    const action = String(m?.action || m?.meta?.action || "");
+    const actor =
+      String(m?.actorName || m?.meta?.actorName || "").trim() || systemUserName || "مشرف";
+    const target = String(m?.targetName || m?.meta?.targetName || "").trim();
+    const roleRaw = String(m?.role || m?.meta?.role || "").trim();
+
+    const isRoleChange =
+      action === "role:set" ||
+      Boolean(
+        m?.actorName ||
           m?.targetName ||
           m?.role ||
           m?.meta?.actorName ||
           m?.meta?.targetName ||
           m?.meta?.role
-        );
+      );
 
-      log("SYSTEM promotion meta", { action, actor, target, roleRaw, isRoleChange });
-
-      if (isRoleChange) {
-        const targetName = target || "مستخدم";
-        const roleAr = roleRaw ? normalizeRoleLabelAr(roleRaw) : "";
-        systemText = `⭐ تم ترقية ${targetName}${roleAr ? ` إلى ${roleAr}` : ""} بواسطة ${actor}`;
-        log("SYSTEM role-change-as-promotion", { systemText });
-      } else {
-        systemText = `⭐ تمت ترقية ${systemUserName}`;
-        log("SYSTEM promotion default", { systemText });
-      }
-    } else if (backendType === "ban") {
-      systemText = `⛔ تم حظر ${systemUserName}`;
-      log("SYSTEM ban", { systemText });
-    } else if (backendType === "announcement") {
-      systemText = `📢 ${m?.content || ""}`;
-      log("SYSTEM announcement", { systemText });
-    } else if (backendType === "role") {
-      // ✅ للتوافق مع بيانات قديمة لو عندك type=role مخزن سابقًا
-      const actor = String(m?.actorName || systemUserName || "مشرف");
-      const target = String(m?.targetName || "مستخدم");
-      const r = normalizeRoleLabelAr(String(m?.role || ""));
-      systemText = `⭐ تم ترقية ${target}${r ? ` إلى ${r}` : ""} بواسطة ${actor}`;
-      log("SYSTEM legacy role", { actor, target, r, systemText });
+    if (isRoleChange) {
+      const targetName = target || "مستخدم";
+      const roleAr = roleRaw ? normalizeRoleLabelAr(roleRaw) : "";
+      systemText = `⭐ تم ترقية ${targetName}${roleAr ? ` إلى ${roleAr}` : ""} بواسطة ${actor}`;
+    } else {
+      systemText = `⭐ تمت ترقية ${systemUserName}`;
     }
+  } else if (backendType === "ban") {
+    systemText = `⛔ تم حظر ${systemUserName}`;
+  } else if (backendType === "announcement") {
+    systemText = `📢 ${m?.content || ""}`;
+  } else if (backendType === "role") {
+    const actor = String(m?.actorName || systemUserName || "مشرف");
+    const target = String(m?.targetName || "مستخدم");
+    const r = normalizeRoleLabelAr(String(m?.role || ""));
+    systemText = `⭐ تم ترقية ${target}${r ? ` إلى ${r}` : ""} بواسطة ${actor}`;
+  }
 
-    // replyTo
-    const uiReplyTo: MessageUI | undefined =
-      m?.replyTo && typeof m.replyTo === "object"
-        ? {
+  // replyTo (اترك الموجود عندك، هذا مجرد placeholder آمن)
+  const uiReplyTo: MessageUI | undefined =
+    m?.replyTo && typeof m.replyTo === "object"
+      ? {
           id: String(m.replyTo._id || "reply"),
           type: "text",
           text: String(m.replyTo.content || "Media message"),
@@ -761,87 +1003,63 @@ const giftOverlayTimerRef = useRef<any>(null);
           },
           time: ""
         }
-        : undefined;
-
-    // ✅ تحديد نوع رسالة UI (أضفنا gift)
-    let uiType: MessageUI["type"] = "text";
-    if (isSystem) uiType = "system";
-    else if (backendType === "gift") uiType = "gift";
-    else if (backendType === "image") uiType = "image";
-    else if (backendType === "video") uiType = "video";
-    else if (backendType === "audio") uiType = "audio";
-    else if (backendType === "file") uiType = "file";
-
-    const time = new Date(m?.createdAt || Date.now()).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-
-    // ✅ عرض أول Reaction إن وجدت
-    const firstReactionEmoji =
-      Array.isArray(m?.reactions) && m.reactions.length ? String(m.reactions[0]?.emoji || "") : "";
-
-    const uiReaction = REACTIONS.includes(firstReactionEmoji as any)
-      ? (firstReactionEmoji as Reaction)
       : undefined;
 
-    // ✅ جهّز sender UI مرة واحدة
-    const senderUI: UserUI = {
-      id: String(senderId || "unknown"),
-      name:
-        String(senderObj?.username || "").trim() ||
-        String(senderObj?.name || "").trim() ||
-        String(senderObj?.fullName || "").trim() ||
-        String(resolveUserNameById(senderId) || "").trim() ||
-        (senderId && senderId === myUserId ? myName : "") ||
-        "User",
-      avatar:
-        String(senderObj?.avatar || "").trim() ||
-        String(resolveAvatarById(senderId) || "").trim() ||
-        (senderId === myUserId ? myAvatar : ""),
-      role: usersMap.get(senderId)?.role
-    };
+  // ✅ تحديد نوع رسالة UI
+  let uiType: MessageUI["type"] = "text";
+  if (isSystem) uiType = "system";
+  else if (backendType === "gift") uiType = "gift";
+  else if (backendType === "image") uiType = "image";
+  else if (backendType === "video") uiType = "video";
+  else if (backendType === "audio") uiType = "audio";
+  else if (backendType === "file") uiType = "file";
 
-    // ✅ نص الرسالة النهائي:
-    // - System => systemText
-    // - Gift   => content = giftKey مثل "boost_rocket"
-    // - غير ذلك => content الطبيعي
-    const messageText = isSystem ? systemText : String(m?.content || "");
+  const time = new Date(m?.createdAt || Date.now()).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 
-    const out: MessageUI = {
-      id: String(m?._id),
-      type: uiType,
-      systemType: isSystem ? (backendType as any) : undefined,
+  // Reaction كما هو
+  const firstReactionEmoji =
+    Array.isArray(m?.reactions) && m.reactions.length ? String(m.reactions[0]?.emoji || "") : "";
 
-      text: messageText,
-      uri: m?.media?.url,
+  const uiReaction = REACTIONS.includes(firstReactionEmoji as any)
+    ? (firstReactionEmoji as Reaction)
+    : undefined;
 
-      // ✅ إعلان announcement نُظهر فيه المرسل
-      // ✅ باقي system نخفي المرسل
-      // ✅ gift رسالة عادية => نُظهر المرسل
-      sender: backendType === "announcement" ? senderUI : isSystem ? undefined : senderUI,
+  // ✅ role الخاص بالغرفة من usersMap إن وجد
+  const roomRole = (usersMap.get(senderId)?.role as RoomRole | undefined);
 
-      replyTo: uiReplyTo,
-      reaction: uiReaction,
-      deletedForEveryone: Boolean(m?.deletedForEveryone),
-      time
-    };
-
-    // ✅ طباعات للخروج (مختصرة)
-    log("OUT", {
-      id: out.id,
-      uiType: out.type,
-      systemType: out.systemType,
-      text: out.text,
-      sender: out.sender?.name,
-      hasReplyTo: Boolean(out.replyTo),
-      reaction: out.reaction,
-      deletedForEveryone: out.deletedForEveryone
-    });
-
-    return out;
+  // ✅ senderUI يعتمد على snapshot أولاً
+  const senderUI: UserUI = {
+    id: String(senderId || "unknown"),
+    name: picked.username || (senderId && senderId === myUserId ? myName : "User"),
+    avatar: picked.avatar || (senderId && senderId === myUserId ? myAvatar : ""),
+    role: roomRole,
+    snapshotRole: picked.snapshotRole,
+    activeBadges: mergedBadges // ✅ هنا المهم: دمج + تنظيف
   };
 
+  // ✅ النص النهائي
+  const messageText = isSystem ? systemText : String(m?.content || "");
+
+  return {
+    id: String(m?._id),
+    type: uiType,
+    systemType: isSystem ? (backendType as any) : undefined,
+    text: messageText,
+    uri: m?.media?.url,
+
+    // ✅ announcement نظهر فيه sender
+    // ✅ باقي system نخفي sender
+    sender: backendType === "announcement" ? senderUI : isSystem ? undefined : senderUI,
+
+    replyTo: uiReplyTo,
+    reaction: uiReaction,
+    deletedForEveryone: Boolean(m?.deletedForEveryone),
+    time
+  };
+};
   /* ✅ ضع latestPinned هنا */
   const latestPinned = useMemo(() => {
     const list = reduxMessages || [];
@@ -909,42 +1127,42 @@ const giftOverlayTimerRef = useRef<any>(null);
   }, []);
 
   /* ================= AUDIO ================= */
-useEffect(() => {
-  // ✅ ابحث عن أحدث رسالة gift لم يتم التعامل معها بعد
-  const latestGift = [...uiMessages].find(
-    (m) => m.type === "gift" && !giftDoneById[m.id] && !m.deletedForEveryone
-  );
+  useEffect(() => {
+    // ✅ ابحث عن أحدث رسالة gift لم يتم التعامل معها بعد
+    const latestGift = [...uiMessages].find(
+      (m) => m.type === "gift" && !giftDoneById[m.id] && !m.deletedForEveryone
+    );
 
-  if (!latestGift) return;
+    if (!latestGift) return;
 
-  // ✅ لو Overlay شغال بالفعل لنفس الرسالة لا تعيد التشغيل
-  if (giftOverlay.visible && giftOverlay.messageId === latestGift.id) return;
+    // ✅ لو Overlay شغال بالفعل لنفس الرسالة لا تعيد التشغيل
+    if (giftOverlay.visible && giftOverlay.messageId === latestGift.id) return;
 
-  // ✅ جهّز Fullscreen
-  const giftKey = String(latestGift.text || "");
-  if (!giftKey) {
-    // حتى لو giftKey ناقص، اعتبرها "تمت" حتى لا تتكرر
-    markGiftDone(latestGift.id);
-    return;
-  }
+    // ✅ جهّز Fullscreen
+    const giftKey = String(latestGift.text || "");
+    if (!giftKey) {
+      // حتى لو giftKey ناقص، اعتبرها "تمت" حتى لا تتكرر
+      markGiftDone(latestGift.id);
+      return;
+    }
 
-  // افتح Overlay
-  setGiftOverlay({ visible: true, messageId: latestGift.id, giftKey });
+    // افتح Overlay
+    setGiftOverlay({ visible: true, messageId: latestGift.id, giftKey });
 
-  // اقفل أي تايمر سابق
-  if (giftOverlayTimerRef.current) clearTimeout(giftOverlayTimerRef.current);
+    // اقفل أي تايمر سابق
+    if (giftOverlayTimerRef.current) clearTimeout(giftOverlayTimerRef.current);
 
-  // ✅ بعد 5 ثواني: أخفِ الـ overlay وعلّم الرسالة كـ done
-  giftOverlayTimerRef.current = setTimeout(() => {
-    setGiftOverlay({ visible: false, messageId: null, giftKey: null });
-    markGiftDone(latestGift.id);
-  }, 6000);
+    // ✅ بعد 5 ثواني: أخفِ الـ overlay وعلّم الرسالة كـ done
+    giftOverlayTimerRef.current = setTimeout(() => {
+      setGiftOverlay({ visible: false, messageId: null, giftKey: null });
+      markGiftDone(latestGift.id);
+    }, 6000);
 
-  return () => {
-    // cleanup عند أي re-render
-  };
-  // ملاحظة: نراقب uiMessages و giftDoneById
-}, [uiMessages, giftDoneById, giftOverlay.visible, giftOverlay.messageId]);
+    return () => {
+      // cleanup عند أي re-render
+    };
+    // ملاحظة: نراقب uiMessages و giftDoneById
+  }, [uiMessages, giftDoneById, giftOverlay.visible, giftOverlay.messageId]);
   const togglePlay = async (uri: string, id: string) => {
     if (recording) return;
 
@@ -1296,43 +1514,43 @@ useEffect(() => {
   // ملاحظة: افترضت أنك مستورد boostRoom من roomControl.slice.ts
   // import { boostRoom } from "@/redux/slices/roomControl.slice";
 
- const onBoostRoom = async () => {
-  try {
-    if (!canModerate) {
-      Alert.alert("No permission", "You don't have permission to boost this room.");
-      return;
+  const onBoostRoom = async () => {
+    try {
+      if (!canModerate) {
+        Alert.alert("No permission", "You don't have permission to boost this room.");
+        return;
+      }
+      if (!roomId) return;
+
+      const level = 1;
+      const hours = 24;
+
+      // ✅ لازم نستلم نتيجة البوست
+      const r = await dispatch(boostRoom({ roomId, level, hours })).unwrap();
+
+      // ✅ شرط نجاح "مؤكد"
+      if (!r?.boostExpiresAt && typeof r?.boostLevel !== "number") {
+        Alert.alert("Error", "Boost did not succeed.");
+        return; // ❌ لا ترسل Gift
+      }
+
+      // ✅ الآن فقط: أرسل Gift
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          type: "gift",
+          content: "boost_rocket",
+          gift: { name: "boost", value: level, animation: "rocket" }
+        } as any)
+      ).unwrap();
+
+      const content = `🚀 <b>${myName}</b> boosted the room!`;
+      await dispatch(sendRoomMessage({ roomId, content, type: "announcement" })).unwrap();
+
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || String(e) || "Boost failed");
     }
-    if (!roomId) return;
-
-    const level = 1;
-    const hours = 24;
-
-    // ✅ لازم نستلم نتيجة البوست
-    const r = await dispatch(boostRoom({ roomId, level, hours })).unwrap();
-
-    // ✅ شرط نجاح "مؤكد"
-    if (!r?.boostExpiresAt && typeof r?.boostLevel !== "number") {
-      Alert.alert("Error", "Boost did not succeed.");
-      return; // ❌ لا ترسل Gift
-    }
-
-    // ✅ الآن فقط: أرسل Gift
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        type: "gift",
-        content: "boost_rocket",
-        gift: { name: "boost", value: level, animation: "rocket" }
-      } as any)
-    ).unwrap();
-
-    const content = `🚀 <b>${myName}</b> boosted the room!`;
-    await dispatch(sendRoomMessage({ roomId, content, type: "announcement" })).unwrap();
-
-  } catch (e: any) {
-    Alert.alert("Error", e?.message || String(e) || "Boost failed");
-  }
-};
+  };
   /* ================= RENDER ================= */
 
   return (
@@ -1540,24 +1758,24 @@ useEffect(() => {
                 item={item}
                 isMe={isMe}
                 showName={showName}
-               onPressImage={(payload) => {
-    if (String(payload).startsWith("gift:")) {
-      // لم نعد نفتح صورة، لكن يمكنك ترك هذا إن احتجته لاحقًا
-      return;
-    }
-    setPreviewImage(payload);
-  }}
-                 onTogglePlay={togglePlay}
+                onPressImage={(payload) => {
+                  if (String(payload).startsWith("gift:")) {
+                    // لم نعد نفتح صورة، لكن يمكنك ترك هذا إن احتجته لاحقًا
+                    return;
+                  }
+                  setPreviewImage(payload);
+                }}
+                onTogglePlay={togglePlay}
                 playingId={playingId}
                 progressAnim={progressAnim}
                 onLongPress={() => {
                   // لا تعرض منيو على رسائل النظام أو الرسائل المحذوفة (اختياري)
                   setSelectedMessage(item);
                   setShowActions(true);
-                  
+
                 }}
-                 giftDone={Boolean(giftDoneById[item.id])}
-  onGiftDone={() => markGiftDone(item.id)}
+                giftDone={Boolean(giftDoneById[item.id])}
+                onGiftDone={() => markGiftDone(item.id)}
               />
             );
           }}
@@ -1659,24 +1877,24 @@ useEffect(() => {
         </Modal>
 
         {/* ================= IMAGE PREVIEW MODAL ================= */}
-     <Modal
-  visible={!!previewImage}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setPreviewImage(null)}
->
-  <View style={styles.imagePreviewOverlay}>
-    <TouchableOpacity style={styles.imagePreviewClose} onPress={() => setPreviewImage(null)}>
-      <Ionicons name="close" size={28} color="#FFF" />
-    </TouchableOpacity>
+        <Modal
+          visible={!!previewImage}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPreviewImage(null)}
+        >
+          <View style={styles.imagePreviewOverlay}>
+            <TouchableOpacity style={styles.imagePreviewClose} onPress={() => setPreviewImage(null)}>
+              <Ionicons name="close" size={28} color="#FFF" />
+            </TouchableOpacity>
 
-    <Image
-      source={typeof previewImage === "string" ? { uri: previewImage } : previewImage!}
-      style={styles.fullImage}
-      resizeMode="contain"
-    />
-  </View>
-</Modal>
+            <Image
+              source={typeof previewImage === "string" ? { uri: previewImage } : previewImage!}
+              style={styles.fullImage}
+              resizeMode="contain"
+            />
+          </View>
+        </Modal>
         <Modal
           transparent
           visible={showPinModal}
@@ -1847,34 +2065,34 @@ useEffect(() => {
           </Pressable>
         </Modal>
         {/* ================= GIFT FULLSCREEN OVERLAY ================= */}
-<Modal
-  transparent
-  visible={giftOverlay.visible}
-  animationType="fade"
-  onRequestClose={() => {
-    // اختياري: لا تسمح بالإغلاق اليدوي أو اسمح
-    // هنا سنسمح بالإغلاق اليدوي مع إنهاء المؤقت
-    if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
-    if (giftOverlayTimerRef.current) clearTimeout(giftOverlayTimerRef.current);
-    setGiftOverlay({ visible: false, messageId: null, giftKey: null });
-  }}
->
-  <View style={styles.giftFullOverlay}>
-    {(() => {
-      const src = getGiftLottieSource(giftOverlay.giftKey || "");
-      if (!src) return null;
+        <Modal
+          transparent
+          visible={giftOverlay.visible}
+          animationType="fade"
+          onRequestClose={() => {
+            // اختياري: لا تسمح بالإغلاق اليدوي أو اسمح
+            // هنا سنسمح بالإغلاق اليدوي مع إنهاء المؤقت
+            if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
+            if (giftOverlayTimerRef.current) clearTimeout(giftOverlayTimerRef.current);
+            setGiftOverlay({ visible: false, messageId: null, giftKey: null });
+          }}
+        >
+          <View style={styles.giftFullOverlay}>
+            {(() => {
+              const src = getGiftLottieSource(giftOverlay.giftKey || "");
+              if (!src) return null;
 
-      return (
-        <LottieView
-          source={src}
-          autoPlay
-          loop
-          style={styles.giftFullLottie}
-        />
-      );
-    })()}
-  </View>
-</Modal>
+              return (
+                <LottieView
+                  source={src}
+                  autoPlay
+                  loop
+                  style={styles.giftFullLottie}
+                />
+              );
+            })()}
+          </View>
+        </Modal>
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -1888,19 +2106,19 @@ const bubbleStyles = StyleSheet.create({
   row: { flexDirection: "row", marginBottom: 10, alignItems: "flex-start" },
   rowOther: { justifyContent: "flex-start" },
   rowMe: { justifyContent: "flex-end" },
-giftWrap: {
-  marginTop: 6,
-  width: 220,
-  height: 220,
-  borderRadius: 12,
-  overflow: "hidden",
-  alignItems: "center",
-  justifyContent: "center"
-},
-giftLottie: {
-  width: "100%",
-  height: "100%"
-},
+  giftWrap: {
+    marginTop: 6,
+    width: 220,
+    height: 220,
+    borderRadius: 12,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  giftLottie: {
+    width: "100%",
+    height: "100%"
+  },
 
   avatarStar: {
     position: "absolute",
@@ -1966,11 +2184,12 @@ giftLottie: {
   nameWrap: {
     marginBottom: 6
   },
-  nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6
-  },
+ nameRow: {
+  flexDirection: "row-reverse",
+  alignItems: "center",
+  gap: 6,
+  flexWrap: "wrap"
+},
   roleStar: {
     fontSize: 12,
     fontWeight: "900"
@@ -2274,15 +2493,15 @@ const styles = StyleSheet.create({
     marginBottom: 10
   },
   giftFullOverlay: {
-  flex: 1,
-  backgroundColor: "rgba(0,0,0,0.95)",
-  justifyContent: "center",
-  alignItems: "center"
-},
-giftFullLottie: {
-  width: "100%",
-  height: "100%"
-},
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  giftFullLottie: {
+    width: "100%",
+    height: "100%"
+  },
   fullMeta: { fontSize: 12, color: "#6B7280", marginBottom: 10, fontWeight: "700" },
   fullTitle: { fontSize: 14, fontWeight: "800", color: "#111827" },
   fullText: { fontSize: 13, color: "#111827", lineHeight: 20 },

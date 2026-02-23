@@ -27,6 +27,10 @@ export type StoreItem = {
   isActive: boolean;
   isConsumable?: boolean;
   isStackable?: boolean;
+
+  // ✅ مطابق للباك الجديد: مدة الاستخدام بالأيام (0 = دائم)
+  durationDays?: number;
+
   meta?: Record<string, any>;
 };
 
@@ -38,8 +42,7 @@ export type InventoryEntry = {
   quantity: number;
   acquiredAt?: string;
   expiresAt?: string | null;
-  // populate("item")
-  item?: StoreItem;
+  item?: StoreItem; // populate("item")
 };
 
 export type ActiveCustomization = {
@@ -56,10 +59,22 @@ export type MyInventoryResponse = {
   inventory: InventoryEntry[];
 };
 
+// ✅ يرجعها الباك بعد الشراء (مفيد لتحديث inventory سريعًا)
+export type InventoryUpdate = {
+  itemId: string;
+  key: string;
+  type: StoreItemType;
+  quantity: number;
+  expiresAt: string | null;
+};
+
 export type PurchaseResult = {
   totalCost: number;
   coinzBalance: number;
   activeCustomization: ActiveCustomization;
+
+  // ✅ جديد
+  inventoryUpdates?: InventoryUpdate[];
 };
 
 export type PurchaseInput = {
@@ -69,14 +84,19 @@ export type PurchaseInput = {
 
 export type ActivateInput = {
   type: "avatarFrame" | "messageEffect" | "profileEntryAnimation" | "badge" | "verification";
-  key: string; // itemKey (أو verificationType لو type=verification)
-  mode?: "set" | "add" | "remove"; // للـ badge
+  key: string;
+  mode?: "set" | "add" | "remove";
 };
 
 export type AdminCoinzInput = {
   userId: string;
   amount: number;
   reason?: string;
+};
+
+// ✅ شراء coinz للمستخدم نفسه
+export type BuyCoinzInput = {
+  amount: number;
 };
 
 /* =====================================================
@@ -88,13 +108,15 @@ const errMsg = (err: any, fallback: string) =>
   err?.message ||
   fallback;
 
-/**
- * api عندك غالباً baseURL = "/api"
- * routes:
- * app.use("/api/store", storeRoutes)
- * => BASE = "/store"
- */
 const BASE = "/store";
+
+const defaultActiveCustomization: ActiveCustomization = {
+  avatarFrame: "",
+  messageEffect: "",
+  profileEntryAnimation: "",
+  badges: [],
+  verificationType: "none"
+};
 
 /* =====================================================
    THUNKS
@@ -115,6 +137,8 @@ export const listStoreItems = createAsyncThunk<
     params.active = String(Boolean(active));
 
     const res = await api.get(`${BASE}/items`, { params });
+    console.log(res.data,'777777777');
+    
     return { items: res.data.items || [] };
   } catch (e: any) {
     return thunkAPI.rejectWithValue(errMsg(e, "Failed to load store items"));
@@ -132,18 +156,29 @@ export const getMyInventory = createAsyncThunk<
     return {
       data: {
         coinzBalance: Number(res.data.coinzBalance) || 0,
-        activeCustomization: res.data.activeCustomization || {
-          avatarFrame: "",
-          messageEffect: "",
-          profileEntryAnimation: "",
-          badges: [],
-          verificationType: "none"
-        },
+        activeCustomization: res.data.activeCustomization || defaultActiveCustomization,
         inventory: res.data.inventory || []
       }
     };
   } catch (e: any) {
     return thunkAPI.rejectWithValue(errMsg(e, "Failed to load inventory"));
+  }
+});
+
+/** ✅ POST /store/coinz/buy */
+export const buyCoinz = createAsyncThunk<
+  { coinzBalance: number; added: number },
+  BuyCoinzInput,
+  { rejectValue: string }
+>("storeControl/buyCoinz", async (body, thunkAPI) => {
+  try {
+    const res = await api.post(`${BASE}/coinz/buy`, body);
+    return {
+      coinzBalance: Number(res.data.coinzBalance) || 0,
+      added: Number(res.data.added) || 0
+    };
+  } catch (e: any) {
+    return thunkAPI.rejectWithValue(errMsg(e, "Failed to buy coinz"));
   }
 });
 
@@ -155,17 +190,13 @@ export const purchaseStoreItems = createAsyncThunk<
 >("storeControl/purchase", async (body, thunkAPI) => {
   try {
     const res = await api.post(`${BASE}/purchase`, body);
+
     return {
       result: {
         totalCost: Number(res.data.totalCost) || 0,
         coinzBalance: Number(res.data.coinzBalance) || 0,
-        activeCustomization: res.data.activeCustomization || {
-          avatarFrame: "",
-          messageEffect: "",
-          profileEntryAnimation: "",
-          badges: [],
-          verificationType: "none"
-        }
+        activeCustomization: res.data.activeCustomization || defaultActiveCustomization,
+        inventoryUpdates: Array.isArray(res.data.inventoryUpdates) ? res.data.inventoryUpdates : []
       }
     };
   } catch (e: any) {
@@ -182,13 +213,7 @@ export const activateStoreItem = createAsyncThunk<
   try {
     const res = await api.patch(`${BASE}/activate`, body);
     return {
-      activeCustomization: res.data.activeCustomization || {
-        avatarFrame: "",
-        messageEffect: "",
-        profileEntryAnimation: "",
-        badges: [],
-        verificationType: "none"
-      }
+      activeCustomization: res.data.activeCustomization || defaultActiveCustomization
     };
   } catch (e: any) {
     return thunkAPI.rejectWithValue(errMsg(e, "Failed to activate item"));
@@ -228,20 +253,17 @@ export const adminDebitCoinz = createAsyncThunk<
 ===================================================== */
 
 type StoreControlState = {
-  // بيانات المتجر
   items: StoreItem[];
   loadingItems: boolean;
 
-  // بيانات المستخدم (المخزون/الرصيد/التفعيل)
   my: MyInventoryResponse | null;
   loadingMy: boolean;
 
-  // عمليات
   purchasing: boolean;
   activating: boolean;
+  buyingCoinz: boolean; // ✅ جديد
   adminUpdatingCoinz: boolean;
 
-  // نتائج آخر عملية شراء (اختياري)
   lastPurchase?: PurchaseResult | null;
 
   error: string | null;
@@ -256,12 +278,52 @@ const initialState: StoreControlState = {
 
   purchasing: false,
   activating: false,
+  buyingCoinz: false,
   adminUpdatingCoinz: false,
 
   lastPurchase: null,
 
   error: null
 };
+
+function upsertInventoryByUpdates(
+  current: InventoryEntry[],
+  updates: InventoryUpdate[]
+): InventoryEntry[] {
+  if (!Array.isArray(current)) return current;
+
+  const byKey = new Map<string, InventoryEntry>();
+  for (const it of current) {
+    const k = `${it.itemType}:${it.itemKey}`;
+    byKey.set(k, it);
+  }
+
+  for (const u of updates) {
+    const k = `${u.type}:${u.key}`;
+    const prev = byKey.get(k);
+
+    if (prev) {
+      byKey.set(k, {
+        ...prev,
+        quantity: Number(u.quantity) || prev.quantity,
+        expiresAt: u.expiresAt ?? prev.expiresAt
+      });
+    } else {
+      // لا نملك _id هنا من الباك (لأننا رجعنا itemId + key + type)
+      // نضيف عنصر "مبدئي" وسيتم تصحيحه عند getMyInventory لاحقًا إذا أحببت
+      byKey.set(k, {
+        _id: `tmp_${u.itemId}`,
+        user: "",
+        itemType: u.type,
+        itemKey: u.key,
+        quantity: Number(u.quantity) || 1,
+        expiresAt: u.expiresAt ?? null
+      });
+    }
+  }
+
+  return Array.from(byKey.values());
+}
 
 const storeControlSlice = createSlice({
   name: "storeControl",
@@ -279,6 +341,7 @@ const storeControlSlice = createSlice({
 
       state.purchasing = false;
       state.activating = false;
+      state.buyingCoinz = false;
       state.adminUpdatingCoinz = false;
 
       state.lastPurchase = null;
@@ -316,6 +379,23 @@ const storeControlSlice = createSlice({
         state.error = action.payload || "Failed to load inventory";
       })
 
+      /* ========== buyCoinz ========== */
+      .addCase(buyCoinz.pending, (state) => {
+        state.buyingCoinz = true;
+        state.error = null;
+      })
+      .addCase(buyCoinz.fulfilled, (state, action) => {
+        state.buyingCoinz = false;
+
+        if (state.my) {
+          state.my.coinzBalance = action.payload.coinzBalance;
+        }
+      })
+      .addCase(buyCoinz.rejected, (state, action) => {
+        state.buyingCoinz = false;
+        state.error = action.payload || "Failed to buy coinz";
+      })
+
       /* ========== purchaseStoreItems ========== */
       .addCase(purchaseStoreItems.pending, (state) => {
         state.purchasing = true;
@@ -325,10 +405,15 @@ const storeControlSlice = createSlice({
         state.purchasing = false;
         state.lastPurchase = action.payload.result;
 
-        // تحديث سريع للرصيد/التفعيل داخل my لو موجود
         if (state.my) {
           state.my.coinzBalance = action.payload.result.coinzBalance;
           state.my.activeCustomization = action.payload.result.activeCustomization;
+
+          // ✅ تحديث سريع للانفنتوري بناءً على inventoryUpdates (بدون refetch)
+          const updates = action.payload.result.inventoryUpdates || [];
+          if (updates.length) {
+            state.my.inventory = upsertInventoryByUpdates(state.my.inventory, updates);
+          }
         }
       })
       .addCase(purchaseStoreItems.rejected, (state, action) => {
@@ -357,8 +442,6 @@ const storeControlSlice = createSlice({
       })
       .addCase(adminCreditCoinz.fulfilled, (state, action) => {
         state.adminUpdatingCoinz = false;
-        // هذه القيمة تخص مستخدم مُحدد، غالباً ستعرضها في شاشة Admin
-        // لا نعدل state.my هنا إلا إذا كان admin يعدّل لنفسه
         if (state.my) state.my.coinzBalance = action.payload.coinzBalance;
       })
       .addCase(adminCreditCoinz.rejected, (state, action) => {
@@ -396,6 +479,7 @@ export const selectMyStoreLoading = (s: RootState) => s.storeControl.loadingMy;
 
 export const selectStorePurchasing = (s: RootState) => s.storeControl.purchasing;
 export const selectStoreActivating = (s: RootState) => s.storeControl.activating;
+export const selectStoreBuyingCoinz = (s: RootState) => s.storeControl.buyingCoinz; // ✅ جديد
 export const selectStoreAdminUpdatingCoinz = (s: RootState) => s.storeControl.adminUpdatingCoinz;
 
 export const selectStoreLastPurchase = (s: RootState) => s.storeControl.lastPurchase;

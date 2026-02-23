@@ -7,6 +7,74 @@ import { RootState } from "../store";
    TYPES
 ===================================================== */
 
+
+export type RoomDetails = {
+  room: {
+    _id: string;
+    name: string;
+    description: string;
+
+    avatar: string;
+    cover: string;
+
+    type: RoomType;
+    premiumLevel?: RoomPremiumLevel;
+
+    maxUsers?: number;
+    subscriptionPrice?: number;
+
+    isLocked: boolean;
+    slowModeSeconds: number;
+
+    antiSpamEnabled: boolean;
+    maxMessagesPerMinute: number;
+
+    maxVoiceSeats: number;
+
+    usersCount: number;
+    messagesCount: number;
+    totalRevenue: number;
+
+    level: number;
+    xp: number;
+    boostLevel: number;
+    boostPoints: number;
+    boostExpiresAt?: string | null;
+
+    isVerified: boolean;
+    tags: string[];
+
+    activePoll?: any | null;
+
+    createdAt?: string;
+    updatedAt?: string;
+
+    // derived
+    passwordProtected: boolean;
+    membersCount: number;
+  };
+
+  lists: {
+    creator: UserPublicSnapshot;
+    owners: UserPublicSnapshot[];
+    admins: UserPublicSnapshot[];
+    activeUsers: UserPublicSnapshot[];
+
+    voiceSpeakers: UserPublicSnapshot[];
+    voiceQueue: UserPublicSnapshot[];
+    raisedHands: UserPublicSnapshot[];
+
+    vipUsers: RoomVipEntry[];
+    mutedUsers: RoomMutedEntry[];
+  };
+
+  my: {
+    userId: string;
+    role: "creator" | "owner" | "admin" | "member" | "none";
+    canManage: boolean;
+    isInside: boolean;
+  };
+};
 export type RoomType = "public" | "private" | "protected" | "subscription";
 export type RoomPremiumLevel = 0 | 1 | 2 | 3 | 4;
 export type UserPublicSnapshot = {
@@ -41,6 +109,8 @@ export type UserPublicSnapshot = {
   totalRetweetsReceived?: number;
   profileViews?: number;
 };
+export type RoomVipEntry = { user: UserPublicSnapshot; expiresAt: string };
+export type RoomMutedEntry = { user: UserPublicSnapshot; until: string; reason?: string };
 export type RoomUser = {
   _id: string;
   username: string;
@@ -164,7 +234,8 @@ type Pagination = { limit?: number; before?: string };
 type RoomState = {
   rooms: RoomItem[];
   activeRoomId?: string;
-
+  detailsByRoom: Record<string, RoomDetails | undefined>;
+  loadingDetails: boolean;
   // Active count per room
   activeCountByRoom: Record<string, number>;
 
@@ -189,7 +260,8 @@ const initialState: RoomState = {
   activeCountByRoom: {},
   usersByRoom: {},
   messagesByRoom: {},
-
+  detailsByRoom: {},
+  loadingDetails: false,
   loadingRooms: false,
   loadingUsers: false,
   loadingMessages: false,
@@ -742,6 +814,26 @@ export const deleteRoom = createAsyncThunk<{ roomId: string }, { roomId: string 
   }
 );
 
+export const fetchRoomDetails = createAsyncThunk<
+  { roomId: string; details: RoomDetails },
+  string,
+  { state: RootState }
+>("room/fetchRoomDetails", async (roomId, thunkAPI) => {
+  try {
+    // ✅ Protected: التوكن يُرسل في Authorization من api interceptor (يفترض موجود عندك)
+    const res = await api.get(`/rooms/${roomId}/details`);
+    const details: RoomDetails = dataOf(res);
+
+    // ✅ حماية بسيطة ضد رد غير متوقع
+    if (!details?.room?._id) {
+      return thunkAPI.rejectWithValue("Invalid room details response");
+    }
+
+    return { roomId, details };
+  } catch (e: any) {
+    return thunkAPI.rejectWithValue(errMsg(e, "Failed to fetch room details"));
+  }
+});
 /* =====================================================
    JOIN & LEAVE HELPERS
 ===================================================== */
@@ -769,6 +861,8 @@ export const joinRoomAndEnter = createAsyncThunk<
     if (preload) {
       try {
         await Promise.all([
+            thunkAPI.dispatch(fetchRoomDetails(roomId)).unwrap(),
+
           thunkAPI.dispatch(fetchRoomUsers(roomId)).unwrap(),
           thunkAPI
             .dispatch(
@@ -1002,6 +1096,7 @@ const roomSlice = createSlice({
       delete state.usersByRoom[roomId];
       delete state.messagesByRoom[roomId];
       delete state.activeCountByRoom[roomId];
+      delete state.detailsByRoom[roomId];
 
       if (state.activeRoomId === roomId) state.activeRoomId = undefined;
     },
@@ -1132,6 +1227,7 @@ const roomSlice = createSlice({
       delete state.usersByRoom[roomId];
       delete state.messagesByRoom[roomId];
       delete state.activeCountByRoom[roomId];
+      delete state.detailsByRoom[roomId];
     },
 
     /**
@@ -1144,11 +1240,38 @@ const roomSlice = createSlice({
       delete state.usersByRoom[roomId];
       delete state.messagesByRoom[roomId];
       delete state.activeCountByRoom[roomId];
+      delete state.detailsByRoom[roomId];
     }
   },
 
   extraReducers: (builder) => {
     builder
+          .addCase(fetchRoomDetails.pending, (state) => {
+        state.loadingDetails = true;
+        state.error = undefined;
+      })
+      .addCase(fetchRoomDetails.fulfilled, (state, action) => {
+        state.loadingDetails = false;
+
+        const { roomId, details } = action.payload;
+        state.detailsByRoom[roomId] = details;
+
+        // ✅ اختياري (مفيد): مزامنة قائمة الغرف الأساسية مع أحدث بيانات details.room
+      const idx = state.rooms.findIndex((r) => r._id === roomId);
+if (idx >= 0) {
+  const normalizedRoom: Partial<RoomItem> = {
+    ...details.room,
+    // ✅ منع null
+    boostExpiresAt: details.room.boostExpiresAt ?? undefined,
+  };
+
+  state.rooms[idx] = { ...state.rooms[idx], ...normalizedRoom };
+}
+      })
+      .addCase(fetchRoomDetails.rejected, (state, action) => {
+        state.loadingDetails = false;
+        state.error = (action.payload as any) || "Failed to fetch room details";
+      })
       .addCase(joinRoomAndEnter.pending, (state) => {
         state.mutatingRoom = true;
         state.error = undefined;
@@ -1175,6 +1298,7 @@ const roomSlice = createSlice({
         delete state.usersByRoom[roomId];
         delete state.messagesByRoom[roomId];
         delete state.activeCountByRoom[roomId];
+        delete state.detailsByRoom[roomId];
       })
       .addCase(leaveRoomAndExit.rejected, (state, action) => {
         state.mutatingRoom = false;
@@ -1376,6 +1500,7 @@ const roomSlice = createSlice({
               delete state.usersByRoom[roomId];
               delete state.messagesByRoom[roomId];
               delete state.activeCountByRoom[roomId];
+              delete state.detailsByRoom[roomId];
               if (state.activeRoomId === roomId) state.activeRoomId = undefined;
             }
           }
@@ -1475,7 +1600,12 @@ export const selectRoomMessages = createSelector(
 export const selectRoomLoadingUsers = (state: RootState) => state.room.loadingUsers;
 export const selectRoomLoadingMessages = (state: RootState) => state.room.loadingMessages;
 export const selectRoomLoadingRooms = (state: RootState) => state.room.loadingRooms;
+export const selectRoomDetailsById = createSelector(
+  [(state: RootState) => state.room.detailsByRoom, (_: RootState, roomId: string) => roomId],
+  (map, roomId) => map[roomId]
+);
 
+export const selectRoomLoadingDetails = (state: RootState) => state.room.loadingDetails;
 export const selectRoomError = (state: RootState) => state.room.error;
 export const selectRoomById = createSelector(
   [selectRooms, (_: RootState, roomId: string) => roomId],

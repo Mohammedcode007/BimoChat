@@ -42,6 +42,8 @@ function RootStack() {
       <Stack.Screen name="privacy-policy" />
       <Stack.Screen name="terms-conditions" />
       <Stack.Screen name="blocked" />
+            <Stack.Screen name="room-details" />
+
       <Stack.Screen name="add-friend" />
       <Stack.Screen
         name="friend-request-modal"

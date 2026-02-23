@@ -72,12 +72,12 @@ type BadgeKey = string;
 // ✅ ألوان/أيقونات البادجات حسب النوع
 const BADGE_META: Record<BadgeKey, { label: string; icon?: string; bg: string; fg: string }> = {
   gold: { label: "GOLD", icon: "🏅", bg: "#FEF3C7", fg: "#92400E" },
-blue: {
-  label: "",
-  icon: "twitter-verified", // سنعالجها يدويًا في الرندر
-  bg: "transparent",
-  fg: "#1DA1F2"
-},
+  blue: {
+    label: "",
+    icon: "twitter-verified", // سنعالجها يدويًا في الرندر
+    bg: "transparent",
+    fg: "#1DA1F2"
+  },
   business: { label: "BUSINESS", icon: "🏢", bg: "#E5E7EB", fg: "#111827" },
 
   // أمثلة إضافية إن أحببت
@@ -349,13 +349,13 @@ function MessageItem({
         {showName && !!item.sender?.name && (
           <View style={bubbleStyles.nameWrap}>
             <View style={bubbleStyles.nameRow}>
-  <Text style={bubbleStyles.senderName} numberOfLines={1}>
-    {item.sender.name}
-  </Text>
+              <Text style={bubbleStyles.senderName} numberOfLines={1}>
+                {item.sender.name}
+              </Text>
 
-  {/* ✅ بادج بجانب الاسم */}
-  <NameBadge badgeKey={pickPrimaryBadge(item.sender?.activeBadges)} />
-</View>
+              {/* ✅ بادج بجانب الاسم */}
+              <NameBadge badgeKey={pickPrimaryBadge(item.sender?.activeBadges)} />
+            </View>
 
             {/* ✅ خط تحت الاسم */}
             <View style={bubbleStyles.nameUnderline} />
@@ -758,45 +758,45 @@ export default function ChatScreen() {
     return "عضو";
   };
 
-const pretty = (x: any) => {
-  try {
-    return JSON.stringify(x, null, 2);
-  } catch {
-    return String(x);
-  }
-};
+  const pretty = (x: any) => {
+    try {
+      return JSON.stringify(x, null, 2);
+    } catch {
+      return String(x);
+    }
+  };
 
-const safeUserLog = (obj: any) => {
-  // ✅ لا تطبع أي توكن/سيكرتس حتى لو وصلتك بالغلط
-  const clone = obj ? JSON.parse(JSON.stringify(obj)) : obj;
+  const safeUserLog = (obj: any) => {
+    // ✅ لا تطبع أي توكن/سيكرتس حتى لو وصلتك بالغلط
+    const clone = obj ? JSON.parse(JSON.stringify(obj)) : obj;
 
-  // إن وجدت حقول حساسة امسحها
-  if (clone?.token) delete clone.token;
-  if (clone?.accessToken) delete clone.accessToken;
-  if (clone?.refreshToken) delete clone.refreshToken;
-  if (clone?.authorization) delete clone.authorization;
+    // إن وجدت حقول حساسة امسحها
+    if (clone?.token) delete clone.token;
+    if (clone?.accessToken) delete clone.accessToken;
+    if (clone?.refreshToken) delete clone.refreshToken;
+    if (clone?.authorization) delete clone.authorization;
 
-  return clone;
-};
+    return clone;
+  };
 
 
 
-// ✅ Helpers for user extraction + debug (ضعهم فوق mapReduxToUIMessage)
+  // ✅ Helpers for user extraction + debug (ضعهم فوق mapReduxToUIMessage)
 
-const DEBUG_USER = true;
+  const DEBUG_USER = true;
 
-const logSenderFromMessage = (m: any, tag = "SENDER_DUMP") => {
-  try {
-    const snap = m?.senderSnapshot;
-    const active = snap?.activeCustomization;
+  const logSenderFromMessage = (m: any, tag = "SENDER_DUMP") => {
+    try {
+      const snap = m?.senderSnapshot;
+      const active = snap?.activeCustomization;
 
-    const dump = {
-      tag,
-      messageId: String(m?._id || ""),
-      backendType: String(m?.type || ""),
-      senderRaw: m?.sender, // قد يكون string id أو object
-      senderSnapshot: snap
-        ? {
+      const dump = {
+        tag,
+        messageId: String(m?._id || ""),
+        backendType: String(m?.type || ""),
+        senderRaw: m?.sender, // قد يكون string id أو object
+        senderSnapshot: snap
+          ? {
             _id: String(snap?._id || ""),
             username: String(snap?.username || ""),
             atUsername: String(snap?.atUsername || ""),
@@ -807,191 +807,191 @@ const logSenderFromMessage = (m: any, tag = "SENDER_DUMP") => {
             profileEntryAnimation: String(snap?.profileEntryAnimation || ""),
             activeCustomization: active
               ? {
-                  avatarFrame: String(active?.avatarFrame || ""),
-                  messageEffect: String(active?.messageEffect || ""),
-                  profileEntryAnimation: String(active?.profileEntryAnimation || ""),
-                  badges: Array.isArray(active?.badges) ? active.badges : [],
-                  verificationType: String(active?.verificationType || "")
-                }
+                avatarFrame: String(active?.avatarFrame || ""),
+                messageEffect: String(active?.messageEffect || ""),
+                profileEntryAnimation: String(active?.profileEntryAnimation || ""),
+                badges: Array.isArray(active?.badges) ? active.badges : [],
+                verificationType: String(active?.verificationType || "")
+              }
               : null
           }
-        : null
-    };
+          : null
+      };
 
-    console.log(`[${tag}]`, dump);
-  } catch (e) {
-    console.log(`[${tag}] FAILED`, e);
-  }
-};
+      console.log(`[${tag}]`, dump);
+    } catch (e) {
+      console.log(`[${tag}] FAILED`, e);
+    }
+  };
 
-const pickSenderFromMessage = (m: any) => {
-  // sender قد يكون Object أو String
-  const senderObj =
-    typeof m?.sender === "object" && m?.sender
-      ? m.sender
-      : m?.sender
-        ? { _id: String(m.sender), username: "", avatar: "" }
-        : null;
+  const pickSenderFromMessage = (m: any) => {
+    // sender قد يكون Object أو String
+    const senderObj =
+      typeof m?.sender === "object" && m?.sender
+        ? m.sender
+        : m?.sender
+          ? { _id: String(m.sender), username: "", avatar: "" }
+          : null;
 
-  const snap = m?.senderSnapshot || null;
+    const snap = m?.senderSnapshot || null;
 
-  const senderId = String(
-    snap?._id ||
+    const senderId = String(
+      snap?._id ||
       senderObj?._id ||
       m?.senderId ||
       ""
-  ).trim();
+    ).trim();
 
-  // ✅ الاسم: Snapshot ثم senderObj ثم حقول fallback
-  const username = String(
-    snap?.username ||
+    // ✅ الاسم: Snapshot ثم senderObj ثم حقول fallback
+    const username = String(
+      snap?.username ||
       senderObj?.username ||
       m?.senderUsername ||
       m?.actorName ||
       m?.username ||
       ""
-  ).trim();
+    ).trim();
 
-  const avatar = String(
-    snap?.avatar ||
+    const avatar = String(
+      snap?.avatar ||
       senderObj?.avatar ||
       ""
-  ).trim();
+    ).trim();
 
-  // ✅ snapshotRole: غالبًا موجودة داخل senderSnapshot.role أو sender.role
-  const snapshotRole = String(
-    snap?.role || senderObj?.role || ""
-  ).trim();
-const verificationType = String(
-  snap?.verificationType || senderObj?.verificationType || ""
-).trim();
-  // ✅ badges: المكان الصحيح حسب لوجك
-  const activeBadges: string[] =
-    Array.isArray(snap?.activeCustomization?.badges) && snap.activeCustomization.badges.length
-      ? snap.activeCustomization.badges
-      : Array.isArray(snap?.badges) && snap.badges.length
-        ? snap.badges
-        : [];
+    // ✅ snapshotRole: غالبًا موجودة داخل senderSnapshot.role أو sender.role
+    const snapshotRole = String(
+      snap?.role || senderObj?.role || ""
+    ).trim();
+    const verificationType = String(
+      snap?.verificationType || senderObj?.verificationType || ""
+    ).trim();
+    // ✅ badges: المكان الصحيح حسب لوجك
+    const activeBadges: string[] =
+      Array.isArray(snap?.activeCustomization?.badges) && snap.activeCustomization.badges.length
+        ? snap.activeCustomization.badges
+        : Array.isArray(snap?.badges) && snap.badges.length
+          ? snap.badges
+          : [];
 
-  return {
-    senderId,
-    username,
-    avatar,
-    snapshotRole: snapshotRole || undefined,
-    activeBadges,
-    verificationType
-  };
-};
-
-
-const mapReduxToUIMessage = (m: any): MessageUI => {
-  // ✅ ديبج: طباعة بيانات المستخدم كاملة من الرسالة
-  if (DEBUG_USER) {
-    logSenderFromMessage(m, "MAP_MESSAGE_USER_DUMP");
-  }
-
-  const backendType = String(m?.type || "text");
-
-  const isSystem =
-    backendType === "system" ||
-    backendType === "announcement" ||
-    backendType === "join" ||
-    backendType === "leave" ||
-    backendType === "promotion" ||
-    backendType === "ban" ||
-    backendType === "role";
-
-  // ✅ استخراج المرسل من الرسالة نفسها (snapshot أولاً)
-  const picked = pickSenderFromMessage(m);
-  const senderId = picked.senderId;
-
-  // ✅ دمج البادجات + (اختياري) اعتبار verificationType كبادج
-  const verificationToBadge = (verificationType?: string) => {
-    const v = String(verificationType || "").trim().toLowerCase();
-    if (!v || v === "none") return null;
-    // متوقع: blue | gold | business
-    return v;
+    return {
+      senderId,
+      username,
+      avatar,
+      snapshotRole: snapshotRole || undefined,
+      activeBadges,
+      verificationType
+    };
   };
 
-  const normalizeBadges = (badges?: string[]) => {
-    const arr = Array.isArray(badges) ? badges : [];
-    const cleaned = arr
-      .map((x) => String(x || "").trim().toLowerCase())
-      .filter(Boolean);
 
-    const out: string[] = [];
-    const seen = new Set<string>();
-    for (const b of cleaned) {
-      if (!seen.has(b)) {
-        seen.add(b);
-        out.push(b);
-      }
+  const mapReduxToUIMessage = (m: any): MessageUI => {
+    // ✅ ديبج: طباعة بيانات المستخدم كاملة من الرسالة
+    if (DEBUG_USER) {
+      logSenderFromMessage(m, "MAP_MESSAGE_USER_DUMP");
     }
-    return out;
-  };
 
-  // لو pickSenderFromMessage بيرجع verificationType ضمّه هنا، وإلا ساعتها هيبقى ""
-  const extraBadge = verificationToBadge((picked as any)?.verificationType);
+    const backendType = String(m?.type || "text");
 
-  const mergedBadges = normalizeBadges([
-    ...(picked.activeBadges || []),
-    ...(extraBadge ? [extraBadge] : [])
-  ]);
+    const isSystem =
+      backendType === "system" ||
+      backendType === "announcement" ||
+      backendType === "join" ||
+      backendType === "leave" ||
+      backendType === "promotion" ||
+      backendType === "ban" ||
+      backendType === "role";
 
-  // اسم المستخدم للنظام/العرض
-  let systemUserName = String(picked.username || "").trim();
+    // ✅ استخراج المرسل من الرسالة نفسها (snapshot أولاً)
+    const picked = pickSenderFromMessage(m);
+    const senderId = picked.senderId;
 
-  if (!systemUserName && senderId) systemUserName = String(resolveUserNameById(senderId) || "").trim();
-  if (!systemUserName && senderId && myUserId && senderId === myUserId) systemUserName = myName;
-  if (!systemUserName) systemUserName = "مستخدم";
+    // ✅ دمج البادجات + (اختياري) اعتبار verificationType كبادج
+    const verificationToBadge = (verificationType?: string) => {
+      const v = String(verificationType || "").trim().toLowerCase();
+      if (!v || v === "none") return null;
+      // متوقع: blue | gold | business
+      return v;
+    };
 
-  // ✅ نصوص النظام
-  let systemText = String(m?.content || "");
+    const normalizeBadges = (badges?: string[]) => {
+      const arr = Array.isArray(badges) ? badges : [];
+      const cleaned = arr
+        .map((x) => String(x || "").trim().toLowerCase())
+        .filter(Boolean);
 
-  if (backendType === "join") {
-    systemText = `✅ ${systemUserName} Join`;
-  } else if (backendType === "leave") {
-    systemText = `🚪 ${systemUserName} Left`;
-  } else if (backendType === "promotion") {
-    const action = String(m?.action || m?.meta?.action || "");
-    const actor =
-      String(m?.actorName || m?.meta?.actorName || "").trim() || systemUserName || "مشرف";
-    const target = String(m?.targetName || m?.meta?.targetName || "").trim();
-    const roleRaw = String(m?.role || m?.meta?.role || "").trim();
+      const out: string[] = [];
+      const seen = new Set<string>();
+      for (const b of cleaned) {
+        if (!seen.has(b)) {
+          seen.add(b);
+          out.push(b);
+        }
+      }
+      return out;
+    };
 
-    const isRoleChange =
-      action === "role:set" ||
-      Boolean(
-        m?.actorName ||
+    // لو pickSenderFromMessage بيرجع verificationType ضمّه هنا، وإلا ساعتها هيبقى ""
+    const extraBadge = verificationToBadge((picked as any)?.verificationType);
+
+    const mergedBadges = normalizeBadges([
+      ...(picked.activeBadges || []),
+      ...(extraBadge ? [extraBadge] : [])
+    ]);
+
+    // اسم المستخدم للنظام/العرض
+    let systemUserName = String(picked.username || "").trim();
+
+    if (!systemUserName && senderId) systemUserName = String(resolveUserNameById(senderId) || "").trim();
+    if (!systemUserName && senderId && myUserId && senderId === myUserId) systemUserName = myName;
+    if (!systemUserName) systemUserName = "مستخدم";
+
+    // ✅ نصوص النظام
+    let systemText = String(m?.content || "");
+
+    if (backendType === "join") {
+      systemText = `✅ ${systemUserName} Join`;
+    } else if (backendType === "leave") {
+      systemText = `🚪 ${systemUserName} Left`;
+    } else if (backendType === "promotion") {
+      const action = String(m?.action || m?.meta?.action || "");
+      const actor =
+        String(m?.actorName || m?.meta?.actorName || "").trim() || systemUserName || "مشرف";
+      const target = String(m?.targetName || m?.meta?.targetName || "").trim();
+      const roleRaw = String(m?.role || m?.meta?.role || "").trim();
+
+      const isRoleChange =
+        action === "role:set" ||
+        Boolean(
+          m?.actorName ||
           m?.targetName ||
           m?.role ||
           m?.meta?.actorName ||
           m?.meta?.targetName ||
           m?.meta?.role
-      );
+        );
 
-    if (isRoleChange) {
-      const targetName = target || "مستخدم";
-      const roleAr = roleRaw ? normalizeRoleLabelAr(roleRaw) : "";
-      systemText = `⭐ تم ترقية ${targetName}${roleAr ? ` إلى ${roleAr}` : ""} بواسطة ${actor}`;
-    } else {
-      systemText = `⭐ تمت ترقية ${systemUserName}`;
+      if (isRoleChange) {
+        const targetName = target || "مستخدم";
+        const roleAr = roleRaw ? normalizeRoleLabelAr(roleRaw) : "";
+        systemText = `⭐ تم ترقية ${targetName}${roleAr ? ` إلى ${roleAr}` : ""} بواسطة ${actor}`;
+      } else {
+        systemText = `⭐ تمت ترقية ${systemUserName}`;
+      }
+    } else if (backendType === "ban") {
+      systemText = `⛔ تم حظر ${systemUserName}`;
+    } else if (backendType === "announcement") {
+      systemText = `📢 ${m?.content || ""}`;
+    } else if (backendType === "role") {
+      const actor = String(m?.actorName || systemUserName || "مشرف");
+      const target = String(m?.targetName || "مستخدم");
+      const r = normalizeRoleLabelAr(String(m?.role || ""));
+      systemText = `⭐ تم ترقية ${target}${r ? ` إلى ${r}` : ""} بواسطة ${actor}`;
     }
-  } else if (backendType === "ban") {
-    systemText = `⛔ تم حظر ${systemUserName}`;
-  } else if (backendType === "announcement") {
-    systemText = `📢 ${m?.content || ""}`;
-  } else if (backendType === "role") {
-    const actor = String(m?.actorName || systemUserName || "مشرف");
-    const target = String(m?.targetName || "مستخدم");
-    const r = normalizeRoleLabelAr(String(m?.role || ""));
-    systemText = `⭐ تم ترقية ${target}${r ? ` إلى ${r}` : ""} بواسطة ${actor}`;
-  }
 
-  // replyTo (اترك الموجود عندك، هذا مجرد placeholder آمن)
-  const uiReplyTo: MessageUI | undefined =
-    m?.replyTo && typeof m.replyTo === "object"
-      ? {
+    // replyTo (اترك الموجود عندك، هذا مجرد placeholder آمن)
+    const uiReplyTo: MessageUI | undefined =
+      m?.replyTo && typeof m.replyTo === "object"
+        ? {
           id: String(m.replyTo._id || "reply"),
           type: "text",
           text: String(m.replyTo.content || "Media message"),
@@ -1003,63 +1003,63 @@ const mapReduxToUIMessage = (m: any): MessageUI => {
           },
           time: ""
         }
+        : undefined;
+
+    // ✅ تحديد نوع رسالة UI
+    let uiType: MessageUI["type"] = "text";
+    if (isSystem) uiType = "system";
+    else if (backendType === "gift") uiType = "gift";
+    else if (backendType === "image") uiType = "image";
+    else if (backendType === "video") uiType = "video";
+    else if (backendType === "audio") uiType = "audio";
+    else if (backendType === "file") uiType = "file";
+
+    const time = new Date(m?.createdAt || Date.now()).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    // Reaction كما هو
+    const firstReactionEmoji =
+      Array.isArray(m?.reactions) && m.reactions.length ? String(m.reactions[0]?.emoji || "") : "";
+
+    const uiReaction = REACTIONS.includes(firstReactionEmoji as any)
+      ? (firstReactionEmoji as Reaction)
       : undefined;
 
-  // ✅ تحديد نوع رسالة UI
-  let uiType: MessageUI["type"] = "text";
-  if (isSystem) uiType = "system";
-  else if (backendType === "gift") uiType = "gift";
-  else if (backendType === "image") uiType = "image";
-  else if (backendType === "video") uiType = "video";
-  else if (backendType === "audio") uiType = "audio";
-  else if (backendType === "file") uiType = "file";
+    // ✅ role الخاص بالغرفة من usersMap إن وجد
+    const roomRole = (usersMap.get(senderId)?.role as RoomRole | undefined);
 
-  const time = new Date(m?.createdAt || Date.now()).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+    // ✅ senderUI يعتمد على snapshot أولاً
+    const senderUI: UserUI = {
+      id: String(senderId || "unknown"),
+      name: picked.username || (senderId && senderId === myUserId ? myName : "User"),
+      avatar: picked.avatar || (senderId && senderId === myUserId ? myAvatar : ""),
+      role: roomRole,
+      snapshotRole: picked.snapshotRole,
+      activeBadges: mergedBadges // ✅ هنا المهم: دمج + تنظيف
+    };
 
-  // Reaction كما هو
-  const firstReactionEmoji =
-    Array.isArray(m?.reactions) && m.reactions.length ? String(m.reactions[0]?.emoji || "") : "";
+    // ✅ النص النهائي
+    const messageText = isSystem ? systemText : String(m?.content || "");
 
-  const uiReaction = REACTIONS.includes(firstReactionEmoji as any)
-    ? (firstReactionEmoji as Reaction)
-    : undefined;
+    return {
+      id: String(m?._id),
+      type: uiType,
+      systemType: isSystem ? (backendType as any) : undefined,
+      text: messageText,
+      uri: m?.media?.url,
 
-  // ✅ role الخاص بالغرفة من usersMap إن وجد
-  const roomRole = (usersMap.get(senderId)?.role as RoomRole | undefined);
+      // ✅ announcement نظهر فيه sender
+      // ✅ باقي system نخفي sender
+      sender: backendType === "announcement" ? senderUI : isSystem ? undefined : senderUI,
 
-  // ✅ senderUI يعتمد على snapshot أولاً
-  const senderUI: UserUI = {
-    id: String(senderId || "unknown"),
-    name: picked.username || (senderId && senderId === myUserId ? myName : "User"),
-    avatar: picked.avatar || (senderId && senderId === myUserId ? myAvatar : ""),
-    role: roomRole,
-    snapshotRole: picked.snapshotRole,
-    activeBadges: mergedBadges // ✅ هنا المهم: دمج + تنظيف
+      replyTo: uiReplyTo,
+      reaction: uiReaction,
+      deletedForEveryone: Boolean(m?.deletedForEveryone),
+      time
+    };
   };
-
-  // ✅ النص النهائي
-  const messageText = isSystem ? systemText : String(m?.content || "");
-
-  return {
-    id: String(m?._id),
-    type: uiType,
-    systemType: isSystem ? (backendType as any) : undefined,
-    text: messageText,
-    uri: m?.media?.url,
-
-    // ✅ announcement نظهر فيه sender
-    // ✅ باقي system نخفي sender
-    sender: backendType === "announcement" ? senderUI : isSystem ? undefined : senderUI,
-
-    replyTo: uiReplyTo,
-    reaction: uiReaction,
-    deletedForEveryone: Boolean(m?.deletedForEveryone),
-    time
-  };
-};
   /* ✅ ضع latestPinned هنا */
   const latestPinned = useMemo(() => {
     const list = reduxMessages || [];
@@ -1551,6 +1551,13 @@ const mapReduxToUIMessage = (m: any): MessageUI => {
       Alert.alert("Error", e?.message || String(e) || "Boost failed");
     }
   };
+  const goDetails = () => {
+    router.push({
+      pathname: "/room-details",
+      params: { roomId: roomId }
+    });
+  };
+
   /* ================= RENDER ================= */
 
   return (
@@ -1567,12 +1574,12 @@ const mapReduxToUIMessage = (m: any): MessageUI => {
               <Ionicons name="arrow-back" size={22} />
             </TouchableOpacity>
 
-            <Image
-              source={{
-                uri: roomAvatar || "https://i.pravatar.cc/150?img=12"
-              }}
-              style={styles.avatar}
-            />
+            <TouchableOpacity activeOpacity={0.85} onPress={goDetails}>
+              <Image
+                source={{ uri: roomAvatar || "https://i.pravatar.cc/150?img=12" }}
+                style={styles.avatar}
+              />
+            </TouchableOpacity>
 
             <View style={{ flex: 1 }}>
               <Text style={styles.name} numberOfLines={1}>
@@ -2184,12 +2191,12 @@ const bubbleStyles = StyleSheet.create({
   nameWrap: {
     marginBottom: 6
   },
- nameRow: {
-  flexDirection: "row-reverse",
-  alignItems: "center",
-  gap: 6,
-  flexWrap: "wrap"
-},
+  nameRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap"
+  },
   roleStar: {
     fontSize: 12,
     fontWeight: "900"

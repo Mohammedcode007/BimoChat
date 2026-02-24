@@ -6,7 +6,15 @@ import { RootState } from "../store";
 /* =====================================================
    TYPES
 ===================================================== */
-
+export type GiftPayload = {
+  key: string;          // gift_rose / boost_rocket ...
+  name: string;         // rose / boost
+  value: number;        // السعر/المستوى...
+  icon?: string;        // 🌹🔥🚀...
+  targetId?: string;    // المستخدم المستهدف
+  targetName?: string;  // اسم المستهدف (سهل للعرض)
+  animation?: string;   // rocket / burst / rain ...
+};
 
 export type RoomDetails = {
   room: {
@@ -147,6 +155,7 @@ export type RoomMessageSender = RoomUser | string | null;
 export type RoomMessage = {
   _id: string;
   room: string;
+  gift?: GiftPayload;
 
   sender?: RoomMessageSender;
 senderSnapshot?: UserPublicSnapshot;
@@ -168,11 +177,7 @@ senderSnapshot?: UserPublicSnapshot;
     mimeType?: string;
   };
 
-  gift?: {
-    name: string;
-    value: number;
-    animation?: string;
-  };
+ 
 
   isPinned?: boolean;
   isHighlighted?: boolean;

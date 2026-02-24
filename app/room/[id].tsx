@@ -13,10 +13,7 @@ import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import LottieView from "lottie-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import RenderHTML from "react-native-render-html";
-
 import {
   Alert,
   Animated,
@@ -34,6 +31,7 @@ import {
   View
 } from "react-native";
 import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
+import RenderHTML from "react-native-render-html";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // ✅ Redux
@@ -57,6 +55,7 @@ import {
 } from "@/redux/slices/room.slice";
 
 // ✅ Socket helpers
+import { RocketBoostOverlay } from "@/components/RocketBoostOverlay";
 import { boostRoom } from "@/redux/slices/roomControl.slice";
 import {
   deleteRoomSocketMessage,
@@ -84,7 +83,268 @@ const BADGE_META: Record<BadgeKey, { label: string; icon?: string; bg: string; f
   vip: { label: "VIP", icon: "💎", bg: "#EDE9FE", fg: "#5B21B6" },
   pro: { label: "PRO", icon: "⚡", bg: "#DCFCE7", fg: "#166534" },
 };
+type GiftItem = {
+  key: string;
+  title: string;
+  icon: string;      // emoji مؤقتًا
+  price?: number;    // اختياري
+};
 
+const TEMP_GIFTS: GiftItem[] = [
+  { key: "gift_rose", title: "Rose", icon: "🌹", price: 10 },
+  { key: "gift_like", title: "Like", icon: "👍", price: 5 },
+  { key: "gift_fire", title: "Fire", icon: "🔥", price: 15 },
+  { key: "gift_crown", title: "Crown", icon: "👑", price: 25 },
+  { key: "gift_rocket", title: "Rocket", icon: "🚀", price: 50 },
+];
+const GIFT_META: Record<string, { icon: string; count: number }> = {
+  gift_rose: { icon: "🌹", count: 40 },
+  gift_like: { icon: "👍", count: 55 },
+  gift_fire: { icon: "🔥", count: 60 },
+  gift_crown: { icon: "👑", count: 35 },
+  gift_rocket: { icon: "🚀", count: 45 },
+
+  // لو عندك boost_rocket كـ giftKey:
+  boost_rocket: { icon: "🚀", count: 55 },
+};
+function GiftPickerModal({
+  visible,
+  onClose,
+  target,
+  onPick
+}: {
+  visible: boolean;
+  onClose: () => void;
+  target?: UserUI | null;
+  onPick: (gift: { key: string }) => void; // مؤقت
+}) {
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" }} onPress={onClose}>
+        <Pressable
+          style={{
+            backgroundColor: "#FFF",
+            borderTopLeftRadius: 18,
+            borderTopRightRadius: 18,
+            paddingHorizontal: 14,
+            paddingTop: 12,
+            paddingBottom: 18
+          }}
+          onPress={() => { }}
+        >
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View style={{ flex: 1, paddingRight: 10 }}>
+              <Text style={{ fontSize: 16, fontWeight: "900", color: "#111827" }}>
+                Send a Gift
+              </Text>
+              <Text style={{ marginTop: 4, fontSize: 12, color: "#6B7280" }} numberOfLines={1}>
+                To: {target?.name || "User"}
+              </Text>
+            </View>
+
+            <TouchableOpacity onPress={onClose} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="close" size={20} color="#111827" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 1, backgroundColor: "#E5E7EB", marginVertical: 12 }} />
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+            {TEMP_GIFTS.map((g) => (
+              <TouchableOpacity
+                key={g.key}
+                activeOpacity={0.85}
+                onPress={() => onPick({ key: g.key })}
+                style={{
+                  width: "30%",
+                  minWidth: 95,
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#F9FAFB",
+                  borderRadius: 14,
+                  paddingVertical: 12,
+                  alignItems: "center"
+                }}
+              >
+                <Text style={{ fontSize: 24 }}>{g.icon}</Text>
+                <Text style={{ marginTop: 6, fontSize: 12, fontWeight: "800", color: "#111827" }} numberOfLines={1}>
+                  {g.title}
+                </Text>
+                {!!g.price && (
+                  <Text style={{ marginTop: 4, fontSize: 11, color: "#6B7280", fontWeight: "700" }}>
+                    {g.price} Coinz
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={{ marginTop: 12, fontSize: 12, color: "#6B7280", lineHeight: 18 }}>
+            (مؤقتًا) اختيار الهدية فقط بدون إرسال.
+          </Text>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+function GiftBurstOverlay({
+  visible,
+  icon,
+  count = 45,
+  fromName,
+  toName,
+  durationMs = 2600,
+  onDone
+}: {
+  visible: boolean;
+  icon: string;
+  count?: number;
+  fromName?: string;
+  toName?: string;
+  durationMs?: number;
+  onDone: () => void;
+}) {
+  const { width, height } = useWindowDimensions();
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  // لكل عنصر: X + translateY + scale + rotate بسيط
+  const particles = useRef(
+    Array.from({ length: Math.max(12, Math.min(count, 90)) }).map(() => ({
+      x: Math.random(),
+      delay: Math.floor(Math.random() * 260),
+      dur: 1400 + Math.floor(Math.random() * 900),
+      startY: 0.25 + Math.random() * 0.6,
+      endY: 0.05 + Math.random() * 0.25,
+      size: 18 + Math.floor(Math.random() * 18),
+      spin: (Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 25),
+      t: new Animated.Value(0)
+    }))
+  ).current;
+
+  useEffect(() => {
+    if (!visible) return;
+
+    opacity.setValue(0);
+    particles.forEach((p) => p.t.setValue(0));
+
+    // Fade in
+    Animated.timing(opacity, { toValue: 1, duration: 160, useNativeDriver: true }).start();
+
+    // Play particles
+    const anims = particles.map((p) =>
+      Animated.timing(p.t, {
+        toValue: 1,
+        duration: p.dur,
+        delay: p.delay,
+        useNativeDriver: true
+      })
+    );
+
+    Animated.parallel(anims).start();
+
+    // Fade out near the end, then done
+    const fadeOutAt = Math.max(500, durationMs - 450);
+    const fadeTimer = setTimeout(() => {
+      Animated.timing(opacity, { toValue: 0, duration: 240, useNativeDriver: true }).start();
+    }, fadeOutAt);
+
+    const doneTimer = setTimeout(() => {
+      onDone();
+    }, durationMs);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(doneTimer);
+    };
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+<View
+  pointerEvents="none"
+  style={{
+    position: "absolute",
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "transparent", // ✅ شفافة بالكامل
+    alignItems: "center",
+    justifyContent: "center"
+  }}
+>
+      <Animated.View style={{ opacity, width: "100%", height: "100%" }}>
+        {/* عنوان صغير عصري */}
+        <View
+          style={{
+            position: "absolute",
+            top: 70,
+            left: 16,
+            right: 16,
+            alignItems: "center"
+          }}
+        >
+          <View
+            style={{
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderRadius: 999,
+              backgroundColor: "rgba(255,255,255,0.08)",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.12)"
+            }}
+          >
+            <Text style={{ color: "#FFF", fontWeight: "900", fontSize: 14 }}>
+              {fromName ? `${fromName} → ` : ""}{toName ? toName : "Someone"}
+            </Text>
+          </View>
+        </View>
+
+        {/* العناصر المتحركة */}
+        {particles.map((p, idx) => {
+          const xPx = 12 + p.x * (width - 24);
+          const startY = height * p.startY;
+          const endY = height * p.endY;
+
+          const translateY = p.t.interpolate({
+            inputRange: [0, 1],
+            outputRange: [startY, endY]
+          });
+
+          const scale = p.t.interpolate({
+            inputRange: [0, 0.25, 1],
+            outputRange: [0.7, 1.1, 0.95]
+          });
+
+          const rotate = p.t.interpolate({
+            inputRange: [0, 1],
+            outputRange: [`${-p.spin}deg`, `${p.spin}deg`]
+          });
+
+          const particleOpacity = p.t.interpolate({
+            inputRange: [0, 0.15, 0.9, 1],
+            outputRange: [0, 1, 1, 0]
+          });
+
+          return (
+            <Animated.View
+              key={idx}
+              style={{
+                position: "absolute",
+                left: xPx,
+                transform: [{ translateY }, { scale }, { rotate }],
+                opacity: particleOpacity
+              }}
+            >
+              <Text style={{ fontSize: p.size, color: "#FFF" }}>{icon}</Text>
+            </Animated.View>
+          );
+        })}
+      </Animated.View>
+    </View>
+  );
+}
 // ✅ تنظيف + توحيد + إزالة تكرار
 const normalizeBadges = (badges?: string[]) => {
   const arr = Array.isArray(badges) ? badges : [];
@@ -140,7 +400,13 @@ type MessageUI = {
 
   replyTo?: MessageUI;
   reaction?: Reaction;
-
+  gift?: {
+    key: string;            // gift_rose ...
+    icon?: string;          // 🌹 ...
+    targetId?: string;      // userId
+    targetName?: string;    // username
+    count?: number;         // كم عنصر يظهر في الانيميشن
+  };
   deletedForEveryone?: boolean;
 };
 
@@ -259,6 +525,7 @@ function MessageItem({
   playingId,
   progressAnim,
   giftDone,
+  onAvatarLongPress,
   onGiftDone
 }: {
   item: MessageUI;
@@ -271,6 +538,7 @@ function MessageItem({
   progressAnim: Animated.Value;
   giftDone?: boolean;
   onGiftDone?: () => void;
+  onAvatarLongPress: (u?: UserUI) => void;
 }) {
   const { width } = useWindowDimensions();
 
@@ -321,16 +589,19 @@ function MessageItem({
   return (
     <View style={[bubbleStyles.row, isMe ? bubbleStyles.rowMe : bubbleStyles.rowOther]}>
       {!isMe && (
-        <View style={bubbleStyles.avatarWrapLeft}>
+        <Pressable
+          style={bubbleStyles.avatarWrapLeft}
+          onLongPress={() => onAvatarLongPress(item.sender)}
+          delayLongPress={350}
+        >
           <Image
             source={{ uri: item.sender?.avatar || "https://i.pravatar.cc/150?img=12" }}
             style={bubbleStyles.avatar}
           />
-
           {shouldShowStar(senderRole) && (
             <Text style={[bubbleStyles.avatarStar, { color: starColor }]}>★</Text>
           )}
-        </View>
+        </Pressable>
       )}
       <TouchableOpacity
         activeOpacity={0.85}
@@ -367,22 +638,28 @@ function MessageItem({
         ) : (
           <>
             {item.type === "text" && <Text style={bubbleStyles.msgText}>{item.text}</Text>}
-            {item.type === "gift" ? (
-              (() => {
-                const lottieSrc = getGiftLottieSource(item.text);
-                if (!lottieSrc) return <Text style={bubbleStyles.msgTextMuted}>🎁 Gift</Text>;
+          {item.type === "gift" ? (
+  (() => {
+    const key = item.gift?.key || "";
+    const senderName = item.sender?.name || "Someone";
 
-                // ✅ بعد انتهاء Fullscreen (giftDone=true) اعرض تمثيل ثابت داخل الشات
-                if (giftDone) {
-                  return <Text style={bubbleStyles.msgTextMuted}>🚀 Boost</Text>;
-                }
+    // ✅ حالة Boost
+    if (key.startsWith("boost")) {
+      return (
+        <Text style={[bubbleStyles.msgTextMuted, { fontWeight: "800", color: "#F59E0B" }]}>
+          🚀 {senderName} Boosted the Room
+        </Text>
+      );
+    }
 
-                // ✅ قبل ما ينتهي (أثناء 5 ثواني) ممكن:
-                // - تعرض نص بسيط بدل تكرار الـ lottie داخل الفقاعة
-                // - أو تعرض lottie صغير داخل الفقاعة
-                return <Text style={bubbleStyles.msgTextMuted}>🎁 Boosting…</Text>;
-              })()
-            ) : null}
+    // ✅ باقي الهدايا العادية
+    return (
+      <Text style={bubbleStyles.msgTextMuted}>
+        🎁 {senderName} → {item.gift?.targetName || "Someone"} {item.gift?.icon || "🎁"}
+      </Text>
+    );
+  })()
+) : null}
             {item.type === "image" && item.uri ? (
               <TouchableOpacity activeOpacity={0.9} onPress={() => onPressImage(item.uri!)}>
                 <Image source={{ uri: item.uri }} style={bubbleStyles.media} />
@@ -458,16 +735,19 @@ function MessageItem({
         {/* <Text style={[bubbleStyles.time, { color: isMe ? "#E5E7EB" : COLORS.time }]}>{item.time}</Text> */}
       </TouchableOpacity>
       {isMe && (
-        <View style={bubbleStyles.avatarWrapRight}>
+        <Pressable
+          style={bubbleStyles.avatarWrapRight}
+          onLongPress={() => onAvatarLongPress(item.sender)}
+          delayLongPress={350}
+        >
           <Image
             source={{ uri: item.sender?.avatar || "https://i.pravatar.cc/150?img=12" }}
             style={bubbleStyles.avatar}
           />
-
           {shouldShowStar(senderRole) && (
             <Text style={[bubbleStyles.avatarStarRight, { color: starColor }]}>★</Text>
           )}
-        </View>
+        </Pressable>
       )}
     </View>
   );
@@ -629,7 +909,10 @@ export default function ChatScreen() {
   const roomAvatar = useAppSelector((state) => selectRoomAvatarById(state, roomId));
   // ✅ Active online count from slice (socket + stats)
   const activeCount = useAppSelector((state) => selectRoomActiveCount(state, roomId));
-
+  const [giftPicker, setGiftPicker] = useState<{
+    visible: boolean;
+    target?: UserUI | null;
+  }>({ visible: false, target: null });
   // ✅ دوري في الغرفة
   const myRole = useMemo<UserUI["role"]>(() => {
     const me = (roomUsers || []).find((u: any) => String(u?._id) === myUserId);
@@ -665,7 +948,19 @@ export default function ChatScreen() {
     visible: boolean;
     messageId: string | null;
     giftKey: string | null;
-  }>({ visible: false, messageId: null, giftKey: null });
+    icon: string;
+    count: number;
+    fromName?: string;
+    toName?: string;
+  }>({
+    visible: false,
+    messageId: null,
+    giftKey: null,
+    icon: "🎁",
+    count: 45,
+    fromName: undefined,
+    toName: undefined
+  });
 
   const giftOverlayTimerRef = useRef<any>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
@@ -1042,7 +1337,24 @@ export default function ChatScreen() {
 
     // ✅ النص النهائي
     const messageText = isSystem ? systemText : String(m?.content || "");
+ const giftPayload = m?.gift || m?.meta?.gift || null;
 
+// ✅ المفتاح الحقيقي للهديّة: من gift.key أولاً ثم fallback للـ content
+const giftKey =
+  backendType === "gift"
+    ? String(giftPayload?.key || m?.content || "")
+    : "";
+
+    const giftIcon =
+      String(giftPayload?.icon || "") ||
+      (GIFT_META[giftKey]?.icon || "🎁");
+
+    const giftCount =
+      Number(giftPayload?.count || 0) ||
+      (GIFT_META[giftKey]?.count || 45);
+
+    const giftTargetId = giftPayload?.targetId ? String(giftPayload.targetId) : undefined;
+    const giftTargetName = giftPayload?.targetName ? String(giftPayload.targetName) : undefined;
     return {
       id: String(m?._id),
       type: uiType,
@@ -1053,7 +1365,15 @@ export default function ChatScreen() {
       // ✅ announcement نظهر فيه sender
       // ✅ باقي system نخفي sender
       sender: backendType === "announcement" ? senderUI : isSystem ? undefined : senderUI,
-
+      gift: uiType === "gift"
+        ? {
+          key: giftKey,
+          icon: giftIcon,
+          count: giftCount,
+          targetId: giftTargetId,
+          targetName: giftTargetName
+        }
+        : undefined,
       replyTo: uiReplyTo,
       reaction: uiReaction,
       deletedForEveryone: Boolean(m?.deletedForEveryone),
@@ -1128,40 +1448,32 @@ export default function ChatScreen() {
 
   /* ================= AUDIO ================= */
   useEffect(() => {
-    // ✅ ابحث عن أحدث رسالة gift لم يتم التعامل معها بعد
     const latestGift = [...uiMessages].find(
       (m) => m.type === "gift" && !giftDoneById[m.id] && !m.deletedForEveryone
     );
 
     if (!latestGift) return;
 
-    // ✅ لو Overlay شغال بالفعل لنفس الرسالة لا تعيد التشغيل
     if (giftOverlay.visible && giftOverlay.messageId === latestGift.id) return;
 
-    // ✅ جهّز Fullscreen
-    const giftKey = String(latestGift.text || "");
-    if (!giftKey) {
-      // حتى لو giftKey ناقص، اعتبرها "تمت" حتى لا تتكرر
-      markGiftDone(latestGift.id);
-      return;
-    }
+    const key = String(latestGift.gift?.key || latestGift.text || "");
+    const meta = GIFT_META[key] || { icon: "🎁", count: 45 };
 
-    // افتح Overlay
-    setGiftOverlay({ visible: true, messageId: latestGift.id, giftKey });
+    const fromName = latestGift.sender?.name || "Someone";
+const isBoost = key.startsWith("boost");
 
-    // اقفل أي تايمر سابق
-    if (giftOverlayTimerRef.current) clearTimeout(giftOverlayTimerRef.current);
+const toName = isBoost ? "Room" : (latestGift.gift?.targetName || "Someone");
+    setGiftOverlay({
+      visible: true,
+      messageId: latestGift.id,
+      giftKey: key,
+      icon: latestGift.gift?.icon || meta.icon,
+      count: latestGift.gift?.count || meta.count,
+      fromName,
+      toName
+    });
 
-    // ✅ بعد 5 ثواني: أخفِ الـ overlay وعلّم الرسالة كـ done
-    giftOverlayTimerRef.current = setTimeout(() => {
-      setGiftOverlay({ visible: false, messageId: null, giftKey: null });
-      markGiftDone(latestGift.id);
-    }, 6000);
-
-    return () => {
-      // cleanup عند أي re-render
-    };
-    // ملاحظة: نراقب uiMessages و giftDoneById
+    // لا تحتاج تايمر هنا لو استخدمت onDone داخل GiftBurstOverlay
   }, [uiMessages, giftDoneById, giftOverlay.visible, giftOverlay.messageId]);
   const togglePlay = async (uri: string, id: string) => {
     if (recording) return;
@@ -1535,14 +1847,21 @@ export default function ChatScreen() {
       }
 
       // ✅ الآن فقط: أرسل Gift
-      await dispatch(
-        sendRoomMessage({
-          roomId,
-          type: "gift",
-          content: "boost_rocket",
-          gift: { name: "boost", value: level, animation: "rocket" }
-        } as any)
-      ).unwrap();
+await dispatch(
+  sendRoomMessage({
+    roomId,
+    type: "gift",
+    content: "boost_rocket", // fallback فقط
+    gift: {
+      key: "boost_rocket",
+      name: "boost",
+      value: level,
+      icon: "🚀",
+      animation: "rocket"
+      // ✅ لا target في boost
+    }
+  })
+).unwrap();
 
       const content = `🚀 <b>${myName}</b> boosted the room!`;
       await dispatch(sendRoomMessage({ roomId, content, type: "announcement" })).unwrap();
@@ -1765,6 +2084,10 @@ export default function ChatScreen() {
                 item={item}
                 isMe={isMe}
                 showName={showName}
+                onAvatarLongPress={(u) => {
+                  if (!u?.id) return;
+                  setGiftPicker({ visible: true, target: u });
+                }}
                 onPressImage={(payload) => {
                   if (String(payload).startsWith("gift:")) {
                     // لم نعد نفتح صورة، لكن يمكنك ترك هذا إن احتجته لاحقًا
@@ -2072,34 +2395,89 @@ export default function ChatScreen() {
           </Pressable>
         </Modal>
         {/* ================= GIFT FULLSCREEN OVERLAY ================= */}
-        <Modal
-          transparent
-          visible={giftOverlay.visible}
-          animationType="fade"
-          onRequestClose={() => {
-            // اختياري: لا تسمح بالإغلاق اليدوي أو اسمح
-            // هنا سنسمح بالإغلاق اليدوي مع إنهاء المؤقت
-            if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
-            if (giftOverlayTimerRef.current) clearTimeout(giftOverlayTimerRef.current);
-            setGiftOverlay({ visible: false, messageId: null, giftKey: null });
-          }}
-        >
-          <View style={styles.giftFullOverlay}>
-            {(() => {
-              const src = getGiftLottieSource(giftOverlay.giftKey || "");
-              if (!src) return null;
+  {String(giftOverlay.giftKey || "").startsWith("boost") ? (
+  <RocketBoostOverlay
+    visible={giftOverlay.visible}
+    durationMs={2800}
+    onDone={() => {
+      if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
+      setGiftOverlay({
+        visible: false,
+        messageId: null,
+        giftKey: null,
+        icon: "🎁",
+        count: 45,
+      });
+    }}
+  />
+) : (
+  <GiftBurstOverlay
+    visible={giftOverlay.visible}
+    icon={giftOverlay.icon}
+    count={giftOverlay.count}
+    fromName={giftOverlay.fromName}
+    toName={giftOverlay.toName}
+    durationMs={2600}
+    onDone={() => {
+      if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
+      setGiftOverlay({
+        visible: false,
+        messageId: null,
+        giftKey: null,
+        icon: "🎁",
+        count: 45,
+      });
+    }}
+  />
+)}
+        <GiftPickerModal
+          visible={giftPicker.visible}
+          target={giftPicker.target}
+          onClose={() => setGiftPicker({ visible: false, target: null })}
+          onPick={async (g) => {
+            try {
+              const target = giftPicker.target;
+              setGiftPicker({ visible: false, target: null });
 
-              return (
-                <LottieView
-                  source={src}
-                  autoPlay
-                  loop
-                  style={styles.giftFullLottie}
-                />
-              );
-            })()}
-          </View>
-        </Modal>
+              if (!roomId) return;
+           const isBoost = String(g.key || "").startsWith("boost");
+
+// ✅ الهدايا تحتاج target - البوست لا يحتاج
+if (!isBoost && !target?.id) {
+  Alert.alert("Error", "Target user not found");
+  return;
+}
+
+              // ✅ استخدم meta لو موجود
+              const meta = GIFT_META[g.key] || { icon: "🎁", count: 45 };
+
+              // ✅ أرسل Gift Message (يفضل أن السيرفر يحفظ targetId/targetName داخل gift)
+        await dispatch(
+  sendRoomMessage({
+    roomId,
+    type: "gift",
+    content: g.key,
+    gift: {
+      key: g.key,
+      icon: meta.icon,
+      targetId: isBoost ? undefined : target!.id,
+      targetName: isBoost ? undefined : target!.name,
+      count: meta.count
+    }
+  } as any)
+).unwrap();
+
+              // (اختياري) إعلان system/announcement
+const toLabel = isBoost ? "Room" : (target?.name || "Someone");
+
+const announce = `🎁 <b>${myName}</b> sent ${meta.icon} to <b>${toLabel}</b>`;
+await dispatch(sendRoomMessage({ roomId, content: announce, type: "announcement" })).unwrap();
+              await dispatch(sendRoomMessage({ roomId, content: announce, type: "announcement" })).unwrap();
+            } catch (e: any) {
+              Alert.alert("Error", e?.message || "Failed to send gift");
+            }
+          }}
+        />
       </SafeAreaView>
     </KeyboardAvoidingView>
   );

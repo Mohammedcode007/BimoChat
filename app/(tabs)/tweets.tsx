@@ -62,7 +62,95 @@ const renderTweetText = (text: string) => {
     );
   });
 };
+type BadgeKey = string;
 
+const BADGE_META: Record<
+  BadgeKey,
+  { label?: string; iconType?: "emoji" | "ion"; icon?: string; bg: string; fg: string }
+> = {
+  gold: { label: "GOLD", iconType: "emoji", icon: "🏅", bg: "#FEF3C7", fg: "#92400E" },
+  blue: { label: "", iconType: "ion", icon: "checkmark-circle", bg: "transparent", fg: "#1DA1F2" },
+  business: { label: "BUSINESS", iconType: "emoji", icon: "🏢", bg: "#E5E7EB", fg: "#111827" },
+
+  vip: { label: "VIP", iconType: "emoji", icon: "💎", bg: "#EDE9FE", fg: "#5B21B6" },
+  pro: { label: "PRO", iconType: "emoji", icon: "⚡", bg: "#DCFCE7", fg: "#166534" },
+};
+
+function UserBadges({ author }: { author: any }) {
+  // ✅ أولوية العرض: display* ثم activeCustomization ثم badges
+  const badges: string[] =
+    author?.displayBadges ??
+    author?.activeCustomization?.badges ??
+    author?.badges ??
+    [];
+
+  const verificationType: string =
+    author?.displayVerificationType ??
+    author?.activeCustomization?.verificationType ??
+    author?.verificationType ??
+    "none";
+
+  // ✅ دمج verificationType كبادج (لو ليس none)
+  const merged: string[] = [
+    ...(verificationType && verificationType !== "none" ? [verificationType] : []),
+    ...badges,
+  ];
+
+  // ✅ إزالة التكرار + فلترة غير المعروف
+  const unique = Array.from(new Set(merged)).filter((k) => BADGE_META[k]);
+
+  if (!unique.length) return null;
+
+  return (
+    <View style={styles.badgesWrap}>
+      {unique.map((key) => {
+        const meta = BADGE_META[key];
+
+        // 🔵 Blue verification: أيقونة فقط بدون خلفية
+        if (key === "blue") {
+          return (
+            <Ionicons
+              key={key}
+              name={meta.icon as any}
+              size={14}
+              color={meta.fg}
+              style={{ marginLeft: 6 }}
+            />
+          );
+        }
+
+        return (
+          <View
+            key={key}
+            style={[
+              styles.badgePill,
+              { backgroundColor: meta.bg }
+            ]}
+          >
+            {meta.iconType === "ion" && meta.icon ? (
+              <Ionicons
+                name={meta.icon as any}
+                size={12}
+                color={meta.fg}
+                style={{ marginRight: meta.label ? 4 : 0 }}
+              />
+            ) : meta.icon ? (
+              <Text style={{ marginRight: meta.label ? 4 : 0 }}>
+                {meta.icon}
+              </Text>
+            ) : null}
+
+            {meta.label ? (
+              <Text style={[styles.badgeText, { color: meta.fg }]}>
+                {meta.label}
+              </Text>
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 export default function TweetsScreen() {
 
   const dispatch = useDispatch<AppDispatch>();
@@ -274,17 +362,20 @@ export default function TweetsScreen() {
                   <View style={styles.row}>
 
                     <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={styles.name}>
-                          {item.author.username}
-                        </Text>
+                 <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+  <Text style={styles.name}>
+    {item.author.username}
+  </Text>
 
-                        <Text style={styles.dot}> • </Text>
+  {/* ✅ البادجات بجانب الاسم */}
+  <UserBadges author={item.author} />
 
-                        <Text style={styles.time}>
-                          {timeAgo(item.createdAt)}
-                        </Text>
-                      </View>
+  <Text style={styles.dot}> • </Text>
+
+  <Text style={styles.time}>
+    {timeAgo(item.createdAt)}
+  </Text>
+</View>
 
                       <Text style={styles.username}>
                         {item.author.atUsername}
@@ -695,7 +786,25 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
   },
+badgesWrap: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginLeft: 6,
+},
 
+badgePill: {
+  flexDirection: "row",
+  alignItems: "center",
+  paddingHorizontal: 6,
+  paddingVertical: 2,
+  borderRadius: 999,
+  marginLeft: 6,
+},
+
+badgeText: {
+  fontSize: 10,
+  fontWeight: "700",
+},
   deleteBtn: {
     backgroundColor: '#EF4444',
     justifyContent: 'center',

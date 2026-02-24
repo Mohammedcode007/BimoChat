@@ -3,8 +3,11 @@
 import { Colors } from "@/constants/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Animated,
+  Easing,
   FlatList,
   Image,
   Modal,
@@ -21,6 +24,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 
 import {
   createRoom as createRoomThunk,
+  enterRoomDirect,
   fetchRoomsByType,
   joinRoomAndEnter,
   searchRooms as searchRoomsThunk,
@@ -29,7 +33,6 @@ import {
   selectRoomLoadingRooms,
   selectRooms
 } from "@/redux/slices/room.slice";
-
 
 type RoomUI = {
   id: string;
@@ -45,14 +48,18 @@ type RoomUI = {
   isVoice?: boolean;
   isVerified?: boolean;
   isTrending?: boolean;
+
+  // ✅ NEW
+  isActive?: boolean; // هل المستخدم داخل الغرفة حاليًا؟
 };
 
 const PAGE_SIZE = 30;
 
-const TABS = ["All", "Trending", "VIP", "Voice", "Private"] as const;
+// ✅ NEW TAB
+const TABS = ["All", "Active", "Trending", "VIP", "Private"] as const;
 type TabType = (typeof TABS)[number];
 
-const Badge = ({
+const Badge = memo(function Badge({
   icon,
   label,
   color
@@ -60,12 +67,14 @@ const Badge = ({
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   color: string;
-}) => (
-  <View style={[styles.badge, { borderColor: color }]}>
-    <Ionicons name={icon} size={12} color={color} />
-    <Text style={[styles.badgeText, { color }]}>{label}</Text>
-  </View>
-);
+}) {
+  return (
+    <View style={[styles.badge, { borderColor: color }]}>
+      <Ionicons name={icon} size={12} color={color} />
+      <Text style={[styles.badgeText, { color }]}>{label}</Text>
+    </View>
+  );
+});
 
 const mapRoomToUI = (r: any): RoomUI => {
   const id = r._id || r.id;
@@ -89,31 +98,124 @@ const mapRoomToUI = (r: any): RoomUI => {
     isPrivate: isPrivate, // ✅ private فقط
     isVoice: Boolean(r.isVoice || (typeof r.maxVoiceSeats === "number" && r.maxVoiceSeats > 0)),
     isVerified: Boolean(r.isVerified),
-    isTrending: Boolean(r.isTrending || (typeof r.boostLevel === "number" && r.boostLevel > 0))
+    isTrending: Boolean(r.isTrending || (typeof r.boostLevel === "number" && r.boostLevel > 0)),
+
+    // ✅ NEW: يعتمد على الباك
+    isActive: Boolean(r.isActive)
   };
 };
 
 /* =====================================================
-   ✅ Room Card (Component مستقل) — هنا نستخدم Hooks بأمان
+   ✅ Shimmer Skeleton (بدون مكتبات)
 ===================================================== */
-function RoomCard({
+function ShimmerBar({ style }: { style?: any }) {
+  const x = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(x, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.linear,
+        useNativeDriver: true
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [x]);
+
+  const translateX = x.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-120, 240]
+  });
+
+  return (
+    <View style={[styles.shimmerBase, style]}>
+      <Animated.View
+        style={[
+          styles.shimmerHighlight,
+          {
+            transform: [{ translateX }]
+          }
+        ]}
+      />
+    </View>
+  );
+}
+
+const SkeletonRoomCard = memo(function SkeletonRoomCard() {
+  return (
+    <View style={styles.skeletonCard}>
+      <View style={styles.skeletonImage} />
+      <View style={{ flex: 1 }}>
+        <ShimmerBar style={{ height: 14, width: "70%", borderRadius: 8 }} />
+        <View style={{ height: 8 }} />
+        <ShimmerBar style={{ height: 12, width: "50%", borderRadius: 8 }} />
+        <View style={{ height: 10 }} />
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+          <ShimmerBar style={{ height: 18, width: 76, borderRadius: 8 }} />
+          <ShimmerBar style={{ height: 18, width: 64, borderRadius: 8 }} />
+          <ShimmerBar style={{ height: 18, width: 84, borderRadius: 8 }} />
+        </View>
+      </View>
+    </View>
+  );
+});
+
+/* =====================================================
+   ✅ Overlay Loading (Joining / Creating / Searching ...)
+===================================================== */
+function LoadingOverlay({
+  visible,
+  title,
+  subtitle
+}: {
+  visible: boolean;
+  title: string;
+  subtitle?: string;
+}) {
+  if (!visible) return null;
+
+  return (
+    <View pointerEvents="auto" style={styles.loadingOverlay}>
+      <View style={styles.loadingBox}>
+        <ActivityIndicator size="large" color="#4F46E5" />
+        <Text style={styles.loadingTitle}>{title}</Text>
+        {!!subtitle && <Text style={styles.loadingSub}>{subtitle}</Text>}
+      </View>
+    </View>
+  );
+}
+
+/* =====================================================
+   ✅ Room Card (Memo) — Hooks بأمان
+===================================================== */
+const RoomCard = memo(function RoomCard({
   item,
   theme,
-  onPress
+  onPress,
+  isBanned
 }: {
   item: RoomUI;
   theme: any;
   onPress: (id: string) => void;
+  isBanned?: boolean;
 }) {
   const online = useAppSelector((state) => selectRoomActiveCount(state, item.id));
   const max = item.maxUsers ?? 50;
 
   return (
-    <TouchableOpacity onPress={() => onPress(item.id)} style={[styles.card, { backgroundColor: theme.background }]}>
+    <TouchableOpacity
+      onPress={() => onPress(item.id)}
+      style={[styles.card, { backgroundColor: theme.background }]}
+      activeOpacity={0.9}
+    >
       <Image source={{ uri: item.image }} style={styles.image} />
 
       <View style={styles.info}>
-        <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
+        <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
+          {item.name}
+        </Text>
 
         <View style={styles.metaRow}>
           <Text style={styles.members}>
@@ -122,11 +224,16 @@ function RoomCard({
 
           <View style={styles.onlinePill}>
             <View style={styles.onlineDot} />
-            <Text style={styles.onlineText}>{online} online</Text>
+            <Text style={styles.onlineText}>{Number(online) || 0} online</Text>
           </View>
         </View>
 
         <View style={styles.badges}>
+          {isBanned && <Badge icon="ban" label="Banned" color="#EF4444" />}
+
+          {/* ✅ NEW */}
+          {item.isActive && <Badge icon="radio" label="Active" color="#10B981" />}
+
           {item.isTrending && <Badge icon="flame" label="Trending" color="#F97316" />}
           {item.isVIP && <Badge icon="star" label="VIP" color="#F59E0B" />}
           {item.isVerified && <Badge icon="checkmark-circle" label="Verified" color="#22C55E" />}
@@ -137,18 +244,15 @@ function RoomCard({
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 export default function RoomsScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-
+  const canLoadMoreRef = useRef(false);
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
-const [passwordModalVisible, setPasswordModalVisible] = useState(false);
-const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
-const [passwordInput, setPasswordInput] = useState("");
-const [joining, setJoining] = useState(false);
+
   const reduxRooms = useAppSelector(selectRooms);
   const reduxError = useAppSelector(selectRoomError);
   const loadingRooms = useAppSelector(selectRoomLoadingRooms);
@@ -167,16 +271,45 @@ const [joining, setJoining] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [error, setError] = useState("");
 
+  // ✅ Protected join modal
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [joining, setJoining] = useState(false);
+const onEndReachedCalledDuringMomentum = useRef(false);
+  // ✅ Creating / searching nice loading
+  const [creating, setCreating] = useState(false);
+  const [searching, setSearching] = useState(false);
+
+  // ✅ لو فشل join بسبب ban: نخزنها محليًا ونمنع محاولة الدخول + نظهر Badge
+  const [bannedByRoomId, setBannedByRoomId] = useState<Record<string, string>>({});
+
+  // ✅ backendType: كما هو (Private -> private otherwise public)
   const backendType: "public" | "private" = tab === "Private" ? "private" : "public";
 
+  const isInitialLoading = useMemo(() => {
+    return Boolean(loadingRooms && rooms.length === 0 && !search.trim());
+  }, [loadingRooms, rooms.length, search]);
+
+  /* =====================================================
+     ✅ Fetch first page when backendType changes
+     (ملاحظة: لا نعيد الجلب عند الضغط على تب "Active" فقط لأنه فلترة محلية)
+  ===================================================== */
   useEffect(() => {
     setPage(1);
     accRef.current = new Map();
     setRooms([]);
+    setError("");
+
+    // ✅ مهم: امنع وميض Loading more
+    setIsLoadingMore(false);
+    setSearching(false);
 
     dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
   }, [dispatch, backendType]);
-
+  /* =====================================================
+     ✅ Accumulate rooms from redux -> local map (stable)
+  ===================================================== */
   useEffect(() => {
     if (!reduxRooms) return;
 
@@ -187,43 +320,66 @@ const [joining, setJoining] = useState(false);
     setRooms(Array.from(accRef.current.values()));
   }, [reduxRooms]);
 
-  const onRefresh = async () => {
-    try {
-      setRefreshing(true);
-      setError("");
+  /* =====================================================
+     ✅ Refresh
+  ===================================================== */
+const onRefresh = useCallback(async () => {
+  try {
+    setRefreshing(true);
+    setError("");
 
-      setPage(1);
-      accRef.current = new Map();
-      setRooms([]);
+    // ✅ مهم للـ pagination
+    canLoadMoreRef.current = false;
 
-      if (search.trim()) {
-        await dispatch(searchRoomsThunk({ q: search.trim(), type: backendType, limit: PAGE_SIZE })).unwrap();
-      } else {
-        await dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE })).unwrap();
-      }
-    } catch (e: any) {
-      setError(e?.message || "Refresh failed");
-    } finally {
-      setRefreshing(false);
+    setPage(1);
+    accRef.current = new Map();
+    setRooms([]);
+
+    const q = search.trim();
+    if (q) {
+      setSearching(true);
+      await dispatch(searchRoomsThunk({ q, type: backendType, limit: PAGE_SIZE })).unwrap();
+    } else {
+      await dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE })).unwrap();
     }
-  };
+  } catch (e: any) {
+    setError(e?.message || "Refresh failed");
+  } finally {
+    setSearching(false);
+    setRefreshing(false);
+  }
+}, [dispatch, backendType, search]);
+  /* =====================================================
+     ✅ Load more (pagination)
+  ===================================================== */
+ const loadMore = useCallback(async () => {
+  if (isInitialLoading) return;
 
-  const loadMore = async () => {
-    if (loadingRooms || isLoadingMore) return;
-    if (search.trim()) return;
+  // لا صفحات أثناء البحث
+  if (search.trim()) return;
 
-    try {
-      setIsLoadingMore(true);
-      const next = page + 1;
-      setPage(next);
-      await dispatch(fetchRoomsByType({ type: backendType, page: next, limit: PAGE_SIZE })).unwrap();
-    } catch (e: any) {
-      setError(e?.message || "Load more failed");
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
+  // لا تكرار
+  if (loadingRooms || isLoadingMore) return;
 
+  try {
+    setIsLoadingMore(true);
+
+    const next = page + 1;
+
+    await dispatch(
+      fetchRoomsByType({ type: backendType, page: next, limit: PAGE_SIZE })
+    ).unwrap();
+
+    setPage(next); // ✅ بعد النجاح فقط
+  } catch (e: any) {
+    setError(e?.message || "Load more failed");
+  } finally {
+    setIsLoadingMore(false);
+  }
+}, [dispatch, backendType, loadingRooms, isLoadingMore, page, search, isInitialLoading]);
+  /* =====================================================
+     ✅ Debounced search
+  ===================================================== */
   useEffect(() => {
     const q = search.trim();
     const t = setTimeout(async () => {
@@ -234,22 +390,30 @@ const [joining, setJoining] = useState(false);
         setPage(1);
 
         if (!q) {
+          setSearching(false);
           dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
           return;
         }
 
+        setSearching(true);
         await dispatch(searchRoomsThunk({ q, type: backendType, limit: PAGE_SIZE })).unwrap();
       } catch (e: any) {
         setError(e?.message || "Search failed");
+      } finally {
+        setSearching(false);
       }
     }, 450);
 
     return () => clearTimeout(t);
   }, [search, backendType, dispatch]);
 
-  const sortRooms = (list: RoomUI[]) => {
+  /* =====================================================
+     ✅ Sort & filter
+  ===================================================== */
+  const sortRooms = useCallback((list: RoomUI[]) => {
     return [...list].sort((a, b) => {
       const score = (r: RoomUI) =>
+        (r.isActive ? 6 : 0) + // ✅ NEW: active أعلى أولوية
         (r.isTrending ? 5 : 0) +
         (r.isVIP ? 4 : 0) +
         (r.isVerified ? 3 : 0) +
@@ -258,14 +422,17 @@ const [joining, setJoining] = useState(false);
 
       return score(b) - score(a);
     });
-  };
+  }, []);
 
   const filteredRooms = useMemo(() => {
     let data = rooms;
 
+    // ✅ NEW TAB FILTER
+    if (tab === "Active") data = data.filter((r) => Boolean(r.isActive));
+
     if (tab === "Trending") data = data.filter((r) => r.isTrending);
     if (tab === "VIP") data = data.filter((r) => r.isVIP);
-    if (tab === "Voice") data = data.filter((r) => r.isVoice);
+    // if (tab === "Voice") data = data.filter((r) => r.isVoice);
     if (tab === "Private") data = data.filter((r) => r.isPrivate);
 
     if (search.trim()) {
@@ -273,10 +440,13 @@ const [joining, setJoining] = useState(false);
       data = data.filter((r) => r.name.toLowerCase().includes(qq));
     }
 
-    return tab === "All" ? sortRooms(data) : data;
-  }, [rooms, tab, search]);
+    return tab === "All" || tab === "Active" ? sortRooms(data) : data;
+  }, [rooms, tab, search, sortRooms]);
 
-  const addRoom = async () => {
+  /* =====================================================
+     ✅ Create Room (nice loading)
+  ===================================================== */
+  const addRoom = useCallback(async () => {
     const name = roomName.trim();
     if (!name) return setError("Room name is required");
 
@@ -290,7 +460,8 @@ const [joining, setJoining] = useState(false);
       members: 1,
       maxUsers: 50,
       image: `https://picsum.photos/200/200?new=${encodeURIComponent(name)}`,
-      isTrending: true
+      isTrending: true,
+      isActive: true // غالباً المنشئ يدخلها فوراً
     };
 
     accRef.current.set(tempId, newRoom);
@@ -301,6 +472,7 @@ const [joining, setJoining] = useState(false);
     setModalVisible(false);
 
     try {
+      setCreating(true);
       const created = await dispatch(createRoomThunk({ name, type: backendType })).unwrap();
 
       accRef.current.delete(tempId);
@@ -312,120 +484,276 @@ const [joining, setJoining] = useState(false);
       setRooms(Array.from(accRef.current.values()));
       setError(e?.message || "Create room failed");
       setModalVisible(true);
+    } finally {
+      setCreating(false);
     }
-  };
-const doJoin = async (roomId: string, password?: string) => {
-  try {
-    setJoining(true);
-    setError("");
+  }, [dispatch, backendType, roomName, rooms]);
 
-    const action = await dispatch(joinRoomAndEnter({ roomId, preload: true, password }));
+  /* =====================================================
+     ✅ Join helpers + Ban detection
+  ===================================================== */
+  const markRoomBanned = useCallback((roomId: string, message: string) => {
+    setBannedByRoomId((prev) => ({ ...prev, [roomId]: message || "You are banned from this room" }));
+  }, []);
 
-    if (joinRoomAndEnter.rejected.match(action)) {
-      const msg =
-        (action.payload as any) ||
-        (action.error?.message as any) ||
-        "Join failed";
-      setError(String(msg));
+  const isBanMessage = useCallback((msg: string) => {
+    const s = String(msg || "").toLowerCase();
+    return s.includes("banned") || s.includes("ban") || s.includes("محظور") || s.includes("حظر");
+  }, []);
+
+  /**
+   * ✅ دخول مباشر لغرفة Active (بدون join)
+   * - نعمل preload للبيانات الأساسية
+   * - نضبط activeRoomId بالستور
+   * - ثم ننتقل للصفحة
+   */
+ // ✅ rooms.tsx
+// 2) استبدل enterActiveRoomDirect بالكامل بهذا (استخدم enterRoomDirect)
+const enterActiveRoomDirect = useCallback(
+  async (roomId: string) => {
+    try {
+      setJoining(true);
+      setError("");
+
+      // ✅ لا join API — فقط preload من الستور
+      await dispatch(enterRoomDirect({ roomId, preload: true })).unwrap();
+
+      // ✅ ثم الانتقال للغرفة
+      router.push({ pathname: "/room/[id]", params: { id: roomId } });
+    } catch (e: any) {
+      const msgStr = String(e?.message || e || "Enter room failed");
+      setError(msgStr);
+    } finally {
+      setJoining(false);
+    }
+  },
+  [dispatch, router]
+);
+
+  const doJoin = useCallback(
+    async (roomId: string, password?: string) => {
+      try {
+        setJoining(true);
+        setError("");
+
+        const action = await dispatch(joinRoomAndEnter({ roomId, preload: true, password }));
+
+        if (joinRoomAndEnter.rejected.match(action)) {
+          const msg =
+            (action.payload as any) ||
+            (action.error?.message as any) ||
+            "Join failed";
+
+          const msgStr = String(msg || "Join failed");
+
+          if (isBanMessage(msgStr)) {
+            markRoomBanned(roomId, msgStr);
+            setError("أنت محظور من هذه الغرفة.");
+          } else {
+            setError(msgStr);
+          }
+          return;
+        }
+
+        router.push({ pathname: "/room/[id]", params: { id: roomId } });
+      } catch (e: any) {
+        const msgStr = String(e?.message || "Join failed");
+        if (isBanMessage(msgStr)) {
+          markRoomBanned(roomId, msgStr);
+          setError("أنت محظور من هذه الغرفة.");
+        } else {
+          setError(msgStr);
+        }
+      } finally {
+        setJoining(false);
+      }
+    },
+    [dispatch, router, isBanMessage, markRoomBanned]
+  );
+
+ // ✅ rooms.tsx
+// 3) openRoom يبقى كما هو عندك (سيستدعي enterActiveRoomDirect عند room.isActive)
+const openRoom = useCallback(
+  async (roomId: string) => {
+    const room = accRef.current.get(roomId);
+
+    if (bannedByRoomId[roomId]) {
+      setError("أنت محظور من هذه الغرفة.");
       return;
     }
 
-    router.push({ pathname: "/room/[id]", params: { id: roomId } });
-  } catch (e: any) {
-    setError(e?.message || "Join failed");
-  } finally {
-    setJoining(false);
-  }
-};
- const openRoom = async (roomId: string) => {
-  const room = accRef.current.get(roomId); // ✅ عندك Map جاهز
+    // ✅ Active -> دخول مباشر بدون join
+    if (room?.isActive) {
+      await enterActiveRoomDirect(roomId);
+      return;
+    }
 
-  // ✅ لو الغرفة محمية: افتح مودال الباسورد
-  if (room?.isProtected) {
-    setPendingRoomId(roomId);
-    setPasswordInput("");
-    setPasswordModalVisible(true);
-    setError("");
-    return;
-  }
+    if (room?.isProtected) {
+      setPendingRoomId(roomId);
+      setPasswordInput("");
+      setPasswordModalVisible(true);
+      setError("");
+      return;
+    }
 
-  // ✅ غير محمية: دخول مباشر
-  await doJoin(roomId);
-};
-const confirmJoinWithPassword = async () => {
-  const rid = pendingRoomId;
-  const pw = passwordInput.trim();
+    await doJoin(roomId);
+  },
+  [doJoin, bannedByRoomId, enterActiveRoomDirect]
+);
 
-  if (!rid) return;
+  const confirmJoinWithPassword = useCallback(async () => {
+    const rid = pendingRoomId;
+    const pw = passwordInput.trim();
 
-  if (!pw) {
-    setError("Password is required");
-    return;
-  }
+    if (!rid) return;
 
-  setPasswordModalVisible(false);
-  setPendingRoomId(null);
+    if (!pw) {
+      setError("Password is required");
+      return;
+    }
 
-  await doJoin(rid, pw);
-};
+    setPasswordModalVisible(false);
+    setPendingRoomId(null);
+
+    await doJoin(rid, pw);
+  }, [pendingRoomId, passwordInput, doJoin]);
+
+  const keyExtractor = useCallback((item: RoomUI) => item.id, []);
+
+  const renderItem = useCallback(
+    ({ item }: { item: RoomUI }) => {
+      return (
+        <RoomCard
+          item={item}
+          theme={theme}
+          onPress={openRoom}
+          isBanned={Boolean(bannedByRoomId[item.id])}
+        />
+      );
+    },
+    [theme, openRoom, bannedByRoomId]
+  );
+
+  const listHeader = useMemo(() => {
+    return (
+      <>
+        <View style={[styles.searchBox, { backgroundColor: theme.background }]}>
+          <Ionicons name="search" size={16} color="#9CA3AF" />
+          <TextInput
+            placeholder="Search rooms"
+            value={search}
+            onChangeText={setSearch}
+            placeholderTextColor={colorScheme === "dark" ? "#6B7280" : "#9CA3AF"}
+            style={styles.searchInput}
+          />
+          {searching ? (
+            <View style={{ marginLeft: 8 }}>
+              <ActivityIndicator size="small" color="#4F46E5" />
+            </View>
+          ) : null}
+        </View>
+
+        <View style={[styles.tabs, { backgroundColor: theme.background }]}>
+          {TABS.map((t) => {
+            const active = tab === t;
+            return (
+              <TouchableOpacity
+                key={t}
+                onPress={() => setTab(t)}
+                activeOpacity={0.7}
+                style={styles.tabBtn}
+              >
+                <Text style={[styles.tabText, active && styles.activeTabText]}>{t}</Text>
+                {active && <View style={styles.indicator} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {!!(error || reduxError) && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+            <Text style={styles.errorBannerText}>{error || reduxError}</Text>
+          </View>
+        )}
+
+        {isInitialLoading ? (
+          <View style={{ paddingTop: 6 }}>
+            {Array.from({ length: 7 }).map((_, i) => (
+              <SkeletonRoomCard key={`sk-${i}`} />
+            ))}
+          </View>
+        ) : null}
+      </>
+    );
+  }, [
+    theme.background,
+    colorScheme,
+    search,
+    searching,
+    tab,
+    error,
+    reduxError,
+    isInitialLoading
+  ]);
+
+  const listEmpty = useMemo(() => {
+    if (isInitialLoading) return null;
+    return (
+      <View style={styles.empty}>
+        <Ionicons name="people-outline" size={48} color="#9CA3AF" />
+        <Text style={styles.emptyText}>
+          {loadingRooms ? "Loading..." : searching ? "Searching..." : "No rooms found"}
+        </Text>
+      </View>
+    );
+  }, [isInitialLoading, loadingRooms, searching]);
+
+  const footer = useMemo(() => {
+    if (!isLoadingMore) return <View style={{ height: 16 }} />;
+    return (
+      <View style={styles.footerLoading}>
+        <ActivityIndicator size="small" color="#4F46E5" />
+        <Text style={styles.loadingMoreText}>Loading more...</Text>
+      </View>
+    );
+  }, [isLoadingMore]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.searchBox, { backgroundColor: theme.background }]}>
-        <Ionicons name="search" size={16} color="#9CA3AF" />
-        <TextInput
-          placeholder="Search rooms"
-          value={search}
-          onChangeText={setSearch}
-          placeholderTextColor={colorScheme === "dark" ? "#6B7280" : "#9CA3AF"}
-          style={styles.searchInput}
-        />
-      </View>
+    <FlatList
+  data={isInitialLoading ? [] : filteredRooms}
+  keyExtractor={keyExtractor}
+  renderItem={renderItem}
+  onScrollBeginDrag={() => {
+    canLoadMoreRef.current = true;
+  }}
+  onMomentumScrollBegin={() => {
+    onEndReachedCalledDuringMomentum.current = false;
+  }}
+  onEndReached={() => {
+    if (onEndReachedCalledDuringMomentum.current) return;
+    onEndReachedCalledDuringMomentum.current = true;
+    loadMore();
+  }}
+  onEndReachedThreshold={0.4}
+  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+  ListHeaderComponent={listHeader}
+  ListEmptyComponent={listEmpty}
+  ListFooterComponent={footer}
+  removeClippedSubviews
+  initialNumToRender={10}
+  windowSize={8}
+  maxToRenderPerBatch={10}
+  updateCellsBatchingPeriod={50}
+/>
 
-      <View style={[styles.tabs, { backgroundColor: theme.background }]}>
-        {TABS.map((t) => {
-          const active = tab === t;
-          return (
-            <TouchableOpacity key={t} onPress={() => setTab(t)} activeOpacity={0.7} style={styles.tabBtn}>
-              <Text style={[styles.tabText, active && styles.activeTabText]}>{t}</Text>
-              {active && <View style={styles.indicator} />}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {!!(error || reduxError) && (
-        <View style={styles.errorBanner}>
-          <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
-          <Text style={styles.errorBannerText}>{error || reduxError}</Text>
-        </View>
-      )}
-
-      <FlatList
-        data={filteredRooms}
-        keyExtractor={(item) => item.id}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.4}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="people-outline" size={48} color="#9CA3AF" />
-            <Text style={styles.emptyText}>{loadingRooms ? "Loading..." : "No rooms found"}</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <RoomCard item={item} theme={theme} onPress={openRoom} />
-        )}
-        ListFooterComponent={
-          isLoadingMore ? <Text style={styles.loadingMoreText}>Loading more...</Text> : null
-        }
-      />
-
-      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
+      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)} activeOpacity={0.9}>
         <Ionicons name="add" size={28} color="#FFF" />
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} transparent animationType="fade">
+      {/* ✅ Create Room Modal */}
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>Create Room</Text>
@@ -443,54 +771,65 @@ const confirmJoinWithPassword = async () => {
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
             <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity onPress={() => setModalVisible(false)} disabled={creating}>
                 <Text style={styles.cancel}>Cancel</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={addRoom}>
-                <Text style={styles.confirm}>Create</Text>
+              <TouchableOpacity onPress={addRoom} disabled={creating}>
+                <Text style={styles.confirm}>{creating ? "Creating..." : "Create"}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-      <Modal visible={passwordModalVisible} transparent animationType="fade">
-  <View style={styles.modalOverlay}>
-    <View style={styles.modal}>
-      <Text style={styles.modalTitle}>Enter Password</Text>
 
-      <TextInput
-        placeholder="Room password"
-        value={passwordInput}
-        onChangeText={(t) => {
-          setPasswordInput(t);
-          setError("");
-        }}
-        secureTextEntry
-        style={styles.modalInput}
-      />
+      {/* ✅ Password Modal */}
+      <Modal
+        visible={passwordModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPasswordModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modal}>
+            <Text style={styles.modalTitle}>Enter Password</Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+            <TextInput
+              placeholder="Room password"
+              value={passwordInput}
+              onChangeText={(t) => {
+                setPasswordInput(t);
+                setError("");
+              }}
+              secureTextEntry
+              style={styles.modalInput}
+            />
 
-      <View style={styles.modalActions}>
-        <TouchableOpacity
-          onPress={() => {
-            setPasswordModalVisible(false);
-            setPendingRoomId(null);
-            setPasswordInput("");
-          }}
-          disabled={joining}
-        >
-          <Text style={styles.cancel}>Cancel</Text>
-        </TouchableOpacity>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <TouchableOpacity onPress={confirmJoinWithPassword} disabled={joining}>
-          <Text style={styles.confirm}>{joining ? "Joining..." : "Join"}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-</Modal>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => {
+                  setPasswordModalVisible(false);
+                  setPendingRoomId(null);
+                  setPasswordInput("");
+                }}
+                disabled={joining}
+              >
+                <Text style={styles.cancel}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={confirmJoinWithPassword} disabled={joining}>
+                <Text style={styles.confirm}>{joining ? "Joining..." : "Join"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ✅ Global overlay loaders */}
+      <LoadingOverlay visible={joining} title="جاري الدخول..." subtitle="يتم التحقق من الصلاحيات والبيانات" />
+      <LoadingOverlay visible={creating} title="جاري إنشاء الغرفة..." subtitle="لحظات من فضلك" />
     </View>
   );
 }
@@ -508,14 +847,25 @@ const styles = StyleSheet.create({
   },
   searchInput: { marginLeft: 8, fontSize: 13, flex: 1 },
 
-  card: { flexDirection: "row", backgroundColor: "#FFF", padding: 12, borderRadius: 18, marginBottom: 12 },
+  card: {
+    flexDirection: "row",
+    backgroundColor: "#FFF",
+    padding: 12,
+    borderRadius: 18,
+    marginBottom: 12
+  },
   image: { width: 64, height: 64, borderRadius: 14, marginRight: 12 },
   info: { flex: 1 },
   name: { fontSize: 15, fontWeight: "600" },
 
   members: { fontSize: 12, color: "#6B7280", marginTop: 2 },
 
-  metaRow: { marginTop: 2, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  metaRow: {
+    marginTop: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
 
   onlinePill: {
     flexDirection: "row",
@@ -530,10 +880,18 @@ const styles = StyleSheet.create({
   onlineText: { fontSize: 11, fontWeight: "600", color: "#374151" },
 
   badges: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
-  badge: { flexDirection: "row", alignItems: "center", borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, gap: 4 },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 4
+  },
   badgeText: { fontSize: 11, fontWeight: "600" },
 
-  empty: { marginTop: 80, alignItems: "center" },
+  empty: { marginTop: 40, alignItems: "center" },
   emptyText: { marginTop: 10, color: "#9CA3AF" },
 
   fab: {
@@ -548,7 +906,12 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
 
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "center", justifyContent: "center" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center"
+  },
   modal: { width: "85%", backgroundColor: "#FFF", borderRadius: 16, padding: 16 },
   modalTitle: { fontSize: 16, fontWeight: "600", marginBottom: 10 },
   modalInput: { backgroundColor: "#F3F4F6", borderRadius: 12, padding: 10, fontSize: 13 },
@@ -558,7 +921,14 @@ const styles = StyleSheet.create({
   cancel: { color: "#6B7280" },
   confirm: { color: "#4F46E5", fontWeight: "600" },
 
-  tabs: { flexDirection: "row", alignItems: "center", marginBottom: 12, backgroundColor: "#FFFFFF", borderRadius: 16, padding: 6 },
+  tabs: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 6
+  },
   tabBtn: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 8, borderRadius: 12 },
   tabText: { fontSize: 13, fontWeight: "500", color: "#6B7280" },
   activeTabText: { color: "#4F46E5", fontWeight: "700" },
@@ -578,5 +948,66 @@ const styles = StyleSheet.create({
   },
   errorBannerText: { color: "#B91C1C", fontSize: 12, fontWeight: "600", flex: 1 },
 
-  loadingMoreText: { textAlign: "center", marginBottom: 16, fontSize: 11, color: "#9CA3AF" }
+  footerLoading: {
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8
+  },
+  loadingMoreText: { fontSize: 12, color: "#6B7280", fontWeight: "700" },
+
+  // ✅ Skeleton styles
+  skeletonCard: {
+    flexDirection: "row",
+    backgroundColor: "#FFF",
+    padding: 12,
+    borderRadius: 18,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#F3F4F6"
+  },
+  skeletonImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 14,
+    marginRight: 12,
+    backgroundColor: "#E5E7EB"
+  },
+  shimmerBase: {
+    overflow: "hidden",
+    backgroundColor: "#E5E7EB"
+  },
+  shimmerHighlight: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 120,
+    backgroundColor: "rgba(255,255,255,0.45)"
+  },
+
+  // ✅ Overlay Loading
+  loadingOverlay: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16
+  },
+  loadingBox: {
+    width: "88%",
+    maxWidth: 360,
+    backgroundColor: "#FFF",
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB"
+  },
+  loadingTitle: { marginTop: 10, fontSize: 14, fontWeight: "900", color: "#111827" },
+  loadingSub: { marginTop: 6, fontSize: 12, fontWeight: "700", color: "#6B7280", textAlign: "center" }
 });

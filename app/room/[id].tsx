@@ -37,11 +37,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 // ✅ Redux
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
+  clearBannedFlag,
+  clearKickedFlag,
   fetchRoomMessages,
   fetchRoomStats,
   fetchRoomUsers,
+  leaveAndRefreshRooms,
   leaveRoomAndExit,
   pinRoomMessage,
+  selectBannedFlag,
+  selectKickedFlag,
   selectRoomActiveCount,
   selectRoomAvatarById,
   selectRoomLoadingMessages,
@@ -58,8 +63,10 @@ import {
 import { RocketBoostOverlay } from "@/components/RocketBoostOverlay";
 import { boostRoom } from "@/redux/slices/roomControl.slice";
 import {
+  banRoomUserSocket,
   deleteRoomSocketMessage,
   joinRoomSocket,
+  kickRoomUserSocket,
   leaveRoomSocket,
   setRoomUserRoleSocket,
   toggleRoomReaction as toggleRoomReactionSocket
@@ -525,8 +532,8 @@ function MessageItem({
   playingId,
   progressAnim,
   giftDone,
+  onGiftDone,
   onAvatarLongPress,
-  onGiftDone
 }: {
   item: MessageUI;
   isMe: boolean;
@@ -764,7 +771,9 @@ function UsersModal({
   myUserId,
   myRole,
   onCopyUser,
-  onChangeRole
+  onChangeRole,
+   onKickUser,
+  onBanUser
 }: {
   visible: boolean;
   onClose: () => void;
@@ -773,6 +782,8 @@ function UsersModal({
   myRole?: UserUI["role"];
   onCopyUser: (u: UserUI) => void;
   onChangeRole: (u: UserUI, newRole: UserUI["role"]) => void;
+    onKickUser: (u: UserUI) => void;
+  onBanUser: (u: UserUI) => void;
 }) {
   const canManage = myRole === "creator" || myRole === "owner" || myRole === "admin";
 
@@ -867,6 +878,39 @@ function UsersModal({
                         />
                       </View>
                     )}
+                    {canManage && !isMe && (
+  <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+    <TouchableOpacity
+      onPress={() => onKickUser(u)}
+      style={{
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: 10,
+        backgroundColor: "#FEF3C7",
+        borderWidth: 1,
+        borderColor: "#F59E0B"
+      }}
+      activeOpacity={0.85}
+    >
+      <Text style={{ fontWeight: "800", color: "#92400E" }}>Kick</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      onPress={() => onBanUser(u)}
+      style={{
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: 10,
+        backgroundColor: "#FEE2E2",
+        borderWidth: 1,
+        borderColor: "#EF4444"
+      }}
+      activeOpacity={0.85}
+    >
+      <Text style={{ fontWeight: "800", color: "#991B1B" }}>Ban</Text>
+    </TouchableOpacity>
+  </View>
+)}
                   </View>
 
                   <Ionicons name="copy-outline" size={18} color="#6B7280" />
@@ -982,7 +1026,123 @@ export default function ChatScreen() {
 
   // ✅ لمنع leave مرتين
   const didLeaveRef = useRef(false);
+const kicked = useAppSelector((state) => selectKickedFlag(state, roomId));
+const banned = useAppSelector((state) => selectBannedFlag(state, roomId));
+useEffect(() => {
+  if (!roomId) return;
+  if (!kicked) return;
 
+  // امنع تكرار التنفيذ
+  if (didLeaveRef.current) return;
+  didLeaveRef.current = true;
+
+  const msg = kicked?.message || "تم طردك من الغرفة.";
+
+  Alert.alert("تم الطرد", msg, [
+    {
+      text: "حسناً",
+      onPress: async () => {
+        try {
+          // تنظيف من الستور + خروج
+          await dispatch(leaveRoomAndExit({ roomId, cleanup: true })).unwrap();
+        } catch {}
+
+        // امسح الفلاج بعد التعامل
+        dispatch(clearKickedFlag({ roomId }));
+
+        router.back();
+      },
+    },
+  ]);
+}, [kicked, roomId, dispatch, router]);
+useEffect(() => {
+  if (!roomId) return;
+  if (!banned) return;
+
+  if (didLeaveRef.current) return;
+  didLeaveRef.current = true;
+
+  const reason = banned?.reason ? `السبب: ${banned.reason}` : "";
+  const msg = reason || "تم حظرك من الغرفة.";
+
+  Alert.alert("تم الحظر", msg, [
+    {
+      text: "حسناً",
+      onPress: async () => {
+        try {
+          await dispatch(leaveRoomAndExit({ roomId, cleanup: true })).unwrap();
+        } catch {}
+
+        dispatch(clearBannedFlag({ roomId }));
+
+        router.back();
+      },
+    },
+  ]);
+}, [banned, roomId, dispatch, router]);
+const onBanUser = (u: UserUI) => {
+  if (!canModerate) return;
+  if (!u?.id || u.id === myUserId) return;
+  if (!roomId) return;
+
+  Alert.alert("Ban user", `Ban ${u.name}?`, [
+    { text: "Cancel", style: "cancel" },
+    {
+      text: "Ban",
+      style: "destructive",
+      onPress: async () => {
+        try {
+          const reason = "Violation"; // أو اجعلها input لاحقًا
+
+          const ack = await banRoomUserSocket({ roomId, targetId: u.id, reason });
+
+          if (!ack?.ok) {
+            Alert.alert("Error", ack?.message || "Ban failed");
+            return;
+          }
+
+          Alert.alert("Done", `${u.name} banned`);
+
+          // ✅ اختياري: تحديث المستخدمين
+          dispatch(fetchRoomUsers(roomId));
+        } catch (e: any) {
+          Alert.alert("Error", e?.message || "Ban failed");
+        }
+      }
+    }
+  ]);
+};
+const onKickUser = (u: UserUI) => {
+  if (!canModerate) return;
+  if (!u?.id || u.id === myUserId) return;
+  if (!roomId) return;
+
+  Alert.alert("Kick user", `Kick ${u.name}?`, [
+    { text: "Cancel", style: "cancel" },
+    {
+      text: "Kick",
+      style: "destructive",
+      onPress: async () => {
+        try {
+          const ack = await kickRoomUserSocket({ roomId, targetId: u.id });
+
+          if (!ack?.ok) {
+            Alert.alert("Error", ack?.message || "Kick failed");
+            return;
+          }
+
+          Alert.alert("Done", `${u.name} kicked`);
+
+          // ✅ اختياري: تحديث قائمة المستخدمين عندك سريعًا
+          // (لأن kick قد ينعكس عبر room:users:update أو room:roles:update، لكن هذا يجعلها أسرع)
+          dispatch(fetchRoomUsers(roomId));
+        } catch (e: any) {
+          Alert.alert("Error", e?.message || "Kick failed");
+        }
+      }
+    }
+  ]);
+};
   /* ================= HELPERS ================= */
   const stripHtmlToText = (input: string) => {
     // ✅ لا ننفّذ HTML — فقط نزيل التاجز ونحافظ على النص
@@ -1774,6 +1934,9 @@ const toName = isBoost ? "Room" : (latestGift.gift?.targetName || "Someone");
 
       leaveRoomSocket(roomId);
       await dispatch(leaveRoomAndExit({ roomId, cleanup: true })).unwrap();
+      await dispatch(
+  leaveAndRefreshRooms({ roomId, type: "public" })
+).unwrap();
       router.back();
     } catch (e: any) {
       didLeaveRef.current = false;
@@ -1986,6 +2149,8 @@ await dispatch(
           myRole={myRole}
           onCopyUser={onCopyUser}
           onChangeRole={onChangeRole}
+            onKickUser={onKickUser}
+  onBanUser={onBanUser}
         />
 
         {/* ================= GLOBAL AUDIO BAR (اختياري) ================= */}

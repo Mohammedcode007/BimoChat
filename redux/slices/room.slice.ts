@@ -6,6 +6,12 @@ import { RootState } from "../store";
 /* =====================================================
    TYPES
 ===================================================== */
+export type RoomBannedEntry = {
+  user: UserPublicSnapshot;
+  reason?: string;
+  bannedAt?: string;
+  until?: string | null; // لو عندك حظر مؤقت
+};
 export type GiftPayload = {
   key: string;          // gift_rose / boost_rocket ...
   name: string;         // rose / boost
@@ -158,7 +164,7 @@ export type RoomMessage = {
   gift?: GiftPayload;
 
   sender?: RoomMessageSender;
-senderSnapshot?: UserPublicSnapshot;
+  senderSnapshot?: UserPublicSnapshot;
   type: RoomMessageType;
   content: string;
 
@@ -177,7 +183,7 @@ senderSnapshot?: UserPublicSnapshot;
     mimeType?: string;
   };
 
- 
+
 
   isPinned?: boolean;
   isHighlighted?: boolean;
@@ -196,6 +202,7 @@ export type RoomItem = {
   description?: string;
   avatar?: string;
   cover?: string;
+  isActive?: boolean; // ✅ هل المستخدم الحالي داخل activeUsers
 
   creator?: string;
 
@@ -231,6 +238,7 @@ export type RoomStats = {
   level: number;
   xp: number;
   boostLevel: number;
+
   boostExpiresAt?: string;
 };
 
@@ -243,10 +251,11 @@ type RoomState = {
   loadingDetails: boolean;
   // Active count per room
   activeCountByRoom: Record<string, number>;
-
+  kickedByRoom: Record<string, { at: number; message?: string }>;
+  bannedByRoom: Record<string, { at: number; reason?: string }>;
   usersByRoom: Record<string, RoomUser[]>;
   messagesByRoom: Record<string, RoomMessage[]>;
-
+  bannedUsersByRoom: Record<string, RoomBannedEntry[]>;
   loadingRooms: boolean;
   loadingUsers: boolean;
   loadingMessages: boolean;
@@ -268,9 +277,11 @@ const initialState: RoomState = {
   detailsByRoom: {},
   loadingDetails: false,
   loadingRooms: false,
+    bannedUsersByRoom: {},
   loadingUsers: false,
   loadingMessages: false,
-
+  kickedByRoom: {} as Record<string, { at: number; message?: string }>,
+  bannedByRoom: {} as Record<string, { at: number; reason?: string }>,
   sending: false,
   mutatingRoom: false,
 
@@ -300,6 +311,119 @@ const findRoomIdByMessageId = (
   return undefined;
 };
 
+/* ================= BANNED (Control) ================= */
+
+export const fetchBannedUsers = createAsyncThunk<
+  { roomId: string; list: RoomBannedEntry[] },
+  { roomId: string },
+  { state: RootState }
+>("room/fetchBannedUsers", async ({ roomId }, thunkAPI) => {
+  const startedAt = Date.now();
+  const log = (...args: any[]) => console.log("[fetchBannedUsers]", ...args);
+
+  try {
+    log("=====================================");
+    log("START roomId:", roomId);
+
+    const res = await api.get(`/rooms/${roomId}/control/banned`);
+    log("Raw response.data:", res?.data);
+
+    const data = dataOf(res);
+    log("After dataOf(res):", data);
+
+    // ✅ هنا التحويل المهم
+    const users = Array.isArray(data?.users) ? data.users : [];
+    const list: RoomBannedEntry[] = users.map((u: any) => ({
+      user: u,             // ✅ الشكل المتوقع في UI
+      reason: undefined,   // (اختياري) لو الباك لا يرجع reason
+      bannedAt: undefined,
+      until: null
+    }));
+
+    log("users length:", users.length);
+    log("list length:", list.length);
+    log("First list item:", list?.[0]);
+    log("END (success) in ms:", Date.now() - startedAt);
+    log("=====================================");
+
+    return { roomId: String(data?.roomId || roomId), list };
+  } catch (e: any) {
+    log("ERROR:", e?.message, "resp:", e?.response?.data);
+    log("END (failed) in ms:", Date.now() - startedAt);
+    log("=====================================");
+    return thunkAPI.rejectWithValue(errMsg(e, "Failed to fetch banned users"));
+  }
+});
+
+export const unbanOne = createAsyncThunk<
+  { roomId: string; list?: RoomBannedEntry[]; targetId: string },
+  { roomId: string; targetId: string; reason?: string },
+  { state: RootState }
+>("room/unbanOne", async ({ roomId, targetId, reason }, thunkAPI) => {
+  try {
+    const res = await api.patch(`/rooms/${roomId}/control/unban/one`, { targetId, reason });
+    const data = dataOf(res);
+
+    // بعض الباك يرجع القائمة بعد التعديل
+    const list: RoomBannedEntry[] | undefined = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data?.list)
+          ? data.list
+          : undefined;
+
+    return { roomId, list, targetId };
+  } catch (e: any) {
+    return thunkAPI.rejectWithValue(errMsg(e, "Unban failed"));
+  }
+});
+
+export const unbanMany = createAsyncThunk<
+  { roomId: string; list?: RoomBannedEntry[]; targetIds: string[] },
+  { roomId: string; targetIds: string[]; reason?: string },
+  { state: RootState }
+>("room/unbanMany", async ({ roomId, targetIds, reason }, thunkAPI) => {
+  try {
+    const res = await api.patch(`/rooms/${roomId}/control/unban/many`, { targetIds, reason });
+    const data = dataOf(res);
+
+    const list: RoomBannedEntry[] | undefined = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data?.list)
+          ? data.list
+          : undefined;
+
+    return { roomId, list, targetIds };
+  } catch (e: any) {
+    return thunkAPI.rejectWithValue(errMsg(e, "Unban many failed"));
+  }
+});
+
+export const unbanAll = createAsyncThunk<
+  { roomId: string; list?: RoomBannedEntry[] },
+  { roomId: string; reason?: string },
+  { state: RootState }
+>("room/unbanAll", async ({ roomId, reason }, thunkAPI) => {
+  try {
+    const res = await api.patch(`/rooms/${roomId}/control/unban/all`, { reason });
+    const data = dataOf(res);
+
+    const list: RoomBannedEntry[] | undefined = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data?.list)
+          ? data.list
+          : undefined;
+
+    return { roomId, list };
+  } catch (e: any) {
+    return thunkAPI.rejectWithValue(errMsg(e, "Unban all failed"));
+  }
+});
 /* =====================================================
    ASYNC THUNKS
 ===================================================== */
@@ -374,7 +498,77 @@ export const autoRejoin = createAsyncThunk<string[], void, { state: RootState }>
     }
   }
 );
+export const leaveAndRefreshRooms = createAsyncThunk<
+  void,
+  { roomId: string; type: RoomType },
+  { state: RootState }
+>("room/leaveAndRefreshRooms", async ({ roomId, type }, thunkAPI) => {
+  await thunkAPI.dispatch(
+    leaveRoomAndExit({ roomId, cleanup: true })
+  ).unwrap();
 
+  await thunkAPI.dispatch(
+    fetchRoomsByType({ type, page: 1, limit: 30 })
+  ).unwrap();
+});
+export const enterRoomDirect = createAsyncThunk<
+  { roomId: string },
+  { roomId: string; preload?: boolean },
+  { state: RootState }
+>("room/enterRoomDirect", async ({ roomId, preload = true }, thunkAPI) => {
+  const startedAt = Date.now();
+  const log = (...args: any[]) => console.log("[enterRoomDirect]", ...args);
+
+  try {
+    log("=====================================");
+    log("START roomId:", roomId, "preload:", preload);
+
+    // ✅ 1) اضبط الغرفة النشطة
+    thunkAPI.dispatch(setActiveRoom(roomId));
+    log("setActiveRoom done:", roomId);
+
+    // ✅ 2) preload (نفس joinRoomAndEnter)
+    if (preload) {
+      log("preload begin...");
+      await Promise.all([
+        thunkAPI.dispatch(fetchRoomDetails(roomId)).unwrap(),
+        thunkAPI.dispatch(fetchRoomUsers(roomId)).unwrap(),
+        thunkAPI
+          .dispatch(
+            fetchRoomMessages({
+              roomId,
+              pagination: { limit: 30 },
+              append: false
+            })
+          )
+          .unwrap(),
+        thunkAPI.dispatch(fetchRoomStats(roomId)).unwrap()
+      ]);
+      log("preload done ✅");
+    }
+
+    /**
+     * ✅ 3) أهم نقطة:
+     * لو عندك Socket Join لازم يتنفّذ هنا أو في شاشة room/[id].
+     *
+     * مثال (غيّره حسب مشروعك):
+     * socket.emit("room:join", { roomId });
+     *
+     * إن لم تضعه هنا، تأكد أن شاشة الغرفة عند mount
+     * تعمل join للسوكت اعتمادًا على activeRoomId أو params.id
+     */
+
+    log("END success in ms:", Date.now() - startedAt);
+    log("=====================================");
+
+    return { roomId };
+  } catch (e: any) {
+    log("ERROR:", e?.message, "resp:", e?.response?.data);
+    log("END failed in ms:", Date.now() - startedAt);
+    log("=====================================");
+    return thunkAPI.rejectWithValue(errMsg(e, "Enter room failed"));
+  }
+});
 /* ================= MESSAGES ================= */
 
 export const sendRoomMessage = createAsyncThunk<
@@ -790,7 +984,17 @@ export const boostRoom = createAsyncThunk<RoomItem, { roomId: string; level: num
     }
   }
 );
-
+export const banUser = createAsyncThunk<any, { roomId: string; targetId: string; reason?: string }, { state: RootState }>(
+  "room/banUser",
+  async ({ roomId, targetId, reason }, thunkAPI) => {
+    try {
+      const res = await api.post(`/rooms/${roomId}/ban/${targetId}`, { reason });
+      return dataOf(res);
+    } catch (e: any) {
+      return thunkAPI.rejectWithValue(errMsg(e, "Ban failed"));
+    }
+  }
+);
 /* ================= MODERATION ================= */
 
 export const kickUser = createAsyncThunk<any, { roomId: string; targetId: string }, { state: RootState }>(
@@ -866,7 +1070,7 @@ export const joinRoomAndEnter = createAsyncThunk<
     if (preload) {
       try {
         await Promise.all([
-            thunkAPI.dispatch(fetchRoomDetails(roomId)).unwrap(),
+          thunkAPI.dispatch(fetchRoomDetails(roomId)).unwrap(),
 
           thunkAPI.dispatch(fetchRoomUsers(roomId)).unwrap(),
           thunkAPI
@@ -918,7 +1122,12 @@ const roomSlice = createSlice({
   initialState,
   reducers: {
     resetRoomState: () => initialState,
-
+    clearKickedFlag: (state, action: PayloadAction<{ roomId: string }>) => {
+      delete state.kickedByRoom[action.payload.roomId];
+    },
+    clearBannedFlag: (state, action: PayloadAction<{ roomId: string }>) => {
+      delete state.bannedByRoom[action.payload.roomId];
+    },
     // ==========================
     // CHANGE ROLE (Socket only)
     // ==========================
@@ -1226,8 +1435,13 @@ const roomSlice = createSlice({
     /**
      * room:kicked
      */
-    socketRoomKicked: (state, action: PayloadAction<{ roomId: string }>) => {
-      const { roomId } = action.payload;
+    socketRoomKicked: (state, action: PayloadAction<{ roomId: string; message?: string }>) => {
+      const { roomId, message } = action.payload;
+
+      // ✅ سجّل الفلاج
+      state.kickedByRoom[roomId] = { at: Date.now(), message };
+
+      // تنظيف بيانات الغرفة
       if (state.activeRoomId === roomId) state.activeRoomId = undefined;
       delete state.usersByRoom[roomId];
       delete state.messagesByRoom[roomId];
@@ -1235,23 +1449,111 @@ const roomSlice = createSlice({
       delete state.detailsByRoom[roomId];
     },
 
-    /**
-     * room:banned
-     */
-    socketRoomBanned: (state, action: PayloadAction<{ roomId: string; reason?: string }>) => {
-      const { roomId } = action.payload;
-      state.error = action.payload?.reason ? `Banned: ${action.payload.reason}` : "Banned";
+    socketRoomBanned: (
+      state,
+      action: PayloadAction<{ roomId: string; reason?: string }>
+    ) => {
+      const raw = action?.payload as any;
+
+      // ✅ طباعات تشخيصية
+      console.log("======================================");
+      console.log("[socketRoomBanned] FIRED ✅");
+      console.log("Payload raw:", raw);
+      console.log("roomId:", raw?.roomId, "type:", typeof raw?.roomId);
+      console.log("reason:", raw?.reason, "type:", typeof raw?.reason);
+      console.log("activeRoomId(before):", state.activeRoomId);
+      console.log("bannedByRoom(before):", state.bannedByRoom);
+      console.log("usersByRoom has room?:", !!state.usersByRoom?.[String(raw?.roomId || "")]);
+      console.log("messagesByRoom has room?:", !!state.messagesByRoom?.[String(raw?.roomId || "")]);
+      console.log("detailsByRoom has room?:", !!state.detailsByRoom?.[String(raw?.roomId || "")]);
+
+      const roomId = String(raw?.roomId || "");
+      const reason = raw?.reason ? String(raw.reason) : undefined;
+
+      if (!roomId) {
+        console.log("[socketRoomBanned] ❌ Missing roomId -> ABORT");
+        console.log("======================================");
+        return;
+      }
+
+      // ✅ سجّل الفلاج
+      state.bannedByRoom[roomId] = { at: Date.now(), reason };
+
+      // تنظيف بيانات الغرفة
       if (state.activeRoomId === roomId) state.activeRoomId = undefined;
       delete state.usersByRoom[roomId];
       delete state.messagesByRoom[roomId];
       delete state.activeCountByRoom[roomId];
       delete state.detailsByRoom[roomId];
-    }
+
+      // ✅ طباعات بعد التنفيذ
+      console.log("bannedByRoom(after):", state.bannedByRoom?.[roomId]);
+      console.log("activeRoomId(after):", state.activeRoomId);
+      console.log("[socketRoomBanned] DONE ✅");
+      console.log("======================================");
+    },
   },
 
   extraReducers: (builder) => {
     builder
-          .addCase(fetchRoomDetails.pending, (state) => {
+    // ====== BANNED LIST ======
+.addCase(enterRoomDirect.pending, (state) => {
+  state.mutatingRoom = true;
+  state.error = undefined;
+})
+.addCase(enterRoomDirect.fulfilled, (state, action) => {
+  state.mutatingRoom = false;
+  state.activeRoomId = action.payload.roomId;
+})
+.addCase(enterRoomDirect.rejected, (state, action) => {
+  state.mutatingRoom = false;
+  state.error = (action.payload as any) || "Enter room failed";
+})
+
+  .addCase(fetchBannedUsers.pending, (state) => {
+    state.mutatingRoom = true;
+    state.error = undefined;
+  })
+  .addCase(fetchBannedUsers.fulfilled, (state, action) => {
+    state.mutatingRoom = false;
+    const { roomId, list } = action.payload;
+    state.bannedUsersByRoom[roomId] = list;
+  })
+  .addCase(fetchBannedUsers.rejected, (state, action) => {
+    state.mutatingRoom = false;
+    state.error = (action.payload as any) || "Failed to fetch banned users";
+  })
+
+  .addCase(unbanOne.fulfilled, (state, action) => {
+    const { roomId, list, targetId } = action.payload;
+
+    // لو الباك رجّع قائمة جاهزة
+    if (list) {
+      state.bannedUsersByRoom[roomId] = list;
+      return;
+    }
+
+    // وإلا حدّث محليًا بإزالة المستخدم
+    const cur = state.bannedUsersByRoom[roomId] || [];
+    state.bannedUsersByRoom[roomId] = cur.filter((x) => String(x?.user?._id) !== String(targetId));
+  })
+  .addCase(unbanMany.fulfilled, (state, action) => {
+    const { roomId, list, targetIds } = action.payload;
+
+    if (list) {
+      state.bannedUsersByRoom[roomId] = list;
+      return;
+    }
+
+    const removeSet = new Set((targetIds || []).map(String));
+    const cur = state.bannedUsersByRoom[roomId] || [];
+    state.bannedUsersByRoom[roomId] = cur.filter((x) => !removeSet.has(String(x?.user?._id)));
+  })
+  .addCase(unbanAll.fulfilled, (state, action) => {
+    const { roomId, list } = action.payload;
+    state.bannedUsersByRoom[roomId] = list ?? [];
+  })
+      .addCase(fetchRoomDetails.pending, (state) => {
         state.loadingDetails = true;
         state.error = undefined;
       })
@@ -1262,16 +1564,16 @@ const roomSlice = createSlice({
         state.detailsByRoom[roomId] = details;
 
         // ✅ اختياري (مفيد): مزامنة قائمة الغرف الأساسية مع أحدث بيانات details.room
-      const idx = state.rooms.findIndex((r) => r._id === roomId);
-if (idx >= 0) {
-  const normalizedRoom: Partial<RoomItem> = {
-    ...details.room,
-    // ✅ منع null
-    boostExpiresAt: details.room.boostExpiresAt ?? undefined,
-  };
+        const idx = state.rooms.findIndex((r) => r._id === roomId);
+        if (idx >= 0) {
+          const normalizedRoom: Partial<RoomItem> = {
+            ...details.room,
+            // ✅ منع null
+            boostExpiresAt: details.room.boostExpiresAt ?? undefined,
+          };
 
-  state.rooms[idx] = { ...state.rooms[idx], ...normalizedRoom };
-}
+          state.rooms[idx] = { ...state.rooms[idx], ...normalizedRoom };
+        }
       })
       .addCase(fetchRoomDetails.rejected, (state, action) => {
         state.loadingDetails = false;
@@ -1530,6 +1832,35 @@ if (idx >= 0) {
         }
       )
       .addMatcher(
+        (action) =>
+          action.type.startsWith("room/") &&
+          action.type.endsWith("/fulfilled") &&
+          [
+            updateRoomInfo.typePrefix,
+            changeRoomType.typePrefix,
+            changeRoomPremium.typePrefix,
+            toggleAntiSpam.typePrefix,
+            addVip.typePrefix,
+            removeVip.typePrefix,
+            startPoll.typePrefix,
+            votePoll.typePrefix,
+            endPoll.typePrefix,
+            setMaxVoiceSeats.typePrefix,
+            raiseHand.typePrefix,
+            clearRaisedHand.typePrefix,
+            addXP.typePrefix,
+            boostRoom.typePrefix,
+            kickUser.typePrefix,
+            deleteRoom.typePrefix,
+            pinRoomMessage.typePrefix,
+            toggleRoomReaction.typePrefix,
+          ].some((p) => action.type.startsWith(p)),
+        (state) => {
+          state.mutatingRoom = false;
+        }
+      )
+
+      .addMatcher(
         (action) => action.type.startsWith("room/") && action.type.endsWith("/rejected"),
         (state, action: any) => {
           state.mutatingRoom = false;
@@ -1576,6 +1907,8 @@ export const {
   socketRoomAntiSpamUpdate,
   socketRoomBoostUpdate,
   socketRoomDeleted,
+  clearKickedFlag,
+  clearBannedFlag,
   socketRoomKicked,
   socketRoomBanned
 } = roomSlice.actions;
@@ -1609,12 +1942,26 @@ export const selectRoomDetailsById = createSelector(
   [(state: RootState) => state.room.detailsByRoom, (_: RootState, roomId: string) => roomId],
   (map, roomId) => map[roomId]
 );
+export const selectKickedFlag = createSelector(
+  [(state: RootState) => state.room.kickedByRoom, (_: RootState, roomId: string) => roomId],
+  (map, roomId) => map[roomId]
+);
 
+export const selectBannedFlag = createSelector(
+  [(state: RootState) => state.room.bannedByRoom, (_: RootState, roomId: string) => roomId],
+  (map, roomId) => map[roomId]
+);
 export const selectRoomLoadingDetails = (state: RootState) => state.room.loadingDetails;
 export const selectRoomError = (state: RootState) => state.room.error;
 export const selectRoomById = createSelector(
   [selectRooms, (_: RootState, roomId: string) => roomId],
   (rooms, roomId) => rooms.find((r) => r._id === roomId)
+);
+const EMPTY_BANNED: RoomBannedEntry[] = [];
+
+export const selectBannedUsers = createSelector(
+  [(state: RootState) => state.room.bannedUsersByRoom, (_: RootState, roomId: string) => roomId],
+  (map, roomId) => map[roomId] ?? EMPTY_BANNED
 );
 
 export const selectRoomNameById = createSelector(

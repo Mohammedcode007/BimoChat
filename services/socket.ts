@@ -68,7 +68,7 @@ export const connectSocket = (token: string): Socket => {
 
   console.log("🔌 Creating new socket connection...");
 
-  socket = io("http://192.168.0.102:5000", {
+  socket = io("http://192.168.1.6:5000", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true
@@ -702,7 +702,40 @@ export const sendRoomSocketMessage = (payload: {
   console.log("📤 EMIT room:message:send:", payload.roomId);
   socket.emit("room:message:send", payload);
 };
+export const kickRoomUserSocket = (payload: {
+  roomId: string;
+  targetId: string;
+}) => {
+  return new Promise<{ ok: boolean; message?: string }>((resolve) => {
+    if (!socket) {
+      resolve({ ok: false, message: "Socket not connected" });
+      return;
+    }
 
+    socket.emit("room:kick", payload, (ack: any) => {
+      if (ack?.ok) resolve({ ok: true });
+      else resolve({ ok: false, message: ack?.message || "Kick failed" });
+    });
+  });
+};
+
+export const banRoomUserSocket = (payload: {
+  roomId: string;
+  targetId: string;
+  reason?: string;
+}) => {
+  return new Promise<{ ok: boolean; message?: string }>((resolve) => {
+    if (!socket) {
+      resolve({ ok: false, message: "Socket not connected" });
+      return;
+    }
+
+    socket.emit("room:ban", payload, (ack: any) => {
+      if (ack?.ok) resolve({ ok: true });
+      else resolve({ ok: false, message: ack?.message || "Ban failed" });
+    });
+  });
+};
 export const editRoomSocketMessage = (payload: {
   roomId: string;
   messageId: string;

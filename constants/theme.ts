@@ -1,4 +1,3 @@
-
 // constants/theme.ts
 // ✅ تحديث ملف الألوان ليتوافق مع صفحة Room Details + يدعم Light/Dark بشكل عصري
 // ✅ يحافظ على المفاتيح القديمة (text/background/tint/icon/tab...) ويضيف المفاتيح الناقصة دون كسر أي شاشة أخرى
@@ -26,9 +25,9 @@ export const Colors = {
     subtleText: "rgba(17, 24, 28, 0.46)",
 
     // Surfaces
-    cardAlt: "#F5F7FB",          // خلفية ثانوية للكروت/الأقسام
-    surface: "#FFFFFF",          // سطح أساسي
-    surface2: "#F2F4F8",         // سطح بديل
+    cardAlt: "#F5F7FB", // خلفية ثانوية للكروت/الأقسام
+    surface: "#FFFFFF", // سطح أساسي
+    surface2: "#F2F4F8", // سطح بديل
 
     // Borders / separators
     separator: "rgba(17, 24, 28, 0.08)",
@@ -53,65 +52,72 @@ export const Colors = {
     pillGoldFg: "#92400E",
     pillHotBg: "#FFE4E6",
     pillHotFg: "#9F1239",
-
+// داخل Colors.light
+muted: "rgba(17, 24, 28, 0.62)",   // alias لـ mutedText
+subtle: "rgba(17, 24, 28, 0.46)",  // alias لـ subtleText
     // Status (optional useful across app)
     success: "#16A34A",
     warning: "#F59E0B",
     danger: "#DC2626",
-    info: "#2563EB"
+    info: "#2563EB",
   },
 
   dark: {
     /* ===== Existing keys (KEEP) ===== */
-    text: "#ECEDEE",
-    background: "#151718",
+    // ✅ Dark أعمق + خطوط أوضح (حل مشكلة “الخطوط ليس واضحه”)
+    text: "#E5E7EB",
+    background: "#0B1220", // كان: #151718
     tint: tintColorDark,
-    icon: "#9BA1A6",
-    tabIconDefault: "#9BA1A6",
+    icon: "#CBD5E1", // كان: #9BA1A6 (رفعنا الوضوح)
+    tabIconDefault: "#94A3B8",
     tabIconSelected: tintColorDark,
-    card: "#1C1C1E",
-    unreadCard: "#1E293B",
+    card: "#0F172A", // كان: #1C1C1E
+    unreadCard: "#111C34", // كان: #1E293B
 
     /* ===== Added keys (NEW) ===== */
     // Text tones
-    mutedText: "rgba(236, 237, 238, 0.70)",
-    subtleText: "rgba(236, 237, 238, 0.52)",
+    mutedText: "rgba(229, 231, 235, 0.74)", // أوضح قليلًا
+    subtleText: "rgba(229, 231, 235, 0.56)",
 
     // Surfaces
-    cardAlt: "#1F2430",          // خلفية ثانوية أغمق/أنعم
-    surface: "#1C1C1E",
-    surface2: "#111318",
+    cardAlt: "#111C34", // كان: #1F2430
+    surface: "#0F172A", // كان: #1C1C1E
+    surface2: "#0B1326", // كان: #111318 (أغمق/أنعم)
 
     // Borders / separators
-    separator: "rgba(255,255,255,0.10)",
-    border: "rgba(255,255,255,0.12)",
+    // ✅ زوّدنا الـ alpha عشان الخطوط تظهر بوضوح
+    separator: "rgba(255,255,255,0.18)", // كان: 0.10
+    border: "rgba(255,255,255,0.22)", // كان: 0.12
 
     // Overlays / disabled
-    overlay: "rgba(21, 23, 24, 0.74)",
-    disabledBg: "rgba(236, 237, 238, 0.12)",
+    overlay: "rgba(11, 18, 32, 0.72)", // مناسب للخلفية الجديدة
+    disabledBg: "rgba(229, 231, 235, 0.14)",
 
     // Primary button helpers
-    primary: "#2DD4BF",          // Tint أبيض عندك، لكن Primary عملي أكثر للزرار
-    primaryText: "#071314",
-    primarySoft: "rgba(45, 212, 191, 0.16)",
-    primarySubText: "rgba(7,19,20,0.82)",
+    // ✅ قريب من لونك السابق داخل الشات (بنفسجي)
+    primary: "#6D5DF6", // كان: #2DD4BF
+    primaryText: "#FFFFFF",
+    primarySoft: "rgba(109, 93, 246, 0.18)",
+    primarySubText: "rgba(255,255,255,0.86)",
 
     // Verification (badge)
-    verifyBg: "rgba(45, 212, 191, 0.16)",
-    verifyFg: "#2DD4BF",
+    verifyBg: "rgba(109, 93, 246, 0.18)",
+    verifyFg: "#6D5DF6",// داخل Colors.dark
+muted: "rgba(229, 231, 235, 0.74)",  // alias لـ mutedText
+subtle: "rgba(229, 231, 235, 0.56)", // alias لـ subtleText
 
     // Pills (levels)
-    pillGoldBg: "rgba(245, 158, 11, 0.18)",
+    pillGoldBg: "rgba(245, 158, 11, 0.20)",
     pillGoldFg: "#FBBF24",
-    pillHotBg: "rgba(244, 63, 94, 0.18)",
+    pillHotBg: "rgba(244, 63, 94, 0.20)",
     pillHotFg: "#FB7185",
 
     // Status (optional useful across app)
     success: "#22C55E",
     warning: "#F59E0B",
     danger: "#EF4444",
-    info: "#60A5FA"
-  }
+    info: "#60A5FA",
+  },
 } as const;
 
 export const Fonts = Platform.select({
@@ -119,18 +125,18 @@ export const Fonts = Platform.select({
     sans: "system-ui",
     serif: "ui-serif",
     rounded: "ui-rounded",
-    mono: "ui-monospace"
+    mono: "ui-monospace",
   },
   default: {
     sans: "normal",
     serif: "serif",
     rounded: "normal",
-    mono: "monospace"
+    mono: "monospace",
   },
   web: {
     sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', serif",
     rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
-  }
+    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+  },
 });

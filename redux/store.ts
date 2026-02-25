@@ -11,6 +11,7 @@ import tweetReducer from "./slices/tweetSlice";
 import chatReducer from "./slices/chatSlice";
 import roomReducer from "./slices/room.slice";
 import roomControlReducer from "./slices/roomControl.slice";
+import uiReducer from "./slices/ui.slice";
 
 
 
@@ -27,7 +28,9 @@ export const store = configureStore({
     message: messageReducer,
         room: roomReducer,
             roomControl: roomControlReducer,
-                storeControl: storeControlReducer
+                storeControl: storeControlReducer,
+                  ui: uiReducer,
+
 
 
 

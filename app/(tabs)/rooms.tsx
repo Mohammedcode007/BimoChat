@@ -22,6 +22,7 @@ import {
 
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 
+import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
 import {
   createRoom as createRoomThunk,
   enterRoomDirect,
@@ -252,6 +253,7 @@ export default function RoomsScreen() {
   const canLoadMoreRef = useRef(false);
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const { onScroll, onScrollBeginDrag } = useHideTabBarOnScroll();
 
   const reduxRooms = useAppSelector(selectRooms);
   const reduxError = useAppSelector(selectRoomError);
@@ -276,7 +278,7 @@ export default function RoomsScreen() {
   const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [joining, setJoining] = useState(false);
-const onEndReachedCalledDuringMomentum = useRef(false);
+  const onEndReachedCalledDuringMomentum = useRef(false);
   // ✅ Creating / searching nice loading
   const [creating, setCreating] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -323,60 +325,60 @@ const onEndReachedCalledDuringMomentum = useRef(false);
   /* =====================================================
      ✅ Refresh
   ===================================================== */
-const onRefresh = useCallback(async () => {
-  try {
-    setRefreshing(true);
-    setError("");
+  const onRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      setError("");
 
-    // ✅ مهم للـ pagination
-    canLoadMoreRef.current = false;
+      // ✅ مهم للـ pagination
+      canLoadMoreRef.current = false;
 
-    setPage(1);
-    accRef.current = new Map();
-    setRooms([]);
+      setPage(1);
+      accRef.current = new Map();
+      setRooms([]);
 
-    const q = search.trim();
-    if (q) {
-      setSearching(true);
-      await dispatch(searchRoomsThunk({ q, type: backendType, limit: PAGE_SIZE })).unwrap();
-    } else {
-      await dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE })).unwrap();
+      const q = search.trim();
+      if (q) {
+        setSearching(true);
+        await dispatch(searchRoomsThunk({ q, type: backendType, limit: PAGE_SIZE })).unwrap();
+      } else {
+        await dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE })).unwrap();
+      }
+    } catch (e: any) {
+      setError(e?.message || "Refresh failed");
+    } finally {
+      setSearching(false);
+      setRefreshing(false);
     }
-  } catch (e: any) {
-    setError(e?.message || "Refresh failed");
-  } finally {
-    setSearching(false);
-    setRefreshing(false);
-  }
-}, [dispatch, backendType, search]);
+  }, [dispatch, backendType, search]);
   /* =====================================================
      ✅ Load more (pagination)
   ===================================================== */
- const loadMore = useCallback(async () => {
-  if (isInitialLoading) return;
+  const loadMore = useCallback(async () => {
+    if (isInitialLoading) return;
 
-  // لا صفحات أثناء البحث
-  if (search.trim()) return;
+    // لا صفحات أثناء البحث
+    if (search.trim()) return;
 
-  // لا تكرار
-  if (loadingRooms || isLoadingMore) return;
+    // لا تكرار
+    if (loadingRooms || isLoadingMore) return;
 
-  try {
-    setIsLoadingMore(true);
+    try {
+      setIsLoadingMore(true);
 
-    const next = page + 1;
+      const next = page + 1;
 
-    await dispatch(
-      fetchRoomsByType({ type: backendType, page: next, limit: PAGE_SIZE })
-    ).unwrap();
+      await dispatch(
+        fetchRoomsByType({ type: backendType, page: next, limit: PAGE_SIZE })
+      ).unwrap();
 
-    setPage(next); // ✅ بعد النجاح فقط
-  } catch (e: any) {
-    setError(e?.message || "Load more failed");
-  } finally {
-    setIsLoadingMore(false);
-  }
-}, [dispatch, backendType, loadingRooms, isLoadingMore, page, search, isInitialLoading]);
+      setPage(next); // ✅ بعد النجاح فقط
+    } catch (e: any) {
+      setError(e?.message || "Load more failed");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [dispatch, backendType, loadingRooms, isLoadingMore, page, search, isInitialLoading]);
   /* =====================================================
      ✅ Debounced search
   ===================================================== */
@@ -507,28 +509,28 @@ const onRefresh = useCallback(async () => {
    * - نضبط activeRoomId بالستور
    * - ثم ننتقل للصفحة
    */
- // ✅ rooms.tsx
-// 2) استبدل enterActiveRoomDirect بالكامل بهذا (استخدم enterRoomDirect)
-const enterActiveRoomDirect = useCallback(
-  async (roomId: string) => {
-    try {
-      setJoining(true);
-      setError("");
+  // ✅ rooms.tsx
+  // 2) استبدل enterActiveRoomDirect بالكامل بهذا (استخدم enterRoomDirect)
+  const enterActiveRoomDirect = useCallback(
+    async (roomId: string) => {
+      try {
+        setJoining(true);
+        setError("");
 
-      // ✅ لا join API — فقط preload من الستور
-      await dispatch(enterRoomDirect({ roomId, preload: true })).unwrap();
+        // ✅ لا join API — فقط preload من الستور
+        await dispatch(enterRoomDirect({ roomId, preload: true })).unwrap();
 
-      // ✅ ثم الانتقال للغرفة
-      router.push({ pathname: "/room/[id]", params: { id: roomId } });
-    } catch (e: any) {
-      const msgStr = String(e?.message || e || "Enter room failed");
-      setError(msgStr);
-    } finally {
-      setJoining(false);
-    }
-  },
-  [dispatch, router]
-);
+        // ✅ ثم الانتقال للغرفة
+        router.push({ pathname: "/room/[id]", params: { id: roomId } });
+      } catch (e: any) {
+        const msgStr = String(e?.message || e || "Enter room failed");
+        setError(msgStr);
+      } finally {
+        setJoining(false);
+      }
+    },
+    [dispatch, router]
+  );
 
   const doJoin = useCallback(
     async (roomId: string, password?: string) => {
@@ -571,35 +573,35 @@ const enterActiveRoomDirect = useCallback(
     [dispatch, router, isBanMessage, markRoomBanned]
   );
 
- // ✅ rooms.tsx
-// 3) openRoom يبقى كما هو عندك (سيستدعي enterActiveRoomDirect عند room.isActive)
-const openRoom = useCallback(
-  async (roomId: string) => {
-    const room = accRef.current.get(roomId);
+  // ✅ rooms.tsx
+  // 3) openRoom يبقى كما هو عندك (سيستدعي enterActiveRoomDirect عند room.isActive)
+  const openRoom = useCallback(
+    async (roomId: string) => {
+      const room = accRef.current.get(roomId);
 
-    if (bannedByRoomId[roomId]) {
-      setError("أنت محظور من هذه الغرفة.");
-      return;
-    }
+      if (bannedByRoomId[roomId]) {
+        setError("أنت محظور من هذه الغرفة.");
+        return;
+      }
 
-    // ✅ Active -> دخول مباشر بدون join
-    if (room?.isActive) {
-      await enterActiveRoomDirect(roomId);
-      return;
-    }
+      // ✅ Active -> دخول مباشر بدون join
+      if (room?.isActive) {
+        await enterActiveRoomDirect(roomId);
+        return;
+      }
 
-    if (room?.isProtected) {
-      setPendingRoomId(roomId);
-      setPasswordInput("");
-      setPasswordModalVisible(true);
-      setError("");
-      return;
-    }
+      if (room?.isProtected) {
+        setPendingRoomId(roomId);
+        setPasswordInput("");
+        setPasswordModalVisible(true);
+        setError("");
+        return;
+      }
 
-    await doJoin(roomId);
-  },
-  [doJoin, bannedByRoomId, enterActiveRoomDirect]
-);
+      await doJoin(roomId);
+    },
+    [doJoin, bannedByRoomId, enterActiveRoomDirect]
+  );
 
   const confirmJoinWithPassword = useCallback(async () => {
     const rid = pendingRoomId;
@@ -721,32 +723,34 @@ const openRoom = useCallback(
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-    <FlatList
-  data={isInitialLoading ? [] : filteredRooms}
-  keyExtractor={keyExtractor}
-  renderItem={renderItem}
-  onScrollBeginDrag={() => {
+      <FlatList
+        data={isInitialLoading ? [] : filteredRooms}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        onScroll={onScroll}
+      onScrollBeginDrag={(e) => {
     canLoadMoreRef.current = true;
+    onScrollBeginDrag(e);
   }}
-  onMomentumScrollBegin={() => {
-    onEndReachedCalledDuringMomentum.current = false;
-  }}
-  onEndReached={() => {
-    if (onEndReachedCalledDuringMomentum.current) return;
-    onEndReachedCalledDuringMomentum.current = true;
-    loadMore();
-  }}
-  onEndReachedThreshold={0.4}
-  refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-  ListHeaderComponent={listHeader}
-  ListEmptyComponent={listEmpty}
-  ListFooterComponent={footer}
-  removeClippedSubviews
-  initialNumToRender={10}
-  windowSize={8}
-  maxToRenderPerBatch={10}
-  updateCellsBatchingPeriod={50}
-/>
+        onMomentumScrollBegin={() => {
+          onEndReachedCalledDuringMomentum.current = false;
+        }}
+        onEndReached={() => {
+          if (onEndReachedCalledDuringMomentum.current) return;
+          onEndReachedCalledDuringMomentum.current = true;
+          loadMore();
+        }}
+        onEndReachedThreshold={0.4}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+        ListFooterComponent={footer}
+        removeClippedSubviews
+        initialNumToRender={10}
+        windowSize={8}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+      />
 
       <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)} activeOpacity={0.9}>
         <Ionicons name="add" size={28} color="#FFF" />

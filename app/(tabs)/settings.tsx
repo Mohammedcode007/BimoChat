@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { useHideTabBarOnScroll } from '@/hooks/useHideTabBarOnScroll';
 import i18n from '@/localization/i18n';
 import { logout, toggleInvisible } from '@/redux/slices/authSlice';
 import { resetChatState } from '@/redux/slices/chatSlice';
@@ -21,6 +22,7 @@ export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
 const { user } = useSelector((state: RootState) => state.auth);
+  const { onScroll, onScrollBeginDrag } = useHideTabBarOnScroll();
 
   const [darkMode, setDarkMode] = React.useState(false);
   const [notifications, setNotifications] = React.useState(true);

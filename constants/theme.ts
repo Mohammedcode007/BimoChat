@@ -140,3 +140,5 @@ export const Fonts = Platform.select({
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });
+export type ThemeName = keyof typeof Colors;          // "light" | "dark"
+export type AppTheme = (typeof Colors)[ThemeName];    // union: light | dark

@@ -166,7 +166,76 @@ const chatSlice = createSlice({
     resetChatState: () => initialState,
 
     /* ================= ACTIVE CHAT ================= */
+socketUpsertChatFromInbox: (
+  state,
+  action: PayloadAction<{
+    chat?: any;           // chatSnap from backend
+    chatId?: string;      // fallback (لو أرسلت chatId فقط)
+    unreadCount?: number; // unread للـ target أو 0 للمرسل
+  }>
+) => {
+  const incomingChat = action.payload.chat;
+  const chatId = incomingChat?._id || action.payload.chatId;
+  if (!chatId) return;
 
+  const unreadCount = Number(action.payload.unreadCount ?? 0);
+
+  const idx = state.chats.findIndex((c) => c._id === chatId);
+
+  // ✅ لو الشات موجود: حدّثه
+  if (idx !== -1) {
+    const chat = state.chats[idx];
+
+    const prevUnread = Number(chat.unreadCount || 0);
+
+    if (incomingChat) {
+      // دمج بيانات السيرفر (participants/lastMessage/preview/type/updatedAt...)
+      Object.assign(chat, incomingChat);
+
+      // لو السيرفر بيرجع unreadCount منفصل
+      chat.unreadCount = unreadCount;
+
+      // بعض السيرفرات لا تُرجع preview/type جاهزين
+      if (!chat.lastMessagePreview && chat.lastMessage?.content) {
+        chat.lastMessagePreview = String(chat.lastMessage.content || "");
+      }
+      if (!chat.lastMessageType && chat.lastMessage?.type) {
+        chat.lastMessageType = String(chat.lastMessage.type || "text");
+      }
+    } else {
+      // fallback بسيط لو لم يأت chat كامل
+      chat.unreadCount = unreadCount;
+      chat.updatedAt = new Date().toISOString();
+    }
+
+    // ✅ حرّك الشات للأعلى
+    const moved = state.chats.splice(idx, 1)[0];
+    state.chats.unshift(moved);
+
+    // ✅ تحديث totalUnread بدقة
+    state.totalUnread = Math.max(0, state.totalUnread - prevUnread + unreadCount);
+    return;
+  }
+
+  // ✅ لو الشات غير موجود: أضفه
+  if (incomingChat) {
+    const newChat = {
+      ...incomingChat,
+      unreadCount,
+    };
+
+    // تجهيز preview/type لو غير موجودين
+    if (!newChat.lastMessagePreview && newChat.lastMessage?.content) {
+      newChat.lastMessagePreview = String(newChat.lastMessage.content || "");
+    }
+    if (!newChat.lastMessageType && newChat.lastMessage?.type) {
+      newChat.lastMessageType = String(newChat.lastMessage.type || "text");
+    }
+
+    state.chats.unshift(newChat);
+    state.totalUnread = state.totalUnread + unreadCount;
+  }
+},
     setActiveChat: (
       state,
       action: PayloadAction<string | undefined>
@@ -490,6 +559,7 @@ export const {
   setTyping,
   resetChatState,
   updateChatPresence,
+    socketUpsertChatFromInbox,
   markChatSeenLocally
 } = chatSlice.actions;
 

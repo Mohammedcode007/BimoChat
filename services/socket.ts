@@ -4,6 +4,7 @@ import {
   setTyping,
   setUnreadFromServer,
   socketNewMessage,
+  socketUpsertChatFromInbox,
   updateChatPresence
 } from "@/redux/slices/chatSlice";
 
@@ -68,7 +69,7 @@ export const connectSocket = (token: string): Socket => {
 
   console.log("🔌 Creating new socket connection...");
 
-  socket = io("http://192.168.0.101:5000", {
+  socket = io("http://192.168.1.6:5000", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true
@@ -132,7 +133,7 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   socket.removeAllListeners("notification:unreadTotal");
 
   socket.removeAllListeners("presence:update");
-
+socket.removeAllListeners("chat:inbox:update");
   // ✅ ROOMS CLEAN
   socket.removeAllListeners("room:user:joined");
   socket.removeAllListeners("room:user:left");
@@ -242,7 +243,12 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
     console.log("🔢 TOTAL UNREAD:", total);
     dispatch(setUnreadCount(total));
   });
+socket.on("chat:inbox:update", (payload) => {
+  const chatId = payload?.chat?._id || payload?.chatId;
+  if (!chatId) return;
 
+  dispatch(socketUpsertChatFromInbox(payload));
+});
   /* ================= PRESENCE ================= */
 
   socket.on("presence:update", (data) => {

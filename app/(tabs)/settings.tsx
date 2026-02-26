@@ -51,17 +51,26 @@ const handleToggleOnline = (value: boolean) => {
 
 
       {/* Profile */}
-      <TouchableOpacity
-       style={[styles.card, { backgroundColor: theme.background }]}
-        activeOpacity={0.8}
-        onPress={() => router.push("/profile")}
-      >
-        <Ionicons name="person-circle-outline" size={52} color="#555" />
-        <View style={{ marginLeft: 12 }}>
-          <Text style={[styles.name, { color: theme.text }]}>Mohammed</Text>
-          <Text style={[styles.email, { color: theme.text }]}>mohammed@email.com</Text>
-        </View>
-      </TouchableOpacity>
+  {/* Profile */}
+<TouchableOpacity
+  style={[styles.card, { backgroundColor: theme.background }]}
+  activeOpacity={0.8}
+  onPress={() => {
+    const myId = user?._id || user?.id; // حسب شكل authSlice عندك
+    if (!myId) return;
+    router.push({ pathname: "/profile/[id]", params: { id: String(myId) } });
+  }}
+>
+  <Ionicons name="person-circle-outline" size={52} color="#555" />
+  <View style={{ marginLeft: 12 }}>
+    <Text style={[styles.name, { color: theme.text }]}>
+      {user?.username || user?.displayName || "—"}
+    </Text>
+    <Text style={[styles.email, { color: theme.text }]}>
+      {user?.email || user?.atUsername || "—"}
+    </Text>
+  </View>
+</TouchableOpacity>
 
       {/* ===== Account ===== */}
       <Section title={i18n.t("settingsScreen.account")}>
@@ -69,7 +78,9 @@ const handleToggleOnline = (value: boolean) => {
           icon="person-outline"
           text={i18n.t("settingsScreen.editProfile")}
           arrow
-          onPress={() => router.push("/edit-profile")}
+                    onPress={() => router.push("/profile/settings")}
+
+          // onPress={() => router.push("/edit-profile")}
         />
         <Row
           icon="shield-checkmark-outline"

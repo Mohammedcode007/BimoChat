@@ -12,6 +12,7 @@ import chatReducer from "./slices/chatSlice";
 import roomReducer from "./slices/room.slice";
 import roomControlReducer from "./slices/roomControl.slice";
 import uiReducer from "./slices/ui.slice";
+import userReducer from "./slices/userSlice";
 
 
 
@@ -26,10 +27,11 @@ export const store = configureStore({
     follow: followReducer,
     chat: chatReducer,
     message: messageReducer,
-        room: roomReducer,
-            roomControl: roomControlReducer,
-                storeControl: storeControlReducer,
-                  ui: uiReducer,
+    room: roomReducer,
+    roomControl: roomControlReducer,
+    storeControl: storeControlReducer,
+    ui: uiReducer,
+    user:userReducer
 
 
 

@@ -1097,8 +1097,8 @@ export default function TweetsScreen() {
                 <TouchableOpacity
                   onPress={() =>
                     router.push({
-                      pathname: "/profile",
-                      params: { userId: item.author._id },
+                      pathname: "/profile/[id]",
+                      params: { id: item.author._id },
                     })
                   }
                   activeOpacity={0.85}

@@ -48,8 +48,8 @@ export default function AppHeader() {
           style={s.userContainer}
           onPress={() =>
             router.push({
-              pathname: "/profile" as any,
-              params: { userId: user?._id },
+              pathname: "/profile/[id]" as any,
+              params: { id: user?._id },
             } as any)
           }
         >

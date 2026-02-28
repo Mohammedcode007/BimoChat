@@ -2,22 +2,26 @@
 
 import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { RootState, store } from '@/redux/store';
+import { checkAuth } from '@/redux/slices/authSlice';
+import { AppDispatch, RootState, store } from '@/redux/store';
+import { injectDispatch } from '@/services/api';
+import { checkAppConfig } from '@/services/appConfig.service';
 import { attachSocketListeners, connectSocket, disconnectSocket } from '@/services/socket';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
-import { Provider, useSelector } from 'react-redux';
+import { Provider, useDispatch, useSelector } from 'react-redux';
 
 function RootStack() {
   const { language } = useLanguage();
 
   return (
-    <Stack  screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false }}>
+
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
@@ -28,7 +32,7 @@ function RootStack() {
 
       <Stack.Screen name="create-tweet" />
 
-      
+
       <Stack.Screen name="biometric-lock" />
       <Stack.Screen name="two-factor" />
       <Stack.Screen name="login-alerts" />
@@ -42,7 +46,7 @@ function RootStack() {
       <Stack.Screen name="privacy-policy" />
       <Stack.Screen name="terms-conditions" />
       <Stack.Screen name="blocked" />
-            <Stack.Screen name="room-details" />
+      <Stack.Screen name="room-details" />
 
       <Stack.Screen name="add-friend" />
       <Stack.Screen
@@ -50,6 +54,7 @@ function RootStack() {
         options={{ presentation: 'transparentModal' }}
       />
 
+      <Stack.Screen name="force-update" />
 
 
     </Stack>
@@ -65,30 +70,76 @@ function RootStack() {
 /* ============================================= */
 
 function AppContent() {
+  const dispatch = useDispatch<AppDispatch>();
+  const router = useRouter();
 
-  const token = useSelector(
-    (state: RootState) => state.auth.token
-  );
+  const pathname = usePathname();
+
+  const token = useSelector((state: RootState) => state.auth.token);
+  const hydrated = useSelector((state: RootState) => state.auth.hydrated);
+
+  // ✅ خذ السلايس كاملة (ليس required فقط)
+  const appState = useSelector((st: RootState) => st.app);
+
+  /* =========================
+     1) اطبع المسار الحالي دائمًا
+  ========================= */
+  useEffect(() => {
+    console.log("📍 Current pathname:", pathname);
+  }, [pathname]);
+
+  /* =========================
+     2) اطبع حالة Force Update كاملة
+  ========================= */
+  useEffect(() => {
+    console.log("🧩 APP STATE:", appState);
+  }, [appState]);
+
+  /* =========================
+     3) اطبع مرة واحدة عند تشغيل التطبيق
+        (لتعرف الحالة الابتدائية قبل أي شيء)
+  ========================= */
+  useEffect(() => {
+    console.log("🚀 APP START STATE:", store.getState().app);
+  }, []);
+
 
   useEffect(() => {
+    injectDispatch(store.dispatch);
+  }, []);
+
+  useEffect(() => {
+    checkAppConfig().catch(() => {});
+  }, []);
+
+  /* =========================
+     5) سجل قبل التحويل
+  ========================= */
+  useEffect(() => {
+    if (appState.required) {
+      console.log("🚨 NAVIGATE TO FORCE UPDATE because required=true");
+      console.log("🧾 ForceUpdate payload:", appState);
+      router.replace("/force-update" as any);
+    }
+  }, [appState.required, router]); // أو [appState, router] لو تريد كل التفاصيل
+
+  useEffect(() => {
+    dispatch(checkAuth() as any);
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!hydrated) return;
 
     if (!token) {
-      console.log("🔴 No token → disconnect socket");
       disconnectSocket();
       return;
     }
 
-    console.log("🟢 Token found → connect socket");
-
     connectSocket(token);
     attachSocketListeners(store.dispatch, store.getState);
 
-    return () => {
-      console.log("🛑 Cleanup socket");
-      disconnectSocket();
-    };
-
-  }, [token]);
+    return () => disconnectSocket();
+  }, [hydrated, token]);
 
   return (
     <>

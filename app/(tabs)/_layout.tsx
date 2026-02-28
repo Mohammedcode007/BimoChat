@@ -112,6 +112,7 @@
 
 //   );
 // }
+
 import { Redirect, Tabs } from "expo-router";
 import React, { useMemo } from "react";
 
@@ -136,18 +137,21 @@ export default function TabLayout() {
   const theme = Colors[colorScheme ?? "light"];
   const isDark = colorScheme === "dark";
 
-  const { isLoggedIn, loading } = useSelector((state: RootState) => state.auth);
+  const { isLoggedIn, hydrated, loading } = useSelector((state: RootState) => state.auth);
   const tabBarHidden = useSelector((state: RootState) => state.ui.tabBarHidden);
 
   const s = useMemo(() => makeStyles(theme, isDark), [theme, isDark]);
 
-  if (loading) {
+
+  // ✅ أهم سطر: انتظر hydration
+  if (!hydrated || loading) {
     return (
-      <View style={[s.full, { justifyContent: "center" }]}>
+      <View style={[s.full, { justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator size="large" color={theme.tint} />
       </View>
     );
   }
+ 
 
   if (!isLoggedIn) {
     return <Redirect href="/(auth)/login" />;

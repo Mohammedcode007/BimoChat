@@ -148,7 +148,7 @@ export default function SearchScreen() {
 
 const onPressUser = (u: any) => {
   router.push({
-    pathname: "/profile" as any,
+    pathname: "/profile/[id]" as any,
     params: {
       id: String(u._id),
       userId: String(u._id), // ✅ إضافة userId

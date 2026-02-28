@@ -69,7 +69,7 @@ export const connectSocket = (token: string): Socket => {
 
   console.log("🔌 Creating new socket connection...");
 
-  socket = io("http://192.168.0.101:5000", {
+  socket = io("http://192.168.0.100:5000", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true
@@ -144,7 +144,7 @@ socket.removeAllListeners("chat:inbox:update");
   socket.removeAllListeners("room:message:highlighted");
   socket.removeAllListeners("room:reaction:update");
   socket.removeAllListeners("room:error");
-
+socket.removeAllListeners("chat:snapshot");
   socket.removeAllListeners("room:activeCount:update");
 
   socket.removeAllListeners("room:users:update");
@@ -243,11 +243,45 @@ socket.removeAllListeners("chat:inbox:update");
     console.log("🔢 TOTAL UNREAD:", total);
     dispatch(setUnreadCount(total));
   });
-socket.on("chat:inbox:update", (payload) => {
-  const chatId = payload?.chat?._id || payload?.chatId;
+  socket.on("chat:inbox:update", (payload) => {
+  const chat = payload?.chat;
+  const chatId = chat?._id || payload?.chatId;
   if (!chatId) return;
 
-  dispatch(socketUpsertChatFromInbox(payload));
+  const meId = getState().auth.user?._id;
+
+  dispatch(
+    socketUpsertChatFromInbox({
+      ...payload,
+      chatId,
+      unreadCount:
+        payload?.unreadCount ??
+        chat?.unreadCounts?.[meId] ??
+        chat?.unreadCount ??
+        0,
+    })
+  );
+});
+// socket.on("chat:inbox:update", (payload) => {
+//   const chatId = payload?.chat?._id || payload?.chatId;
+//   if (!chatId) return;
+
+//   dispatch(socketUpsertChatFromInbox(payload));
+// });
+socket.on("chat:snapshot", (payload) => {
+  const chat = payload?.chat;
+  const chatId = chat?._id;
+  if (!chatId) return;
+
+  const meId = getState().auth.user?._id;
+
+  dispatch(
+    socketUpsertChatFromInbox({
+      chat,
+      chatId,
+      unreadCount: chat?.unreadCounts?.[meId] ?? chat?.unreadCount ?? 0,
+    })
+  );
 });
   /* ================= PRESENCE ================= */
 

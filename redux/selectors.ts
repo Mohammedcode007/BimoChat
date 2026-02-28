@@ -1,3 +1,7 @@
+// selectors.ts (FULL) ✅ بعد التعديل لمعالجة participants (Objects أو IDs)
+// - يمنع رجوع null بسبب أن participants أحياناً تكون string ids
+// - يحافظ على نفس الـ API بتاع السيلكتورز
+
 import { createSelector } from "@reduxjs/toolkit";
 import { RootState } from "./store";
 
@@ -11,45 +15,40 @@ const selectMessageState = (state: RootState) => state.message;
 const selectAuthState = (state: RootState) => state.auth;
 
 /* =====================================================
+   HELPERS
+===================================================== */
+
+const isObj = (x: any) => x !== null && typeof x === "object";
+
+/** يرجّع id للـ participant سواء كان object أو string */
+const getPid = (p: any) => (isObj(p) ? String(p._id) : String(p));
+
+/** يرجّع participant كـ object فقط (لو string يرجع null) */
+const asUserObject = (p: any) => (isObj(p) ? p : null);
+
+/* =====================================================
    CURRENT USER
 ===================================================== */
 
-export const selectCurrentUser = createSelector(
-  [selectAuthState],
-  (auth) => {
-    return auth.user;
-  }
-);
+export const selectCurrentUser = createSelector([selectAuthState], (auth) => {
+  return auth.user;
+});
 
 /* =====================================================
-   SORTED CHATS (مع طباعات)
+   SORTED CHATS
 ===================================================== */
 
-export const selectSortedChats = createSelector(
-  [selectChats],
-  (chats) => {
+export const selectSortedChats = createSelector([selectChats], (chats) => {
+  const sorted = [...chats].sort(
+    (a: any, b: any) =>
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
 
-
-
-    chats.forEach(c => {
-   
-    });
-
-    const sorted = [...chats].sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() -
-        new Date(a.updatedAt).getTime()
-    );
-
-
-
-
-    return sorted;
-  }
-);
+  return sorted;
+});
 
 /* =====================================================
-   FILTERED CHATS (مع طباعات)
+   FILTERED CHATS
 ===================================================== */
 
 export const selectFilteredChats = createSelector(
@@ -58,39 +57,29 @@ export const selectFilteredChats = createSelector(
     (_: RootState, search: string) => search,
     (_: RootState, __: string, currentUserId?: string) => currentUserId
   ],
-  (chats, search, currentUserId) => {
+  (chats: any[], search: string, currentUserId?: string) => {
+    if (!currentUserId) return [];
 
- 
+    const normalizedSearch = String(search || "").toLowerCase().trim();
 
-    if (!currentUserId) {
-      return [];
-    }
+    // لو البحث فاضي رجّع الكل
+    if (!normalizedSearch) return chats;
 
-    const normalizedSearch = search.toLowerCase();
+    const result = chats.filter((chat: any) => {
+      // ✅ ابحث عن other فقط لو participants objects
+      const otherObj =
+        (chat.participants || [])
+          .map(asUserObject)
+          .filter(Boolean)
+          .find((p: any) => String(p._id) !== String(currentUserId)) || null;
 
-    const result = chats.filter(chat => {
+      // لو مفيش populate => ما نفلترش بالاسم (لأنه مش موجود)
+      if (!otherObj?.username) return false;
 
-      const other = chat.participants?.find(
-        (p: any) => p._id !== currentUserId
-      );
-
-     
-
-      if (!other?.username) return false;
-
-      const match = other.username
+      return String(otherObj.username)
         .toLowerCase()
         .includes(normalizedSearch);
-
-
-      return match;
     });
-
-
-    result.forEach(c => {
-    
-    });
-
 
     return result;
   }
@@ -101,36 +90,22 @@ export const selectFilteredChats = createSelector(
 ===================================================== */
 
 export const selectChatById = (chatId: string) =>
-  createSelector(
-    [selectChats],
-    (chats) => {
+  createSelector([selectChats], (chats: any[]) => {
+    const chat =
+      chats.find((c: any) => String(c._id) === String(chatId)) || null;
 
-      const chat = chats.find(c => c._id === chatId) || null;
-
-      if (chat) {
-
-      }
-
-      return chat;
-    }
-  );
+    return chat;
+  });
 
 /* =====================================================
    MESSAGES BY CHAT ID
 ===================================================== */
 
 export const selectMessagesByChatId = (chatId: string) =>
-  createSelector(
-    [selectMessageState],
-    (messageState) => {
-
-      const messages = messageState.messages[chatId] ?? [];
-
-    
-
-      return messages;
-    }
-  );
+  createSelector([selectMessageState], (messageState: any) => {
+    const messages = messageState.messages?.[chatId] ?? [];
+    return messages;
+  });
 
 /* =====================================================
    TYPING USERS BY CHAT
@@ -140,43 +115,45 @@ export const selectTypingUsersByChatId = (
   chatId: string,
   currentUserId?: string
 ) =>
-  createSelector(
-    [selectTyping],
-    (typingUsers) => {
+  createSelector([selectTyping], (typingUsers: Record<string, string[]>) => {
+    const filtered = (typingUsers?.[chatId] || []).filter(
+      (id) => String(id) !== String(currentUserId)
+    );
 
-      const filtered =
-        (typingUsers[chatId] || [])
-          .filter(id => id !== currentUserId);
-
-   
-
-      return filtered;
-    }
-  );
+    return filtered;
+  });
 
 /* =====================================================
    OTHER USER
 ===================================================== */
 
-export const selectOtherUser = (
-  chatId: string,
-  currentUserId?: string
-) =>
-  createSelector(
-    [selectChats],
-    (chats) => {
+export const selectOtherUser = (chatId: string, currentUserId?: string) =>
+  createSelector([selectChats], (chats: any[]) => {
+    const chat = chats.find((c: any) => String(c._id) === String(chatId));
+    if (!chat) return null;
 
+    // 1) ✅ لو participants objects (populate)
+    const otherObj =
+      (chat.participants || [])
+        .map(asUserObject)
+        .filter(Boolean)
+        .find((p: any) => String(p._id) !== String(currentUserId)) || null;
 
-      const chat = chats.find(c => c._id === chatId);
-      if (!chat) {
-        return null;
-      }
+    if (otherObj) return otherObj;
 
-      const other = chat.participants.find(
-        (p: any) => p._id !== currentUserId
-      ) || null;
+    // 2) ✅ لو participants IDs فقط: رجّع object بسيط (id فقط)
+    const otherId =
+      (chat.participants || [])
+        .map(getPid)
+        .find((pid: string) => pid !== String(currentUserId)) || null;
 
+    if (!otherId) return null;
 
-      return other;
-    }
-  );
+    return {
+      _id: otherId,
+      username: "", // هيظل فاضي لو لم يتم populate
+      avatar: "",
+      isOnline: false,
+      lastSeen: undefined
+    };
+  });

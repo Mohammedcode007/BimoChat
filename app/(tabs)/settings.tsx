@@ -3,6 +3,7 @@ import { useHideTabBarOnScroll } from '@/hooks/useHideTabBarOnScroll';
 import i18n from '@/localization/i18n';
 import { logout, toggleInvisible } from '@/redux/slices/authSlice';
 import { resetChatState } from '@/redux/slices/chatSlice';
+import { setTabBarHidden } from '@/redux/slices/ui.slice';
 import { AppDispatch, RootState } from '@/redux/store';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -22,7 +23,7 @@ export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
 const { user } = useSelector((state: RootState) => state.auth);
-  const { onScroll, onScrollBeginDrag } = useHideTabBarOnScroll();
+  const { onScroll, onScrollBeginDrag, showTabBar } = useHideTabBarOnScroll();
 
   const [darkMode, setDarkMode] = React.useState(false);
   const [notifications, setNotifications] = React.useState(true);
@@ -39,14 +40,23 @@ const handleToggleOnline = (value: boolean) => {
   dispatch(toggleInvisible(!value));
 };
 
-  const handleLogout = async () => {
+ const handleLogout = async () => {
+    // ✅ أظهر التاب بار فورًا قبل تغيير الحساب
+    showTabBar(); // أو dispatch(setTabBarHidden(false))
+
     await dispatch(logout());
     dispatch(resetChatState());
+
+    // ✅ (اختياري) تأكيد إضافي بعد logout
+    dispatch(setTabBarHidden(false));
   };
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.background }]}
       showsVerticalScrollIndicator={false}
+      onScrollBeginDrag={onScrollBeginDrag}
+onScroll={onScroll}
+scrollEventThrottle={16}
     >
 
 

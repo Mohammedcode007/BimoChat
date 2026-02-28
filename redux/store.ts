@@ -8,6 +8,7 @@ import profileReducer from "./slices/profileSlice";
 import storeControlReducer from "./slices/storeControl.slice";
 import tweetReducer from "./slices/tweetSlice";
 
+import storiesReducer from "@/redux/slices/storySlice";
 import chatReducer from "./slices/chatSlice";
 import roomReducer from "./slices/room.slice";
 import roomControlReducer from "./slices/roomControl.slice";
@@ -31,7 +32,9 @@ export const store = configureStore({
     roomControl: roomControlReducer,
     storeControl: storeControlReducer,
     ui: uiReducer,
-    user:userReducer
+    user: userReducer,
+    stories: storiesReducer,
+
 
 
 

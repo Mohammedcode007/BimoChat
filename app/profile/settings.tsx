@@ -527,7 +527,7 @@ const errorUpdate = useSelector(selectUserErrorUpdate);
         {/* Basic */}
         <Card theme={theme}>
           <SectionHeader title="البيانات الأساسية" subtitle="اسم العرض، المستخدم، الموقع" theme={theme} />
-          <Field label="اسم العرض" value={displayName} onChangeText={setDisplayName} theme={theme} icon="person-outline" />
+          {/* <Field label="اسم العرض" value={displayName} onChangeText={setDisplayName} theme={theme} icon="person-outline" /> */}
           {/* ✅ atUsername عرض فقط (لا تعديل) */}
           <Field
             label="اسم المستخدم"

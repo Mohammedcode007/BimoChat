@@ -1,3 +1,4 @@
+import changePasswordReducer from "@/redux/slices/changePasswordSlice";
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/authSlice";
 import followReducer from "./slices/followSlice";
@@ -11,6 +12,7 @@ import tweetReducer from "./slices/tweetSlice";
 import appReducer from "@/redux/slices/appSlice";
 import storiesReducer from "@/redux/slices/storySlice";
 import chatReducer from "./slices/chatSlice";
+import contactUsReducer from "./slices/contactUsSlice";
 import roomReducer from "./slices/room.slice";
 import roomControlReducer from "./slices/roomControl.slice";
 import uiReducer from "./slices/ui.slice";
@@ -35,6 +37,10 @@ export const store = configureStore({
     user: userReducer,
     stories: storiesReducer,
       app: appReducer, // ✅ جديد
+          contactUs: contactUsReducer,
+            changePassword: changePasswordReducer,
+
+
 
 
 

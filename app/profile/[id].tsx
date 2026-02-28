@@ -12,6 +12,8 @@ import { RootState } from "@/redux/store";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import {
   ActivityIndicator,
   Dimensions,
@@ -216,6 +218,10 @@ type SheetKey =
   | "editBio"
   | "tag";
 
+
+
+
+
 function Sheet({
   visible,
   title,
@@ -231,41 +237,57 @@ function Sheet({
   children: React.ReactNode;
   onClose: () => void;
 }) {
+  const insets = useSafeAreaInsets();
+
+  // ✅ ارتفاع مقيد (مهم جدًا)
+  const SHEET_H = Math.min(560, Math.round(H * 0.78));
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.sheetRoot}>
-        <Pressable style={[styles.sheetBackdrop]} onPress={onClose} />
+        <Pressable style={styles.sheetBackdrop} onPress={onClose} />
+
         <View
           style={[
             styles.sheetCard,
             {
+              height: SHEET_H, // ✅ أهم سطر
               backgroundColor: theme.card,
               borderColor: theme.border,
               shadowColor: "#000",
+              paddingBottom: 12 + (insets.bottom || 0),
             },
           ]}
         >
           <View style={[styles.sheetHandle, { backgroundColor: theme.border }]} />
-          <View style={{ paddingHorizontal: 14, paddingTop: 8, paddingBottom: 12 }}>
+
+          {/* Header */}
+          <View style={{ paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10 }}>
             <Text style={[styles.sheetTitle, { color: theme.text }]}>{title}</Text>
             {subtitle ? (
-              <Text style={[styles.sheetSub, { color: theme.textMuted }]} numberOfLines={2}>
+              <Text style={[styles.sheetSub, { color: theme.textMuted }]} numberOfLines={3}>
                 {subtitle}
               </Text>
             ) : null}
           </View>
 
-          <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>{children}</View>
+          {/* ✅ Scrollable content */}
+          <ScrollView
+            style={{ flex: 1 }} // ✅ الآن سيعمل لأن parent له height
+            contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 12 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
 
-          <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+          {/* Footer ثابت */}
+          <View style={{ paddingHorizontal: 14, paddingTop: 8 }}>
             <Pressable onPress={onClose} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
               <View
                 style={[
                   styles.sheetCloseBtn,
-                  {
-                    backgroundColor: theme.surface2,
-                    borderColor: theme.border,
-                  },
+                  { backgroundColor: theme.surface2, borderColor: theme.border },
                 ]}
               >
                 <Text style={[styles.sheetCloseText, { color: theme.text }]}>إغلاق</Text>
@@ -331,7 +353,7 @@ function PrimaryBtn({
 }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
-      <View style={[styles.sheetPrimaryBtn, { backgroundColor: theme.tint }]}>
+      <View style={[styles.sheetPrimaryBtn, { backgroundColor: theme.tint,width:200 }]}>
         {icon ? <Ionicons name={icon} size={18} color="#fff" /> : null}
         <Text style={styles.sheetPrimaryText}>{label}</Text>
       </View>
@@ -384,8 +406,8 @@ export default function ProfileScreen() {
       ((themeBase as any).icon
         ? rgba((themeBase as any).icon, 0.95)
         : isDark
-        ? "rgba(234,240,255,0.65)"
-        : "rgba(18,24,38,0.62)");
+          ? "rgba(234,240,255,0.65)"
+          : "rgba(18,24,38,0.62)");
 
     const surface2 = isDark ? "rgba(255,255,255,0.06)" : "rgba(17,24,39,0.06)";
     return { background, card, tint, text, border, textMuted, surface2 };
@@ -401,9 +423,9 @@ export default function ProfileScreen() {
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
 
-const profileUser = useSelector((s: RootState) => s.user.profileUser);
-const loadingProfile = useSelector((s: RootState) => s.user.loadingProfile);
-const errorProfile = useSelector((s: RootState) => s.user.errorProfile);
+  const profileUser = useSelector((s: RootState) => s.user.profileUser);
+  const loadingProfile = useSelector((s: RootState) => s.user.loadingProfile);
+  const errorProfile = useSelector((s: RootState) => s.user.errorProfile);
   useEffect(() => {
     if (id) dispatch(fetchUserProfile(String(id)));
   }, [id, dispatch]);
@@ -807,7 +829,7 @@ const errorProfile = useSelector((s: RootState) => s.user.errorProfile);
 
         <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
           <PrimaryBtn
-            label={blocked ? "إلغاء الحظر" : "تأكيد الحظر"}
+            label={blocked ? "إلغاء الحظر" : "تأكيد"}
             icon={blocked ? "lock-open-outline" : "lock-closed-outline"}
             theme={theme}
             onPress={doBlockToggle}
@@ -1043,7 +1065,16 @@ const styles = StyleSheet.create({
 
   sheetRoot: { flex: 1, justifyContent: "flex-end" },
   sheetBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
-  sheetCard: { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, paddingTop: 8, maxHeight: Math.min(520, Math.round(H * 0.72)), shadowOpacity: 0.25, shadowRadius: 18, shadowOffset: { width: 0, height: -8 }, elevation: 14 },
+sheetCard: {
+  borderTopLeftRadius: 20,
+  borderTopRightRadius: 20,
+  borderWidth: 1,
+  paddingTop: 8,
+  shadowOpacity: 0.25,
+  shadowRadius: 18,
+  shadowOffset: { width: 0, height: -8 },
+  elevation: 14,
+},
   sheetHandle: { width: 44, height: 5, borderRadius: 999, alignSelf: "center", opacity: 0.9, marginBottom: 6 },
   sheetTitle: { fontSize: 16, fontWeight: "900" },
   sheetSub: { marginTop: 6, fontSize: 12.5, lineHeight: 18, fontWeight: "700" },
@@ -1056,7 +1087,7 @@ const styles = StyleSheet.create({
   sheetItemTitle: { fontSize: 14, fontWeight: "900" },
   sheetItemSub: { marginTop: 4, fontSize: 12.5, lineHeight: 17, fontWeight: "700" },
 
-  sheetPrimaryBtn: { flex: 1, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
+  sheetPrimaryBtn: { flex: 1, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, width:'50%' },
   sheetPrimaryText: { color: "#fff", fontSize: 14, fontWeight: "900" },
 
   sheetGhostBtn: { flex: 1, height: 44, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },

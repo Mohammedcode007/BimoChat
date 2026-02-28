@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import {
   Linking,
@@ -24,7 +25,7 @@ export default function HelpSupportScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const s = useMemo(() => makeStyles(theme), [theme]);
-
+  const router = useRouter();
   // ✅ عدّل الإيميل حسب مشروعك
   const SUPPORT_EMAIL = "support@bimo.app";
 
@@ -96,13 +97,11 @@ export default function HelpSupportScreen() {
         return;
       }
 
-      // ✅ هنا ضع navigation حسب شاشاتك
-      // مثال:
-      // if (item.type === "faq") router.push("/faq");
-      // if (item.type === "chat") router.push("/support/chat");
-      // if (item.type === "report") router.push("/report");
-      // if (item.type === "guidelines") router.push("/guidelines");
-      // if (item.type === "safety") router.push("/safety");
+      if (item.type === "chat") {
+        router.push("/support/chat"); // ✅ يفتح صفحة إرسال رسالة للدعم داخل التطبيق
+        return;
+      }
+
 
       // مؤقتًا: لا شيء
       return;

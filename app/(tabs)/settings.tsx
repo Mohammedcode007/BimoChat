@@ -22,7 +22,7 @@ import { useDispatch, useSelector } from 'react-redux';
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
-const { user } = useSelector((state: RootState) => state.auth);
+  const { user } = useSelector((state: RootState) => state.auth);
   const { onScroll, onScrollBeginDrag, showTabBar } = useHideTabBarOnScroll();
 
   const [darkMode, setDarkMode] = React.useState(false);
@@ -34,13 +34,13 @@ const { user } = useSelector((state: RootState) => state.auth);
   const [autoPlayVideos, setAutoPlayVideos] = React.useState(true);
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-const handleToggleOnline = (value: boolean) => {
-  // إذا السويتش ON → يعني يريد الظهور Online
-  // إذن invisible = false
-  dispatch(toggleInvisible(!value));
-};
+  const handleToggleOnline = (value: boolean) => {
+    // إذا السويتش ON → يعني يريد الظهور Online
+    // إذن invisible = false
+    dispatch(toggleInvisible(!value));
+  };
 
- const handleLogout = async () => {
+  const handleLogout = async () => {
     // ✅ أظهر التاب بار فورًا قبل تغيير الحساب
     showTabBar(); // أو dispatch(setTabBarHidden(false))
 
@@ -55,32 +55,32 @@ const handleToggleOnline = (value: boolean) => {
       style={[styles.container, { backgroundColor: theme.background }]}
       showsVerticalScrollIndicator={false}
       onScrollBeginDrag={onScrollBeginDrag}
-onScroll={onScroll}
-scrollEventThrottle={16}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
     >
 
 
       {/* Profile */}
-  {/* Profile */}
-<TouchableOpacity
-  style={[styles.card, { backgroundColor: theme.background }]}
-  activeOpacity={0.8}
-  onPress={() => {
-    const myId = user?._id || user?.id; // حسب شكل authSlice عندك
-    if (!myId) return;
-    router.push({ pathname: "/profile/[id]", params: { id: String(myId) } });
-  }}
->
-  <Ionicons name="person-circle-outline" size={52} color="#555" />
-  <View style={{ marginLeft: 12 }}>
-    <Text style={[styles.name, { color: theme.text }]}>
-      {user?.username || user?.displayName || "—"}
-    </Text>
-    <Text style={[styles.email, { color: theme.text }]}>
-      {user?.email || user?.atUsername || "—"}
-    </Text>
-  </View>
-</TouchableOpacity>
+      {/* Profile */}
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: theme.background }]}
+        activeOpacity={0.8}
+        onPress={() => {
+          const myId = user?._id || user?.id; // حسب شكل authSlice عندك
+          if (!myId) return;
+          router.push({ pathname: "/profile/[id]", params: { id: String(myId) } });
+        }}
+      >
+        <Ionicons name="person-circle-outline" size={52} color="#555" />
+        <View style={{ marginLeft: 12 }}>
+          <Text style={[styles.name, { color: theme.text }]}>
+            {user?.username || user?.displayName || "—"}
+          </Text>
+          <Text style={[styles.email, { color: theme.text }]}>
+            {user?.email || user?.atUsername || "—"}
+          </Text>
+        </View>
+      </TouchableOpacity>
 
       {/* ===== Account ===== */}
       <Section title={i18n.t("settingsScreen.account")}>
@@ -88,10 +88,16 @@ scrollEventThrottle={16}
           icon="person-outline"
           text={i18n.t("settingsScreen.editProfile")}
           arrow
-                    onPress={() => router.push("/profile/settings")}
+          onPress={() => router.push("/profile/settings")}
 
-          // onPress={() => router.push("/edit-profile")}
+        // onPress={() => router.push("/edit-profile")}
         />
+          <Row
+    icon="key-outline"
+    text="Change Password"
+    arrow
+    onPress={() => router.push("/change-password")}
+  />
         <Row
           icon="shield-checkmark-outline"
           text={i18n.t("settingsScreen.verifyAccount")}
@@ -102,13 +108,13 @@ scrollEventThrottle={16}
 
       {/* ===== Privacy ===== */}
       <Section title={i18n.t("settingsScreen.privacy")}>
-       <Row
-  icon="eye-outline"
-  text={i18n.t("settingsScreen.onlineStatus")}
-  switcher
-  value={!user?.isInvisible}
-  onChange={handleToggleOnline}
-/>
+        <Row
+          icon="eye-outline"
+          text={i18n.t("settingsScreen.onlineStatus")}
+          switcher
+          value={!user?.isInvisible}
+          onChange={handleToggleOnline}
+        />
 
         <Row
           icon="checkmark-done-outline"
@@ -286,7 +292,7 @@ function Row({
   onChange,
   onPress,
 }: any) {
-    const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   return (
     <TouchableOpacity

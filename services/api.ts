@@ -2,7 +2,7 @@
 // import axios from "axios";
 
 // const api = axios.create({
-//   baseURL: "http://192.168.1.9:5000/api",
+//   baseURL: "http://192.168.0.101:5000/api",
 // });
 
 // /* ================= REQUEST INTERCEPTOR ================= */
@@ -76,7 +76,7 @@ const getBuildNumber = () => {
 };
 
 const api = axios.create({
-  baseURL: "http://192.168.1.9:5000/api",
+  baseURL: "http://192.168.0.101:5000/api",
   timeout: 20000,
 });
 
@@ -100,15 +100,7 @@ api.interceptors.request.use(
     config.headers["x-app-build"] = buildNumber; // اختياري
     config.headers["x-platform"] = platform;
 
-    // ✅ Logs (تشخيص)
-    console.log("📤 API REQUEST:");
-    console.log("➡️ URL:", config.url);
-    console.log("➡️ Method:", config.method);
-    console.log("➡️ Version:", appVersion);
-    console.log("➡️ Build:", buildNumber);
-    console.log("➡️ Platform:", platform);
-    console.log("➡️ Headers:", config.headers);
-    console.log("====================================");
+ 
 
     return config;
   },
@@ -122,10 +114,7 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
-    console.log("📥 API RESPONSE SUCCESS:");
-    console.log("⬅️ URL:", response.config.url);
-    console.log("⬅️ Status:", response.status);
-    console.log("====================================");
+
     return response;
   },
   (error) => {
@@ -133,21 +122,13 @@ api.interceptors.response.use(
     const data = error?.response?.data;
     const url = error?.config?.url;
 
-    console.log("🚨 API RESPONSE ERROR:");
-    console.log("⬅️ URL:", url);
-    console.log("⬅️ Status:", status);
-    console.log("⬅️ Data:", data);
-    console.log("====================================");
+  
 
     // ✅ Force Update
     if (status === 426 && data?.code === "FORCE_UPDATE") {
-      console.log("🔥 FORCE UPDATE TRIGGERED");
-      console.log("🔗 Store URL:", data.storeUrl);
-      console.log("🔢 Min Version:", data.minSupportedVersion);
-      console.log("🔢 Latest Version:", data.latestVersion);
+    
 
       if (!appDispatch) {
-        console.log("⚠️ appDispatch is NULL (did you call injectDispatch?)");
       }
 
       appDispatch?.(

@@ -92,12 +92,19 @@ export default function SettingsScreen() {
 
         // onPress={() => router.push("/edit-profile")}
         />
-          <Row
-    icon="key-outline"
-    text="Change Password"
-    arrow
-    onPress={() => router.push("/change-password")}
-  />
+            <Row
+          icon="person-outline"
+          text='Avatar and Cover'
+          arrow
+
+        onPress={() => router.push("/edit-profile")}
+        />
+        <Row
+          icon="key-outline"
+          text="Change Password"
+          arrow
+          onPress={() => router.push("/change-password")}
+        />
         <Row
           icon="shield-checkmark-outline"
           text={i18n.t("settingsScreen.verifyAccount")}

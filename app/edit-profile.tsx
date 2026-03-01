@@ -187,25 +187,7 @@ export default function EditProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* PASSWORD */}
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>تغيير كلمة المرور</Text>
-
-          <FormInput
-            label="كلمة المرور الحالية"
-            secureTextEntry
-            value={oldPass}
-            onChangeText={setOldPass}
-          />
-
-          <FormInput
-            label="كلمة المرور الجديدة"
-            secureTextEntry
-            value={newPass}
-            onChangeText={setNewPass}
-          />
-        </View>
-
+   
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveText}>حفظ التغييرات</Text>
         </TouchableOpacity>

@@ -69,7 +69,7 @@ export const connectSocket = (token: string): Socket => {
 
   console.log("🔌 Creating new socket connection...");
 
-  socket = io("http://192.168.1.9:5000", {
+  socket = io("http://192.168.0.101:5000", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true
@@ -329,13 +329,11 @@ socket.on("chat:snapshot", (payload) => {
   });
 
   socket.on("room:user:left", (data) => {
-    console.log("🚪 room:user:left:", data);
     if (!data?.roomId || !data?.userId) return;
     dispatch(socketUserLeft({ roomId: data.roomId, userId: data.userId }));
   });
 
   socket.on("room:message:new", (message) => {
-    console.log("📥 room:message:new:", message?._id);
     if (!message?.room) return;
 
     const roomId = typeof message.room === "string" ? message.room : String(message.room);

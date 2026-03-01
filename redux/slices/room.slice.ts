@@ -640,48 +640,31 @@ export const fetchRoomMessages = createAsyncThunk<
   { state: RootState }
 >("room/fetchRoomMessages", async ({ roomId, pagination, append }, thunkAPI) => {
   try {
-    console.log("======================================");
-    console.log("[fetchRoomMessages] START");
-    console.log("Room ID:", roomId);
-    console.log("Pagination:", pagination);
-    console.log("Append:", append);
+
 
     const params = new URLSearchParams();
 
     if (pagination?.limit) {
       params.set("limit", String(pagination.limit));
-      console.log("Limit param set:", pagination.limit);
     }
 
     if (pagination?.before) {
       params.set("before", String(pagination.before));
-      console.log("Before param set:", pagination.before);
     }
 
     const qs = params.toString() ? `?${params.toString()}` : "";
     const finalUrl = `/rooms/${roomId}/messages${qs}`;
 
-    console.log("Final URL:", finalUrl);
 
     const res = await api.get(finalUrl);
 
-    console.log("Raw response:", res?.data);
 
     const messages: RoomMessage[] = dataOf(res) ?? [];
 
-    console.log("Parsed messages count:", messages.length);
-    console.log("[fetchRoomMessages] SUCCESS");
-    console.log("======================================");
 
     return { roomId, messages, append: Boolean(append) };
   } catch (e: any) {
-    console.error("======================================");
-    console.error("[fetchRoomMessages] ERROR");
-    console.error("Room ID:", roomId);
-    console.error("Error object:", e);
-    console.error("Error response:", e?.response?.data);
-    console.error("Error message:", e?.message);
-    console.error("======================================");
+   
 
     return thunkAPI.rejectWithValue(
       errMsg(e, "Failed to fetch messages")

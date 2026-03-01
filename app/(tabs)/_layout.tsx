@@ -49,7 +49,6 @@ export default function TabLayout() {
       {/* ✅ Tabs أسفل الهيدر */}
       <View style={{ flex: 1 }}>
         <Tabs
-          initialRouteName="chats"
 
           screenOptions={{
             headerShown: false,
@@ -79,9 +78,9 @@ export default function TabLayout() {
           /> */}
 
           <Tabs.Screen
-            name="chats"
+            name="index"
             options={{
-              title: "Chats",
+              title: "chats",
               tabBarIcon: ({ color, focused }) => (
                 <View style={[s.iconWrap, focused && s.iconWrapActive]}>
                   <Ionicons name="chatbubbles-outline" size={20} color={color} />

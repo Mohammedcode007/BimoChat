@@ -76,7 +76,7 @@ const getBuildNumber = () => {
 };
 
 const api = axios.create({
-  baseURL: "http://192.168.0.101:5000/api",
+  baseURL: "http://192.168.1.9:5000/api",
   timeout: 20000,
 });
 

@@ -1,434 +1,16 @@
 
-// import { Colors } from '@/constants/theme';
-// import {
-//   createChat,
-//   setActiveChat
-// } from '@/redux/slices/chatSlice';
-
-// import {
-//   getFriends,
-//   removeFriend
-// } from '@/redux/slices/friendSlice';
-
-// import {
-//   setMessages
-// } from '@/redux/slices/messageSlice';
-
-// import { AppDispatch, RootState } from '@/redux/store';
-// import api from '@/services/api';
-// import { formatLastSeenListFriend } from '@/utils/helpFunctions';
-
-// import Ionicons from '@expo/vector-icons/Ionicons';
-// import { useRouter } from 'expo-router';
-
-// import { useEffect, useMemo, useState } from 'react';
-// import {
-//   ActivityIndicator,
-//   FlatList,
-//   Image,
-//   RefreshControl,
-//   StyleSheet,
-//   Text,
-//   TextInput,
-//   TouchableOpacity,
-//   useColorScheme,
-//   View,
-// } from 'react-native';
-
-// import { Swipeable } from 'react-native-gesture-handler';
-// import { useDispatch, useSelector } from 'react-redux';
-
-// export default function FriendsScreen() {
-
-//   const colorScheme = useColorScheme();
-//   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
-
-//   const router = useRouter();
-//   const dispatch = useDispatch<AppDispatch>();
-
-//   const { friends, loading } = useSelector(
-//     (state: RootState) => state.friends
-//   );
-
-//   const [search, setSearch] = useState('');
-//   const [creatingChatId, setCreatingChatId] = useState<string | null>(null);
-//   const [refreshing, setRefreshing] = useState(false);
-
-//   /* ================= Fetch Friends ================= */
-
-//   useEffect(() => {
-//     dispatch(getFriends());
-//   }, [dispatch]);
-
-//   /* ================= Filter ================= */
-
-//   const filteredFriends = useMemo(() => {
-//     return friends.filter((f) =>
-//       f.username.toLowerCase().includes(search.toLowerCase())
-//     );
-//   }, [friends, search]);
-
-//   /* ================= Pull To Refresh ================= */
-
-//   const onRefresh = async () => {
-//     setRefreshing(true);
-//     await dispatch(getFriends());
-//     setRefreshing(false);
-//   };
-
-//   /* ================= Remove Friend ================= */
-
-//   const deleteFriendHandler = (id: string) => {
-//     dispatch(removeFriend(id));
-//   };
-
-//   /* ================= Open Chat ================= */
-
-//   const openChat = async (targetUserId: string) => {
-
-//     if (creatingChatId) return;
-
-//     try {
-
-//       setCreatingChatId(targetUserId);
-
-//       const chat = await dispatch(
-//         createChat(targetUserId)
-//       ).unwrap();
-
-//       dispatch(setActiveChat(chat._id));
-//       // dispatch(fetchChats());
-
-//       const messagesRes = await api.get(
-//         `/messages/${chat._id}?page=1`
-//       );
-
-//       dispatch(setMessages({
-//         chatId: chat._id,
-//         messages: messagesRes.data
-//       }));
-
-//       router.push(`/chat/${chat._id}`);
-
-//     } catch (error) {
-//     } finally {
-//       setCreatingChatId(null);
-//     }
-//   };
-
-//   /* ================= Swipe ================= */
-
-//   const renderRightActions = (item: any) => (
-//     <View style={styles.actions}>
-//       <TouchableOpacity
-//         style={[styles.actionBtn, styles.delete]}
-//         onPress={() => deleteFriendHandler(item._id)}
-//       >
-//         <Ionicons name="trash" size={18} color="#FFF" />
-//         <Text style={styles.actionText}>Remove</Text>
-//       </TouchableOpacity>
-//     </View>
-//   );
-
-//   /* ================= Render ================= */
-
-//   return (
-//     <View style={[styles.container, { backgroundColor: theme.background }]}>
-
-//       {/* 🔍 Top Bar */}
-
-//       <View style={styles.topBar}>
-
-//         <View style={styles.searchBox}>
-//           <Ionicons name="search" size={16} color="#9CA3AF" />
-//           <TextInput
-//             placeholder="Search friends"
-//             value={search}
-//             onChangeText={setSearch}
-//             style={styles.searchInput}
-//             placeholderTextColor="#9CA3AF"
-//           />
-//         </View>
-
-//         <TouchableOpacity
-//           style={styles.addBtn}
-//           onPress={() => router.push('/add-friend')}
-//         >
-//           <Ionicons name="person-add" size={20} color="#FFF" />
-//         </TouchableOpacity>
-
-//       </View>
-
-//       {/* 📋 List */}
-
-//       <FlatList
-//         data={filteredFriends}
-//         keyExtractor={(item) => item._id}
-//         showsVerticalScrollIndicator={false}
-//         refreshControl={
-//           <RefreshControl
-//             refreshing={refreshing}
-//             onRefresh={onRefresh}
-//           />
-//         }
-//         ListEmptyComponent={
-//           loading ? (
-//             <ActivityIndicator size="large" />
-//           ) : (
-//             <View style={styles.empty}>
-//               <Ionicons name="people-outline" size={60} color="#CBD5E1" />
-//               <Text style={styles.emptyTitle}>
-//                 {search ? "No matching friends" : "No friends yet"}
-//               </Text>
-//             </View>
-//           )
-//         }
-//         renderItem={({ item }) => {
-
-//           const cleanBio = item.bio
-//             ? item.bio.replace(/<[^>]+>/g, '')
-//             : "No bio available";
-
-//           return (
-
-//             <Swipeable renderRightActions={() => renderRightActions(item)}>
-
-//               <TouchableOpacity
-//                 activeOpacity={0.8}
-//                 onPress={() => openChat(item._id)}
-//               >
-
-//                 <View style={styles.card}>
-
-//                   {/* Avatar */}
-
-//                   <View style={styles.avatarWrapper}>
-//                     <Image
-//                       source={{
-//                         uri:
-//                           item.avatar ||
-//                           `https://i.pravatar.cc/150?u=${item._id}`,
-//                       }}
-//                       style={styles.avatar}
-//                     />
-//                     <View
-//                       style={[
-//                         styles.statusDot,
-//                         item.isOnline
-//                           ? styles.onlineDot
-//                           : styles.offlineDot
-//                       ]}
-//                     />
-
-                    
-//                   </View>
-
-//                   {/* Info */}
-
-//                   <View style={styles.info}>
-//                     <Text
-//                       style={[styles.name, { color: theme.text }]}
-//                       numberOfLines={1}
-//                     >
-//                       {item.username}
-//                     </Text>
-
-//                     <Text
-//                       style={styles.bio}
-//                       numberOfLines={1}
-//                     >
-//                       {cleanBio}
-//                     </Text>
-//                   </View>
-
-//                   {/* Right Side (Time) */}
-
-//                   <View style={styles.rightSide}>
-//                     <Text style={styles.time}>
-//                       {item.isOnline
-//                         ? "Online"
-//                         : formatLastSeenListFriend(item.lastSeen)}
-//                     </Text>
-
-//                     {creatingChatId === item._id && (
-//                       <ActivityIndicator
-//                         size="small"
-//                         style={{ marginTop: 6 }}
-//                       />
-//                     )}
-//                   </View>
-
-//                 </View>
-
-//               </TouchableOpacity>
-
-//             </Swipeable>
-
-//           );
-//         }}
-//       />
-
-//     </View>
-//   );
-// }
-
-// /* ======================= STYLES ======================= */
-
-// const styles = StyleSheet.create({
-
-//   container: {
-//     flex: 1,
-//     paddingHorizontal: 16,
-//     paddingTop: 12,
-//   },
-
-//   topBar: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     marginBottom: 16,
-//     gap: 12,
-//   },
-
-//   searchBox: {
-//     flex: 1,
-//     flexDirection: 'row',
-//     backgroundColor: '#F3F4F6',
-//     paddingHorizontal: 14,
-//     paddingVertical: 10,
-//     borderRadius: 20,
-//     alignItems: 'center',
-//   },
-
-//   searchInput: {
-//     marginLeft: 8,
-//     fontSize: 14,
-//     flex: 1,
-//   },
-
-//   addBtn: {
-//     width: 44,
-//     height: 44,
-//     borderRadius: 14,
-//     backgroundColor: '#4F46E5',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-
-//   card: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     paddingVertical: 14,
-//     borderBottomWidth: 0.6,
-//     borderBottomColor: '#E5E7EB',
-//   },
-
-//   avatarWrapper: {
-//     width: 56,
-//     height: 56,
-//     marginRight: 12,
-//      position: 'relative',
-//   },
-
-//   avatar: {
-//     width: 56,
-//     height: 56,
-//     borderRadius: 28,
-//   },
-
-//   statusDot: {
-//     position: 'absolute',
-//     bottom: 4,
-//     right: 4,
-//     width: 14,
-//     height: 14,
-//     borderRadius: 7,
-//     borderWidth: 2,
-//     borderColor: '#FFF',
-//   },
-
-//   onlineDot: {
-//     backgroundColor: '#22C55E', // أخضر
-//   },
-
-//   offlineDot: {
-//     backgroundColor: '#9CA3AF', // رمادي
-//   },
-
-
-//   info: {
-//     flex: 1,
-//   },
-
-//   name: {
-//     fontSize: 15,
-//     fontWeight: '600',
-//   },
-
-//   bio: {
-//     fontSize: 13,
-//     color: '#6B7280',
-//     marginTop: 4,
-//   },
-
-//   rightSide: {
-//     alignItems: 'flex-end',
-//     justifyContent: 'center',
-//     minWidth: 80,
-//   },
-
-//   time: {
-//     fontSize: 12,
-//     color: '#9CA3AF',
-//   },
-
-//   actions: {
-//     flexDirection: 'row',
-//     height: '100%',
-//   },
-
-//   actionBtn: {
-//     width: 90,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//   },
-
-//   delete: {
-//     backgroundColor: '#EF4444',
-//     borderRadius: 20,
-//     marginVertical: 6,
-//   },
-
-//   actionText: {
-//     color: '#FFF',
-//     fontSize: 12,
-//     marginTop: 4,
-//   },
-
-//   empty: {
-//     marginTop: 100,
-//     alignItems: 'center',
-//   },
-
-//   emptyTitle: {
-//     fontSize: 18,
-//     fontWeight: '600',
-//     marginTop: 12,
-//     color: '#374151',
-//   },
-
-// });
-
 import { Colors } from "@/constants/theme";
 import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
 import { createChat, setActiveChat } from "@/redux/slices/chatSlice";
 import { getFriends, removeFriend } from "@/redux/slices/friendSlice";
 import { setMessages } from "@/redux/slices/messageSlice";
+import { StoryOwnerGroup } from "@/redux/slices/storySlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import api from "@/services/api";
 import { formatLastSeenListFriend } from "@/utils/helpFunctions";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -445,6 +27,7 @@ import {
 import { Swipeable } from "react-native-gesture-handler";
 import { useDispatch, useSelector } from "react-redux";
 
+
 export default function FriendsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
@@ -452,12 +35,17 @@ export default function FriendsScreen() {
 
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
+  const me = useSelector((st: RootState) => st.auth?.user);
 
   const { friends, loading } = useSelector((state: RootState) => state.friends);
-
+  const storiesFeed = useSelector((st: RootState) => st.stories?.feed || []);
+  const myStories = useSelector((st: RootState) => st.stories?.myStories || null);
+  const storiesLoading = useSelector((st: RootState) => Boolean(st.stories?.loadingFeed));
+  const myStoriesLoading = useSelector((st: RootState) => Boolean(st.stories?.loadingMy));
   const [search, setSearch] = useState("");
   const [creatingChatId, setCreatingChatId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const seenStoryIds = useSelector((st: RootState) => (st as any).stories?.seenStoryIds || {});
 
   const s = useMemo(() => makeStyles(theme, colorScheme === "dark"), [theme, colorScheme]);
 
@@ -513,7 +101,165 @@ export default function FriendsScreen() {
       setCreatingChatId(null);
     }
   };
+  const isSeen = useCallback(
+    (storyId?: string) => {
+      if (!storyId) return false;
+      return Boolean((seenStoryIds as any)[String(storyId)]);
+    },
+    [seenStoryIds]
+  );
+  const getBubbleRings = useCallback(
+    (group: any) => {
+      const stories = Array.isArray(group?.stories) ? group.stories : [];
+      const a = stories[0];
+      const b = stories[1];
 
+      const count = Math.min(stories.length, 2);
+
+      const activeColor = theme.tint; // لون "غير مشاهد"
+      const normalColor = theme.border; // لون "مشاهد"
+
+      const aSeen = a?._id ? isSeen(String(a._id)) : true;
+      const bSeen = b?._id ? isSeen(String(b._id)) : true;
+
+      const ring1Color = aSeen ? normalColor : activeColor;
+      const ring2Color = bSeen ? normalColor : activeColor;
+
+      // لو قصة واحدة فقط، نستخدم ring1Color
+      // لو قصتين، نعرض الحلقتين
+      return { count, ring1Color, ring2Color };
+    },
+    [isSeen, theme.tint, theme.border]
+  );
+  function StoryRing({
+    theme,
+    count,
+    ring1Color,
+    ring2Color,
+    avatarStyle,
+    children,
+  }: {
+    theme: any;
+    count: number; // 0..2
+    ring1Color: string;
+    ring2Color: string;
+    avatarStyle: any;
+    children: React.ReactNode;
+  }) {
+    const OUT = 56;
+    const IN = 50;
+
+    if (count >= 2) {
+      return (
+        <View style={{ width: OUT, height: OUT, alignItems: "center", justifyContent: "center" }}>
+          {/* Outer ring */}
+          <View
+            style={{
+              position: "absolute",
+              width: OUT,
+              height: OUT,
+              borderRadius: 20,
+              borderWidth: 2,
+              borderColor: ring1Color,
+              backgroundColor: theme.surface,
+            }}
+          />
+          {/* Inner ring */}
+          <View
+            style={{
+              position: "absolute",
+              width: IN,
+              height: IN,
+              borderRadius: 18,
+              borderWidth: 2,
+              borderColor: ring2Color,
+              backgroundColor: "transparent",
+            }}
+          />
+          <View style={avatarStyle}>{children}</View>
+        </View>
+      );
+    }
+
+    // Single ring (حتى لو count=0)
+    return (
+      <View
+        style={{
+          width: OUT,
+          height: OUT,
+          borderRadius: 20,
+          borderWidth: 2,
+          borderColor: ring1Color,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: theme.surface,
+        }}
+      >
+        <View style={avatarStyle}>{children}</View>
+      </View>
+    );
+  }
+  const storyBubbles = useMemo(() => {
+    const myId = String(me?._id || "me");
+
+    const myStoriesArr = Array.isArray(myStories?.stories) ? myStories.stories : [];
+    const myLatest = myStoriesArr.length ? myStoriesArr[0]?.createdAt : undefined;
+
+    const myGroup: StoryOwnerGroup = {
+      _id: myId,
+      username: me?.username || "حالتك",
+      atUsername: me?.atUsername || "",
+      avatar: me?.avatar || "",
+      isOnline: true,
+      stories: myStoriesArr,
+      latestStoryAt: myLatest,
+    } as any;
+
+    const others = (storiesFeed || []).filter((g: any) => String(g?._id) !== myId);
+
+    const bubbles: any[] = [];
+
+    // ✅ لو عندي حالات → اعرض فقاعتي
+    if (myStoriesArr.length > 0) bubbles.push(myGroup);
+
+    // ✅ فقاعة الإضافة دائمًا
+    bubbles.push({
+      _id: "add_story",
+      isAddBubble: true,
+    });
+
+    return [...bubbles, ...others];
+  }, [storiesFeed, myStories, me]);
+
+  const onPressStoryBubble = (g: StoryOwnerGroup) => {
+    const isMeBubble = String(g._id) === String(me?._id);
+    const hasStories = (g?.stories?.length || 0) > 0;
+
+    // ✅ لو أنا ومفيش قصص → افتح create
+    if (isMeBubble && !hasStories) {
+      router.push("/story/create" as any);
+      return;
+    }
+
+    // ✅ لو أنا وعندي قصص → افتح Viewer بحالة خاصة me
+    if (isMeBubble && hasStories) {
+      router.push({
+        pathname: "/story/[id]" as any,
+        params: { id: "me" },
+      } as any);
+      return;
+    }
+
+    // ✅ أصدقاء: افتح أول قصة عندهم
+    const first = (g as any)?.stories?.[0];
+    if (!first?._id) return;
+
+    router.push({
+      pathname: "/story/[id]" as any,
+      params: { id: String(first._id) },
+    } as any);
+  };
+  
   /* ================= Swipe Right Action ================= */
   const renderRightActions = (item: any) => (
     <View style={s.actionsWrap}>
@@ -558,15 +304,85 @@ export default function FriendsScreen() {
           <Ionicons name="person-add" size={20} color={theme.primaryText} />
         </TouchableOpacity>
       </View>
+      <View style={s.storiesWrap}>
+        <View style={s.sectionHead}>
+          {/* <Text style={s.sectionTitle}>الحالات</Text> */}
+          {/* <Text style={s.sectionHint}>{storiesHint}</Text> */}
+        </View>
 
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={storyBubbles}
+          keyExtractor={(it: any, idx) => String(it?._id || idx)}
+          // onScrollBeginDrag={onScrollBeginDrag}
+          // onScroll={onScroll}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 6 }}
+          ListEmptyComponent={
+            <View style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
+              <Text style={{ color: theme.subtleText, fontWeight: "800" }}>
+                لا توجد حالات
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            // ✅ فقاعة الإضافة
+            if (item?.isAddBubble) {
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={s.storyItem}
+                  onPress={() => router.push("/story/create" as any)}
+                >
+                  <View style={[s.storyRing, s.storyRingMe]}>
+                    <View style={s.storyAvatar}>
+                      <Ionicons name="add" size={20} color={theme.primary} />
+                    </View>
+                  </View>
+                  <Text style={s.storyName}>إضافة</Text>
+                </TouchableOpacity>
+              );
+            }
+
+            const isMeBubble = String(item._id) === String(me?._id);
+            const rings = getBubbleRings(item);
+
+            // ✅ أنا: لو عندي قصص نخلي الإطار tint (زي واتساب)
+            // (ولو حابب تخليه يعتمد على seen برضه، احذف السطر التالي)
+            const ring1 = isMeBubble ? theme.tint : rings.ring1Color;
+
+            return (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={s.storyItem}
+                onPress={() => onPressStoryBubble(item)}
+              >
+                <StoryRing
+                  theme={theme}
+                  count={rings.count}
+                  ring1Color={ring1}
+                  ring2Color={rings.ring2Color}
+                  avatarStyle={s.storyAvatar}
+                >
+                  <Ionicons name="person" size={18} color={theme.icon} />
+                </StoryRing>
+
+                <Text style={s.storyName} numberOfLines={1}>
+                  {isMeBubble ? "حالتك" : item.username || "User"}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </View>
       {/* ===== List ===== */}
       <FlatList
         data={filteredFriends}
         keyExtractor={(item) => String(item._id)}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 16 }}
-           onScrollBeginDrag={onScrollBeginDrag}
-      onScroll={onScroll}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScroll={onScroll}
         ItemSeparatorComponent={() => <View style={s.sep} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
@@ -717,6 +533,93 @@ function makeStyles(theme: any, isDark: boolean) {
         android: { elevation: 1 },
       }),
     },
+
+    storiesWrap: { },
+    sectionHead: {
+      paddingHorizontal: 0 ,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 10,
+    },
+    sectionTitle: { fontSize: 14, fontWeight: "900", color: theme.text },
+    sectionHint: { fontSize: 12, fontWeight: "800", color: theme.subtleText },
+
+    storyItem: { width: 70, alignItems: "center", marginRight: 10 },
+    storyRing: {
+      width: 56,
+      height: 56,
+      borderRadius: 20,
+      borderWidth: 2,
+      borderColor: theme.border,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.surface,
+    },
+    storyRingMe: { borderColor: theme.tint },
+    storyAvatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 16,
+      backgroundColor: theme.cardAlt,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    storyName: { marginTop: 6, fontSize: 12, fontWeight: "800", color: theme.mutedText },
+
+    quickRow: { flexDirection: "row", gap: 10 },
+    quickCard: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      padding: 12,
+      borderRadius: 18,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      ...Platform.select({
+        ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
+        android: { elevation: 1 },
+      }),
+    },
+    quickIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 16,
+      backgroundColor: theme.primarySoft,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    quickTitle: { fontSize: 13, fontWeight: "900", color: theme.text },
+    quickSub: { marginTop: 2, fontSize: 12, fontWeight: "800", color: theme.mutedText },
+
+    tabs: {
+      flexDirection: "row",
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 8,
+    },
+    tabPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 999,
+      backgroundColor: theme.cardAlt,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    tabPillActive: { backgroundColor: theme.primary, borderColor: theme.primary },
+    tabText: { fontSize: 12, fontWeight: "900", color: theme.mutedText },
+    tabTextActive: { color: theme.primaryText },
+
     searchInput: {
       flex: 1,
       fontSize: 14,

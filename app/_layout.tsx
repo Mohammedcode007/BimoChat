@@ -84,9 +84,7 @@ function AppContent() {
   /* =========================
      1) اطبع المسار الحالي دائمًا
   ========================= */
-  useEffect(() => {
-    console.log("📍 Current pathname:", pathname);
-  }, [pathname]);
+ 
 
   /* =========================
      2) اطبع حالة Force Update كاملة

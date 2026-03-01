@@ -137,7 +137,6 @@ export const listStoreItems = createAsyncThunk<
     params.active = String(Boolean(active));
 
     const res = await api.get(`${BASE}/items`, { params });
-    console.log(res.data,'777777777');
     
     return { items: res.data.items || [] };
   } catch (e: any) {

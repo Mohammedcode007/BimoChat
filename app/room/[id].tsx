@@ -976,6 +976,8 @@ const INPUT_H_EST = 64;         // تقدير مبدئي (ممكن تخليه 72
   const loadingMessages = useAppSelector(selectRoomLoadingMessages);
   const roomUsers = useAppSelector((state) => selectRoomUsers(state, roomId));
   const roomName = useAppSelector((state) => selectRoomNameById(state, roomId));
+  console.log(roomName,'roomName');
+  
   const roomAvatar = useAppSelector((state) => selectRoomAvatarById(state, roomId));
   // ✅ Active online count from slice (socket + stats)
   const activeCount = useAppSelector((state) => selectRoomActiveCount(state, roomId));

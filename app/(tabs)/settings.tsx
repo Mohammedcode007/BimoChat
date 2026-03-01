@@ -217,12 +217,12 @@ export default function SettingsScreen() {
           arrow
           onPress={() => router.push("/two-factor")}
         />
-        <Row
+        {/* <Row
           icon="alert-circle-outline"
           text={i18n.t("settingsScreen.loginAlerts")}
           arrow
           onPress={() => router.push("/login-alerts")}
-        />
+        /> */}
       </Section>
 
       {/* ===== App ===== */}

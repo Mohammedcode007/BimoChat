@@ -1948,13 +1948,28 @@ export const selectBannedUsers = createSelector(
 );
 
 export const selectRoomNameById = createSelector(
-  [selectRoomById],
-  (room) => room?.name || "Room"
+  [
+    (state: RootState) => state.room.rooms,
+    (state: RootState) => state.room.detailsByRoom,
+    (_: RootState, roomId: string) => roomId,
+  ],
+  (rooms, detailsByRoom, roomId) => {
+    const fromRooms = rooms.find((r) => r._id === roomId)?.name;
+    const fromDetails = detailsByRoom?.[roomId]?.room?.name;
+    return fromRooms || fromDetails || "Room";
+  }
 );
-
 export const selectRoomAvatarById = createSelector(
-  [selectRoomById],
-  (room) => room?.avatar || ""
+  [
+    (state: RootState) => state.room.rooms,
+    (state: RootState) => state.room.detailsByRoom,
+    (_: RootState, roomId: string) => roomId,
+  ],
+  (rooms, detailsByRoom, roomId) => {
+    const fromRooms = rooms.find((r) => r._id === roomId)?.avatar;
+    const fromDetails = detailsByRoom?.[roomId]?.room?.avatar;
+    return fromRooms || fromDetails || "";
+  }
 );
 export const selectRoomActiveCount = createSelector(
   [(state: RootState) => state.room.activeCountByRoom, (_: RootState, roomId: string) => roomId],

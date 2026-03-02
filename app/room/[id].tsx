@@ -24,6 +24,7 @@ import {
   ImageSourcePropType,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -977,7 +978,6 @@ export default function ChatScreen() {
   const loadingMessages = useAppSelector(selectRoomLoadingMessages);
   const roomUsers = useAppSelector((state) => selectRoomUsers(state, roomId));
   const roomName = useAppSelector((state) => selectRoomNameById(state, roomId));
-  const [inputBarH, setInputBarH] = useState(64);
   const roomAvatar = useAppSelector((state) => selectRoomAvatarById(state, roomId));
   // ✅ Active online count from slice (socket + stats)
   const activeCount = useAppSelector((state) => selectRoomActiveCount(state, roomId));
@@ -1909,26 +1909,71 @@ export default function ChatScreen() {
   };
 
 
+const ensureMicPermission = async () => {
+  try {
+    const perm = await Audio.getPermissionsAsync();
 
+    if (perm.granted) return true;
+
+    const req = await Audio.requestPermissionsAsync();
+    if (req.granted) return true;
+
+    Alert.alert(
+      "Microphone Permission",
+      "لا يمكن تسجيل الصوت بدون إذن الميكروفون. افتح الإعدادات ثم فعّل Microphone.",
+      [
+        { text: "إلغاء", style: "cancel" },
+        { text: "فتح الإعدادات", onPress: () => Linking.openSettings() }
+      ]
+    );
+
+    return false;
+  } catch {
+    Alert.alert("Error", "تعذر طلب إذن الميكروفون.");
+    return false;
+  }
+};
   /* ================= RECORDING ================= */
+useEffect(() => {
+  if (!roomId) return;
 
-  const startRecording = async () => {
-    try {
-      if (pendingVoiceUri) return; // لا تبدأ تسجيل جديد وهناك Preview
+  dispatch(fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false }));
+  dispatch(fetchRoomUsers(roomId));
+  dispatch(fetchRoomStats(roomId));
+  joinRoomSocket(roomId);
 
-      if (recording) return;
+  // ✅ اطلب إذن الميكروفون مبكرًا
+  ensureMicPermission();
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true
-      });
+  return () => {};
+}, [roomId, dispatch]);
+ const startRecording = async () => {
+  try {
+    if (pendingVoiceUri) return; // لا تبدأ تسجيل جديد وهناك Preview
+    if (recording) return;
 
-      const result = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      setRecording(result.recording);
-    } catch (e: any) {
-      Alert.alert("Error", e?.message || "Record failed");
-    }
-  };
+    const ok = await ensureMicPermission();
+    if (!ok) return;
+
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: true,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+    });
+
+    const { recording: rec } = await Audio.Recording.createAsync(
+      Audio.RecordingOptionsPresets.HIGH_QUALITY
+    );
+
+    setRecording(rec);
+  } catch (e: any) {
+    // لو الجهاز/النظام رجّع خطأ
+    Alert.alert("Error", e?.message || "Record failed");
+    setRecording(null);
+  }
+};
 
   const stopRecording = async () => {
     try {
@@ -2334,7 +2379,7 @@ export default function ChatScreen() {
           padding: 14,
           paddingTop: 14,
           // ✅ لأن inverted: bottom = top visually، لكن عمليًا نضمن مساحة تكفي للـ input
-          paddingBottom: inputBarH + insets.bottom + 12,
+          // paddingBottom: inputBarH + insets.bottom + 12,
         }}
 
         keyboardShouldPersistTaps="handled"
@@ -2431,20 +2476,17 @@ export default function ChatScreen() {
   behavior={Platform.OS === "ios" ? "padding" : undefined}
 >
         <View
-          style={[styles.inputBar, { paddingBottom: insets.bottom || 0 }]}
-          onLayout={(e) => setInputBarH(e.nativeEvent.layout.height)}
+          style={[styles.inputBar]}
         >
           <TouchableOpacity onPress={sendImage} disabled={uploading.visible}>
             <Ionicons name="image-outline" size={24} />
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={sendPDF} disabled={uploading.visible}>
-            <Ionicons name="document-outline" size={24} />
-          </TouchableOpacity>
+         
 
-          <TouchableOpacity onPress={sendVideo} disabled={uploading.visible}>
+          {/* <TouchableOpacity onPress={sendVideo} disabled={uploading.visible}>
             <Ionicons name="videocam-outline" size={24} />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TextInput style={styles.input} placeholder="Type a message" value={text} onChangeText={setText} multiline />
 
@@ -3226,7 +3268,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 10,
-    paddingTop: 10,
+    padding: 10,
     borderTopWidth: 0.5,
     borderColor: "#E5E7EB",
     backgroundColor: "#FFF"

@@ -1,341 +1,18 @@
-
-// import {
-//   deleteNotification,
-//   markNotificationAsRead,
-// } from '@/redux/slices/notificationSlice';
-// import { AppDispatch, RootState } from '@/redux/store';
-// import { Ionicons } from '@expo/vector-icons';
-// import { useRouter } from 'expo-router';
-// import React, { useMemo } from 'react';
-// import {
-//   ActivityIndicator,
-//   FlatList,
-//   StyleSheet,
-//   Text,
-//   TouchableOpacity,
-//   View,
-// } from 'react-native';
-// import { Swipeable } from 'react-native-gesture-handler';
-// import Animated, { FadeInDown } from 'react-native-reanimated';
-// import { SafeAreaView } from 'react-native-safe-area-context';
-// import { useDispatch, useSelector } from 'react-redux';
-
-// /* ================= TYPES ================= */
-
-// interface NotificationItem {
-//   _id: string;
-//   type: string;
-//   body: string;
-//   isRead: boolean;
-//   createdAt: string;
-//   relatedTweet?: string;
-//   relatedChat?: string;
-//   relatedRoom?: string;
-//   sender?: {
-//     _id: string;
-//     username: string;
-//     avatar?: string;
-//   };
-// }
-
-// /* ================= SCREEN ================= */
-
-// export default function NotificationsScreen() {
-//   const router = useRouter();
-//   const dispatch = useDispatch<AppDispatch>();
-
-//   const { notifications, loading } = useSelector(
-//     (state: RootState) => state.notification
-//   );
-
-//   /* ================= GROUPING ================= */
-
-//   const groupedNotifications = useMemo(() => {
-//     const map: Record<string, any> = {};
-
-//     notifications.forEach((item: NotificationItem) => {
-
-//       // لا نقوم بتجميع طلبات الصداقة
-//       if (item.type === 'friend_request') {
-//         map[item._id] = { ...item, count: 1, users: [item.sender] };
-//         return;
-//       }
-
-//       const key =
-//         `${item.sender?._id}-${item.type}-${item.relatedTweet || ''}`;
-
-//       if (!map[key]) {
-//         map[key] = {
-//           ...item,
-//           count: 1,
-//           users: [item.sender],
-//         };
-//       } else {
-//         map[key].count += 1;
-//         map[key].users.push(item.sender);
-//       }
-//     });
-
-//     return Object.values(map);
-//   }, [notifications]);
-
-//   /* ================= ICONS ================= */
-
-//   const getIcon = (type: string) => {
-//     switch (type) {
-//       case 'tweet_like':
-//         return { name: 'heart', color: '#EF4444' };
-
-//       case 'tweet_reply':
-//         return { name: 'chatbubble', color: '#10B981' };
-
-//       case 'follow':
-//         return { name: 'person-add', color: '#2563EB' };
-
-//       case 'friend_request':
-//         return { name: 'person-add-outline', color: '#2563EB' };
-
-//       case 'message':
-//         return { name: 'mail', color: '#7C3AED' };
-
-//       default:
-//         return { name: 'notifications', color: '#6B7280' };
-//     }
-//   };
-
-//   /* ================= PRESS HANDLER ================= */
-
-//   const handlePress = (item: NotificationItem) => {
-
-//     if (!item.isRead) {
-//       dispatch(markNotificationAsRead(item._id));
-//     }
-
-//     switch (item.type) {
-
-//       case 'friend_request':
-//         router.push({
-//           pathname: '/friend-request-modal',
-//           params: {
-//             notificationId: item._id,
-//             senderId: item.sender?._id
-//           }
-//         });
-//         break;
-
-//       case 'tweet_like':
-//       case 'tweet_reply':
-//         if (item.relatedTweet) {
-//           router.push(`/tweet/${item.relatedTweet}`);
-//         }
-//         break;
-
-//       case 'message':
-//         if (item.relatedChat) {
-//           router.push(`/chat/${item.relatedChat}`);
-//         }
-//         break;
-
-//       case 'room_invite':
-//         if (item.relatedRoom) {
-//           router.push(`/room/${item.relatedRoom}`);
-//         }
-//         break;
-
-//       default:
-//         break;
-//     }
-//   };
-
-//   /* ================= SWIPE DELETE ================= */
-
-//   const renderRightActions = (id: string) => (
-//     <TouchableOpacity
-//       style={styles.deleteBtn}
-//       onPress={() => dispatch(deleteNotification(id))}
-//     >
-//       <Ionicons name="trash" size={20} color="#FFF" />
-//     </TouchableOpacity>
-//   );
-
-//   /* ================= RENDER ================= */
-
-//   return (
-//     <SafeAreaView style={styles.safe}>
-
-//       <View style={styles.header}>
-//         <Text style={styles.headerTitle}>الإشعارات</Text>
-//       </View>
-
-//       <FlatList
-//         data={groupedNotifications}
-//         keyExtractor={(item: any) => item._id}
-//         contentContainerStyle={{ padding: 16 }}
-//         refreshing={loading}
-//         ListEmptyComponent={
-//           loading ? (
-//             <ActivityIndicator />
-//           ) : (
-//             <Text style={{ textAlign: 'center', marginTop: 40 }}>
-//               لا توجد إشعارات
-//             </Text>
-//           )
-//         }
-//         renderItem={({ item, index }) => {
-
-//           const icon = getIcon(item.type);
-
-//           return (
-//             <Animated.View entering={FadeInDown.delay(index * 60)}>
-
-//               <Swipeable
-//                 renderRightActions={() =>
-//                   renderRightActions(item._id)
-//                 }
-//               >
-
-//                 <TouchableOpacity
-//                   onPress={() => handlePress(item)}
-//                   style={[
-//                     styles.item,
-//                     !item.isRead && styles.unread,
-//                   ]}
-//                 >
-
-//                   <View style={styles.iconBox}>
-//                     <Ionicons
-//                       name={icon.name as any}
-//                       size={18}
-//                       color={icon.color}
-//                     />
-//                   </View>
-
-//                   <View style={{ flex: 1 }}>
-
-//                     <Text style={styles.title}>
-//                       {item.count > 1
-//                         ? `${item.users[0]?.username} و ${item.count - 1} آخرين`
-//                         : item.sender?.username}
-//                     </Text>
-
-//                     <Text style={styles.body}>
-//                       {item.body}
-//                     </Text>
-
-//                     <Text style={styles.time}>
-//                       {new Date(item.createdAt).toLocaleString()}
-//                     </Text>
-
-//                   </View>
-
-//                   {!item.isRead && <View style={styles.dot} />}
-
-//                 </TouchableOpacity>
-
-//               </Swipeable>
-
-//             </Animated.View>
-//           );
-//         }}
-//       />
-
-//     </SafeAreaView>
-//   );
-// }
-
-// /* ================= STYLES ================= */
-
-// const styles = StyleSheet.create({
-
-//   safe: { flex: 1, backgroundColor: '#FFF' },
-
-//   header: {
-//     height: 56,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     borderBottomWidth: 0.5,
-//     borderColor: '#E5E7EB',
-//   },
-
-//   headerTitle: {
-//     fontSize: 18,
-//     fontWeight: '700',
-//   },
-
-//   item: {
-//     flexDirection: 'row',
-//     padding: 14,
-//     borderRadius: 14,
-//     backgroundColor: '#F8FAFC',
-//     marginBottom: 12,
-//     alignItems: 'center',
-//   },
-
-//   unread: {
-//     backgroundColor: '#EEF2FF',
-//   },
-
-//   iconBox: {
-//     width: 40,
-//     height: 40,
-//     borderRadius: 20,
-//     backgroundColor: '#F1F5F9',
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     marginRight: 12,
-//   },
-
-//   title: {
-//     fontSize: 14,
-//     fontWeight: '700',
-//   },
-
-//   body: {
-//     fontSize: 13,
-//     marginTop: 2,
-//   },
-
-//   time: {
-//     fontSize: 11,
-//     color: '#94A3B8',
-//     marginTop: 4,
-//   },
-
-//   dot: {
-//     width: 8,
-//     height: 8,
-//     backgroundColor: '#2563EB',
-//     borderRadius: 4,
-//   },
-
-//   deleteBtn: {
-//     backgroundColor: '#EF4444',
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     paddingHorizontal: 25,
-//     borderRadius: 14,
-//     marginBottom: 12,
-//   },
-
-// });
-
-
-// app/(tabs)/notifications.tsx  (أو نفس مسارك الحالي)
-// ✅ نسخة كاملة بتصميم أعمق/عصري + تفاصيل أكثر + دعم Dark/Light عبر theme
-// ✅ كل الألوان من theme (Colors + useColorScheme)
-// ✅ تجميع الإشعارات + استثناء friend_request من التجميع
-// ✅ Swipe للحذف + زر “حذف” واضح
-// ✅ شارات/بادجات + عدد + وقت بصيغة لطيفة
-// ✅ دعم RTL (العربي) + محاذاة مناسبة
+// app/(tabs)/notifications.tsx
+// ✅ تصميم جديد نهائيًا (Inbox style) + Tabs (الكل/غير مقروء/طلبات)
+// ✅ RTL عربي + Dark/Light
+// ✅ Grouping مع استثناء friend_request
+// ✅ Swipe للحذف + زر "مقروء" داخل البطاقة
 
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Image,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -348,10 +25,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 
 import { Colors } from "@/constants/theme";
-import {
-  deleteNotification,
-  markNotificationAsRead,
-} from "@/redux/slices/notificationSlice";
+import { deleteNotification, markNotificationAsRead } from "@/redux/slices/notificationSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 
 /* ================= TYPES ================= */
@@ -377,6 +51,8 @@ type GroupedNotification = NotificationItem & {
   users: Array<NotificationItem["sender"] | undefined>;
 };
 
+type TabKey = "all" | "unread" | "requests";
+
 /* ================= HELPERS ================= */
 
 const safeStr = (v: any) => String(v ?? "").trim();
@@ -384,14 +60,21 @@ const safeStr = (v: any) => String(v ?? "").trim();
 const formatTimeSmart = (iso: string) => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  // صيغة لطيفة بالعربي (بدون مكتبات)
   return d.toLocaleString("ar-EG", {
-    weekday: "short",
     hour: "2-digit",
     minute: "2-digit",
     day: "2-digit",
     month: "short",
   });
+};
+
+const getInitials = (name: string) => {
+  const t = safeStr(name);
+  if (!t) return "U";
+  const parts = t.split(" ").filter(Boolean);
+  const first = parts[0]?.[0] || "U";
+  const second = parts[1]?.[0] || "";
+  return (first + second).toUpperCase();
 };
 
 const buildTitleAr = (item: GroupedNotification) => {
@@ -406,38 +89,38 @@ const buildTitleAr = (item: GroupedNotification) => {
 const buildSubtitleAr = (type: string) => {
   switch (type) {
     case "tweet_like":
-      return "تفاعل جديد";
+      return "أُعجب بتغريدتك";
     case "tweet_reply":
-      return "رد جديد";
+      return "رد على تغريدتك";
     case "follow":
-      return "متابع جديد";
+      return "بدأ يتابعك";
     case "friend_request":
-      return "طلب صداقة";
+      return "أرسل طلب صداقة";
     case "message":
-      return "رسالة جديدة";
+      return "أرسل رسالة";
     case "room_invite":
       return "دعوة لغرفة";
     default:
-      return "إشعار";
+      return "إشعار جديد";
   }
 };
 
 const getIconMeta = (type: string) => {
   switch (type) {
     case "tweet_like":
-      return { name: "heart", tone: "danger" as const };
+      return { name: "heart" as const, tone: "danger" as const };
     case "tweet_reply":
-      return { name: "chatbubble-ellipses", tone: "success" as const };
+      return { name: "chatbubble-ellipses" as const, tone: "success" as const };
     case "follow":
-      return { name: "person-add", tone: "primary" as const };
+      return { name: "person-add" as const, tone: "primary" as const };
     case "friend_request":
-      return { name: "person-add-outline", tone: "primary" as const };
+      return { name: "people" as const, tone: "primary" as const };
     case "message":
-      return { name: "mail", tone: "purple" as const };
+      return { name: "mail" as const, tone: "purple" as const };
     case "room_invite":
-      return { name: "people", tone: "warning" as const };
+      return { name: "door-open" as const, tone: "warning" as const };
     default:
-      return { name: "notifications", tone: "muted" as const };
+      return { name: "notifications" as const, tone: "muted" as const };
   }
 };
 
@@ -450,144 +133,71 @@ const pickToneColor = (theme: any, tone: ReturnType<typeof getIconMeta>["tone"])
   return theme.muted;
 };
 
-const getInitials = (name: string) => {
-  const t = safeStr(name);
-  if (!t) return "U";
-  const parts = t.split(" ").filter(Boolean);
-  const first = parts[0]?.[0] || "U";
-  const second = parts[1]?.[0] || "";
-  return (first + second).toUpperCase();
-};
-
-/* ================= STYLES ================= */
+/* ================= STYLES (NEW DESIGN) ================= */
 
 const createStyles = (theme: any) =>
   StyleSheet.create({
     safe: { flex: 1, backgroundColor: theme.background },
 
-    header: {
-      height: 64,
+    top: {
       paddingHorizontal: 16,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
+      paddingTop: 6,
+      paddingBottom: 12,
       borderBottomWidth: 1,
       borderBottomColor: theme.border,
-      backgroundColor: theme.card,
+      backgroundColor: theme.background,
     },
-
-    headerTitleWrap: { flexDirection: "row", alignItems: "center", gap: 10 },
-    headerTitle: { fontSize: 18, fontWeight: "900", color: theme.text },
-    headerSubtitle: { fontSize: 12, fontWeight: "700", color: theme.textSecondary, marginTop: 2 },
-
-    headerBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 999,
-      backgroundColor: theme.primary + "14",
-      borderWidth: 1,
-      borderColor: theme.primary + "25",
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-    },
-    headerBadgeText: { fontSize: 12, fontWeight: "900", color: theme.primary },
-
-    listContent: { padding: 16, paddingBottom: 26 },
-
-    // Card
-    card: {
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.card,
-      overflow: "hidden",
-      marginBottom: 12,
-      ...Platform.select({
-        ios: {
-          shadowColor: "#000",
-          shadowOpacity: 0.08,
-          shadowRadius: 14,
-          shadowOffset: { width: 0, height: 8 },
-        },
-        android: { elevation: 5 },
-      }),
-    },
-
-    cardUnread: {
-      borderColor: theme.primary + "35",
-      backgroundColor: theme.primary + "10",
-    },
-
-    cardInner: {
-      flexDirection: "row-reverse", // RTL
-      alignItems: "center",
-      padding: 14,
-      gap: 12,
-    },
-
-    // Left accent bar (يعطي عمق)
-    accentBar: {
-      width: 4,
-      alignSelf: "stretch",
-      borderRadius: 999,
-      marginRight: 10,
-      backgroundColor: theme.border,
-      opacity: 0.9,
-    },
-
-    accentBarUnread: {
-      backgroundColor: theme.primary,
-    },
-
-    // Avatar
-    avatarWrap: { width: 46, height: 46, borderRadius: 23, overflow: "hidden" },
-    avatar: { width: "100%", height: "100%" },
-
-    avatarFallback: {
-      width: 46,
-      height: 46,
-      borderRadius: 23,
-      backgroundColor: theme.surface2,
-      borderWidth: 1,
-      borderColor: theme.border,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    avatarFallbackText: { fontWeight: "900", color: theme.text, fontSize: 14 },
-
-    // Icon bubble
-    iconBubble: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      backgroundColor: theme.surface2,
-      borderWidth: 1,
-      borderColor: theme.border,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-
-    content: { flex: 1, minWidth: 0 },
 
     titleRow: {
       flexDirection: "row-reverse",
       alignItems: "center",
       justifyContent: "space-between",
+      marginTop: 8,
+    },
+
+    screenTitle: { color: theme.text, fontSize: 22, fontWeight: "900", textAlign: "right" },
+    actionsRow: { flexDirection: "row-reverse", alignItems: "center", gap: 10 },
+
+    actionBtn: {
+      flexDirection: "row-reverse",
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    actionText: { color: theme.text, fontWeight: "900", fontSize: 12 },
+
+    tabsRow: {
+      marginTop: 12,
+      flexDirection: "row-reverse",
       gap: 10,
     },
-
-    title: {
+    tab: {
       flex: 1,
-      textAlign: "right",
-      color: theme.text,
-      fontSize: 14,
-      fontWeight: "900",
+      paddingVertical: 10,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.card,
+      alignItems: "center",
+      justifyContent: "center",
     },
+    tabActive: {
+      backgroundColor: theme.primary + "18",
+      borderColor: theme.primary + "55",
+    },
+    tabText: { fontWeight: "900", fontSize: 12, color: theme.textSecondary },
+    tabTextActive: { color: theme.primary },
 
-    metaChip: {
+    countPill: {
+      marginTop: 8,
+      alignSelf: "flex-end",
       paddingHorizontal: 10,
-      paddingVertical: 5,
+      paddingVertical: 6,
       borderRadius: 999,
       backgroundColor: theme.surface2,
       borderWidth: 1,
@@ -596,43 +206,131 @@ const createStyles = (theme: any) =>
       alignItems: "center",
       gap: 6,
     },
-    metaChipText: { fontSize: 11, fontWeight: "900", color: theme.textSecondary },
+    countText: { color: theme.textSecondary, fontWeight: "900", fontSize: 12 },
 
-    body: {
-      marginTop: 8,
-      textAlign: "right",
-      color: theme.textSecondary,
-      fontSize: 13,
-      lineHeight: 19,
-      fontWeight: "600",
+    listContent: { padding: 14, paddingBottom: 26 },
+
+    // Notification Row (NEW)
+    row: {
+      flexDirection: "row-reverse",
+      alignItems: "center",
+      borderRadius: 16,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      marginBottom: 10,
+      ...Platform.select({
+        ios: {
+          shadowColor: "#000",
+          shadowOpacity: 0.03,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 6 },
+        },
+        android: { elevation: 2 },
+      }),
     },
 
-    footerRow: {
-      marginTop: 10,
+    unreadStripe: {
+      width: 4,
+      alignSelf: "stretch",
+      borderRadius: 999,
+      backgroundColor: theme.border,
+      marginLeft: 10,
+    },
+    unreadStripeActive: { backgroundColor: theme.primary },
+
+    avatarWrap: { width: 44, height: 44, borderRadius: 22, overflow: "hidden" },
+    avatar: { width: "100%", height: "100%" },
+    avatarFallback: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: theme.surface2,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    avatarFallbackText: { fontWeight: "900", color: theme.text },
+
+    center: { flex: 1, minWidth: 0, marginRight: 10 },
+
+    headerLine: {
       flexDirection: "row-reverse",
       alignItems: "center",
       justifyContent: "space-between",
       gap: 10,
     },
 
-    time: { fontSize: 11, color: theme.muted, fontWeight: "800", textAlign: "right" },
+    name: { flex: 1, color: theme.text, fontWeight: "900", fontSize: 14, textAlign: "right" },
+    time: { color: theme.muted, fontWeight: "800", fontSize: 11, textAlign: "right" },
 
-    unreadDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-      backgroundColor: theme.primary,
-      borderWidth: 2,
-      borderColor: theme.card,
+    subLine: {
+      marginTop: 4,
+      flexDirection: "row-reverse",
+      alignItems: "center",
+      gap: 8,
     },
+
+    iconDot: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.surface2,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+
+    subtitle: { flex: 1, color: theme.textSecondary, fontWeight: "800", fontSize: 12, textAlign: "right" },
+
+    body: {
+      marginTop: 6,
+      color: theme.textSecondary,
+      fontWeight: "600",
+      fontSize: 13,
+      lineHeight: 18,
+      textAlign: "right",
+    },
+
+    right: { alignItems: "flex-start", justifyContent: "center", gap: 8 },
+
+    miniBtn: {
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: theme.surface2,
+      borderWidth: 1,
+      borderColor: theme.border,
+      flexDirection: "row-reverse",
+      alignItems: "center",
+      gap: 6,
+    },
+    miniBtnText: { fontSize: 12, fontWeight: "900", color: theme.text },
+
+    bubbleCount: {
+      minWidth: 26,
+      height: 26,
+      borderRadius: 13,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 8,
+      backgroundColor: theme.primary + "18",
+      borderWidth: 1,
+      borderColor: theme.primary + "55",
+    },
+    bubbleCountText: { fontWeight: "900", color: theme.primary, fontSize: 12 },
 
     // Swipe delete
     deleteWrap: {
       justifyContent: "center",
       alignItems: "center",
       paddingHorizontal: 18,
-      borderRadius: 18,
-      marginBottom: 12,
+      borderRadius: 16,
+      marginBottom: 10,
       backgroundColor: theme.danger,
     },
     deleteText: { color: "#FFF", fontWeight: "900", marginTop: 6, fontSize: 12 },
@@ -654,7 +352,8 @@ export default function NotificationsScreen() {
 
   const { notifications, loading } = useSelector((state: RootState) => state.notification);
 
-  // ✅ عدّ غير المقروء
+  const [tab, setTab] = useState<TabKey>("all");
+
   const unreadCount = useMemo(() => {
     return (notifications || []).reduce((acc: number, n: NotificationItem) => acc + (n?.isRead ? 0 : 1), 0);
   }, [notifications]);
@@ -664,7 +363,6 @@ export default function NotificationsScreen() {
     const map: Record<string, GroupedNotification> = {};
 
     (notifications || []).forEach((item: NotificationItem) => {
-      // ✅ لا نجمع friend_request
       if (item.type === "friend_request") {
         map[item._id] = { ...item, count: 1, users: [item.sender] };
         return;
@@ -677,7 +375,6 @@ export default function NotificationsScreen() {
       } else {
         map[key].count += 1;
         map[key].users.push(item.sender);
-        // ✅ خذ الأحدث كـ createdAt/ body إن أحببت
         const cur = new Date(map[key].createdAt).getTime();
         const next = new Date(item.createdAt).getTime();
         if (next > cur) {
@@ -686,26 +383,31 @@ export default function NotificationsScreen() {
       }
     });
 
-    // ✅ ترتيب تنازلي بالأحدث
     const out = Object.values(map);
     out.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return out;
   }, [notifications]);
 
-  /* ================= PRESS HANDLER ================= */
+  const filtered = useMemo(() => {
+    const list = groupedNotifications || [];
+    if (tab === "unread") return list.filter((n) => !n.isRead);
+    if (tab === "requests") return list.filter((n) => n.type === "friend_request");
+    return list;
+  }, [groupedNotifications, tab]);
+
+  const requestsCount = useMemo(() => {
+    return (groupedNotifications || []).filter((n) => n.type === "friend_request").length;
+  }, [groupedNotifications]);
+
+  /* ================= NAV ================= */
   const handlePress = (item: GroupedNotification) => {
-    if (!item.isRead) {
-      dispatch(markNotificationAsRead(item._id));
-    }
+    if (!item.isRead) dispatch(markNotificationAsRead(item._id));
 
     switch (item.type) {
       case "friend_request":
         router.push({
           pathname: "/friend-request-modal",
-          params: {
-            notificationId: item._id,
-            senderId: item.sender?._id,
-          },
+          params: { notificationId: item._id, senderId: item.sender?._id },
         });
         break;
 
@@ -734,78 +436,79 @@ export default function NotificationsScreen() {
       activeOpacity={0.9}
       onPress={() => dispatch(deleteNotification(id))}
     >
-      <Ionicons name="trash" size={22} color="#FFF" />
+      <Ionicons name="trash" size={20} color="#FFF" />
       <Text style={styles.deleteText}>حذف</Text>
     </TouchableOpacity>
   );
 
   /* ================= RENDER ITEM ================= */
   const renderItem = ({ item, index }: { item: GroupedNotification; index: number }) => {
-    const iconMeta = getIconMeta(item.type);
-    const iconColor = pickToneColor(theme, iconMeta.tone);
-
     const title = buildTitleAr(item);
     const subtitle = buildSubtitleAr(item.type);
     const timeText = formatTimeSmart(item.createdAt);
+
+    const iconMeta = getIconMeta(item.type);
+    const iconColor = pickToneColor(theme, iconMeta.tone);
 
     const avatarUrl = safeStr(item.users?.[0]?.avatar || item.sender?.avatar);
     const initials = getInitials(title);
 
     return (
-      <Animated.View entering={FadeInDown.delay(index * 50)}>
+      <Animated.View entering={FadeInDown.delay(index * 35)}>
         <Swipeable renderRightActions={() => renderRightActions(item._id)}>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => handlePress(item)}
-            style={[styles.card, !item.isRead && styles.cardUnread]}
-          >
-            <View style={styles.cardInner}>
-              {/* Accent */}
-              <View style={[styles.accentBar, !item.isRead && styles.accentBarUnread]} />
+          <Pressable onPress={() => handlePress(item)} style={styles.row}>
+            <View style={[styles.unreadStripe, !item.isRead && styles.unreadStripeActive]} />
 
-              {/* Avatar */}
-              {avatarUrl ? (
-                <View style={styles.avatarWrap}>
-                  <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-                </View>
-              ) : (
-                <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarFallbackText}>{initials}</Text>
-                </View>
-              )}
-
-              {/* Icon bubble */}
-              <View style={styles.iconBubble}>
-                <Ionicons name={iconMeta.name as any} size={18} color={iconColor} />
+            {avatarUrl ? (
+              <View style={styles.avatarWrap}>
+                <Image source={{ uri: avatarUrl }} style={styles.avatar} />
               </View>
+            ) : (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarFallbackText}>{initials}</Text>
+              </View>
+            )}
 
-              {/* Content */}
-              <View style={styles.content}>
-                <View style={styles.titleRow}>
-                  <Text style={styles.title} numberOfLines={1}>
-                    {title}
-                  </Text>
-
-                  <View style={styles.metaChip}>
-                    <Ionicons name="information-circle" size={14} color={theme.muted} />
-                    <Text style={styles.metaChipText}>{subtitle}</Text>
-                    {!!item.count && item.count > 1 && (
-                      <Text style={[styles.metaChipText, { color: theme.primary }]}>+{item.count - 1}</Text>
-                    )}
-                  </View>
-                </View>
-
-                <Text style={styles.body} numberOfLines={2}>
-                  {safeStr(item.body) || "—"}
+            <View style={styles.center}>
+              <View style={styles.headerLine}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {title}
                 </Text>
-
-                <View style={styles.footerRow}>
-                  <Text style={styles.time}>{timeText}</Text>
-                  {!item.isRead && <View style={styles.unreadDot} />}
-                </View>
+                <Text style={styles.time}>{timeText}</Text>
               </View>
+
+              <View style={styles.subLine}>
+                <View style={styles.iconDot}>
+                  <Ionicons name={iconMeta.name as any} size={14} color={iconColor} />
+                </View>
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {subtitle}
+                </Text>
+                {item.count > 1 && (
+                  <View style={styles.bubbleCount}>
+                    <Text style={styles.bubbleCountText}>{item.count}</Text>
+                  </View>
+                )}
+              </View>
+
+              <Text style={styles.body} numberOfLines={2}>
+                {safeStr(item.body) || "—"}
+              </Text>
             </View>
-          </TouchableOpacity>
+
+            <View style={styles.right}>
+              {!item.isRead && (
+                <TouchableOpacity
+                  style={styles.miniBtn}
+                  activeOpacity={0.9}
+                  onPress={() => dispatch(markNotificationAsRead(item._id))}
+                >
+                  <Ionicons name="checkmark" size={16} color={theme.primary} />
+                  <Text style={styles.miniBtnText}>مقروء</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </Pressable>
         </Swipeable>
       </Animated.View>
     );
@@ -814,26 +517,58 @@ export default function NotificationsScreen() {
   /* ================= UI ================= */
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTitleWrap}>
-          <Ionicons name="notifications" size={20} color={theme.text} />
-          <View>
-            <Text style={styles.headerTitle}>الإشعارات</Text>
-            <Text style={styles.headerSubtitle}>
-              {unreadCount ? `لديك ${unreadCount} غير مقروء` : "كل شيء مُحدّث"}
-            </Text>
+      <View style={styles.top}>
+        <View style={styles.titleRow}>
+          <Text style={styles.screenTitle}>الإشعارات</Text>
+
+          <View style={styles.actionsRow}>
+            {/* اختياري: لو عندك أكشن markAllAsRead / clearAll */}
+            {/* <TouchableOpacity style={styles.actionBtn}><Text style={styles.actionText}>تحديد الكل</Text></TouchableOpacity> */}
+            {/* <TouchableOpacity style={styles.actionBtn}><Text style={styles.actionText}>حذف الكل</Text></TouchableOpacity> */}
+
+            <View style={styles.actionBtn}>
+              <Ionicons name="mail-unread" size={16} color={theme.text} />
+              <Text style={styles.actionText}>{unreadCount}</Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.headerBadge}>
-          <Ionicons name="list" size={16} color={theme.primary} />
-          <Text style={styles.headerBadgeText}>{groupedNotifications.length}</Text>
+        <View style={styles.tabsRow}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setTab("all")}
+            style={[styles.tab, tab === "all" && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, tab === "all" && styles.tabTextActive]}>الكل</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setTab("unread")}
+            style={[styles.tab, tab === "unread" && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, tab === "unread" && styles.tabTextActive]}>غير مقروء</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setTab("requests")}
+            style={[styles.tab, tab === "requests" && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, tab === "requests" && styles.tabTextActive]}>
+              طلبات ({requestsCount})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.countPill}>
+          <Ionicons name="list" size={16} color={theme.muted} />
+          <Text style={styles.countText}>{filtered.length}</Text>
         </View>
       </View>
 
       <FlatList
-        data={groupedNotifications}
+        data={filtered}
         keyExtractor={(item: GroupedNotification) => item._id}
         contentContainerStyle={styles.listContent}
         refreshing={loading}
@@ -845,7 +580,7 @@ export default function NotificationsScreen() {
             </View>
           ) : (
             <View style={styles.emptyWrap}>
-              <Ionicons name="checkmark-done" size={30} color={theme.muted} />
+              <Ionicons name="checkmark-done" size={28} color={theme.muted} />
               <Text style={styles.emptyTitle}>لا توجد إشعارات</Text>
               <Text style={styles.emptySub}>سيظهر هنا كل جديد يحدث في حسابك.</Text>
             </View>

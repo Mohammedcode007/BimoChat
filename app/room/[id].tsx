@@ -2427,10 +2427,9 @@ export default function ChatScreen() {
         />
       )}
       {/* ================= INPUT ================= */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "position"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? HEADER_H : 0}
-      >
+  <KeyboardAvoidingView
+  behavior={Platform.OS === "ios" ? "padding" : undefined}
+>
         <View
           style={[styles.inputBar, { paddingBottom: insets.bottom || 0 }]}
           onLayout={(e) => setInputBarH(e.nativeEvent.layout.height)}

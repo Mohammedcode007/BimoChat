@@ -69,7 +69,7 @@ export const connectSocket = (token: string): Socket => {
 
   console.log("🔌 Creating new socket connection...");
 
-  socket = io("http://192.168.1.9:5000", {
+  socket = io("https://api.te-bot.site", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true

@@ -1,29 +1,4 @@
-// import AsyncStorage from "@react-native-async-storage/async-storage";
-// import axios from "axios";
 
-// const api = axios.create({
-//   baseURL: "http://192.168.0.101:5000/api",
-// });
-
-// /* ================= REQUEST INTERCEPTOR ================= */
-
-// api.interceptors.request.use(
-//   async config => {
-//     const token = await AsyncStorage.getItem("token");
-
-//     if (token) {
-//       config.headers.Authorization = `Bearer ${token}`;
-//       console.log("🔐 Token attached from AsyncStorage");
-//     } else {
-//       console.log("⚠️ No token found in storage");
-//     }
-
-//     return config;
-//   },
-//   error => Promise.reject(error)
-// );
-
-// export default api;
 // services/api.ts
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
@@ -76,7 +51,7 @@ const getBuildNumber = () => {
 };
 
 const api = axios.create({
-  baseURL: "http://192.168.1.9:5000/api",
+  baseURL: "https://api.te-bot.site/api",
   timeout: 20000,
 });
 

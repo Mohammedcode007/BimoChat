@@ -282,6 +282,7 @@
 // export default authSlice.reducer;
 
 // redux/slices/authSlice.ts
+import { disconnectSocket } from "@/services/socket";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import * as Device from "expo-device";
@@ -424,14 +425,29 @@ export const login = createAsyncThunk(
 
 export const logout = createAsyncThunk("auth/logout", async (_, thunkAPI) => {
   try {
-    await api.post("/auth/logout");
+    // (اختياري) إن فشل طلب السيرفر لا يمنع تسجيل الخروج محليًا
+    await api.post("/auth/logout").catch(() => {});
+  } finally {
+    // ✅ افصل السوكت فقط عند logout
+    disconnectSocket();
+
+    // ✅ امسح البيانات المحلية
     await AsyncStorage.removeItem("token");
     await AsyncStorage.removeItem("user");
-    return true;
-  } catch {
-    return thunkAPI.rejectWithValue("Logout failed");
   }
+
+  return true;
 });
+// export const logout = createAsyncThunk("auth/logout", async (_, thunkAPI) => {
+//   try {
+//     await api.post("/auth/logout");
+//     await AsyncStorage.removeItem("token");
+//     await AsyncStorage.removeItem("user");
+//     return true;
+//   } catch {
+//     return thunkAPI.rejectWithValue("Logout failed");
+//   }
+// });
 
 /* =====================================================
    TOGGLE INVISIBLE

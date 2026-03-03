@@ -484,9 +484,6 @@ export default function LoginScreen() {
       next.username = "يرجى إدخال اسم المستخدم";
     } else if (/\s/.test(uTrim)) {
       next.username = "اسم المستخدم لا يجب أن يحتوي على مسافات";
-    } else if (!USER_ALLOWED.test(uTrim)) {
-      next.username =
-        "اسم المستخدم غير صالح. مسموح: عربي/إنجليزي/أرقام + الرموز ( . _ - ) وطول من 3 إلى 64";
     }
 
     if (!p) {

@@ -57,7 +57,7 @@ import VoiceMessagePlayer from "@/components/VoiceMessagePlayer";
 import VoiceRecorderPreview from "@/components/VoiceRecorderPreview";
 import { blockUser } from "@/redux/slices/followSlice";
 import { unblockUser } from "@/redux/slices/friendSlice";
-import { fetchUserProfile } from "@/redux/slices/userSlice";
+import { fetchBlockStatus, fetchUserProfile } from "@/redux/slices/userSlice";
 import { uploadToCloudinary } from "@/services/upload.service";
 import { formatLastSeen, formatTime } from "@/utils/helpFunctions";
 import { Audio, ResizeMode, Video } from "expo-av";
@@ -160,98 +160,59 @@ export default function ChatScreen() {
   const blockedByMe = rel === "blocked_by_me";
   const blockedMe = rel === "blocked_me";
   const isBlocked = blockedByMe || blockedMe;
-const doToggleBlock = async () => {
-  const targetId = otherUser?._id;
-  if (!targetId) return;
+  const doToggleBlock = async () => {
+    const targetId = otherUser?._id;
+    if (!targetId) return;
 
-  if (blockedMe) {
-    setMenuOpen(false);
-    return;
-  }
-
-  try {
-    if (blockedByMe) {
-      await dispatch(unblockUser(targetId)).unwrap?.(); // لو thunk عندك يدعم unwrap
-      setRel("none");
-    } else {
-      await dispatch(blockUser(targetId)).unwrap();     // ✅ followSlice thunk
-      setRel("blocked_by_me");
+    if (blockedMe) {
+      setMenuOpen(false);
+      return;
     }
+try {
+  if (blockedMe) { setMenuOpen(false); return; }
 
-    // ✅ أهم سطر: إعادة جلب البروفايل حتى يُثبت relationshipStatus في Redux
-    await dispatch(fetchUserProfile(String(targetId))).unwrap?.();
-
-  } catch (e) {
-    console.log("❌ doToggleBlock error:", e);
-  } finally {
-    setMenuOpen(false);
+  if (blockedByMe) {
+    await dispatch(unblockUser(targetId) as any).unwrap?.();
+  } else {
+    await dispatch(blockUser(targetId) as any).unwrap?.();
   }
-};
+
+  // ✅ الأهم: إعادة فحص حالة الحظر من المصدر الحقيقي
+  await dispatch(fetchBlockStatus({ targetUserId: String(targetId) }) as any);
+
+  // (اختياري) لو محتاج بيانات البروفايل نفسها
+  await dispatch(fetchUserProfile(String(targetId)) as any).unwrap?.();
+
+} catch (e) {
+  console.log("❌ doToggleBlock error:", e);
+} finally {
+  setMenuOpen(false);
+}
+  };
   const profileUser = useSelector((s: RootState) => (s.user as any).profileUser) as ProfileUser | null;
   const searchResults = useSelector((s: RootState) => (s.friends as any).searchResults) as any[];
   const [isFollowing, setIsFollowing] = useState(false);
+  const blockStatus = useSelector((s: RootState) => (s.user as any).blockStatus) as
+    | { blockedByMe: boolean; blockedMe: boolean; anyBlocked: boolean }
+    | null;
+
+  const blockLoading = useSelector((s: RootState) => (s.user as any).loadingBlockStatus) as boolean;
+  useEffect(() => {
+    const targetId = otherUser?._id;
+    if (!targetId) return;
+
+    console.log("[ChatScreen] fetchUserProfile targetId:", targetId);
+    dispatch(fetchUserProfile(String(targetId)));
+    dispatch(fetchBlockStatus({ targetUserId: String(targetId) }) as any);
+
+  }, [otherUser?._id, dispatch]);
 useEffect(() => {
-  const targetId = otherUser?._id;
-  if (!targetId) return;
+  if (!blockStatus) return;
 
-  console.log("[ChatScreen] fetchUserProfile targetId:", targetId);
-  dispatch(fetchUserProfile(String(targetId)));
-}, [otherUser?._id, dispatch]);
-useEffect(() => {
-  console.log("==== [ChatScreen] rel sync START ====");
-
-  if (!profileUser?._id) {
-    console.log("[rel-sync] no profileUser yet");
-    console.log("==== [ChatScreen] rel sync END ====");
-    return;
-  }
-
-  const targetId = String(otherUser?._id || "");
-  const profileId = String(profileUser._id);
-
-  if (!targetId || profileId !== targetId) {
-    console.log("[rel-sync] mismatch -> skip");
-    console.log("[rel-sync] profileUser._id:", profileId);
-    console.log("[rel-sync] otherUser?._id:", targetId);
-    console.log("==== [ChatScreen] rel sync END ====");
-    return;
-  }
-
-  const fromProfile = profileUser.relationshipStatus;
-  console.log("[rel-sync] fromProfile relationshipStatus:", fromProfile);
-
-  if (fromProfile) {
-    setRel(fromProfile);
-    console.log("[rel-sync] setRel(fromProfile):", fromProfile);
-  } else {
-    const found = Array.isArray(searchResults)
-      ? searchResults.find((x: any) => String(x?._id) === profileId)
-      : null;
-
-    const fallbackRel = (found?.relationshipStatus as RelationshipStatus) || "none";
-    console.log("[rel-sync] fallback found:", found);
-    console.log("[rel-sync] setRel(fallback):", fallbackRel);
-    setRel(fallbackRel);
-  }
-
-  const following = !!(profileUser as any)?.isFollowing;
-  setIsFollowing(following);
-  console.log("[rel-sync] setIsFollowing:", following);
-
-  console.log("==== [ChatScreen] rel sync END ====");
-}, [
-  profileUser?._id,
-  profileUser?.relationshipStatus,
-  (profileUser as any)?.isFollowing,
-  searchResults,
-  otherUser?._id,          // ✅ مهم
-]);
-useEffect(() => {
-  console.log("[rel] changed =>", rel, {
-    blockedByMe: rel === "blocked_by_me",
-    blockedMe: rel === "blocked_me",
-  });
-}, [rel]);
+  if (blockStatus.blockedMe) setRel("blocked_me");
+  else if (blockStatus.blockedByMe) setRel("blocked_by_me");
+  else setRel("none");
+}, [blockStatus?.blockedByMe, blockStatus?.blockedMe]);
   const user = profileUser;
   console.log(user, 'user');
   /* ================= INITIAL LOAD ================= */
@@ -592,15 +553,15 @@ useEffect(() => {
 
   /* ================= BLOCKED ================= */
 
-  if (chat?.isBlocked) {
-    return (
-      <SafeAreaView style={[styles.center, { backgroundColor: isDark ? "#0B1220" : "white" }]}>
-        <Text style={{ color: isDark ? "#E5E7EB" : "#111827" }}>
-          This conversation is blocked
-        </Text>
-      </SafeAreaView>
-    );
-  }
+  // if (isBlocked) {
+  //   return (
+  //     <SafeAreaView style={[styles.center, { backgroundColor: isDark ? "#0B1220" : "white" }]}>
+  //       <Text style={{ color: isDark ? "#E5E7EB" : "#111827" }}>
+  //         This conversation is blocked
+  //       </Text>
+  //     </SafeAreaView>
+  //   );
+  // }
   const menuLabel = blockedMe ? "محظور" : blockedByMe ? "فك الحظر" : "حظر";
   const menuIcon: keyof typeof Ionicons.glyphMap = blockedMe
     ? "alert-circle-outline"

@@ -162,7 +162,9 @@ export type RoomMessage = {
   _id: string;
   room: string;
   gift?: GiftPayload;
-
+  clientId?: string;
+  optimistic?: boolean; // اختياري
+  failed?: boolean;     // اختياري
   sender?: RoomMessageSender;
   senderSnapshot?: UserPublicSnapshot;
   type: RoomMessageType;
@@ -277,7 +279,7 @@ const initialState: RoomState = {
   detailsByRoom: {},
   loadingDetails: false,
   loadingRooms: false,
-    bannedUsersByRoom: {},
+  bannedUsersByRoom: {},
   loadingUsers: false,
   loadingMessages: false,
   kickedByRoom: {} as Record<string, { at: number; message?: string }>,
@@ -293,7 +295,92 @@ const initialState: RoomState = {
 /* =====================================================
    HELPERS
 ===================================================== */
+const dedupeMessages = (list: RoomMessage[]) => {
+  const byId = new Map<string, number>();
+  const byCid = new Map<string, number>();
 
+  for (let i = 0; i < list.length; i++) {
+    const m = list[i];
+    const id = m?._id ? String(m._id) : "";
+    const cid = m?.clientId ? String(m.clientId) : "";
+
+    // dedupe by _id
+    if (id) {
+      const prev = byId.get(id);
+      if (prev !== undefined) {
+        // اختر الأفضل: الذي لديه clientId أو ليس optimistic أو ليس failed
+        const a = list[prev];
+        const b = m;
+
+        const score = (x: RoomMessage) =>
+          (x.clientId ? 10 : 0) + (!x.optimistic ? 5 : 0) + (!x.failed ? 2 : 0);
+
+        const keepPrev = score(a) >= score(b);
+
+        if (keepPrev) {
+          list.splice(i, 1);
+          i--;
+          continue;
+        } else {
+          list.splice(prev, 1);
+          i--;
+          // إعادة بناء الخرائط لأننا حذفنا عنصر سابق
+          return dedupeMessages(list);
+        }
+      } else {
+        byId.set(id, i);
+      }
+    }
+
+    // dedupe by clientId
+    if (cid) {
+      const prev = byCid.get(cid);
+      if (prev !== undefined && prev !== i) {
+        const a = list[prev];
+        const b = m;
+
+        const score = (x: RoomMessage) =>
+          (x._id && !String(x._id).startsWith("optimistic:") ? 10 : 0) +
+          (!x.optimistic ? 5 : 0) +
+          (!x.failed ? 2 : 0);
+
+        const keepPrev = score(a) >= score(b);
+
+        if (keepPrev) {
+          list.splice(i, 1);
+          i--;
+          continue;
+        } else {
+          list.splice(prev, 1);
+          i--;
+          return dedupeMessages(list);
+        }
+      } else {
+        byCid.set(cid, i);
+      }
+    }
+  }
+};
+const upsertMessageByClientIdOrId = (list: RoomMessage[], incoming: RoomMessage) => {
+  if (incoming?.clientId) {
+    const idx = list.findIndex((m) => m?.clientId && m.clientId === incoming.clientId);
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...incoming };
+      dedupeMessages(list);
+      return;
+    }
+  }
+
+  const idxById = list.findIndex((m) => m?._id && incoming?._id && m._id === incoming._id);
+  if (idxById >= 0) {
+    list[idxById] = { ...list[idxById], ...incoming };
+    dedupeMessages(list);
+    return;
+  }
+
+  list.unshift(incoming);
+  dedupeMessages(list);
+};
 const errMsg = (e: any, fallback: string) => e?.response?.data?.message || e?.message || fallback;
 
 const dataOf = (res: any) => res?.data?.data ?? res?.data;
@@ -310,7 +397,33 @@ const findRoomIdByMessageId = (
   }
   return undefined;
 };
+const DEBUG_DUP = true;
 
+const debugMsg = (tag: string, roomId: string, msg?: Partial<RoomMessage>) => {
+  if (!DEBUG_DUP) return;
+
+  const id = msg?._id ? String(msg._id) : "";
+  const cid = msg?.clientId ? String(msg.clientId) : "";
+  const typ = msg?.type ? String(msg.type) : "";
+  const created = (msg as any)?.createdAt ? String((msg as any).createdAt) : "";
+  const opt = (msg as any)?.optimistic ? "opt" : "";
+  const failed = (msg as any)?.failed ? "failed" : "";
+
+  console.log(`[DUP][${tag}] room=${roomId} id=${id} cid=${cid} type=${typ} ${opt} ${failed} createdAt=${created}`);
+};
+
+const debugList = (tag: string, roomId: string, list: RoomMessage[]) => {
+  if (!DEBUG_DUP) return;
+
+  const top = (list || []).slice(0, 6).map((m) => ({
+    id: String(m?._id || ""),
+    cid: String(m?.clientId || ""),
+    opt: !!m?.optimistic,
+    type: m?.type,
+  }));
+
+  console.log(`[DUP][${tag}] room=${roomId} len=${list?.length || 0} top=`, top);
+};
 /* ================= BANNED (Control) ================= */
 
 export const fetchBannedUsers = createAsyncThunk<
@@ -575,6 +688,8 @@ export const sendRoomMessage = createAsyncThunk<
   { roomId: string; message: RoomMessage },
   {
     roomId: string;
+    clientId?: string;
+
     content?: string;
     type?: RoomMessageType;
     replyTo?: string;
@@ -584,39 +699,24 @@ export const sendRoomMessage = createAsyncThunk<
   },
   { state: RootState }
 >("room/sendRoomMessage", async (payload, thunkAPI) => {
-  const DEBUG = true; // ❗ اجعلها false في الإنتاج
-
   try {
-    if (DEBUG) {
-      console.log("========== SEND ROOM MESSAGE ==========");
-      console.log("Payload:", {
-        roomId: payload.roomId,
-        type: payload.type,
-        content: payload.content,
-        replyTo: payload.replyTo,
-        hasMedia: !!payload.media,
-        hasGift: !!payload.gift,
-      });
-    }
-
     const res = await api.post(`/rooms/${payload.roomId}/messages`, payload);
 
+    const serverMsg: RoomMessage = dataOf(res);
 
-
-    const msg: RoomMessage = dataOf(res);
-
-    if (DEBUG) {
-
-    }
+    // ✅ أهم سطر: تأكد أن رسالة السيرفر تحمل نفس clientId
+    const msg: RoomMessage = {
+      ...serverMsg,
+      clientId: payload.clientId || serverMsg.clientId,
+      optimistic: false,
+      failed: false
+    };
 
     return { roomId: payload.roomId, message: msg };
-
   } catch (e: any) {
- 
     return thunkAPI.rejectWithValue(errMsg(e, "Send failed"));
   }
 });
-
 export const fetchRoomMessages = createAsyncThunk<
   { roomId: string; messages: RoomMessage[]; append: boolean },
   { roomId: string; pagination?: Pagination; append?: boolean },
@@ -647,7 +747,7 @@ export const fetchRoomMessages = createAsyncThunk<
 
     return { roomId, messages, append: Boolean(append) };
   } catch (e: any) {
-   
+
 
     return thunkAPI.rejectWithValue(
       errMsg(e, "Failed to fetch messages")
@@ -1088,6 +1188,30 @@ const roomSlice = createSlice({
   initialState,
   reducers: {
     resetRoomState: () => initialState,
+   optimisticAddRoomMessage: (state, action) => {
+  const { roomId, message } = action.payload;
+
+  if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+  const list = state.messagesByRoom[roomId];
+
+  const nowIso = new Date().toISOString();
+
+  const optimistic: RoomMessage = {
+    ...message,
+    _id: message._id || `optimistic:${message.clientId || nowIso}`,
+    room: roomId,
+    createdAt: message.createdAt || nowIso,
+    updatedAt: message.updatedAt || nowIso,
+    optimistic: true,
+  } as RoomMessage;
+
+  debugMsg("optimistic:add:IN", roomId, optimistic);
+  debugList("optimistic:add:BEFORE", roomId, list);
+
+  upsertMessageByClientIdOrId(list, optimistic);
+
+  debugList("optimistic:add:AFTER", roomId, list);
+},
     clearKickedFlag: (state, action: PayloadAction<{ roomId: string }>) => {
       delete state.kickedByRoom[action.payload.roomId];
     },
@@ -1301,20 +1425,45 @@ const roomSlice = createSlice({
     /**
      * room:message:new
      */
-    socketNewRoomMessage: (state, action: PayloadAction<{ roomId: string; message: RoomMessage }>) => {
-      const { roomId, message } = action.payload;
 
-      if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+   socketNewRoomMessage: (state, action) => {
+  const { roomId, message } = action.payload;
+  if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+  const list = state.messagesByRoom[roomId];
 
-      const exists = state.messagesByRoom[roomId].some((m) => m._id === message._id);
-      if (!exists) state.messagesByRoom[roomId].unshift(message);
+  // ✅ محاولة ربط رسالة سوكت برسالة optimistic عند غياب clientId
+  if (!message?.clientId && message?._id) {
+    const idxOpt = list.findIndex((m) =>
+      m.optimistic &&
+      m.type === message.type &&
+      m.content === message.content &&
+      // (اختياري) نفس المرسل إن توفر
+      (toStr((m.senderSnapshot as any)?._id) === toStr((message.senderSnapshot as any)?._id) || true)
+    );
 
-      const room = state.rooms.find((r) => r._id === roomId);
-      if (room) {
-        room.messagesCount = (room.messagesCount || 0) + 1;
-        room.updatedAt = message.updatedAt || message.createdAt;
-      }
-    },
+    if (idxOpt >= 0) {
+      list[idxOpt] = { ...list[idxOpt], ...message, optimistic: false, failed: false };
+      dedupeMessages(list);
+      return;
+    }
+  }
+
+  upsertMessageByClientIdOrId(list, message);
+},
+    // socketNewRoomMessage: (state, action: PayloadAction<{ roomId: string; message: RoomMessage }>) => {
+    //   const { roomId, message } = action.payload;
+
+    //   if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+
+    //   const exists = state.messagesByRoom[roomId].some((m) => m._id === message._id);
+    //   if (!exists) state.messagesByRoom[roomId].unshift(message);
+
+    //   const room = state.rooms.find((r) => r._id === roomId);
+    //   if (room) {
+    //     room.messagesCount = (room.messagesCount || 0) + 1;
+    //     room.updatedAt = message.updatedAt || message.createdAt;
+    //   }
+    // },
 
     /**
      * room:message:pinned / room:message:edited (دمج نفس reducer)
@@ -1462,63 +1611,63 @@ const roomSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
-    // ====== BANNED LIST ======
-.addCase(enterRoomDirect.pending, (state) => {
-  state.mutatingRoom = true;
-  state.error = undefined;
-})
-.addCase(enterRoomDirect.fulfilled, (state, action) => {
-  state.mutatingRoom = false;
-  state.activeRoomId = action.payload.roomId;
-})
-.addCase(enterRoomDirect.rejected, (state, action) => {
-  state.mutatingRoom = false;
-  state.error = (action.payload as any) || "Enter room failed";
-})
+      // ====== BANNED LIST ======
+      .addCase(enterRoomDirect.pending, (state) => {
+        state.mutatingRoom = true;
+        state.error = undefined;
+      })
+      .addCase(enterRoomDirect.fulfilled, (state, action) => {
+        state.mutatingRoom = false;
+        state.activeRoomId = action.payload.roomId;
+      })
+      .addCase(enterRoomDirect.rejected, (state, action) => {
+        state.mutatingRoom = false;
+        state.error = (action.payload as any) || "Enter room failed";
+      })
 
-  .addCase(fetchBannedUsers.pending, (state) => {
-    state.mutatingRoom = true;
-    state.error = undefined;
-  })
-  .addCase(fetchBannedUsers.fulfilled, (state, action) => {
-    state.mutatingRoom = false;
-    const { roomId, list } = action.payload;
-    state.bannedUsersByRoom[roomId] = list;
-  })
-  .addCase(fetchBannedUsers.rejected, (state, action) => {
-    state.mutatingRoom = false;
-    state.error = (action.payload as any) || "Failed to fetch banned users";
-  })
+      .addCase(fetchBannedUsers.pending, (state) => {
+        state.mutatingRoom = true;
+        state.error = undefined;
+      })
+      .addCase(fetchBannedUsers.fulfilled, (state, action) => {
+        state.mutatingRoom = false;
+        const { roomId, list } = action.payload;
+        state.bannedUsersByRoom[roomId] = list;
+      })
+      .addCase(fetchBannedUsers.rejected, (state, action) => {
+        state.mutatingRoom = false;
+        state.error = (action.payload as any) || "Failed to fetch banned users";
+      })
 
-  .addCase(unbanOne.fulfilled, (state, action) => {
-    const { roomId, list, targetId } = action.payload;
+      .addCase(unbanOne.fulfilled, (state, action) => {
+        const { roomId, list, targetId } = action.payload;
 
-    // لو الباك رجّع قائمة جاهزة
-    if (list) {
-      state.bannedUsersByRoom[roomId] = list;
-      return;
-    }
+        // لو الباك رجّع قائمة جاهزة
+        if (list) {
+          state.bannedUsersByRoom[roomId] = list;
+          return;
+        }
 
-    // وإلا حدّث محليًا بإزالة المستخدم
-    const cur = state.bannedUsersByRoom[roomId] || [];
-    state.bannedUsersByRoom[roomId] = cur.filter((x) => String(x?.user?._id) !== String(targetId));
-  })
-  .addCase(unbanMany.fulfilled, (state, action) => {
-    const { roomId, list, targetIds } = action.payload;
+        // وإلا حدّث محليًا بإزالة المستخدم
+        const cur = state.bannedUsersByRoom[roomId] || [];
+        state.bannedUsersByRoom[roomId] = cur.filter((x) => String(x?.user?._id) !== String(targetId));
+      })
+      .addCase(unbanMany.fulfilled, (state, action) => {
+        const { roomId, list, targetIds } = action.payload;
 
-    if (list) {
-      state.bannedUsersByRoom[roomId] = list;
-      return;
-    }
+        if (list) {
+          state.bannedUsersByRoom[roomId] = list;
+          return;
+        }
 
-    const removeSet = new Set((targetIds || []).map(String));
-    const cur = state.bannedUsersByRoom[roomId] || [];
-    state.bannedUsersByRoom[roomId] = cur.filter((x) => !removeSet.has(String(x?.user?._id)));
-  })
-  .addCase(unbanAll.fulfilled, (state, action) => {
-    const { roomId, list } = action.payload;
-    state.bannedUsersByRoom[roomId] = list ?? [];
-  })
+        const removeSet = new Set((targetIds || []).map(String));
+        const cur = state.bannedUsersByRoom[roomId] || [];
+        state.bannedUsersByRoom[roomId] = cur.filter((x) => !removeSet.has(String(x?.user?._id)));
+      })
+      .addCase(unbanAll.fulfilled, (state, action) => {
+        const { roomId, list } = action.payload;
+        state.bannedUsersByRoom[roomId] = list ?? [];
+      })
       .addCase(fetchRoomDetails.pending, (state) => {
         state.loadingDetails = true;
         state.error = undefined;
@@ -1629,11 +1778,27 @@ const roomSlice = createSlice({
       })
       .addCase(sendRoomMessage.fulfilled, (state, action) => {
         state.sending = false;
-        const { roomId, message } = action.payload;
+        
+
+        const { roomId } = action.payload;
+        let { message } = action.payload;
+
+        // ✅ حقن clientId من arg لو الباك لم يرجعه
+        const argClientId = (action.meta as any)?.arg?.clientId;
+        if (argClientId && !message?.clientId) {
+          message = { ...message, clientId: String(argClientId) };
+        }
 
         if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
-        const exists = state.messagesByRoom[roomId].some((m) => m._id === message._id);
-        if (!exists) state.messagesByRoom[roomId].unshift(message);
+        const list = state.messagesByRoom[roomId];
+
+        // ✅ الآن سيتم الاستبدال وليس الإضافة
+        debugMsg("send:fulfilled:IN", roomId, message);
+debugList("send:fulfilled:BEFORE", roomId, list);
+
+upsertMessageByClientIdOrId(list, message);
+
+debugList("send:fulfilled:AFTER", roomId, list);
       })
       .addCase(sendRoomMessage.rejected, (state, action) => {
         state.sending = false;
@@ -1644,20 +1809,88 @@ const roomSlice = createSlice({
         state.loadingMessages = true;
         state.error = undefined;
       })
-      .addCase(fetchRoomMessages.fulfilled, (state, action) => {
-        state.loadingMessages = false;
-        const { roomId, messages, append } = action.payload;
+     .addCase(fetchRoomMessages.fulfilled, (state, action) => {
+  state.loadingMessages = false;
+  const { roomId, messages, append } = action.payload;
 
-        if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+  if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+  const list = state.messagesByRoom[roomId];
 
-        if (append) {
-          const existingIds = new Set(state.messagesByRoom[roomId].map((m) => m._id));
-          const filtered = messages.filter((m) => !existingIds.has(m._id));
-          state.messagesByRoom[roomId].push(...filtered);
-        } else {
-          state.messagesByRoom[roomId] = messages;
-        }
-      })
+  console.log("======================================");
+  console.log("[fetchRoomMessages.fulfilled] FIRED ✅");
+  console.log("roomId:", roomId);
+  console.log("append:", append);
+  console.log("incoming length:", messages?.length || 0);
+  console.log("before length:", list.length);
+
+  console.log("before top 5:", list.slice(0, 5).map(m => ({
+    id: m?._id,
+    cid: m?.clientId,
+    opt: m?.optimistic,
+    type: m?.type
+  })));
+
+  if (append) {
+    const existingIds = new Set(list.map((m) => String(m?._id || "")));
+    const existingClientIds = new Set(
+      list.map((m) => String(m?.clientId || "")).filter(Boolean)
+    );
+
+    const filtered = (messages || []).filter((m) => {
+      const id = String(m?._id || "");
+      const cid = String(m?.clientId || "");
+
+      const dupById = id && existingIds.has(id);
+      const dupByClient = cid && existingClientIds.has(cid);
+
+      if (dupById || dupByClient) {
+        console.log("[DUP BLOCKED]", { id, cid, dupById, dupByClient });
+        return false;
+      }
+
+      return true;
+    });
+
+    console.log("filtered length (after dedupe):", filtered.length);
+
+    list.push(...filtered);
+  } else {
+    const seen = new Set<string>();
+    const out: typeof messages = [];
+
+    for (const m of (messages || [])) {
+      const id = String(m?._id || "");
+      const cid = String(m?.clientId || "");
+      const key = cid ? `c:${cid}` : `i:${id}`;
+
+      if (!id && !cid) {
+        console.log("[SKIP no id & no clientId]", m);
+        continue;
+      }
+
+      if (seen.has(key)) {
+        console.log("[DUP IN PAYLOAD]", key);
+        continue;
+      }
+
+      seen.add(key);
+      out.push(m);
+    }
+
+    console.log("deduped payload length:", out.length);
+
+    state.messagesByRoom[roomId] = out;
+  }
+
+  console.log("after length:", state.messagesByRoom[roomId].length);
+  console.log("after top 5:", state.messagesByRoom[roomId].slice(0, 5).map(m => ({
+    id: m?._id,
+    cid: m?.clientId,
+    opt: m?.optimistic,
+    type: m?.type
+  })));
+  console.log("======================================");
+})
       .addCase(fetchRoomMessages.rejected, (state, action) => {
         state.loadingMessages = false;
         state.error = (action.payload as any) || "Failed to fetch messages";
@@ -1862,7 +2095,7 @@ export const {
   socketMessageHighlighted,
   socketMessageDeleted,
   socketReactionUpdate,
-
+  optimisticAddRoomMessage,
   socketRoomUsersUpdate,
   socketRoomRolesUpdate,
   socketRoomUpdated,

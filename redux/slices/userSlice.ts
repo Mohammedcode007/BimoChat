@@ -135,7 +135,14 @@ type SliceState = {
   updating: boolean;
   errorMe: string | null;
   errorUpdate: string | null;
-
+  creatingAccount: boolean;
+  blockStatus: { blockedByMe: boolean; blockedMe: boolean; anyBlocked: boolean } | null;
+  loadingBlockStatus: boolean;
+  errorBlockStatus: string | null;
+  errorCreateAccount: string | null;
+  lastCreatedCreds: { username: string; password: string } | null;
+  debiting: boolean;
+  errorDebit: string | null;
   // ===== Other user profile =====
   profileUser: UserFull | null;
   loadingProfile: boolean;
@@ -148,7 +155,14 @@ const initialState: SliceState = {
   updating: false,
   errorMe: null,
   errorUpdate: null,
-
+  debiting: false,
+  creatingAccount: false,
+  errorCreateAccount: null,
+  lastCreatedCreds: null,
+  blockStatus: null,
+  loadingBlockStatus: false,
+  errorBlockStatus: null,
+  errorDebit: null,
   profileUser: null,
   loadingProfile: false,
   errorProfile: null,
@@ -177,7 +191,41 @@ export const fetchMyFullUser = createAsyncThunk<UserFull, void, { rejectValue: s
     }
   }
 );
+// ✅ POST /auth/register  (بدون حفظ token/user)
+export const registerNoLogin = createAsyncThunk<
+  { credentials: { username: string; password: string } },
+  { username: string; password: string },
+  { rejectValue: string }
+>("user/registerNoLogin", async ({ username, password }, { rejectWithValue }) => {
+  try {
+    await api.post("/auth/register", { username, password });
 
+    // لا نحفظ token ولا user في AsyncStorage
+    return { credentials: { username, password } };
+  } catch (e: any) {
+    const msg =
+      e?.response?.data?.message ||
+      e?.message ||
+      "Registration failed";
+    return rejectWithValue(msg);
+  }
+});
+export const fetchBlockStatus = createAsyncThunk<
+  { blockedByMe: boolean; blockedMe: boolean; anyBlocked: boolean },
+  { targetUserId: string },
+  { rejectValue: string }
+>("user/fetchBlockStatus", async ({ targetUserId }, { rejectWithValue }) => {
+  try {
+    const res = await api.get(`/users/block-status/${targetUserId}`);
+    return {
+      blockedByMe: !!res.data.blockedByMe,
+      blockedMe: !!res.data.blockedMe,
+      anyBlocked: !!res.data.anyBlocked,
+    };
+  } catch (e: any) {
+    return rejectWithValue(e?.response?.data?.message || e?.message || "Failed to load block status");
+  }
+});
 // PATCH /users/me/settings
 export const updateMyProfileSettings = createAsyncThunk<UserFull, UpdateProfilePayload, { rejectValue: string }>(
   "user/updateMyProfileSettings",
@@ -191,7 +239,33 @@ export const updateMyProfileSettings = createAsyncThunk<UserFull, UpdateProfileP
     }
   }
 );
+// PATCH /users/coinz/debit-me
+export const debitMyCoinz = createAsyncThunk<
+  { CoinzBalance: number; debited: number },
+  { amount: number; reason?: string },
+  { rejectValue: string }
+>(
+  "user/debitMyCoinz",
+  async ({ amount, reason }, { rejectWithValue }) => {
+    try {
+      const res = await api.patch("/users/coinz/debit-me", {
+        amount,
+        reason,
+      });
 
+      return {
+        CoinzBalance: Number(res.data.coinzBalance ?? res.data.CoinzBalance) || 0,
+        debited: Number(res.data.debited) || 0,
+      };
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.message ||
+        "Failed to debit coinz";
+      return rejectWithValue(msg);
+    }
+  }
+);
 // GET /users/:userId   ✅ مطابق للـ controller عندك (getUserProfile)
 export const fetchUserProfile = createAsyncThunk<UserFull, string, { rejectValue: string }>(
   "user/fetchUserProfile",
@@ -226,6 +300,11 @@ const userSlice = createSlice({
       state.errorUpdate = null;
       state.errorProfile = null;
     },
+    clearBlockStatus(state) {
+  state.blockStatus = null;
+  state.loadingBlockStatus = false;
+  state.errorBlockStatus = null;
+},
     clearProfile(state) {
       state.profileUser = null;
       state.loadingProfile = false;
@@ -233,6 +312,54 @@ const userSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    // ===== registerNoLogin =====
+    builder.addCase(registerNoLogin.pending, (state) => {
+      state.creatingAccount = true;
+      state.errorCreateAccount = null;
+    });
+
+    builder.addCase(registerNoLogin.fulfilled, (state, action) => {
+      state.creatingAccount = false;
+      state.lastCreatedCreds = action.payload.credentials;
+    });
+
+    builder.addCase(registerNoLogin.rejected, (state, action) => {
+      state.creatingAccount = false;
+      state.errorCreateAccount = action.payload || "Registration failed";
+    });
+    // ===== debit coinz =====
+    builder.addCase(debitMyCoinz.pending, (state) => {
+      state.debiting = true;
+      state.errorDebit = null;
+    });
+
+    builder.addCase(debitMyCoinz.fulfilled, (state, action) => {
+      state.debiting = false;
+
+      if (state.me) {
+        state.me.CoinzBalance = action.payload.CoinzBalance;
+      }
+    });
+
+    builder.addCase(debitMyCoinz.rejected, (state, action) => {
+      state.debiting = false;
+      state.errorDebit = action.payload || "Failed to debit coinz";
+    });
+    // ===== fetchBlockStatus =====
+builder.addCase(fetchBlockStatus.pending, (state) => {
+  state.loadingBlockStatus = true;
+  state.errorBlockStatus = null;
+});
+
+builder.addCase(fetchBlockStatus.fulfilled, (state, action) => {
+  state.loadingBlockStatus = false;
+  state.blockStatus = action.payload;
+});
+
+builder.addCase(fetchBlockStatus.rejected, (state, action) => {
+  state.loadingBlockStatus = false;
+  state.errorBlockStatus = action.payload || "Failed to load block status";
+});
     // ===== fetch me =====
     builder.addCase(fetchMyFullUser.pending, (state) => {
       state.loadingMe = true;
@@ -286,12 +413,19 @@ export default userSlice.reducer;
 ========================= */
 
 // Me selectors
+export const selectBlockStatus = (state: RootState) => state.user.blockStatus;
+export const selectBlockStatusLoading = (state: RootState) => state.user.loadingBlockStatus;
+export const selectBlockStatusError = (state: RootState) => state.user.errorBlockStatus;
 export const selectMe = (state: RootState) => state.user.me;
 export const selectUserLoading = (state: RootState) => state.user.loadingMe;
 export const selectUserUpdating = (state: RootState) => state.user.updating;
 export const selectUserErrorMe = (state: RootState) => state.user.errorMe;
 export const selectUserErrorUpdate = (state: RootState) => state.user.errorUpdate;
-
+export const selectUserDebiting = (state: RootState) => state.user.debiting;
+export const selectUserErrorDebit = (state: RootState) => state.user.errorDebit;
+export const selectUserCreatingAccount = (state: RootState) => state.user.creatingAccount;
+export const selectUserCreateAccountError = (state: RootState) => state.user.errorCreateAccount;
+export const selectUserLastCreatedCreds = (state: RootState) => state.user.lastCreatedCreds;
 // Profile selectors (other user)
 export const selectProfileUser = (state: RootState) => state.user.profileUser;
 export const selectProfileLoading = (state: RootState) => state.user.loadingProfile;

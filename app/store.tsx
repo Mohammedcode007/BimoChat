@@ -27,6 +27,10 @@ import {
   selectStoreItemsLoading,
   selectStorePurchasing
 } from "@/redux/slices/storeControl.slice";
+import * as Clipboard from "expo-clipboard";
+
+import { debitMyCoinz, registerNoLogin } from "@/redux/slices/userSlice";
+// لو أنت وضعتهما في ملفات أخرى عدّل المسار
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -36,13 +40,13 @@ import {
   Modal,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type UiTab =
   | "all"
@@ -122,7 +126,16 @@ export default function StoreScreen() {
   // Coinz modal
   const [coinzOpen, setCoinzOpen] = useState(false);
   const [coinzAmount, setCoinzAmount] = useState<number>(5000);
+  const CREATE_ACCOUNT_COST = 30000;
 
+  // Create account modal
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
+  // Success modal (copy)
+  const [createdOpen, setCreatedOpen] = useState(false);
+  const [createdCreds, setCreatedCreds] = useState<{ username: string; password: string } | null>(null);
   const selectedItem = useMemo(() => {
     return items.find((x: any) => String(x._id) === String(buyItemId)) || null;
   }, [items, buyItemId]);
@@ -271,7 +284,66 @@ export default function StoreScreen() {
       dispatch(getMyInventory() as any);
     }
   };
+  const openCreateAccount = () => {
+    setNewUsername("");
+    setNewPassword("");
+    setCreateOpen(true);
+  };
 
+  const doCreateAccount = async () => {
+    const username = newUsername.trim();
+    const password = newPassword.trim();
+
+    if (!username) {
+      Alert.alert("Create Account", "Username is required");
+      return;
+    }
+    if (!password || password.length < 6) {
+      Alert.alert("Create Account", "Password must be at least 6 characters");
+      return;
+    }
+    if (coinz < CREATE_ACCOUNT_COST) {
+      Alert.alert("Create Account", "Insufficient Coinz balance");
+      return;
+    }
+
+    // 1) خصم 30000
+    const debitRes = await dispatch(
+      debitMyCoinz({ amount: CREATE_ACCOUNT_COST, reason: "create_account" }) as any
+    );
+
+    if (!debitMyCoinz.fulfilled.match(debitRes)) {
+      Alert.alert("Create Account", String((debitRes as any).payload || "Failed to debit coinz"));
+      return;
+    }
+
+    // 2) إنشاء الحساب بدون تسجيل دخول
+    const regRes = await dispatch(registerNoLogin({ username, password }) as any);
+
+    if (!registerNoLogin.fulfilled.match(regRes)) {
+      // ⚠️ هنا الأفضل أن تعمل Refund في الباك (إن أمكن).
+      Alert.alert("Create Account", String((regRes as any).payload || "Registration failed"));
+      // تحديث الرصيد على أي حال
+      dispatch(getMyInventory() as any);
+      return;
+    }
+
+    // 3) تحديث الرصيد الظاهر في المتجر
+    dispatch(getMyInventory() as any);
+
+    // 4) إظهار بيانات النسخ
+    setCreateOpen(false);
+    setCreatedCreds({ username, password });
+    setCreatedOpen(true);
+  };
+
+  const copyCreatedCreds = async () => {
+    if (!createdCreds) return;
+    await Clipboard.setStringAsync(
+      `Username: ${createdCreds.username}\nPassword: ${createdCreds.password}`
+    );
+    Alert.alert("Copied", "Credentials copied to clipboard");
+  };
   const doActivate = async (type: any, key: string, mode?: "set" | "add" | "remove") => {
     // منع تفعيل عنصر منتهي — اعتمادًا على بيانات المخزون
     const invKey = `${String(type)}:${String(key)}`;
@@ -337,7 +409,50 @@ export default function StoreScreen() {
             </View>
           </View>
         </View>
+        {/* ✅ Create Account (30,000 Coinz) */}
+        <View style={styles.card}>
+          <View style={styles.cardTop}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardName}>Create Account</Text>
+              <Text style={styles.cardDesc} numberOfLines={2}>
+                Create a new account and pay {formatCoinz(CREATE_ACCOUNT_COST)} Coinz from your balance.
+              </Text>
+            </View>
 
+            <View style={styles.priceBox}>
+              <Text style={styles.priceLabel}>Cost</Text>
+              <Text style={styles.priceValue}>{formatCoinz(CREATE_ACCOUNT_COST)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.badgeRow}>
+            <Chip text="Service" tone="info" />
+            <Chip text="One-time" tone="neutral" />
+          </View>
+
+          <View style={styles.cardActions}>
+            <TouchableOpacity
+              style={[
+                styles.btn,
+                styles.btnPrimary,
+                (coinz < CREATE_ACCOUNT_COST || purchasing || activating || buyingCoinz) ? styles.btnDisabled : null
+              ]}
+              onPress={openCreateAccount}
+              disabled={coinz < CREATE_ACCOUNT_COST || purchasing || activating || buyingCoinz}
+            >
+              <Text style={styles.btnPrimaryText}>
+                {coinz < CREATE_ACCOUNT_COST ? "Insufficient Coinz" : "Create"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.btn, styles.btnSecondary]}
+              onPress={() => Alert.alert("Create Account", "After success you can copy username and password.")}
+            >
+              <Text style={styles.btnSecondaryText}>Details</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
         <View style={styles.searchRow}>
           <TextInput
             value={q}
@@ -853,6 +968,96 @@ export default function StoreScreen() {
             </View>
 
             <Text style={styles.modalHint}>Current balance: {formatCoinz(coinz)} Coinz</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+            {/* =========================
+          Create Account Modal
+      ========================= */}
+      <Modal transparent visible={createOpen} animationType="fade" onRequestClose={() => setCreateOpen(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setCreateOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create Account</Text>
+              <TouchableOpacity onPress={() => setCreateOpen(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalInfo}>
+              <Text style={styles.modalMeta}>
+                Cost: <Text style={{ color: "#E2E8F0", fontWeight: "900" }}>{formatCoinz(CREATE_ACCOUNT_COST)} Coinz</Text>
+              </Text>
+            </View>
+
+            <View style={styles.modalRow}>
+              <Text style={styles.modalLabel}>Username</Text>
+            </View>
+            <TextInput
+              value={newUsername}
+              onChangeText={setNewUsername}
+              placeholder="username"
+              placeholderTextColor="#94A3B8"
+              style={[styles.qtyInput, { width: "100%", textAlign: "left", paddingHorizontal: 12 }]}
+              autoCapitalize="none"
+            />
+
+            <View style={[styles.modalRow, { marginTop: 12 }]}>
+              <Text style={styles.modalLabel}>Password</Text>
+            </View>
+            <TextInput
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="password"
+              placeholderTextColor="#94A3B8"
+              style={[styles.qtyInput, { width: "100%", textAlign: "left", paddingHorizontal: 12 }]}
+              secureTextEntry
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.btn, styles.btnSecondary]} onPress={() => setCreateOpen(false)}>
+                <Text style={styles.btnSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={doCreateAccount}>
+                <Text style={styles.btnPrimaryText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalHint}>Your balance: {formatCoinz(coinz)} Coinz</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+            {/* =========================
+          Created Account Modal
+      ========================= */}
+      <Modal transparent visible={createdOpen} animationType="fade" onRequestClose={() => setCreatedOpen(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setCreatedOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Account Created</Text>
+              <TouchableOpacity onPress={() => setCreatedOpen(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalInfo}>
+              <Text style={styles.modalMeta}>Username</Text>
+              <Text style={styles.modalValue}>{createdCreds?.username || "-"}</Text>
+
+              <Text style={[styles.modalMeta, { marginTop: 10 }]}>Password</Text>
+              <Text style={styles.modalValue}>{createdCreds?.password || "-"}</Text>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.btn, styles.btnSecondary]} onPress={() => setCreatedOpen(false)}>
+                <Text style={styles.btnSecondaryText}>Close</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={copyCreatedCreds}>
+                <Text style={styles.btnPrimaryText}>Copy</Text>
+              </TouchableOpacity>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>

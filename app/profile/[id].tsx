@@ -234,7 +234,7 @@ const SegBtn = ({
       style={[
         styles.segBtn,
         {
-          backgroundColor: active ? theme.tint : "transparent",
+          backgroundColor: active ? 'grey' : "transparent",
           borderColor: theme.border,
         },
       ]}
@@ -383,7 +383,7 @@ function PrimaryBtn({
 }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
-      <View style={[styles.sheetPrimaryBtn, { backgroundColor: theme.tint }]}>
+      <View style={[styles.sheetPrimaryBtn, { backgroundColor: theme.surface, }]}>
         {icon ? <Ionicons name={icon} size={18} color="#fff" /> : null}
         <Text style={styles.sheetPrimaryText}>{label}</Text>
       </View>
@@ -493,6 +493,7 @@ export default function ProfileScreen() {
   }, [profileUser?._id, profileUser?.relationshipStatus, searchResults]);
 
   const user = profileUser;
+console.log(user,'user');
 
   const closeSheet = () => setSheet(null);
 

@@ -86,67 +86,67 @@ export default function SettingsScreen() {
       <Section title={i18n.t("settingsScreen.account")}>
         <Row
           icon="person-outline"
-          text={i18n.t("settingsScreen.editProfile")}
+          text='تعديل البيانات'
           arrow
           onPress={() => router.push("/profile/settings")}
 
         // onPress={() => router.push("/edit-profile")}
         />
-            <Row
+        <Row
           icon="person-outline"
-          text='Avatar and Cover'
+          text='الصوره الشخصيه والغلاف'
           arrow
 
-        onPress={() => router.push("/edit-profile")}
+          onPress={() => router.push("/edit-profile")}
         />
         <Row
           icon="key-outline"
-          text="Change Password"
+          text="تغيير كلمه السر"
           arrow
           onPress={() => router.push("/change-password")}
         />
-        <Row
+        {/* <Row
           icon="shield-checkmark-outline"
           text={i18n.t("settingsScreen.verifyAccount")}
           arrow
           onPress={() => router.push("/verify-account")}
-        />
+        /> */}
       </Section>
 
       {/* ===== Privacy ===== */}
       <Section title={i18n.t("settingsScreen.privacy")}>
         <Row
           icon="eye-outline"
-          text={i18n.t("settingsScreen.onlineStatus")}
+          text='ألحاله'
           switcher
           value={!user?.isInvisible}
           onChange={handleToggleOnline}
         />
 
-        <Row
+        {/* <Row
           icon="checkmark-done-outline"
           text={i18n.t("settingsScreen.readReceipts")}
           switcher
           value={readReceipts}
           onChange={setReadReceipts}
-        />
-        <Row
+        /> */}
+        {/* <Row
           icon="location-outline"
           text={i18n.t("settingsScreen.locationSharing")}
           switcher
           value={location}
           onChange={setLocation}
-        />
+        /> */}
         <Row
           icon="lock-closed-outline"
-          text={i18n.t("settingsScreen.blockedAccounts")}
+          text="الحسابات المحظوره"
           arrow
           onPress={() => router.push("/blocked")}
         />
       </Section>
 
       {/* ===== Notifications ===== */}
-      <Section title={i18n.t("settingsScreen.notifications")}>
+      {/* <Section title={i18n.t("settingsScreen.notifications")}>
         <Row
           icon="notifications-outline"
           text={i18n.t("settingsScreen.notificationToggle")}
@@ -161,10 +161,10 @@ export default function SettingsScreen() {
           value={sounds}
           onChange={setSounds}
         />
-      </Section>
+      </Section> */}
 
       {/* ===== Appearance ===== */}
-      <Section title={i18n.t("settingsScreen.appearance")}>
+      {/* <Section title={i18n.t("settingsScreen.appearance")}>
         <Row
           icon="moon-outline"
           text={i18n.t("settingsScreen.darkMode")}
@@ -184,10 +184,10 @@ export default function SettingsScreen() {
           arrow
           onPress={() => router.push("/font-settings")}
         />
-      </Section>
+      </Section> */}
 
       {/* ===== Media ===== */}
-      <Section title={i18n.t("settingsScreen.media")}>
+      {/* <Section title={i18n.t("settingsScreen.media")}>
         <Row
           icon="play-outline"
           text={i18n.t("settingsScreen.autoPlayVideos")}
@@ -201,10 +201,10 @@ export default function SettingsScreen() {
           arrow
           onPress={() => router.push("/data-usage")}
         />
-      </Section>
+      </Section> */}
 
       {/* ===== Security ===== */}
-      <Section title={i18n.t("settingsScreen.security")}>
+      {/* <Section title={i18n.t("settingsScreen.security")}>
         <Row
           icon="finger-print-outline"
           text={i18n.t("settingsScreen.biometricLock")}
@@ -217,43 +217,43 @@ export default function SettingsScreen() {
           arrow
           onPress={() => router.push("/two-factor")}
         />
-        {/* <Row
+        <Row
           icon="alert-circle-outline"
           text={i18n.t("settingsScreen.loginAlerts")}
           arrow
           onPress={() => router.push("/login-alerts")}
-        /> */}
-      </Section>
+        />
+      </Section> */}
 
       {/* ===== App ===== */}
       <Section title={i18n.t("settingsScreen.app")}>
-        <Row
+        {/* <Row
           icon="language-outline"
           text={i18n.t("settingsScreen.language")}
           arrow
           onPress={() => router.push("/language-settings")}
-        />
+        /> */}
         <Row
           icon="information-circle-outline"
-          text={i18n.t("settingsScreen.aboutApp")}
+          text="حول التطبيق"
           arrow
           onPress={() => router.push("/about-app")}
         />
         <Row
           icon="help-circle-outline"
-          text={i18n.t("settingsScreen.helpSupport")}
+          text="المساعدة والدعم"
           arrow
           onPress={() => router.push("/help-support")}
         />
         <Row
           icon="document-text-outline"
-          text={i18n.t("settingsScreen.privacyPolicy")}
+          text="سياسة الخصوصية"
           arrow
           onPress={() => router.push("/privacy-policy")}
         />
         <Row
           icon="document-outline"
-          text={i18n.t("settingsScreen.termsConditions")}
+          text="الشروط والأحكام"
           arrow
           onPress={() => router.push("/terms-conditions")}
         />
@@ -308,13 +308,15 @@ function Row({
       style={styles.row}
       activeOpacity={0.7}
     >
+{arrow && <Ionicons name="chevron-back" size={20} color="#999" />}
+      {switcher && <Switch value={value} onValueChange={onChange} />}
+
       <View style={styles.rowLeft}>
+                <Text style={[styles.rowText, { color: theme.text }]} >{text}</Text>
+
         <Ionicons name={icon} size={22} color={theme.icon} />
-        <Text style={[styles.rowText, { color: theme.text }]} >{text}</Text>
       </View>
 
-      {switcher && <Switch value={value} onValueChange={onChange} />}
-      {arrow && <Ionicons name="chevron-forward" size={20} color="#999" />}
     </TouchableOpacity>
   );
 }

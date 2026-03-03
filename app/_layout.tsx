@@ -1,6 +1,6 @@
 
 
-import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
+// import { useLanguage } from '@/context/LanguageContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { checkAuth } from '@/redux/slices/authSlice';
 import { AppDispatch, RootState, store } from '@/redux/store';
@@ -17,7 +17,7 @@ import Toast from 'react-native-toast-message';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 
 function RootStack() {
-  const { language } = useLanguage();
+  // const { language } = useLanguage();
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -157,7 +157,6 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <LanguageProvider>
       <Provider store={store}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -165,6 +164,14 @@ export default function RootLayout() {
           </ThemeProvider>
         </GestureHandlerRootView>
       </Provider>
-    </LanguageProvider>
+    // <LanguageProvider>
+    //   <Provider store={store}>
+    //     <GestureHandlerRootView style={{ flex: 1 }}>
+    //       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    //         <AppContent />
+    //       </ThemeProvider>
+    //     </GestureHandlerRootView>
+    //   </Provider>
+    // </LanguageProvider>
   );
 }

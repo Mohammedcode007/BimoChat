@@ -1483,7 +1483,7 @@ function makeStyles(theme: any, isDark: boolean) {
     },
 
     followBtnOff: {
-      backgroundColor: theme.tint,
+      backgroundColor: theme.surface2,
       borderColor: theme.tint,
     },
 

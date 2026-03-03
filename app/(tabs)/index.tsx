@@ -614,7 +614,14 @@ export default function ChatListScreen() {
   /* ================= UI ================= */
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View
+      style={[styles.container, { backgroundColor: theme.background }]}
+      onStartShouldSetResponderCapture={() => {
+        // أي لمسة في أي مكان => اقفل القائمة
+        if (menuOpen) setMenuOpen(null);
+        return false; // مهم: لا تمنع ضغط العناصر الداخلية
+      }}
+    >
       {/* Search */}
       <View
         style={[

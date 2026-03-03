@@ -261,7 +261,7 @@ function PrimaryButton({
         { opacity: disabled ? 0.55 : pressed ? 0.9 : 1, flex: 1 },
       ]}
     >
-      <View style={[styles.primaryBtn, { backgroundColor: theme.tint }]}>
+      <View style={[styles.primaryBtn, { backgroundColor: theme.surface2 }]}>
         {icon ? <Ionicons name={icon} size={18} color="#fff" /> : null}
         <Text style={styles.primaryText}>{label}</Text>
       </View>
@@ -461,7 +461,7 @@ const errorUpdate = useSelector(selectUserErrorUpdate);
         </View>
 
         <Pressable onPress={onSave} style={({ pressed }) => [{ opacity: updating ? 0.6 : pressed ? 0.85 : 1 }]}>
-          <View style={[styles.topSaveBtn, { backgroundColor: theme.tint }]}>
+          <View style={[styles.topSaveBtn, { backgroundColor: theme.surface2 }]}>
             <Ionicons name={updating ? "sync-outline" : "checkmark"} size={18} color="#fff" />
             <Text style={styles.topSaveText}>{updating ? "جارٍ..." : "حفظ"}</Text>
           </View>

@@ -601,35 +601,18 @@ export const sendRoomMessage = createAsyncThunk<
 
     const res = await api.post(`/rooms/${payload.roomId}/messages`, payload);
 
-    if (DEBUG) {
-      console.log("Raw Response:", res);
-    }
+
 
     const msg: RoomMessage = dataOf(res);
 
     if (DEBUG) {
-      console.log("Parsed Message:", {
-        _id: msg?._id,
-        type: msg?.type,
-        content: msg?.content,
-        sender: msg?.sender,
-        senderSnapshot: msg?.senderSnapshot,
-        createdAt: msg?.createdAt,
-        gift: msg?.gift,
-      });
-      console.log("=======================================");
+
     }
 
     return { roomId: payload.roomId, message: msg };
 
   } catch (e: any) {
-    if (DEBUG) {
-      console.log("❌ SEND ROOM MESSAGE ERROR");
-      console.log("Error Object:", e);
-      console.log("Response Data:", e?.response?.data);
-      console.log("=======================================");
-    }
-
+ 
     return thunkAPI.rejectWithValue(errMsg(e, "Send failed"));
   }
 });

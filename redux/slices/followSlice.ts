@@ -1,8 +1,8 @@
 import api from "@/services/api";
 import {
-    createAsyncThunk,
-    createSlice,
-    PayloadAction
+  createAsyncThunk,
+  createSlice,
+  PayloadAction
 } from "@reduxjs/toolkit";
 
 /* =========================================================
@@ -62,17 +62,27 @@ export const blockUser = createAsyncThunk<
   "follow/block",
   async (targetId, { rejectWithValue }) => {
     try {
-      await api.post(`/follow/${targetId}/block`);
+      console.log("🔵 [blockUser] START");
+      console.log("🔵 targetId:", targetId);
+
+      const res = await api.post(`/follow/${targetId}/block`);
+
+      console.log("🟢 [blockUser] SUCCESS");
+      console.log("🟢 response:", res.data);
+
       return { targetId };
 
     } catch (err: any) {
+      console.log("🔴 [blockUser] ERROR");
+      console.log("🔴 message:", err.response?.data?.message);
+      console.log("🔴 full error:", err);
+
       return rejectWithValue(
         err.response?.data?.message || "Block failed"
       );
     }
   }
 );
-
 /* =========================================================
    SLICE
 ========================================================= */

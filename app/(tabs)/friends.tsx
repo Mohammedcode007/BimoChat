@@ -259,7 +259,7 @@ export default function FriendsScreen() {
       params: { id: String(first._id) },
     } as any);
   };
-  
+
   /* ================= Swipe Right Action ================= */
   const renderRightActions = (item: any) => (
     <View style={s.actionsWrap}>
@@ -448,14 +448,18 @@ export default function FriendsScreen() {
                   {/* Info */}
                   <View style={s.info}>
                     <View style={s.nameLine}>
-                      <Text style={s.name} numberOfLines={1}>
+                      <Text
+                        style={s.name}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
                         {item.username}
                       </Text>
-                      {!!item.atUsername && (
+                      {/* {!!item.atUsername && (
                         <Text style={s.handle} numberOfLines={1}>
                           {item.atUsername}
                         </Text>
-                      )}
+                      )} */}
                     </View>
 
                     <Text style={s.bio} numberOfLines={1}>
@@ -534,9 +538,9 @@ function makeStyles(theme: any, isDark: boolean) {
       }),
     },
 
-    storiesWrap: { },
+    storiesWrap: {},
     sectionHead: {
-      paddingHorizontal: 0 ,
+      paddingHorizontal: 0,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",

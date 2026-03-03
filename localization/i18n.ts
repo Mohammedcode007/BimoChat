@@ -7,7 +7,7 @@ const i18n = new I18n(translations);
 i18n.enableFallback = true;
 
 const deviceLocale =
-  Localization.getLocales()[0]?.languageCode || "en";
+  Localization.getLocales()[0]?.languageCode || "ar";
 
 i18n.locale = deviceLocale;
 

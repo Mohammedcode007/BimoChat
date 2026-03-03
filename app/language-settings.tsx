@@ -14,28 +14,28 @@ export default function LanguageSettingsScreen() {
   const { language, changeLanguage } = useLanguage();
 
   return (
-                <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-    
-    <View style={styles.container}>
-      <Text style={styles.header}>{i18n.t("language")}</Text>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
 
-      <View style={styles.card}>
-        {LANGUAGES.map(l => (
-          <TouchableOpacity
-            key={l.id}
-            style={styles.row}
-            onPress={() => changeLanguage(l.id)}
-          >
-            <Text>{l.name}</Text>
-            {language === l.id && (
-              <Ionicons name="checkmark" size={20} color="#6D5DF6" />
-            )}
-          </TouchableOpacity>
-        ))}
+      <View style={styles.container}>
+        <Text style={styles.header}>{i18n.t("language")}</Text>
+
+        <View style={styles.card}>
+          {LANGUAGES.map(l => (
+            <TouchableOpacity
+              key={l.id}
+              style={styles.row}
+              onPress={() => changeLanguage(l.id)}
+            >
+              <Text>{l.name}</Text>
+              {language === l.id && (
+                <Ionicons name="checkmark" size={20} color="#6D5DF6" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
-    </View>
-        </SafeAreaView>
-    
+    </SafeAreaView>
+
   );
 }
 
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#374151',
   },
-    safeArea: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#F7F7F7',
   },

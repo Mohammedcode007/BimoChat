@@ -55,11 +55,54 @@ import * as DocumentPicker from "expo-document-picker";
 
 import VoiceMessagePlayer from "@/components/VoiceMessagePlayer";
 import VoiceRecorderPreview from "@/components/VoiceRecorderPreview";
+import { blockUser } from "@/redux/slices/followSlice";
+import { unblockUser } from "@/redux/slices/friendSlice";
+import { fetchUserProfile } from "@/redux/slices/userSlice";
 import { uploadToCloudinary } from "@/services/upload.service";
 import { formatLastSeen, formatTime } from "@/utils/helpFunctions";
 import { Audio, ResizeMode, Video } from "expo-av";
 import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
+type RelationshipStatus =
+  | "none"
+  | "pending_sent"
+  | "pending_received"
+  | "accepted"
+  | "blocked_by_me"
+  | "blocked_me";
 
+type ProfileUser = {
+  _id: string;
+
+  username: string;
+  atUsername?: string;
+
+  bio?: string;
+  country?: string;
+  city?: string;
+
+  avatar?: string;
+  coverImage?: string;
+
+  dateOfBirth?: string;
+
+  followersCount?: number;
+  followingCount?: number;
+  totalLikesReceived?: number;
+  profileViews?: number;
+
+  isOnline?: boolean;
+  lastSeen?: string;
+
+  isVerified?: boolean;
+
+  tags?: string[];
+
+  // ✅ مهم جداً لزر الصداقة
+  relationshipStatus?: RelationshipStatus;
+
+  // ✅ إن كانت موجودة من API (اختياري)
+  isFollowing?: boolean;
+};
 /* ===================================================== */
 
 export default function ChatScreen() {
@@ -108,21 +151,109 @@ export default function ChatScreen() {
       [chatId, currentUser?._id]
     )
   );
+  const [rel, setRel] = useState<RelationshipStatus>("none");
 
   const [text, setText] = useState("");
-
+  const [menuOpen, setMenuOpen] = useState(false);
   // ✅ Fullscreen image preview
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const blockedByMe = rel === "blocked_by_me";
+  const blockedMe = rel === "blocked_me";
+  const isBlocked = blockedByMe || blockedMe;
+const doToggleBlock = async () => {
+  const targetId = otherUser?._id;
+  if (!targetId) return;
+
+  if (blockedMe) {
+    setMenuOpen(false);
+    return;
+  }
+
+  try {
+    if (blockedByMe) {
+      await dispatch(unblockUser(targetId)).unwrap?.(); // لو thunk عندك يدعم unwrap
+      setRel("none");
+    } else {
+      await dispatch(blockUser(targetId)).unwrap();     // ✅ followSlice thunk
+      setRel("blocked_by_me");
+    }
+
+    // ✅ أهم سطر: إعادة جلب البروفايل حتى يُثبت relationshipStatus في Redux
+    await dispatch(fetchUserProfile(String(targetId))).unwrap?.();
+
+  } catch (e) {
+    console.log("❌ doToggleBlock error:", e);
+  } finally {
+    setMenuOpen(false);
+  }
+};
+  const profileUser = useSelector((s: RootState) => (s.user as any).profileUser) as ProfileUser | null;
+  const searchResults = useSelector((s: RootState) => (s.friends as any).searchResults) as any[];
+  const [isFollowing, setIsFollowing] = useState(false);
 useEffect(() => {
-  console.log("======== CHAT DEBUG START ========");
-  console.log("chatId:", chatId);
-  console.log("currentUser:", currentUser);
-  console.log("chat object:", chat);
-  console.log("chat participants:", chat?.participants);
-  console.log("otherUser selector result:", otherUser);
-  console.log("messages count:", messages?.length);
-  console.log("==================================");
-}, [chatId, currentUser, chat, otherUser, messages]);
+  const targetId = otherUser?._id;
+  if (!targetId) return;
+
+  console.log("[ChatScreen] fetchUserProfile targetId:", targetId);
+  dispatch(fetchUserProfile(String(targetId)));
+}, [otherUser?._id, dispatch]);
+useEffect(() => {
+  console.log("==== [ChatScreen] rel sync START ====");
+
+  if (!profileUser?._id) {
+    console.log("[rel-sync] no profileUser yet");
+    console.log("==== [ChatScreen] rel sync END ====");
+    return;
+  }
+
+  const targetId = String(otherUser?._id || "");
+  const profileId = String(profileUser._id);
+
+  if (!targetId || profileId !== targetId) {
+    console.log("[rel-sync] mismatch -> skip");
+    console.log("[rel-sync] profileUser._id:", profileId);
+    console.log("[rel-sync] otherUser?._id:", targetId);
+    console.log("==== [ChatScreen] rel sync END ====");
+    return;
+  }
+
+  const fromProfile = profileUser.relationshipStatus;
+  console.log("[rel-sync] fromProfile relationshipStatus:", fromProfile);
+
+  if (fromProfile) {
+    setRel(fromProfile);
+    console.log("[rel-sync] setRel(fromProfile):", fromProfile);
+  } else {
+    const found = Array.isArray(searchResults)
+      ? searchResults.find((x: any) => String(x?._id) === profileId)
+      : null;
+
+    const fallbackRel = (found?.relationshipStatus as RelationshipStatus) || "none";
+    console.log("[rel-sync] fallback found:", found);
+    console.log("[rel-sync] setRel(fallback):", fallbackRel);
+    setRel(fallbackRel);
+  }
+
+  const following = !!(profileUser as any)?.isFollowing;
+  setIsFollowing(following);
+  console.log("[rel-sync] setIsFollowing:", following);
+
+  console.log("==== [ChatScreen] rel sync END ====");
+}, [
+  profileUser?._id,
+  profileUser?.relationshipStatus,
+  (profileUser as any)?.isFollowing,
+  searchResults,
+  otherUser?._id,          // ✅ مهم
+]);
+useEffect(() => {
+  console.log("[rel] changed =>", rel, {
+    blockedByMe: rel === "blocked_by_me",
+    blockedMe: rel === "blocked_me",
+  });
+}, [rel]);
+  const user = profileUser;
+  console.log(user, 'user');
   /* ================= INITIAL LOAD ================= */
 
   const startRecording = async () => {
@@ -162,30 +293,30 @@ useEffect(() => {
     } catch (err) { }
   };
 
-useEffect(() => {
-  if (!chatId) return;
-  if (!currentUser?._id) return;
+  useEffect(() => {
+    if (!chatId) return;
+    if (!currentUser?._id) return;
 
-  dispatch(setActiveChat(chatId));
-  joinChatRoom(chatId);
+    dispatch(setActiveChat(chatId));
+    joinChatRoom(chatId);
 
-  dispatch(loadMessages({ chatId, page: 1 }))
-    .unwrap()
-    .then((res) => {
-      const hasIncoming = res.messages.some(
-        (m: any) => m.sender !== currentUser._id
-      );
+    dispatch(loadMessages({ chatId, page: 1 }))
+      .unwrap()
+      .then((res) => {
+        const hasIncoming = res.messages.some(
+          (m: any) => m.sender !== currentUser._id
+        );
 
-      if (hasIncoming) emitMarkAsSeen(chatId);
-    })
-    .catch(() => {});
+        if (hasIncoming) emitMarkAsSeen(chatId);
+      })
+      .catch(() => { });
 
-  return () => {
-    leaveChatRoom(chatId);
-    dispatch(setActiveChat(undefined));
-    dispatch(clearChatMessages(chatId));
-  };
-}, [chatId, currentUser?._id, dispatch]);
+    return () => {
+      leaveChatRoom(chatId);
+      dispatch(setActiveChat(undefined));
+      dispatch(clearChatMessages(chatId));
+    };
+  }, [chatId, currentUser?._id, dispatch]);
 
   // useEffect(() => {
   //   if (!chatId) return;
@@ -470,84 +601,118 @@ useEffect(() => {
       </SafeAreaView>
     );
   }
+  const menuLabel = blockedMe ? "محظور" : blockedByMe ? "فك الحظر" : "حظر";
+  const menuIcon: keyof typeof Ionicons.glyphMap = blockedMe
+    ? "alert-circle-outline"
+    : blockedByMe
+      ? "lock-open-outline"
+      : "lock-closed-outline";
 
   /* ================= UI ================= */
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior="padding"
-      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
-    >
-      <SafeAreaView style={[styles.container, { backgroundColor: isDark ? "#0B1220" : "white" }]}>
-        {/* HEADER */}
-        <View style={[
+
+    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? "#0B1220" : "white" }]}>
+      {/* HEADER */}
+      <View
+        style={[
           styles.header,
           {
             backgroundColor: isDark ? "#0F172A" : "#FFF",
             borderColor: isDark ? "#111827" : "#E5E7EB",
-          }
-        ]}>
+          },
+        ]}
+      >
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={22}
+              color={isDark ? "#E5E7EB" : "#111827"}
+            />
+          </TouchableOpacity>
 
-          {/* LEFT SECTION */}
-          <View style={styles.headerLeft}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={22} color={isDark ? "#E5E7EB" : "#111827"} />
-            </TouchableOpacity>
-
-            {otherUser?.avatar ? (
-              <Image source={{ uri: otherUser.avatar }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Ionicons name="person" size={18} color="#FFF" />
-              </View>
-            )}
-
-            <View style={styles.userInfo}>
-              <Text style={[styles.username, { color: isDark ? "#E5E7EB" : "#111827" }]}>
-                {otherUser?.username || "User"}
-              </Text>
-
-              {!!typingUsers.length ? (
-                <Text style={[styles.typing, { color: isDark ? "#9CA3AF" : "#6B7280" }]}>
-                  Typing...
-                </Text>
-              ) : otherUser?.isOnline ? (
-                <Text style={styles.onlineText}>Online</Text>
-              ) : otherUser?.lastSeen ? (
-                <Text style={[styles.lastSeen, { color: isDark ? "#9CA3AF" : "#6B7280" }]}>
-                  Last seen {formatLastSeen(otherUser.lastSeen)}
-                </Text>
-              ) : null}
+          {otherUser?.avatar ? (
+            <Image source={{ uri: otherUser.avatar }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons name="person" size={18} color="#FFF" />
             </View>
-          </View>
+          )}
 
-          {/* RIGHT SECTION */}
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconBtn}>
-              <Ionicons name="call-outline" size={22} color={isDark ? "#E5E7EB" : "#111827"} />
-            </TouchableOpacity>
+          <View style={styles.userInfo}>
+            <Text
+              style={[
+                styles.username,
+                { color: isDark ? "#E5E7EB" : "#111827" },
+              ]}
+              numberOfLines={1}
+            >
+              {otherUser?.username || "User"}
+            </Text>
 
-            <TouchableOpacity style={styles.iconBtn}>
-              <Ionicons name="videocam-outline" size={22} color={isDark ? "#E5E7EB" : "#111827"} />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.iconBtn}>
-              <Ionicons name="ellipsis-vertical" size={20} color={isDark ? "#E5E7EB" : "#111827"} />
-            </TouchableOpacity>
+            {!!typingUsers.length ? (
+              <Text
+                style={[
+                  styles.typing,
+                  { color: isDark ? "#9CA3AF" : "#6B7280" },
+                ]}
+              >
+                Typing...
+              </Text>
+            ) : blockedByMe ? (
+              <Text style={[styles.lastSeen, { color: "#EF4444" }]}>
+                تم حظر هذا الحساب
+              </Text>
+            ) : blockedMe ? (
+              <Text style={[styles.lastSeen, { color: "#EF4444" }]}>
+                هذا الحساب حظرك
+              </Text>
+            ) : otherUser?.isOnline ? (
+              <Text style={styles.onlineText}>Online</Text>
+            ) : otherUser?.lastSeen ? (
+              <Text
+                style={[
+                  styles.lastSeen,
+                  { color: isDark ? "#9CA3AF" : "#6B7280" },
+                ]}
+              >
+                Last seen {formatLastSeen(otherUser.lastSeen)}
+              </Text>
+            ) : null}
           </View>
         </View>
 
-        {recordedUri && (
-          <VoiceRecorderPreview
-            uri={recordedUri}
-            onCancel={() => setRecordedUri(null)}
-            onSend={async () => {
-              const url = await uploadToCloudinary(recordedUri, "raw");
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => setMenuOpen((v) => !v)}
+          >
+            <Ionicons
+              name="ellipsis-vertical"
+              size={20}
+              color={isDark ? "#E5E7EB" : "#111827"}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
 
-              const tempId = `temp-${Date.now()}`;
 
-              dispatch(addMessage({
+      {recordedUri && (
+        <VoiceRecorderPreview
+          uri={recordedUri}
+          onCancel={() => setRecordedUri(null)}
+          onSend={async () => {
+            if (isBlocked) return;
+
+            const url = await uploadToCloudinary(recordedUri, "raw");
+            const tempId = `temp-${Date.now()}`;
+
+            dispatch(
+              addMessage({
                 _id: tempId,
                 clientTempId: tempId,
                 chat: chatId,
@@ -556,50 +721,87 @@ useEffect(() => {
                 content: url,
                 createdAt: new Date().toISOString(),
                 reactions: [],
-                deliveryStatus: { deliveredTo: [], seenBy: [] }
-              }));
+                deliveryStatus: { deliveredTo: [], seenBy: [] },
+              } as any)
+            );
 
-              sendSocketMessage(chatId, url, "audio", tempId);
-              setRecordedUri(null);
-            }}
-          />
-        )}
-
-        {/* CHAT LIST */}
-        <KeyboardAwareFlatList
-          ref={flatListRef}
-          data={messages}
-          inverted
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.2}
-          ListFooterComponent={
-            loading && hasMore ? (
-              <View style={styles.paginationLoader}>
-                <ActivityIndicator size="small" color="#6D5DF6" />
-              </View>
-            ) : null
-          }
-          keyExtractor={(item) => item._id}
-          renderItem={renderMessage}
-          contentContainerStyle={{ padding: 12 }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+            sendSocketMessage(chatId, url, "audio", tempId);
+            setRecordedUri(null);
+          }}
         />
+      )}
+      {isBlocked && (
+        <View
+          style={{
+            marginHorizontal: 12,
+            marginTop: 10,
+            padding: 12,
+            borderRadius: 14,
+            borderWidth: 1,
+            backgroundColor: "rgba(239,68,68,0.08)",
+            borderColor: "rgba(239,68,68,0.25)",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <Ionicons name="alert-circle-outline" size={18} color="#EF4444" />
+          <Text style={{ flex: 1, fontWeight: "800", color: isDark ? "#E5E7EB" : "#111827" }}>
+            {blockedMe
+              ? "هذا الحساب قام بحظرك، لا يمكنك إرسال رسائل."
+              : "لقد قمت بحظر هذا الحساب، قم بفك الحظر لإرسال رسائل."}
+          </Text>
+        </View>
+      )}
+      {/* CHAT LIST */}
+      <KeyboardAwareFlatList
+        ref={flatListRef}
+        data={messages}
+        inverted
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.2}
+        ListFooterComponent={
+          loading && hasMore ? (
+            <View style={styles.paginationLoader}>
+              <ActivityIndicator size="small" color="#6D5DF6" />
+            </View>
+          ) : null
+        }
+        keyExtractor={(item) => item._id}
+        renderItem={renderMessage}
+        contentContainerStyle={{ padding: 12 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      />
 
-        {/* INPUT BAR */}
-        <View style={[
-          styles.inputBar,
-          {
-            backgroundColor: isDark ? "#0F172A" : "#FFF",
-            borderColor: isDark ? "#111827" : "#E5E7EB",
-          }
-        ]}>
+      {/* INPUT BAR */}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+
+        <View
+          style={[
+            styles.inputBar,
+            {
+              backgroundColor: isDark ? "#0F172A" : "#FFF",
+              borderColor: isDark ? "#111827" : "#E5E7EB",
+              opacity: isBlocked ? 0.55 : 1,
+            },
+          ]}
+          pointerEvents={isBlocked ? "none" : "auto"}
+        >
           <TouchableOpacity style={styles.iconBtn} onPress={pickVideo}>
-            <Ionicons name="videocam-outline" size={22} color={isDark ? "#9CA3AF" : "#6B7280"} />
+            <Ionicons
+              name="videocam-outline"
+              size={22}
+              color={isDark ? "#9CA3AF" : "#6B7280"}
+            />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.iconBtn} onPress={pickImage}>
-            <Ionicons name="image-outline" size={22} color={isDark ? "#9CA3AF" : "#6B7280"} />
+            <Ionicons
+              name="image-outline"
+              size={22}
+              color={isDark ? "#9CA3AF" : "#6B7280"}
+            />
           </TouchableOpacity>
 
           <TextInput
@@ -608,9 +810,9 @@ useEffect(() => {
               {
                 backgroundColor: isDark ? "#111827" : "#F3F4F6",
                 color: isDark ? "#E5E7EB" : "#111827",
-              }
+              },
             ]}
-            placeholder="Type a message"
+            placeholder={isBlocked ? "لا يمكنك المراسلة أثناء الحظر" : "Type a message"}
             placeholderTextColor={isDark ? "#9CA3AF" : "#6B7280"}
             value={text}
             onChangeText={(v) => {
@@ -640,40 +842,80 @@ useEffect(() => {
               <Ionicons
                 name={isRecording ? "mic" : "mic-outline"}
                 size={22}
-                color={isRecording ? "red" : (isDark ? "#9CA3AF" : "#6B7280")}
+                color={
+                  isRecording ? "red" : isDark ? "#9CA3AF" : "#6B7280"
+                }
               />
             </TouchableOpacity>
           )}
         </View>
-
-        {/* ✅ Fullscreen Image Modal */}
-        <Modal
-          visible={!!imagePreview}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setImagePreview(null)}
-        >
-          <View style={styles.previewOverlay}>
-            <Pressable style={styles.previewCloseArea} onPress={() => setImagePreview(null)} />
-            <View style={styles.previewHeader}>
-              <TouchableOpacity onPress={() => setImagePreview(null)} style={styles.previewCloseBtn}>
-                <Ionicons name="close" size={24} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.previewBody}>
-              {!!imagePreview && (
-                <Image
-                  source={{ uri: imagePreview }}
-                  style={styles.previewImage}
-                  resizeMode="contain"
-                />
-              )}
-            </View>
+      </KeyboardAvoidingView>
+      {/* ✅ Fullscreen Image Modal */}
+      <Modal
+        visible={!!imagePreview}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImagePreview(null)}
+      >
+        <View style={styles.previewOverlay}>
+          <Pressable style={styles.previewCloseArea} onPress={() => setImagePreview(null)} />
+          <View style={styles.previewHeader}>
+            <TouchableOpacity onPress={() => setImagePreview(null)} style={styles.previewCloseBtn}>
+              <Ionicons name="close" size={24} color="#FFF" />
+            </TouchableOpacity>
           </View>
-        </Modal>
+          <View style={styles.previewBody}>
+            {!!imagePreview && (
+              <Image
+                source={{ uri: imagePreview }}
+                style={styles.previewImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+      {/* Dropdown Menu */}
+      {menuOpen && (
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setMenuOpen(false)}
+        >
+          <Pressable
+            style={[
+              styles.menuBox,
+              {
+                backgroundColor: isDark ? "#0F172A" : "#FFF",
+                borderColor: isDark ? "#111827" : "#E5E7EB",
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={doToggleBlock}
+              disabled={blockedMe}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={menuIcon}
+                size={18}
+                color={blockedMe ? "#EF4444" : blockedByMe ? "#22C55E" : "#EF4444"}
+                style={{ marginRight: 10 }}
+              />
+              <Text
+                style={[
+                  styles.menuText,
+                  { color: blockedMe ? "#EF4444" : blockedByMe ? "#22C55E" : "#EF4444" },
+                ]}
+              >
+                {menuLabel}
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      )}
 
-      </SafeAreaView>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -723,7 +965,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 10,
   },
+  menuOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+  },
 
+  menuBox: {
+    position: "absolute",
+    top: 56,          // ✅ عدّلها حسب ارتفاع الهيدر عندك
+    right: 12,
+    minWidth: 160,
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+    elevation: 6,     // Android shadow
+  },
+
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+
+  menuText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
   userInfo: {
     justifyContent: "center",
   },

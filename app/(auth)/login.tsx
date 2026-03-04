@@ -498,6 +498,7 @@ export default function LoginScreen() {
     return next;
   };
 
+  
   const handleLogin = async () => {
     if (loading) return;
 

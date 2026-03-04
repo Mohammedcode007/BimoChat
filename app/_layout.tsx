@@ -31,9 +31,10 @@ function RootStack() {
       <Stack.Screen name="edit-profile" />
 
       <Stack.Screen name="create-tweet" />
-
-
       <Stack.Screen name="biometric-lock" />
+
+
+      <Stack.Screen name="paymob-checkout" />
       <Stack.Screen name="two-factor" />
       <Stack.Screen name="login-alerts" />
       <Stack.Screen name="verify-account" />

@@ -718,14 +718,14 @@ export default function ChatListScreen() {
                     style={styles.avatar}
                   />
 
-                  {otherUser.isOnline && (
+                  {/* {otherUser.isOnline && (
                     <View
                       style={[
                         styles.onlineDot,
                         { borderColor: theme.card, backgroundColor: theme.success },
                       ]}
                     />
-                  )}
+                  )} */}
                 </View>
 
                 {/* Content */}

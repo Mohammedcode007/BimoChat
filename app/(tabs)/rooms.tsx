@@ -511,68 +511,73 @@ export default function RoomsScreen() {
    */
   // ✅ rooms.tsx
   // 2) استبدل enterActiveRoomDirect بالكامل بهذا (استخدم enterRoomDirect)
-  const enterActiveRoomDirect = useCallback(
-    async (roomId: string) => {
-      try {
-        setJoining(true);
-        setError("");
+const enterActiveRoomDirect = useCallback(
+  async (roomId: string) => {
+    // ✅ منع تكرار الضغط أثناء الدخول
+    if (joining) return;
 
-        // ✅ لا join API — فقط preload من الستور
-        await dispatch(enterRoomDirect({ roomId, preload: true })).unwrap();
+    try {
+      setJoining(true);
+      setError("");
 
-        // ✅ ثم الانتقال للغرفة
-        router.push({ pathname: "/room/[id]", params: { id: roomId } });
-      } catch (e: any) {
-        const msgStr = String(e?.message || e || "Enter room failed");
-        setError(msgStr);
-      } finally {
-        setJoining(false);
-      }
-    },
-    [dispatch, router]
-  );
+      // ✅ 1) انتقل فورًا (إحساس سريع)
+      router.push({ pathname: "/room/[id]", params: { id: roomId } });
 
-  const doJoin = useCallback(
-    async (roomId: string, password?: string) => {
-      try {
-        setJoining(true);
-        setError("");
+      // ✅ 2) حمّل في الخلفية (لا تنتظر)
+      dispatch(enterRoomDirect({ roomId, preload: true }))
+        .unwrap()
+        .catch((e: any) => {
+          // اختياري: لو فشل التحميل، سجل فقط أو اعرض Toast داخل شاشة الغرفة
+          console.log("[enterRoomDirect bg] failed:", e);
+        });
+    } catch (e: any) {
+      const msgStr = String(e?.message || e || "Enter room failed");
+      setError(msgStr);
+    } finally {
+      setJoining(false);
+    }
+  },
+  [dispatch, router, joining]
+);
 
-        const action = await dispatch(joinRoomAndEnter({ roomId, preload: true, password }));
+const doJoin = useCallback(
+  async (roomId: string, password?: string) => {
+    // ✅ منع تكرار الضغط
+    if (joining) return;
 
-        if (joinRoomAndEnter.rejected.match(action)) {
-          const msg =
-            (action.payload as any) ||
-            (action.error?.message as any) ||
-            "Join failed";
+    setJoining(true);
+    setError("");
 
-          const msgStr = String(msg || "Join failed");
+    // ✅ 1) ادخل الشاشة فوراً (سريع)
+    router.push({ pathname: "/room/[id]", params: { id: roomId } });
 
-          if (isBanMessage(msgStr)) {
-            markRoomBanned(roomId, msgStr);
-            setError("أنت محظور من هذه الغرفة.");
-          } else {
-            setError(msgStr);
-          }
-          return;
-        }
+    // ✅ 2) نفّذ join + preload بالخلفية
+    dispatch(joinRoomAndEnter({ roomId, preload: true, password }))
+      .unwrap()
+      .catch((e: any) => {
+        const msgStr = String(e?.message || e || "Join failed");
 
-        router.push({ pathname: "/room/[id]", params: { id: roomId } });
-      } catch (e: any) {
-        const msgStr = String(e?.message || "Join failed");
         if (isBanMessage(msgStr)) {
           markRoomBanned(roomId, msgStr);
           setError("أنت محظور من هذه الغرفة.");
         } else {
           setError(msgStr);
         }
-      } finally {
-        setJoining(false);
-      }
-    },
-    [dispatch, router, isBanMessage, markRoomBanned]
-  );
 
+        // ✅ لو فشل الـ join نرجع المستخدم من شاشة الغرفة
+        // (بدل ما يظل داخل شاشة فاضية)
+        try {
+          router.back();
+        } catch {
+          // ignore
+        }
+      })
+      .finally(() => {
+        setJoining(false);
+      });
+  },
+  [dispatch, router, joining, isBanMessage, markRoomBanned]
+);
   // ✅ rooms.tsx
   // 3) openRoom يبقى كما هو عندك (سيستدعي enterActiveRoomDirect عند room.isActive)
   const openRoom = useCallback(
@@ -832,7 +837,7 @@ export default function RoomsScreen() {
       </Modal>
 
       {/* ✅ Global overlay loaders */}
-      <LoadingOverlay visible={joining} title="جاري الدخول..." subtitle="يتم التحقق من الصلاحيات والبيانات" />
+      {/* <LoadingOverlay visible={joining} title="جاري الدخول..." subtitle="يتم التحقق من الصلاحيات والبيانات" /> */}
       <LoadingOverlay visible={creating} title="جاري إنشاء الغرفة..." subtitle="لحظات من فضلك" />
     </View>
   );

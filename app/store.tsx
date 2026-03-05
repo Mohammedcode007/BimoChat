@@ -1670,7 +1670,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AppTheme, Colors, Fonts } from "@/constants/Colors";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import api from "@/services/api";
 
@@ -1690,6 +1689,7 @@ import {
   selectStorePurchasing
 } from "@/redux/slices/storeControl.slice";
 
+import { AppTheme, Colors, Fonts } from "@/constants/theme";
 import { debitMyCoinz, registerNoLogin } from "@/redux/slices/userSlice";
 
 /* =========================================================

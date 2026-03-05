@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "885239396497",
+    "project_id": "bimo-aad60",
+    "storage_bucket": "bimo-aad60.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:885239396497:android:6db0e36a1f6d58fae6e730",
+        "android_client_info": {
+          "package_name": "com.mohammed007007.Bimo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2wlBdHqxByjH5QLzN2M1mPieZHqDrEnA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -6,6 +6,8 @@ import { checkAuth } from '@/redux/slices/authSlice';
 import { AppDispatch, RootState, store } from '@/redux/store';
 import { injectDispatch } from '@/services/api';
 import { checkAppConfig } from '@/services/appConfig.service';
+import { initFCMAndSyncToken } from '@/services/fcm';
+import { registerFCMListeners } from '@/services/fcmListeners';
 import { attachSocketListeners, connectSocket, disconnectSocket } from '@/services/socket';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, usePathname, useRouter } from 'expo-router';
@@ -86,6 +88,14 @@ function AppContent() {
      1) اطبع المسار الحالي دائمًا
   ========================= */
  
+ useEffect(() => {
+    registerFCMListeners();
+  }, []);
+
+  useEffect(() => {
+    if (!token) return; // لا ترسل توكن الجهاز قبل تسجيل الدخول
+    initFCMAndSyncToken();
+  }, [token]);
 
   /* =========================
      2) اطبع حالة Force Update كاملة

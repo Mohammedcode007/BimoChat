@@ -1,202 +1,233 @@
+// import api from "@/services/api";
+// import Constants from "expo-constants";
+// import * as Notifications from "expo-notifications";
+// import { Platform } from "react-native";
+
+// const isExpoGo = Constants.appOwnership === "expo";
+
+// Notifications.setNotificationHandler({
+//   handleNotification: async () => ({
+//     shouldShowAlert: true,
+//     shouldPlaySound: true,
+//     shouldSetBadge: false,
+//     shouldShowBanner: true,
+//     shouldShowList: true,
+//   }),
+// });
+
+// export async function initFCMAndSyncToken() {
+//   console.log("🔔 initFCMAndSyncToken started");
+
+//   if (isExpoGo) {
+//     console.log("🚫 Remote push غير مدعوم في Expo Go على Android SDK 53+");
+//     return null;
+//   }
+
+//   if (Platform.OS === "android") {
+//     await Notifications.setNotificationChannelAsync("default", {
+//       name: "default",
+//       importance: Notifications.AndroidImportance.MAX,
+//       vibrationPattern: [0, 250, 250, 250],
+//     });
+//   }
+
+//   const { status: existingStatus } = await Notifications.getPermissionsAsync();
+//   let finalStatus = existingStatus;
+
+//   if (existingStatus !== "granted") {
+//     const { status } = await Notifications.requestPermissionsAsync();
+//     finalStatus = status;
+//   }
+
+//   if (finalStatus !== "granted") {
+//     console.log("❌ Notification permission not granted");
+//     return null;
+//   }
+
+//   const token = (await Notifications.getDevicePushTokenAsync()).data;
+//   console.log("✅ Device push token:", token);
+
+//   try {
+//     await api.post("/notifications/device-token", {
+//       token,
+//       platform: Platform.OS,
+//     });
+//     console.log("✅ Token synced to backend");
+//   } catch (error: any) {
+//     console.log("❌ Failed to send token to backend", error?.response?.data || error?.message);
+//   }
+
+//   Notifications.addPushTokenListener(async (event) => {
+//     try {
+//       await api.post("/notifications/device-token", {
+//         token: event.data,
+//         platform: Platform.OS,
+//       });
+//       console.log("✅ Refreshed token synced");
+//     } catch (error: any) {
+//       console.log("❌ Failed to sync refreshed token", error?.response?.data || error?.message);
+//     }
+//   });
+
+//   return token;
+// }
+
+// export async function registerFCMListeners(onOpen?: (data: any) => void) {
+//   console.log("📡 registerFCMListeners called");
+
+//   const sub1 = Notifications.addNotificationReceivedListener((notification) => {
+//     console.log("📩 Foreground notification received");
+//     console.log(notification.request.content);
+//   });
+
+//   const sub2 = Notifications.addNotificationResponseReceivedListener((response) => {
+//     console.log("📌 User opened notification");
+
+//     const data = response.notification.request.content.data;
+//     console.log(data);
+
+//     onOpen?.(data);
+//   });
+
+//   const lastResponse = await Notifications.getLastNotificationResponseAsync();
+//   if (lastResponse) {
+//     const data = lastResponse.notification.request.content.data;
+//     onOpen?.(data);
+
+//     await Notifications.clearLastNotificationResponseAsync();
+//   }
+
+//   return () => {
+//     sub1.remove();
+//     sub2.remove();
+//   };
+// }
+
 import api from "@/services/api";
 import Constants from "expo-constants";
-import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
-/**
- * Expo Go على Android (SDK53+) لا يدعم Remote Push عبر expo-notifications
- */
 const isExpoGo = Constants.appOwnership === "expo";
 
-export async function initFCMAndSyncToken() {
+let pushTokenSub: Notifications.EventSubscription | null = null;
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+export async function initFCMAndSyncToken() {
   console.log("🔔 initFCMAndSyncToken started");
 
-  if (!Device.isDevice) {
-    console.log("❌ Push notifications require a real device (not emulator).");
-    return null;
-  }
-
   if (isExpoGo) {
-    console.log("🚫 Remote Push غير مدعوم داخل Expo Go (SDK53+). استخدم Development Build.");
+    console.log("🚫 Remote push غير مدعوم في Expo Go على Android SDK 53+");
     return null;
   }
-
-  console.log("📦 Loading expo-notifications dynamically...");
-
-  const Notifications = await import("expo-notifications");
-
-  console.log("✅ expo-notifications loaded");
-
-  /* =====================================================
-     FOREGROUND NOTIFICATION BEHAVIOR
-  ===================================================== */
-
-  Notifications.setNotificationHandler({
-    handleNotification: async () => {
-      console.log("📩 Notification received while app in foreground");
-
-      return {
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      };
-    },
-  });
-
-  /* =====================================================
-     ANDROID CHANNEL
-  ===================================================== */
 
   if (Platform.OS === "android") {
-
-    console.log("📱 Setting Android notification channel...");
-
     await Notifications.setNotificationChannelAsync("default", {
       name: "default",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
     });
-
-    console.log("✅ Android notification channel created");
   }
 
-  /* =====================================================
-     PERMISSION
-  ===================================================== */
-
-  console.log("🔐 Checking notification permission...");
-
-  const { status: existingStatus } =
-    await Notifications.getPermissionsAsync();
-
-  console.log("🔎 Existing permission status:", existingStatus);
-
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
   if (existingStatus !== "granted") {
-
-    console.log("🪪 Requesting notification permission...");
-
     const { status } = await Notifications.requestPermissionsAsync();
-
     finalStatus = status;
-
-    console.log("📊 Permission result:", status);
   }
 
   if (finalStatus !== "granted") {
-
     console.log("❌ Notification permission not granted");
-
     return null;
   }
 
-  /* =====================================================
-     GET FCM TOKEN
-  ===================================================== */
-
-  console.log("📡 Requesting FCM token...");
-
   const token = (await Notifications.getDevicePushTokenAsync()).data;
-
-  console.log("✅ FCM Token received:");
-  console.log(token);
-
-  /* =====================================================
-     SEND TOKEN TO BACKEND
-  ===================================================== */
+  console.log("✅ Device push token:", token);
 
   try {
-
-    console.log("📤 Sending token to backend...");
-
-    const response = await api.post("/notifications/device-token", {
+    await api.post("/notifications/device-token", {
       token,
       platform: Platform.OS,
     });
-
-    console.log("✅ Token sent to backend successfully");
-    console.log("📨 Backend response:", response.data);
-
+    console.log("✅ Token synced to backend");
   } catch (error: any) {
-
-    console.log("❌ Failed to send token to backend");
-
-    console.log(error?.response?.data || error.message);
+    console.log(
+      "❌ Failed to send token to backend",
+      error?.response?.data || error?.message
+    );
   }
 
-  /* =====================================================
-     TOKEN REFRESH LISTENER
-  ===================================================== */
+  // منع تكرار listener
+  if (!pushTokenSub) {
+    pushTokenSub = Notifications.addPushTokenListener(async (event) => {
+      try {
+        console.log("🔁 Push token refreshed:", event.data);
 
-  Notifications.addPushTokenListener(async (event) => {
+        await api.post("/notifications/device-token", {
+          token: event.data,
+          platform: Platform.OS,
+        });
 
-    console.log("🔁 FCM token refreshed:");
-    console.log(event.data);
-
-    try {
-
-      console.log("📤 Sending refreshed token to backend...");
-
-      await api.post("/notifications/device-token", {
-        token: event.data,
-        platform: Platform.OS,
-      });
-
-      console.log("✅ Refreshed token synced");
-
-    } catch (e) {
-
-      console.log("❌ Failed to sync refreshed token", e);
-    }
-  });
+        console.log("✅ Refreshed token synced");
+      } catch (error: any) {
+        console.log(
+          "❌ Failed to sync refreshed token",
+          error?.response?.data || error?.message
+        );
+      }
+    });
+  }
 
   return token;
 }
 
-/**
- * REGISTER LISTENERS
- */
-
-export async function registerFCMListeners() {
-
+export async function registerFCMListeners(onOpen?: (data: any) => void) {
   console.log("📡 registerFCMListeners called");
 
-  if (isExpoGo) {
+  const sub1 = Notifications.addNotificationReceivedListener((notification) => {
+    console.log("📩 Foreground notification received");
+    console.log("title:", notification.request.content.title);
+    console.log("body:", notification.request.content.body);
+    console.log("data:", notification.request.content.data);
+  });
 
-    console.log("⚠️ Skipping listeners because running in Expo Go");
+  const sub2 = Notifications.addNotificationResponseReceivedListener((response) => {
+    console.log("📌 User opened notification");
 
-    return () => {};
+    const data = response.notification.request.content.data || {};
+    console.log("notification open data:", data);
+
+    onOpen?.(data);
+  });
+
+  const lastResponse = await Notifications.getLastNotificationResponseAsync();
+  if (lastResponse) {
+    const data = lastResponse.notification.request.content.data || {};
+    console.log("📦 Last notification response data:", data);
+
+    onOpen?.(data);
+    await Notifications.clearLastNotificationResponseAsync();
   }
 
-  const Notifications = await import("expo-notifications");
-
-  console.log("✅ Notification listeners registered");
-
-  const sub1 =
-    Notifications.addNotificationReceivedListener((notification) => {
-
-      console.log("📩 Foreground notification received:");
-
-      console.log(notification.request.content);
-    });
-
-  const sub2 =
-    Notifications.addNotificationResponseReceivedListener((response) => {
-
-      console.log("📌 User opened notification");
-
-      console.log(response.notification.request.content.data);
-    });
-
   return () => {
-
-    console.log("🧹 Removing notification listeners");
-
     sub1.remove();
     sub2.remove();
   };
+}
+
+export function cleanupFCMTokenListener() {
+  if (pushTokenSub) {
+    pushTokenSub.remove();
+    pushTokenSub = null;
+  }
 }

@@ -5,13 +5,15 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { checkAuth } from '@/redux/slices/authSlice';
 import { AppDispatch, RootState, store } from '@/redux/store';
 import { injectDispatch } from '@/services/api';
-import { checkAppConfig } from '@/services/appConfig.service';
 import { initFCMAndSyncToken, registerFCMListeners } from '@/services/fcm';
+import "@/services/notificationTasks";
+import { registerBackgroundNotificationTask } from '@/services/notificationTasks';
 import { attachSocketListeners, connectSocket, disconnectSocket } from '@/services/socket';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, usePathname, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
@@ -70,87 +72,143 @@ function RootStack() {
 /* ============================================= */
 /*               INNER APP LAYER                 */
 /* ============================================= */
-
 function AppContent() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
 
-  const pathname = usePathname();
-
   const token = useSelector((state: RootState) => state.auth.token);
   const hydrated = useSelector((state: RootState) => state.auth.hydrated);
+  const forceUpdateRequired = useSelector((state: RootState) => state.app.required);
 
-  // ✅ خذ السلايس كاملة (ليس required فقط)
-  const appState = useSelector((st: RootState) => st.app);
-
-  /* =========================
-     1) اطبع المسار الحالي دائمًا
-  ========================= */
-useEffect(() => {
-  let cleanup: (() => void) | undefined;
-
-  (async () => {
-    await initFCMAndSyncToken();
-    cleanup = await registerFCMListeners();
-  })();
-
-  return () => {
-    cleanup?.();
-  };
-}, []);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   /* =========================
-     2) اطبع حالة Force Update كاملة
+     1) Inject dispatch once
   ========================= */
-  useEffect(() => {
-    console.log("🧩 APP STATE:", appState);
-  }, [appState]);
-
-  /* =========================
-     3) اطبع مرة واحدة عند تشغيل التطبيق
-        (لتعرف الحالة الابتدائية قبل أي شيء)
-  ========================= */
-  useEffect(() => {
-    console.log("🚀 APP START STATE:", store.getState().app);
-  }, []);
-
-
   useEffect(() => {
     injectDispatch(store.dispatch);
   }, []);
 
-  useEffect(() => {
-    checkAppConfig().catch(() => {});
-  }, []);
-
   /* =========================
-     5) سجل قبل التحويل
+     2) Check auth on app start
   ========================= */
-  useEffect(() => {
-    if (appState.required) {
-      console.log("🚨 NAVIGATE TO FORCE UPDATE because required=true");
-      console.log("🧾 ForceUpdate payload:", appState);
-      router.replace("/force-update" as any);
-    }
-  }, [appState.required, router]); // أو [appState, router] لو تريد كل التفاصيل
-
   useEffect(() => {
     dispatch(checkAuth() as any);
   }, [dispatch]);
 
+  /* =========================
+     3) Notifications + FCM
+  ========================= */
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+
+    const handleNotificationOpen = (data: any) => {
+      console.log("🚀 Notification open data:", data);
+
+      // عدّل هذه المسارات حسب ملفات app عندك لو كانت مختلفة
+      if (data?.type === "chat" && data?.chatId) {
+        router.push(`/chat/${data.chatId}` as any);
+        return;
+      }
+
+      if (data?.type === "room" && data?.roomId) {
+        router.push(`/room/${data.roomId}` as any);
+        return;
+      }
+
+      if (data?.type === "notification") {
+        router.push("/notifications" as any);
+        return;
+      }
+    };
+
+    (async () => {
+      try {
+        await registerBackgroundNotificationTask();
+        await initFCMAndSyncToken();
+        cleanup = await registerFCMListeners(handleNotificationOpen);
+      } catch (error) {
+        console.log("❌ Notifications bootstrap failed:", error);
+      }
+    })();
+
+    return () => {
+      cleanup?.();
+    };
+  }, [router]);
+
+  /* =========================
+     4) Socket only in foreground
+  ========================= */
   useEffect(() => {
     if (!hydrated) return;
 
-    if (!token) {
+    const connectIfNeeded = () => {
+      if (!token) return;
+
+      console.log("🔌 Connecting socket because app is active");
+      connectSocket(token);
+      attachSocketListeners(store.dispatch, store.getState);
+    };
+
+    const disconnectIfNeeded = () => {
+      console.log("🔌 Disconnecting socket");
       disconnectSocket();
+    };
+
+    if (!token) {
+      disconnectIfNeeded();
       return;
     }
 
-    connectSocket(token);
-    attachSocketListeners(store.dispatch, store.getState);
+    // أول تشغيل
+    if (appStateRef.current === "active") {
+      connectIfNeeded();
+    } else {
+      disconnectIfNeeded();
+    }
 
-    return () => disconnectSocket();
+    const sub = AppState.addEventListener("change", (nextState) => {
+      const prevState = appStateRef.current;
+      appStateRef.current = nextState;
+
+      console.log("📱 AppState changed:", prevState, "->", nextState);
+
+      // رجع للتطبيق
+      if (
+        (prevState === "background" || prevState === "inactive") &&
+        nextState === "active"
+      ) {
+        console.log("🟢 App returned to foreground -> reconnect socket");
+        connectIfNeeded();
+
+        // اختياري: أضف مزامنة هنا لو عندك thunks
+        // dispatch(fetchNotifications() as any);
+        // dispatch(fetchChats() as any);
+      }
+
+      // دخل الخلفية
+      if (nextState === "background" || nextState === "inactive") {
+        console.log("🌙 App moved to background -> disconnect socket");
+        disconnectIfNeeded();
+      }
+    });
+
+    return () => {
+      sub.remove();
+      disconnectIfNeeded();
+    };
   }, [hydrated, token]);
+
+  /* =========================
+     5) Force update navigation
+  ========================= */
+  useEffect(() => {
+    if (forceUpdateRequired) {
+      console.log("🚨 Force update required -> navigating");
+      router.replace("/force-update" as any);
+    }
+  }, [forceUpdateRequired, router]);
 
   return (
     <>
@@ -160,6 +218,96 @@ useEffect(() => {
     </>
   );
 }
+// function AppContent() {
+//   const dispatch = useDispatch<AppDispatch>();
+//   const router = useRouter();
+
+//   const pathname = usePathname();
+
+//   const token = useSelector((state: RootState) => state.auth.token);
+//   const hydrated = useSelector((state: RootState) => state.auth.hydrated);
+// console.log(token,'token');
+
+//   // ✅ خذ السلايس كاملة (ليس required فقط)
+//   const appState = useSelector((st: RootState) => st.app);
+
+//   /* =========================
+//      1) اطبع المسار الحالي دائمًا
+//   ========================= */
+// useEffect(() => {
+//   let cleanup: (() => void) | undefined;
+
+//   (async () => {
+//     await initFCMAndSyncToken();
+//     cleanup = await registerFCMListeners();
+//   })();
+
+//   return () => {
+//     cleanup?.();
+//   };
+// }, []);
+
+//   /* =========================
+//      2) اطبع حالة Force Update كاملة
+//   ========================= */
+//   useEffect(() => {
+//     console.log("🧩 APP STATE:", appState);
+//   }, [appState]);
+
+//   /* =========================
+//      3) اطبع مرة واحدة عند تشغيل التطبيق
+//         (لتعرف الحالة الابتدائية قبل أي شيء)
+//   ========================= */
+//   useEffect(() => {
+//     console.log("🚀 APP START STATE:", store.getState().app);
+//   }, []);
+
+
+//   useEffect(() => {
+//     injectDispatch(store.dispatch);
+//   }, []);
+
+//   useEffect(() => {
+//     checkAppConfig().catch(() => {});
+//   }, []);
+
+//   /* =========================
+//      5) سجل قبل التحويل
+//   ========================= */
+//   useEffect(() => {
+//     if (appState.required) {
+//       console.log("🚨 NAVIGATE TO FORCE UPDATE because required=true");
+//       console.log("🧾 ForceUpdate payload:", appState);
+//       router.replace("/force-update" as any);
+//     }
+//   }, [appState.required, router]); // أو [appState, router] لو تريد كل التفاصيل
+
+//   useEffect(() => {
+//     dispatch(checkAuth() as any);
+//   }, [dispatch]);
+
+//   useEffect(() => {
+//     if (!hydrated) return;
+
+//     if (!token) {
+//       disconnectSocket();
+//       return;
+//     }
+
+//     connectSocket(token);
+//     attachSocketListeners(store.dispatch, store.getState);
+
+//     return () => disconnectSocket();
+//   }, [hydrated, token]);
+
+//   return (
+//     <>
+//       <RootStack />
+//       <Toast />
+//       <StatusBar style="auto" />
+//     </>
+//   );
+// }
 
 /* ============================================= */
 /*                 ROOT LAYOUT                   */

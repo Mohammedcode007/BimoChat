@@ -241,7 +241,7 @@
 //       action: PayloadAction<string | undefined>
 //     ) => {
 
-  
+
 
 //       /* 🔥 تنظيف typing للشات القديم */
 //       if (state.activeChatId && state.typingUsers[state.activeChatId]) {
@@ -324,7 +324,7 @@
 
 //       const { chatId, message } = action.payload;
 
-     
+
 
 //       const index = state.chats.findIndex(c => c._id === chatId);
 
@@ -334,7 +334,7 @@
 
 //       const oldChat = state.chats[index];
 
-  
+
 //       const oldReference = oldChat;
 
 //       const newChat = {
@@ -344,13 +344,13 @@
 //         lastMessageType: message.type,
 //         updatedAt: message.updatedAt || message.createdAt
 //       };
-  
 
- 
+
+
 
 //       state.chats[index] = newChat;
 
-  
+
 
 
 //     },
@@ -433,13 +433,13 @@
 
 //         const { chats: serverChats, userId } = action.payload;
 
-       
+
 
 //         state.currentUserId = userId;
 
 //         serverChats.forEach(serverChat => {
 
- 
+
 
 //           const existingChat = state.chats.find(
 //             c => c._id === serverChat._id
@@ -451,7 +451,7 @@
 
 //           } else {
 
-        
+
 
 //             const localTime = new Date(existingChat.updatedAt).getTime();
 //             const serverTime = new Date(serverChat.updatedAt).getTime();
@@ -717,13 +717,35 @@ export const createChat = createAsyncThunk<
 
 export const deleteChat = createAsyncThunk<
   string,
-  string
+  string,
+  { rejectValue: { chatId: string; message: string } }
 >("chat/deleteChat", async (chatId, thunkAPI) => {
   try {
-    await api.delete(`/chats/${chatId}`);
+    console.log("🗑️ deleteChat thunk started");
+    console.log("📌 chatId:", chatId);
+    console.log("🌐 Sending DELETE request to:", `/chats/${chatId}`);
+
+    const response = await api.delete(`/chats/${chatId}`);
+
+    console.log("✅ deleteChat success");
+    console.log("📦 response:", response?.data);
+
     return chatId;
-  } catch {
-    return thunkAPI.rejectWithValue(chatId);
+  } catch (error: any) {
+    const message =
+      error?.response?.data?.message ||
+      error?.message ||
+      "Delete chat failed";
+
+    console.log("❌ deleteChat failed");
+    console.log("📌 failed chatId:", chatId);
+    console.log("📛 error message:", message);
+    console.log("📛 full error response:", error?.response?.data);
+
+    return thunkAPI.rejectWithValue({
+      chatId,
+      message,
+    });
   }
 });
 
@@ -1065,33 +1087,34 @@ const chatSlice = createSlice({
 
       /* ================= DELETE CHAT ================= */
 
-      .addCase(deleteChat.pending, (state, action) => {
-        const chatId = action.meta.arg;
+      .addCase(deleteChat.pending, (state) => {
+        state.loading = true;
+      })
 
+      .addCase(deleteChat.fulfilled, (state, action) => {
+        state.loading = false;
+
+        const chatId = action.payload;
         const chat = state.chats.find(c => c._id === chatId);
-        if (!chat) return;
 
-        state.totalUnread = Math.max(
-          0,
-          state.totalUnread - Number(chat.unreadCount || 0)
-        );
+        if (chat) {
+          state.totalUnread = Math.max(
+            0,
+            state.totalUnread - Number(chat.unreadCount || 0)
+          );
+        }
 
-        state.chats = state.chats.filter(
-          c => c._id !== chatId
-        );
+        state.chats = state.chats.filter(c => c._id !== chatId);
 
         if (state.activeChatId === chatId) {
           state.activeChatId = undefined;
         }
       })
 
-      .addCase(deleteChat.rejected, (state) => {
-        // no-op
+      .addCase(deleteChat.rejected, (state, action) => {
+        state.loading = false;
+        console.log("❌ deleteChat.rejected:", action.payload);
       })
-
-      .addCase(deleteChat.fulfilled, (state) => {
-        // no-op
-      });
   }
 });
 

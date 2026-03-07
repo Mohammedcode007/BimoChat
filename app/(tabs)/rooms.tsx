@@ -254,7 +254,7 @@ export default function RoomsScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const { onScroll, onScrollBeginDrag } = useHideTabBarOnScroll();
-
+const didMountSearchRef = useRef(false);
   const reduxRooms = useAppSelector(selectRooms);
   const reduxError = useAppSelector(selectRoomError);
   const loadingRooms = useAppSelector(selectRoomLoadingRooms);
@@ -382,32 +382,40 @@ export default function RoomsScreen() {
   /* =====================================================
      ✅ Debounced search
   ===================================================== */
-  useEffect(() => {
-    const q = search.trim();
-    const t = setTimeout(async () => {
-      try {
-        setError("");
-        accRef.current = new Map();
-        setRooms([]);
-        setPage(1);
+useEffect(() => {
+  if (!didMountSearchRef.current) {
+    didMountSearchRef.current = true;
+    return;
+  }
 
-        if (!q) {
-          setSearching(false);
-          dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
-          return;
-        }
+  const q = search.trim();
 
-        setSearching(true);
-        await dispatch(searchRoomsThunk({ q, type: backendType, limit: PAGE_SIZE })).unwrap();
-      } catch (e: any) {
-        setError(e?.message || "Search failed");
-      } finally {
+  const t = setTimeout(async () => {
+    try {
+      setError("");
+      accRef.current = new Map();
+      setRooms([]);
+      setPage(1);
+
+      if (!q) {
         setSearching(false);
+        dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
+        return;
       }
-    }, 450);
 
-    return () => clearTimeout(t);
-  }, [search, backendType, dispatch]);
+      setSearching(true);
+      await dispatch(
+        searchRoomsThunk({ q, type: backendType, limit: PAGE_SIZE })
+      ).unwrap();
+    } catch (e: any) {
+      setError(e?.message || "Search failed");
+    } finally {
+      setSearching(false);
+    }
+  }, 450);
+
+  return () => clearTimeout(t);
+}, [search, backendType, dispatch]);
 
   /* =====================================================
      ✅ Sort & filter

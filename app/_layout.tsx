@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 import { Provider, useDispatch, useSelector } from 'react-redux';
@@ -318,6 +319,8 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
+        <KeyboardProvider>
+
       <Provider store={store}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -325,6 +328,8 @@ export default function RootLayout() {
           </ThemeProvider>
         </GestureHandlerRootView>
       </Provider>
+          </KeyboardProvider>
+
     // <LanguageProvider>
     //   <Provider store={store}>
     //     <GestureHandlerRootView style={{ flex: 1 }}>

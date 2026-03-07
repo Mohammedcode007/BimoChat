@@ -515,6 +515,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -536,7 +537,11 @@ export default function ChatListScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
 
-  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState<{
+    chatId: string;
+    x?: number;
+    y?: number;
+  } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const { onScroll, onScrollBeginDrag } = useHideTabBarOnScroll();
 
@@ -606,9 +611,17 @@ export default function ChatListScreen() {
     });
   };
 
-  const handleDelete = (chatId: string) => {
+  const handleDelete = async (chatId: string) => {
+    console.log("🟡 handleDelete pressed:", chatId);
+
     setMenuOpen(null);
-    dispatch(deleteChat(chatId));
+
+    try {
+      await dispatch(deleteChat(chatId)).unwrap();
+      console.log("✅ deleteChat dispatched");
+    } catch (err) {
+      console.log("❌ deleteChat dispatch error:", err);
+    }
   };
 
   /* ================= UI ================= */
@@ -616,11 +629,7 @@ export default function ChatListScreen() {
   return (
     <View
       style={[styles.container, { backgroundColor: theme.background }]}
-      onStartShouldSetResponderCapture={() => {
-        // أي لمسة في أي مكان => اقفل القائمة
-        if (menuOpen) setMenuOpen(null);
-        return false; // مهم: لا تمنع ضغط العناصر الداخلية
-      }}
+
     >
       {/* Search */}
       <View
@@ -668,7 +677,7 @@ export default function ChatListScreen() {
         }}
         contentContainerStyle={{ paddingBottom: 12 }}
         ItemSeparatorComponent={() => (
-          <View style={[styles.separator, { backgroundColor: theme.separator }]} />
+          <View style={[styles.separator]} />
         )}
         renderItem={({ item }: any) => {
           if (!currentUser?._id) return null;
@@ -691,8 +700,7 @@ export default function ChatListScreen() {
               ? formatTime(otherUser.lastSeen)
               : formatTime(item.updatedAt);
 
-          const activeMenu = menuOpen === item._id;
-
+          const activeMenu = menuOpen?.chatId === item._id;
           return (
             <View style={{ position: 'relative' }}>
               <Pressable
@@ -747,9 +755,16 @@ export default function ChatListScreen() {
                       </Text>
 
                       <TouchableOpacity
-                        onPress={(e) => {
+                        onPress={(e: any) => {
                           e.stopPropagation();
-                          setMenuOpen(activeMenu ? null : item._id);
+
+                          const { pageX, pageY } = e.nativeEvent;
+
+                          setMenuOpen({
+                            chatId: item._id,
+                            x: pageX,
+                            y: pageY,
+                          });
                         }}
                         style={[styles.moreBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]}
                         hitSlop={10}
@@ -792,32 +807,46 @@ export default function ChatListScreen() {
                 </View>
               </Pressable>
 
-              {/* Dropdown */}
-              {activeMenu && (
-                <View
-                  style={[
-                    styles.dropdown,
-                    {
-                      backgroundColor: theme.card,
-                      borderColor: theme.border,
-                      shadowColor: '#000',
-                    },
-                  ]}
-                >
-                  <TouchableOpacity
-                    onPress={() => handleDelete(item._id)}
-                    style={styles.dropdownItem}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                    <Text style={[styles.deleteText]}>Delete Chat</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+
             </View>
           );
         }}
       />
+      <Modal
+        visible={!!menuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(null)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setMenuOpen(null)}
+        >
+          <View
+            style={[
+              styles.modalMenu,
+              {
+                top: menuOpen?.y ? menuOpen.y + 8 : 80,
+                right: 16,
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                if (!menuOpen?.chatId) return;
+                handleDelete(menuOpen.chatId);
+              }}
+              style={styles.dropdownItem}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="trash-outline" size={18} color="#EF4444" />
+              <Text style={styles.deleteText}>Delete Chat</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -827,10 +856,38 @@ export default function ChatListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 12, // ✅ أقل فراغات
+    paddingHorizontal: 12,
     paddingTop: 10,
+    position: 'relative',
+  },
+  menuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
 
+  modalMenu: {
+    position: 'absolute',
+    minWidth: 150,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 8 },
+      },
+      android: {
+        elevation: 20,
+      },
+    }),
+  },
   /* Search */
   searchBox: {
     flexDirection: 'row',
@@ -967,14 +1024,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 8,
     paddingHorizontal: 10,
-    zIndex: 999,
+    zIndex: 200,
     ...Platform.select({
       ios: {
         shadowOpacity: 0.12,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 8 },
       },
-      android: { elevation: 10 },
+      android: { elevation: 20 },
     }),
   },
 

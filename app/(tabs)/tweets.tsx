@@ -811,6 +811,7 @@
 //     padding: 20,
 //   },
 // });
+
 import { Colors } from "@/constants/theme";
 import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
 import { toggleFollow } from "@/redux/slices/followSlice";
@@ -1140,7 +1141,18 @@ export default function TweetsScreen() {
                         {actionLoading === `follow-${item.author._id}` ? (
                           <ActivityIndicator color="#FFF" size="small" />
                         ) : (
-                          <Text style={s.followText}>{isFollowing ? "Following" : "Follow"}</Text>
+                          <Text
+                            style={[
+                              s.followText,
+                              {
+                                color: isFollowing
+                                  ? (isDark ? "#FFFFFF" : "#111827")
+                                  : theme.tint,
+                              },
+                            ]}
+                          >
+                            {isFollowing ? "Following" : "Follow"}
+                          </Text>
                         )}
                       </TouchableOpacity>
                     )}

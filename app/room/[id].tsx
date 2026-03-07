@@ -15,13 +15,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Animated,
+  FlatList,
   Image,
   ImageSourcePropType,
   Keyboard,
-  KeyboardAvoidingView,
   Linking,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -31,7 +30,11 @@ import {
   useWindowDimensions,
   View
 } from "react-native";
-import { KeyboardAwareFlatList } from "react-native-keyboard-aware-scroll-view";
+import { useKeyboardHandler } from "react-native-keyboard-controller";
+import Reanimated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 import RenderHTML from "react-native-render-html";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -769,7 +772,37 @@ export default function ChatScreen() {
   const roomId = String(id || "");
 
   const flatListRef = useRef<any>(null);
+  const keyboardHeight = useSharedValue(0);
+  const [inputBarHeight, setInputBarHeight] = useState(0);
 
+  useKeyboardHandler(
+    {
+      onMove: (e) => {
+        "worklet";
+        keyboardHeight.value = Math.max(0, e.height);
+      },
+      onEnd: (e) => {
+        "worklet";
+        keyboardHeight.value = Math.max(0, e.height);
+      },
+    },
+    []
+  );
+  const inputBarAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          translateY: -keyboardHeight.value,
+        },
+      ],
+    };
+  });
+
+  const listSpacerAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: keyboardHeight.value,
+    };
+  });
   const authUser = useAppSelector((state) => state.auth.user);
   const myUserId = String((authUser as any)?._id || (authUser as any)?.id || "");
   const myName = String((authUser as any)?.username || (authUser as any)?.name || "Me");
@@ -1094,234 +1127,234 @@ export default function ChatScreen() {
   };
 
   /* ================= mapReduxToUIMessage ================= */
-// ✅ mapReduxToUIMessage كاملة (مُهيّأة للـ Optimistic بدون “فلاش”)
-// - تعتمد على clientId كـ key ثابت للـ FlatList
-// - تملأ serverId عند وجود _id
-// - لا تستخدم m?._id كـ id للواجهة حتى لا يتغير المفتاح عند وصول السيرفر
+  // ✅ mapReduxToUIMessage كاملة (مُهيّأة للـ Optimistic بدون “فلاش”)
+  // - تعتمد على clientId كـ key ثابت للـ FlatList
+  // - تملأ serverId عند وجود _id
+  // - لا تستخدم m?._id كـ id للواجهة حتى لا يتغير المفتاح عند وصول السيرفر
 
-const mapReduxToUIMessage = (m: any): MessageUI => {
-  logSenderFromMessage(m, "MAP_MESSAGE_USER_DUMP");
+  const mapReduxToUIMessage = (m: any): MessageUI => {
+    logSenderFromMessage(m, "MAP_MESSAGE_USER_DUMP");
 
-  const backendType = String(m?.type || "text");
+    const backendType = String(m?.type || "text");
 
-  const isSystem =
-    backendType === "system" ||
-    backendType === "announcement" ||
-    backendType === "join" ||
-    backendType === "leave" ||
-    backendType === "promotion" ||
-    backendType === "ban" ||
-    backendType === "role";
+    const isSystem =
+      backendType === "system" ||
+      backendType === "announcement" ||
+      backendType === "join" ||
+      backendType === "leave" ||
+      backendType === "promotion" ||
+      backendType === "ban" ||
+      backendType === "role";
 
-  // ✅ IDs
-  const serverId = m?._id ? String(m._id) : undefined;
-  const clientId = m?.clientId ? String(m.clientId) : undefined;
+    // ✅ IDs
+    const serverId = m?._id ? String(m._id) : undefined;
+    const clientId = m?.clientId ? String(m.clientId) : undefined;
 
-  // ✅ المفتاح الثابت للـ FlatList: لا يتغير عند وصول _id
-  // إذا عندك clientId استخدمه دائمًا، وإلا استخدم serverId
-  const stableId =
-    clientId ||
-    serverId ||
-    `tmp:${String(m?.createdAt || Date.now())}:${Math.random().toString(16).slice(2)}`;
+    // ✅ المفتاح الثابت للـ FlatList: لا يتغير عند وصول _id
+    // إذا عندك clientId استخدمه دائمًا، وإلا استخدم serverId
+    const stableId =
+      clientId ||
+      serverId ||
+      `tmp:${String(m?.createdAt || Date.now())}:${Math.random().toString(16).slice(2)}`;
 
-  const picked = pickSenderFromMessage(m);
-  const senderId = String(picked.senderId || "").trim();
+    const picked = pickSenderFromMessage(m);
+    const senderId = String(picked.senderId || "").trim();
 
-  const extraBadge = verificationToBadge((picked as any)?.verificationType);
-  const mergedBadges = normalizeBadges([...(picked.activeBadges || []), ...(extraBadge ? [extraBadge] : [])]);
+    const extraBadge = verificationToBadge((picked as any)?.verificationType);
+    const mergedBadges = normalizeBadges([...(picked.activeBadges || []), ...(extraBadge ? [extraBadge] : [])]);
 
-  // اسم المستخدم في رسائل السيستم
-  let systemUserName = String(picked.username || "").trim();
-  if (!systemUserName && senderId) systemUserName = String(resolveUserNameById(senderId) || "").trim();
-  if (!systemUserName && senderId && myUserId && senderId === myUserId) systemUserName = myName;
-  if (!systemUserName) systemUserName = "مستخدم";
+    // اسم المستخدم في رسائل السيستم
+    let systemUserName = String(picked.username || "").trim();
+    if (!systemUserName && senderId) systemUserName = String(resolveUserNameById(senderId) || "").trim();
+    if (!systemUserName && senderId && myUserId && senderId === myUserId) systemUserName = myName;
+    if (!systemUserName) systemUserName = "مستخدم";
 
-  // نص السيستم
-  let systemText = String(m?.content || "");
+    // نص السيستم
+    let systemText = String(m?.content || "");
 
-  if (backendType === "join") systemText = `✅ ${systemUserName} Join`;
-  else if (backendType === "leave") systemText = `🚪 ${systemUserName} Left`;
-  else if (backendType === "promotion") {
-    const action = String(m?.action || m?.meta?.action || "");
-    const actor = String(m?.actorName || m?.meta?.actorName || "").trim() || systemUserName || "مشرف";
-    const target = String(m?.targetName || m?.meta?.targetName || "").trim();
-    const roleRaw = String(m?.role || m?.meta?.role || "").trim();
+    if (backendType === "join") systemText = `✅ ${systemUserName} Join`;
+    else if (backendType === "leave") systemText = `🚪 ${systemUserName} Left`;
+    else if (backendType === "promotion") {
+      const action = String(m?.action || m?.meta?.action || "");
+      const actor = String(m?.actorName || m?.meta?.actorName || "").trim() || systemUserName || "مشرف";
+      const target = String(m?.targetName || m?.meta?.targetName || "").trim();
+      const roleRaw = String(m?.role || m?.meta?.role || "").trim();
 
-    const isRoleChange =
-      action === "role:set" ||
-      Boolean(m?.actorName || m?.targetName || m?.role || m?.meta?.actorName || m?.meta?.targetName || m?.meta?.role);
+      const isRoleChange =
+        action === "role:set" ||
+        Boolean(m?.actorName || m?.targetName || m?.role || m?.meta?.actorName || m?.meta?.targetName || m?.meta?.role);
 
-    if (isRoleChange) {
-      const targetName = target || "مستخدم";
-      const roleAr = roleRaw ? normalizeRoleLabelAr(roleRaw) : "";
-      systemText = `⭐ تم ترقية ${targetName}${roleAr ? ` إلى ${roleAr}` : ""} بواسطة ${actor}`;
-    } else {
-      systemText = `⭐ تمت ترقية ${systemUserName}`;
-    }
-  } else if (backendType === "ban") systemText = `⛔ تم حظر ${systemUserName}`;
-  else if (backendType === "announcement") systemText = `📢 ${m?.content || ""}`;
-  else if (backendType === "role") {
-    const actor = String(m?.actorName || systemUserName || "مشرف");
-    const target = String(m?.targetName || "مستخدم");
-    const r = normalizeRoleLabelAr(String(m?.role || ""));
-    systemText = `⭐ تم ترقية ${target}${r ? ` إلى ${r}` : ""} بواسطة ${actor}`;
-  }
-
-  // ✅ replyTo preview
-  const replyRaw = m?.replyTo || m?.replyToId || m?.meta?.replyTo || m?.meta?.replyToId || null;
-
-  const buildReplyPreview = (raw: any): MessageUI | undefined => {
-    if (!raw) return undefined;
-
-    // لو السيرفر بعت object كامل
-    if (typeof raw === "object") {
-      const rid = String(raw?._id || raw?.clientId || "reply");
-      const rType = String(raw?.type || "text");
-
-      const uiT: MessageUI["type"] =
-        rType === "image"
-          ? "image"
-          : rType === "video"
-          ? "video"
-          : rType === "audio"
-          ? "audio"
-          : rType === "file"
-          ? "file"
-          : "text";
-
-      return {
-        id: rid,
-        clientId: raw?.clientId ? String(raw.clientId) : undefined,
-        serverId: raw?._id ? String(raw._id) : undefined,
-        type: uiT,
-        text: String(raw?.content || "Media message"),
-        uri: raw?.media?.url,
-        sender: {
-          id: String(raw?.sender?._id || raw?.senderId || "unknown"),
-          name: String(raw?.sender?.username || raw?.senderUsername || "User"),
-          avatar: String(raw?.sender?.avatar || "")
-        },
-        time: ""
-      };
+      if (isRoleChange) {
+        const targetName = target || "مستخدم";
+        const roleAr = roleRaw ? normalizeRoleLabelAr(roleRaw) : "";
+        systemText = `⭐ تم ترقية ${targetName}${roleAr ? ` إلى ${roleAr}` : ""} بواسطة ${actor}`;
+      } else {
+        systemText = `⭐ تمت ترقية ${systemUserName}`;
+      }
+    } else if (backendType === "ban") systemText = `⛔ تم حظر ${systemUserName}`;
+    else if (backendType === "announcement") systemText = `📢 ${m?.content || ""}`;
+    else if (backendType === "role") {
+      const actor = String(m?.actorName || systemUserName || "مشرف");
+      const target = String(m?.targetName || "مستخدم");
+      const r = normalizeRoleLabelAr(String(m?.role || ""));
+      systemText = `⭐ تم ترقية ${target}${r ? ` إلى ${r}` : ""} بواسطة ${actor}`;
     }
 
-    // لو replyTo عبارة عن id string
-    if (typeof raw === "string") {
-      const rid = String(raw);
-      const ref = messagesById.get(rid);
+    // ✅ replyTo preview
+    const replyRaw = m?.replyTo || m?.replyToId || m?.meta?.replyTo || m?.meta?.replyToId || null;
 
-      if (!ref) {
-        return { id: rid, type: "text", text: "Replying to a message…", time: "" } as any;
+    const buildReplyPreview = (raw: any): MessageUI | undefined => {
+      if (!raw) return undefined;
+
+      // لو السيرفر بعت object كامل
+      if (typeof raw === "object") {
+        const rid = String(raw?._id || raw?.clientId || "reply");
+        const rType = String(raw?.type || "text");
+
+        const uiT: MessageUI["type"] =
+          rType === "image"
+            ? "image"
+            : rType === "video"
+              ? "video"
+              : rType === "audio"
+                ? "audio"
+                : rType === "file"
+                  ? "file"
+                  : "text";
+
+        return {
+          id: rid,
+          clientId: raw?.clientId ? String(raw.clientId) : undefined,
+          serverId: raw?._id ? String(raw._id) : undefined,
+          type: uiT,
+          text: String(raw?.content || "Media message"),
+          uri: raw?.media?.url,
+          sender: {
+            id: String(raw?.sender?._id || raw?.senderId || "unknown"),
+            name: String(raw?.sender?.username || raw?.senderUsername || "User"),
+            avatar: String(raw?.sender?.avatar || "")
+          },
+          time: ""
+        };
       }
 
-      const refType = String(ref?.type || "text");
-      const uiT: MessageUI["type"] =
-        refType === "image"
-          ? "image"
-          : refType === "video"
-          ? "video"
-          : refType === "audio"
-          ? "audio"
-          : refType === "file"
-          ? "file"
-          : "text";
+      // لو replyTo عبارة عن id string
+      if (typeof raw === "string") {
+        const rid = String(raw);
+        const ref = messagesById.get(rid);
 
-      const pickedRef = pickSenderFromMessage(ref);
-      const refSenderId = String(pickedRef?.senderId || "").trim();
-      const refSenderName =
-        String(pickedRef?.username || "").trim() ||
-        (refSenderId === myUserId ? myName : String(resolveUserNameById(refSenderId) || "").trim()) ||
-        "User";
+        if (!ref) {
+          return { id: rid, type: "text", text: "Replying to a message…", time: "" } as any;
+        }
 
-      return {
-        id: String(ref?.clientId || ref?._id || rid),
-        clientId: ref?.clientId ? String(ref.clientId) : undefined,
-        serverId: ref?._id ? String(ref._id) : undefined,
-        type: uiT,
-        text: String(ref?.content || "Media message"),
-        uri: ref?.media?.url,
-        sender: {
-          id: refSenderId || "unknown",
-          name: refSenderName,
-          avatar: String(pickedRef?.avatar || "")
-        },
-        time: ""
-      };
-    }
+        const refType = String(ref?.type || "text");
+        const uiT: MessageUI["type"] =
+          refType === "image"
+            ? "image"
+            : refType === "video"
+              ? "video"
+              : refType === "audio"
+                ? "audio"
+                : refType === "file"
+                  ? "file"
+                  : "text";
 
-    return undefined;
+        const pickedRef = pickSenderFromMessage(ref);
+        const refSenderId = String(pickedRef?.senderId || "").trim();
+        const refSenderName =
+          String(pickedRef?.username || "").trim() ||
+          (refSenderId === myUserId ? myName : String(resolveUserNameById(refSenderId) || "").trim()) ||
+          "User";
+
+        return {
+          id: String(ref?.clientId || ref?._id || rid),
+          clientId: ref?.clientId ? String(ref.clientId) : undefined,
+          serverId: ref?._id ? String(ref._id) : undefined,
+          type: uiT,
+          text: String(ref?.content || "Media message"),
+          uri: ref?.media?.url,
+          sender: {
+            id: refSenderId || "unknown",
+            name: refSenderName,
+            avatar: String(pickedRef?.avatar || "")
+          },
+          time: ""
+        };
+      }
+
+      return undefined;
+    };
+
+    const uiReplyTo = buildReplyPreview(replyRaw);
+
+    // ✅ uiType
+    let uiType: MessageUI["type"] = "text";
+    if (isSystem) uiType = "system";
+    else if (backendType === "gift") uiType = "gift";
+    else if (backendType === "image") uiType = "image";
+    else if (backendType === "video") uiType = "video";
+    else if (backendType === "audio") uiType = "audio";
+    else if (backendType === "file") uiType = "file";
+
+    // ✅ time (يفضل تثبيت createdAt في optimistic لتقليل الحركة)
+    const time = new Date(m?.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    // ✅ reaction (أول reaction فقط)
+    const firstReactionEmoji =
+      Array.isArray(m?.reactions) && m.reactions.length ? String(m.reactions[0]?.emoji || "") : "";
+    const uiReaction = REACTIONS.includes(firstReactionEmoji as any) ? (firstReactionEmoji as Reaction) : undefined;
+
+    // ✅ sender role من usersMap
+    const roomRole = usersMap.get(senderId)?.role as RoomRole | undefined;
+
+    const senderUI: UserUI = {
+      id: String(senderId || "unknown"),
+      name: picked.username || (senderId && senderId === myUserId ? myName : "User"),
+      avatar: picked.avatar || (senderId && senderId === myUserId ? myAvatar : ""),
+      role: roomRole,
+      snapshotRole: picked.snapshotRole,
+      activeBadges: mergedBadges
+    };
+
+    const messageText = isSystem ? systemText : String(m?.content || "");
+
+    // ✅ gift payload
+    const giftPayload = m?.gift || m?.meta?.gift || null;
+    const giftKey = backendType === "gift" ? String(giftPayload?.key || m?.content || "") : "";
+    const giftIcon = String(giftPayload?.icon || "") || (GIFT_META[giftKey]?.icon || "🎁");
+    const giftCount = Number(giftPayload?.count || 0) || (GIFT_META[giftKey]?.count || 45);
+
+    const giftTargetId = giftPayload?.targetId ? String(giftPayload.targetId) : undefined;
+    const giftTargetName = giftPayload?.targetName ? String(giftPayload.targetName) : undefined;
+
+    return {
+      // ✅ أهم سطر: id ثابت للـ FlatList
+      id: stableId,
+
+      // ✅ احتفظ بالاثنين للاستخدام في socket actions (reaction/delete) وفي replace بالريدكس
+      clientId,
+      serverId,
+
+      type: uiType,
+      systemType: isSystem ? (backendType as any) : undefined,
+
+      text: messageText,
+      uri: m?.media?.url,
+
+      // في announcement كنت تخفي sender عندك — نفس السلوك
+      sender: backendType === "announcement" ? senderUI : isSystem ? undefined : senderUI,
+
+      gift:
+        uiType === "gift"
+          ? { key: giftKey, icon: giftIcon, count: giftCount, targetId: giftTargetId, targetName: giftTargetName }
+          : undefined,
+
+      replyTo: uiReplyTo,
+      reaction: uiReaction,
+      deletedForEveryone: Boolean(m?.deletedForEveryone),
+      time
+    };
   };
-
-  const uiReplyTo = buildReplyPreview(replyRaw);
-
-  // ✅ uiType
-  let uiType: MessageUI["type"] = "text";
-  if (isSystem) uiType = "system";
-  else if (backendType === "gift") uiType = "gift";
-  else if (backendType === "image") uiType = "image";
-  else if (backendType === "video") uiType = "video";
-  else if (backendType === "audio") uiType = "audio";
-  else if (backendType === "file") uiType = "file";
-
-  // ✅ time (يفضل تثبيت createdAt في optimistic لتقليل الحركة)
-  const time = new Date(m?.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-  // ✅ reaction (أول reaction فقط)
-  const firstReactionEmoji =
-    Array.isArray(m?.reactions) && m.reactions.length ? String(m.reactions[0]?.emoji || "") : "";
-  const uiReaction = REACTIONS.includes(firstReactionEmoji as any) ? (firstReactionEmoji as Reaction) : undefined;
-
-  // ✅ sender role من usersMap
-  const roomRole = usersMap.get(senderId)?.role as RoomRole | undefined;
-
-  const senderUI: UserUI = {
-    id: String(senderId || "unknown"),
-    name: picked.username || (senderId && senderId === myUserId ? myName : "User"),
-    avatar: picked.avatar || (senderId && senderId === myUserId ? myAvatar : ""),
-    role: roomRole,
-    snapshotRole: picked.snapshotRole,
-    activeBadges: mergedBadges
-  };
-
-  const messageText = isSystem ? systemText : String(m?.content || "");
-
-  // ✅ gift payload
-  const giftPayload = m?.gift || m?.meta?.gift || null;
-  const giftKey = backendType === "gift" ? String(giftPayload?.key || m?.content || "") : "";
-  const giftIcon = String(giftPayload?.icon || "") || (GIFT_META[giftKey]?.icon || "🎁");
-  const giftCount = Number(giftPayload?.count || 0) || (GIFT_META[giftKey]?.count || 45);
-
-  const giftTargetId = giftPayload?.targetId ? String(giftPayload.targetId) : undefined;
-  const giftTargetName = giftPayload?.targetName ? String(giftPayload.targetName) : undefined;
-
-  return {
-    // ✅ أهم سطر: id ثابت للـ FlatList
-    id: stableId,
-
-    // ✅ احتفظ بالاثنين للاستخدام في socket actions (reaction/delete) وفي replace بالريدكس
-    clientId,
-    serverId,
-
-    type: uiType,
-    systemType: isSystem ? (backendType as any) : undefined,
-
-    text: messageText,
-    uri: m?.media?.url,
-
-    // في announcement كنت تخفي sender عندك — نفس السلوك
-    sender: backendType === "announcement" ? senderUI : isSystem ? undefined : senderUI,
-
-    gift:
-      uiType === "gift"
-        ? { key: giftKey, icon: giftIcon, count: giftCount, targetId: giftTargetId, targetName: giftTargetName }
-        : undefined,
-
-    replyTo: uiReplyTo,
-    reaction: uiReaction,
-    deletedForEveryone: Boolean(m?.deletedForEveryone),
-    time
-  };
-};
 
   const uiMessages: MessageUI[] = useMemo(() => {
     if (!reduxMessages) return [];
@@ -1988,11 +2021,12 @@ const mapReduxToUIMessage = (m: any): MessageUI => {
       )}
 
       {/* ================= CHAT ================= */}
-      <KeyboardAwareFlatList
+      <FlatList
         ref={flatListRef}
         data={uiMessages}
         inverted
         keyExtractor={(item) => item.id}
+        ListHeaderComponent={<Reanimated.View style={listSpacerAnimatedStyle} />}
         contentContainerStyle={{ padding: 14, paddingTop: 14 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -2076,25 +2110,30 @@ const mapReduxToUIMessage = (m: any): MessageUI => {
       )}
 
       {/* ================= INPUT ================= */}
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <Reanimated.View
+        onLayout={(e) => {
+          setInputBarHeight(e.nativeEvent.layout.height);
+        }}
+        style={[
+          styles.inputBarWrap,
+          inputBarAnimatedStyle,
+        ]}
+      >
         <View style={styles.inputBar}>
           <TouchableOpacity onPress={sendImage} disabled={uploading.visible} activeOpacity={0.85}>
             <Ionicons name="image-outline" size={24} color={theme.text} />
           </TouchableOpacity>
-
-          {/* لو تريد الفيديو/الملف فعّلهم هنا */}
-          {/* <TouchableOpacity onPress={sendVideo} disabled={uploading.visible} activeOpacity={0.85}>
-            <Ionicons name="videocam-outline" size={24} color={theme.text} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={sendPDF} disabled={uploading.visible} activeOpacity={0.85}>
-            <Ionicons name="document-outline" size={24} color={theme.text} />
-          </TouchableOpacity> */}
 
           <TextInput
             style={styles.input}
             placeholder="Type a message"
             placeholderTextColor={theme.subtleText}
             value={text}
+            onFocus={() => {
+              setTimeout(() => {
+                flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+              }, 50);
+            }}
             onChangeText={setText}
             multiline
           />
@@ -2116,7 +2155,7 @@ const mapReduxToUIMessage = (m: any): MessageUI => {
             </Animated.View>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </Reanimated.View>
 
       {/* ================= ACTIONS MODAL ================= */}
       <Modal transparent visible={showActions} animationType="fade" onRequestClose={() => setShowActions(false)}>
@@ -2567,6 +2606,9 @@ function makeScreenStyles(theme: typeof Colors.light, bottomInset: number) {
       paddingHorizontal: 10,
       paddingTop: 10,
       paddingBottom: 10 + Math.max(0, bottomInset * 0.2),
+      backgroundColor: theme.card
+    },
+    inputBarWrap: {
       borderTopWidth: 1,
       borderColor: theme.separator,
       backgroundColor: theme.card

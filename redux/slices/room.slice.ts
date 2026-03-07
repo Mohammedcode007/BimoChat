@@ -110,6 +110,13 @@ export type UserPublicSnapshot = {
     verificationType?: "none" | "blue" | "gold" | "business";
   };
 
+  customEmojiBadge?: {
+    emoji?: string;
+    isActive?: boolean;
+    purchasedAt?: string | null;
+    expiresAt?: string | null;
+  } | null;
+
   verificationType?: "none" | "blue" | "gold" | "business";
   avatarFrame?: string;
   badges?: string[];
@@ -137,6 +144,23 @@ export type RoomUser = {
   isMuted?: boolean;
   mutedUntil?: string | null;
   isActive?: boolean;
+
+  activeCustomization?: {
+    avatarFrame?: string;
+    messageEffect?: string;
+    profileEntryAnimation?: string;
+    badges?: string[];
+    verificationType?: "none" | "blue" | "gold" | "business";
+  };
+
+  verificationType?: "none" | "blue" | "gold" | "business";
+
+  customEmojiBadge?: {
+    emoji?: string;
+    isActive?: boolean;
+    purchasedAt?: string | null;
+    expiresAt?: string | null;
+  } | null;
 };
 
 export type RoomMessageType =
@@ -551,7 +575,61 @@ export const fetchRoomUsers = createAsyncThunk<
   try {
     const res = await api.get(`/rooms/${roomId}/users`);
     const payload = dataOf(res);
-    return { roomId, users: payload?.users ?? payload ?? [] };
+    const rawUsers = payload?.users ?? payload ?? [];
+
+    const users: RoomUser[] = Array.isArray(rawUsers)
+      ? rawUsers.map((u: any) => ({
+          _id: String(u?._id || ""),
+          username: String(u?.username || "User"),
+          avatar: u?.avatar ? String(u.avatar) : "",
+          isOnline: Boolean(u?.isOnline),
+          lastSeen: u?.lastSeen ? String(u.lastSeen) : undefined,
+          role: u?.role,
+          isVip: Boolean(u?.isVip),
+          vipExpiresAt: u?.vipExpiresAt ? String(u.vipExpiresAt) : null,
+          isMuted: Boolean(u?.isMuted),
+          mutedUntil: u?.mutedUntil ? String(u.mutedUntil) : null,
+          isActive: Boolean(u?.isActive),
+
+          activeCustomization: u?.activeCustomization
+            ? {
+                avatarFrame: u.activeCustomization?.avatarFrame
+                  ? String(u.activeCustomization.avatarFrame)
+                  : "",
+                messageEffect: u.activeCustomization?.messageEffect
+                  ? String(u.activeCustomization.messageEffect)
+                  : "",
+                profileEntryAnimation: u.activeCustomization?.profileEntryAnimation
+                  ? String(u.activeCustomization.profileEntryAnimation)
+                  : "",
+                badges: Array.isArray(u?.activeCustomization?.badges)
+                  ? u.activeCustomization.badges.map((x: any) => String(x))
+                  : [],
+                verificationType: u?.activeCustomization?.verificationType || "none"
+              }
+            : undefined,
+
+          verificationType: u?.verificationType || "none",
+
+          customEmojiBadge:
+            u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
+              ? {
+                  emoji: u.customEmojiBadge?.emoji
+                    ? String(u.customEmojiBadge.emoji)
+                    : "",
+                  isActive: Boolean(u.customEmojiBadge?.isActive),
+                  purchasedAt: u.customEmojiBadge?.purchasedAt
+                    ? String(u.customEmojiBadge.purchasedAt)
+                    : null,
+                  expiresAt: u.customEmojiBadge?.expiresAt
+                    ? String(u.customEmojiBadge.expiresAt)
+                    : null
+                }
+              : null
+        }))
+      : [];
+
+    return { roomId, users };
   } catch (e: any) {
     return thunkAPI.rejectWithValue(errMsg(e, "Failed to fetch users"));
   }
@@ -1816,19 +1894,7 @@ debugList("send:fulfilled:AFTER", roomId, list);
   if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
   const list = state.messagesByRoom[roomId];
 
-  console.log("======================================");
-  console.log("[fetchRoomMessages.fulfilled] FIRED ✅");
-  console.log("roomId:", roomId);
-  console.log("append:", append);
-  console.log("incoming length:", messages?.length || 0);
-  console.log("before length:", list.length);
 
-  console.log("before top 5:", list.slice(0, 5).map(m => ({
-    id: m?._id,
-    cid: m?.clientId,
-    opt: m?.optimistic,
-    type: m?.type
-  })));
 
   if (append) {
     const existingIds = new Set(list.map((m) => String(m?._id || "")));

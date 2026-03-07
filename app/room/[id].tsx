@@ -96,10 +96,14 @@ type UserUI = {
   avatar?: string;
   role?: RoomRole;
   activeBadges?: string[];
+  customEmojiBadge?: {
+    emoji: string;
+    isActive: boolean;
+    expiresAt?: string | null;
+  } | null;
   snapshotRole?: SnapshotRole;
   isOnline?: boolean;
 };
-
 type MessageUI = {
   id: string;
   type: "text" | "image" | "file" | "audio" | "video" | "system" | "gift";
@@ -166,7 +170,17 @@ const pickPrimaryBadge = (badges?: string[]) => {
   }
   return list[0];
 };
-
+const isCustomEmojiBadgeActive = (
+  badge?: { emoji?: string; isActive?: boolean; expiresAt?: string | null } | null
+) => {
+  if (!badge?.emoji) return false;
+  if (!badge?.isActive) return false;
+  if (badge?.expiresAt) {
+    const t = new Date(badge.expiresAt).getTime();
+    if (Number.isFinite(t) && t <= Date.now()) return false;
+  }
+  return true;
+};
 const NameBadge = ({ badgeKey }: { badgeKey?: string | null }) => {
   if (!badgeKey) return null;
   const meta = BADGE_META[badgeKey];
@@ -184,7 +198,25 @@ const NameBadge = ({ badgeKey }: { badgeKey?: string | null }) => {
     </View>
   );
 };
+const CustomEmojiBadgeView = ({
+  badge
+}: {
+  badge?: { emoji?: string; isActive?: boolean; expiresAt?: string | null } | null;
+}) => {
+  if (!isCustomEmojiBadgeActive(badge)) return null;
 
+  return (
+    <View
+      style={{
+        marginLeft: 6,
+        alignItems: "center",
+        justifyContent: "center"
+      }}
+    >
+      <Text style={{ fontSize: 15 }}>{badge?.emoji}</Text>
+    </View>
+  );
+};
 const nameBadgeStyles = StyleSheet.create({
   badge: { flexDirection: "row", alignItems: "center", borderRadius: 999 },
   icon: { fontSize: 14 }
@@ -505,9 +537,15 @@ function UsersModal({
 
                   <View style={{ flex: 1 }}>
                     <View style={s.rowTop}>
-                      <Text style={s.name} numberOfLines={1}>
-                        {u.name} {isMe ? "(You)" : ""}
-                      </Text>
+                      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
+                        <Text style={s.name} numberOfLines={1}>
+                          {u.name} {isMe ? "(You)" : ""}
+                        </Text>
+
+                        <CustomEmojiBadgeView badge={u.customEmojiBadge} />
+
+                        <NameBadge badgeKey={pickPrimaryBadge(u.activeBadges)} />
+                      </View>
                       <View style={s.badge}>
                         <Text style={s.badgeText}>{roleLabel(u.role)}</Text>
                       </View>
@@ -639,6 +677,9 @@ function MessageItem({
               <Text style={bubble.senderName} numberOfLines={1}>
                 {item.sender.name}
               </Text>
+
+              <CustomEmojiBadgeView badge={item.sender?.customEmojiBadge} />
+
               <NameBadge badgeKey={pickPrimaryBadge(item.sender?.activeBadges)} />
             </View>
             <View style={bubble.nameUnderline} />
@@ -884,15 +925,61 @@ export default function ChatScreen() {
 
   const canModerate = useMemo(() => myRole === "creator" || myRole === "owner" || myRole === "admin", [myRole]);
 
-  const usersMap = useMemo(() => {
-    const map = new Map<string, { username?: string; avatar?: string; role?: any }>();
-    for (const u of roomUsers || []) {
-      if (u?._id) map.set(String(u._id), { username: u.username, avatar: u.avatar, role: u.role });
+const usersMap = useMemo(() => {
+  const map = new Map<
+    string,
+    {
+      username?: string;
+      avatar?: string;
+      role?: any;
+      customEmojiBadge?: {
+        emoji?: string;
+        isActive?: boolean;
+        expiresAt?: string | null;
+      } | null;
     }
-    if (myUserId) map.set(myUserId, { username: myName, avatar: myAvatar, role: myRole });
-    return map;
-  }, [roomUsers, myUserId, myName, myAvatar, myRole]);
+  >();
 
+  for (const u of roomUsers || []) {
+    if (u?._id) {
+      map.set(String(u._id), {
+        username: u.username,
+        avatar: u.avatar,
+        role: u.role,
+        customEmojiBadge:
+          u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
+            ? {
+                emoji: String(u.customEmojiBadge.emoji || ""),
+                isActive: Boolean(u.customEmojiBadge.isActive),
+                expiresAt: u.customEmojiBadge.expiresAt
+                  ? String(u.customEmojiBadge.expiresAt)
+                  : null
+              }
+            : null
+      });
+    }
+  }
+
+  if (myUserId) {
+    map.set(myUserId, {
+      username: myName,
+      avatar: myAvatar,
+      role: myRole,
+      customEmojiBadge:
+        (authUser as any)?.customEmojiBadge && typeof (authUser as any).customEmojiBadge === "object"
+          ? {
+              emoji: String((authUser as any).customEmojiBadge.emoji || ""),
+              isActive: Boolean((authUser as any).customEmojiBadge.isActive),
+              expiresAt: (authUser as any).customEmojiBadge.expiresAt
+                ? String((authUser as any).customEmojiBadge.expiresAt)
+                : null
+            }
+          : null
+    });
+  }
+
+  return map;
+}, [roomUsers, myUserId, myName, myAvatar, myRole, authUser]);
   const resolveUserNameById = (id?: string) => {
     if (!id) return "";
     const v = usersMap.get(String(id));
@@ -1042,6 +1129,19 @@ export default function ChatScreen() {
       name: String(u?.username || "User"),
       avatar: String(u?.avatar || ""),
       role: u?.role,
+      activeBadges: Array.isArray(u?.activeCustomization?.badges)
+        ? u.activeCustomization.badges
+        : [],
+      customEmojiBadge:
+        u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
+          ? {
+            emoji: String(u.customEmojiBadge.emoji || ""),
+            isActive: Boolean(u.customEmojiBadge.isActive),
+            expiresAt: u.customEmojiBadge.expiresAt
+              ? String(u.customEmojiBadge.expiresAt)
+              : null
+          }
+          : null,
       isOnline: Boolean(u?.isOnline)
     }));
   }, [roomUsers]);
@@ -1123,7 +1223,34 @@ export default function ChatScreen() {
           ? snap.badges
           : [];
 
-    return { senderId, username, avatar, snapshotRole: snapshotRole || undefined, activeBadges, verificationType };
+    const customEmojiBadge =
+      snap?.customEmojiBadge && typeof snap.customEmojiBadge === "object"
+        ? {
+          emoji: String(snap.customEmojiBadge.emoji || ""),
+          isActive: Boolean(snap.customEmojiBadge.isActive),
+          expiresAt: snap.customEmojiBadge.expiresAt
+            ? String(snap.customEmojiBadge.expiresAt)
+            : null
+        }
+        : senderObj?.customEmojiBadge && typeof senderObj.customEmojiBadge === "object"
+          ? {
+            emoji: String(senderObj.customEmojiBadge.emoji || ""),
+            isActive: Boolean(senderObj.customEmojiBadge.isActive),
+            expiresAt: senderObj.customEmojiBadge.expiresAt
+              ? String(senderObj.customEmojiBadge.expiresAt)
+              : null
+          }
+          : null;
+
+    return {
+      senderId,
+      username,
+      avatar,
+      snapshotRole: snapshotRole || undefined,
+      activeBadges,
+      verificationType,
+      customEmojiBadge
+    };
   };
 
   /* ================= mapReduxToUIMessage ================= */
@@ -1313,7 +1440,8 @@ export default function ChatScreen() {
       avatar: picked.avatar || (senderId && senderId === myUserId ? myAvatar : ""),
       role: roomRole,
       snapshotRole: picked.snapshotRole,
-      activeBadges: mergedBadges
+      activeBadges: mergedBadges,
+      customEmojiBadge: (picked as any).customEmojiBadge || null
     };
 
     const messageText = isSystem ? systemText : String(m?.content || "");
@@ -1492,6 +1620,7 @@ export default function ChatScreen() {
               isOnline: true,
               verificationType: me.verificationType,
               activeCustomization: me.activeCustomization,
+              customEmojiBadge: me.customEmojiBadge
             }
             : undefined,
         },

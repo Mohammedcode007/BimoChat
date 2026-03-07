@@ -1500,7 +1500,7 @@ function makeStyles(theme: any, isDark: boolean) {
     },
 
     followBtnOn: {
-      backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "#111827",
+      backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "#dbdfe8",
       borderColor: theme.border,
     },
 

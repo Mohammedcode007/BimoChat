@@ -8,7 +8,8 @@
     "scheme": "bimo",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
@@ -49,7 +50,10 @@
         }
       ],
       "expo-video",
-      "expo-localization"
+      "expo-localization",
+      "@react-native-google-signin/google-signin",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth"
     ],
     "experiments": {
       "typedRoutes": true,

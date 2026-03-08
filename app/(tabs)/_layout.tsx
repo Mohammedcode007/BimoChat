@@ -38,7 +38,7 @@ export default function TabLayout() {
 
 
   if (!isLoggedIn) {
-    return <Redirect href="/(auth)/login" />;
+  return <Redirect href="/(auth)/welcome" />;
   }
 
   return (

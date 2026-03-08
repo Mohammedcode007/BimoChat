@@ -763,7 +763,10 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          <TouchableOpacity onPress={() => !loading && router.back()} disabled={loading}>
+          <TouchableOpacity
+            onPress={() => !loading && router.replace("/(auth)/login")}
+            disabled={loading}
+          >
             <Text style={[s.loginText, loading && { opacity: 0.6 }]}>
               {copy.loginLine}
               <Text style={s.link}>{copy.loginLink}</Text>

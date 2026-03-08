@@ -327,8 +327,8 @@ const addLoginSession = async () => {
     Device.osName === "Android"
       ? "Android"
       : Device.osName === "iOS"
-      ? "iPhone"
-      : "Web / Other";
+        ? "iPhone"
+        : "Web / Other";
 
   const country = "مصر";
 
@@ -348,7 +348,45 @@ const addLoginSession = async () => {
 
   return sessions;
 };
+export const loginWithGoogle = createAsyncThunk(
+  "auth/loginWithGoogle",
+  async (
+    {
+      idToken,
+      username,
+      email,
+      photo,
+    }: {
+      idToken: string;
+      username?: string;
+      email?: string;
+      photo?: string;
+    },
+    thunkAPI
+  ) => {
+    try {
+      const res = await api.post("/auth/google", {
+        idToken,
+        username,
+        email,
+        photo,
+      });
 
+      const { user, token } = res.data;
+
+      await AsyncStorage.setItem("token", token);
+      await AsyncStorage.setItem("user", JSON.stringify(user));
+
+      const sessions = await addLoginSession();
+
+      return { user, token, sessions };
+    } catch (err: any) {
+      return thunkAPI.rejectWithValue(
+        err.response?.data?.message || "Google login failed"
+      );
+    }
+  }
+);
 /* =====================================================
    CHECK AUTH
 ===================================================== */
@@ -472,6 +510,22 @@ const authSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
+      .addCase(loginWithGoogle.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(loginWithGoogle.fulfilled, (state, action) => {
+        state.loading = false;
+        state.hydrated = true;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+        state.sessions = action.payload.sessions;
+        state.isLoggedIn = true;
+      })
+      .addCase(loginWithGoogle.rejected, (state, action) => {
+        state.loading = false;
+        state.error = (action.payload as string) || "Google login failed";
+      })
       // ✅ checkAuth
       .addCase(checkAuth.pending, (state) => {
         state.loading = true;

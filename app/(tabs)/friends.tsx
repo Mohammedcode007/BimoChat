@@ -277,33 +277,55 @@ export default function FriendsScreen() {
   return (
     <View style={s.container}>
       {/* ===== Compact Top Bar (Dense) ===== */}
-      <View style={s.topBar}>
-        <View style={s.searchBox}>
-          <Ionicons name="search" size={16} color={theme.icon} />
-          <TextInput
-            placeholder="Search friends"
-            value={search}
-            onChangeText={setSearch}
-            style={s.searchInput}
-            placeholderTextColor={theme.mutedText}
-            autoCorrect={false}
-            returnKeyType="search"
-          />
-          {!!search.trim() && (
-            <TouchableOpacity onPress={() => setSearch("")} style={s.clearBtn} hitSlop={10}>
-              <Ionicons name="close" size={16} color={theme.icon} />
-            </TouchableOpacity>
-          )}
-        </View>
+     <View style={s.topBar}>
 
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={s.addBtn}
-          onPress={() => router.push("/add-friend")}
-        >
-          <Ionicons name="person-add" size={20} color={theme.primaryText} />
-        </TouchableOpacity>
-      </View>
+  {/* Search */}
+  <View style={s.searchBox}>
+    <Ionicons name="search-outline" size={16} color={theme.icon} />
+
+    <TextInput
+      placeholder="Search friends"
+      value={search}
+      onChangeText={setSearch}
+      style={s.searchInput}
+      placeholderTextColor={theme.mutedText}
+      autoCorrect={false}
+      returnKeyType="search"
+    />
+
+    {!!search.trim() && (
+      <TouchableOpacity
+        onPress={() => setSearch("")}
+        style={s.clearBtn}
+        hitSlop={10}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="close-circle" size={16} color={theme.icon} />
+      </TouchableOpacity>
+    )}
+  </View>
+
+  {/* Suggested Friends */}
+  <TouchableOpacity
+    activeOpacity={0.85}
+    style={s.suggestBtn}
+    onPress={() => router.push("/suggested-friends")}
+  >
+    <Ionicons name="people-outline" size={16} color={theme.text} />
+    <Text style={s.suggestText}>Suggested</Text>
+  </TouchableOpacity>
+
+  {/* Add Friend */}
+  <TouchableOpacity
+    activeOpacity={0.85}
+    style={s.addFriendBtn}
+    onPress={() => router.push("/add-friend")}
+  >
+    <Ionicons name="person-add-outline" size={16} color={theme.primaryText} />
+    <Text style={s.addFriendText}>Add</Text>
+  </TouchableOpacity>
+
+</View>
       <View style={s.storiesWrap}>
         <View style={s.sectionHead}>
           {/* <Text style={s.sectionTitle}>الحالات</Text> */}
@@ -778,6 +800,47 @@ function makeStyles(theme: any, isDark: boolean) {
       textAlign: "center",
       marginBottom: 14,
     },
+    suggestBtn:{
+  flexDirection:"row",
+  alignItems:"center",
+  gap:6,
+
+  height:36,
+  paddingHorizontal:12,
+
+  borderRadius:18,
+
+  backgroundColor:theme.surface2,
+  borderWidth:1,
+  borderColor:theme.border
+},
+
+suggestText:{
+  fontSize:12,
+  fontWeight:"800",
+  color:theme.text
+},
+
+addFriendBtn:{
+  flexDirection:"row",
+  alignItems:"center",
+  gap:6,
+
+  height:36,
+  paddingHorizontal:12,
+
+  borderRadius:18,
+
+  backgroundColor:theme.primary,
+  borderWidth:1,
+  borderColor:theme.primary
+},
+
+addFriendText:{
+  fontSize:12,
+  fontWeight:"900",
+  color:theme.primaryText
+},
     emptyCta: {
       flexDirection: "row",
       alignItems: "center",

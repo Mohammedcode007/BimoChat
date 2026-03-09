@@ -2126,10 +2126,10 @@ const myCoinz = myStore?.coinzBalance ?? 0;
   /* ================= BOOST ================= */
   const onBoostRoom = async () => {
     try {
-      if (!canModerate) {
-        Alert.alert("No permission", "You don't have permission to boost this room.");
-        return;
-      }
+      // if (!canModerate) {
+      //   Alert.alert("No permission", "You don't have permission to boost this room.");
+      //   return;
+      // }
       if (!roomId) return;
 
       const level = 1;

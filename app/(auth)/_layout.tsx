@@ -46,11 +46,14 @@
 // app/(auth)/_layout.tsx
 import { Colors } from "@/constants/theme";
 import { RootState } from "@/redux/store";
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack, useSegments } from "expo-router";
 import { ActivityIndicator, useColorScheme, View } from "react-native";
 import { useSelector } from "react-redux";
 
 export default function AuthLayout() {
+   const segments = useSegments();
+const currentScreen = segments[segments.length - 1];
+
   const { isLoggedIn, hydrated } = useSelector((state: RootState) => state.auth);
 
   const cs = useColorScheme();
@@ -71,15 +74,18 @@ export default function AuthLayout() {
     );
   }
 
-  if (isLoggedIn) {
-    return <Redirect href="/(tabs)" />;
-  }
+
+if (isLoggedIn && currentScreen !== "choose-location") {
+  return <Redirect href="/(tabs)" />;
+}
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="welcome" />
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
+            <Stack.Screen name="choose-location" />
+
     </Stack>
   );
 }

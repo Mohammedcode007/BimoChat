@@ -1,43 +1,32 @@
 import { Colors } from "@/constants/theme";
 import { updateMyProfileSettings } from "@/redux/slices/userSlice";
 import type { AppDispatch } from "@/redux/store";
+import { Picker } from "@react-native-picker/picker";
+import { City, Country } from "country-state-city";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-    useColorScheme,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useColorScheme,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch } from "react-redux";
 
-const COUNTRIES = [
-  "Egypt",
-  "Saudi Arabia",
-  "United Arab Emirates",
-  "Kuwait",
-  "Qatar",
-  "Bahrain",
-  "Oman",
-  "Jordan",
-  "Lebanon",
-  "Iraq",
-  "Morocco",
-  "Algeria",
-  "Tunisia",
-  "Libya",
-  "Sudan",
-  "Yemen",
-  "Palestine",
-  "Syria",
-];
+type CountryOption = {
+  name: string;
+  isoCode: string;
+};
+
+type CityOption = {
+  name: string;
+};
 
 export default function ChooseLocationScreen() {
   const scheme = useColorScheme();
@@ -47,17 +36,45 @@ export default function ChooseLocationScreen() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
 
-  const [country, setCountry] = useState("");
+  const [countryCode, setCountryCode] = useState("");
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
 
+  const countries = useMemo<CountryOption[]>(() => {
+    return Country.getAllCountries()
+      .map((c) => ({
+        name: c.name,
+        isoCode: c.isoCode,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
+
+  const cities = useMemo<CityOption[]>(() => {
+    if (!countryCode) return [];
+
+    const raw = City.getCitiesOfCountry(countryCode) || [];
+
+    return raw
+      .map((c) => ({ name: c.name }))
+      .filter((c, index, arr) => arr.findIndex((x) => x.name === c.name) === index)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [countryCode]);
+
+  const selectedCountryName = useMemo(() => {
+    return countries.find((c) => c.isoCode === countryCode)?.name || "";
+  }, [countries, countryCode]);
+
+  useEffect(() => {
+    setCity("");
+  }, [countryCode]);
+
   const onContinue = async () => {
     setError("");
 
-    if (!country.trim()) {
+    if (!countryCode) {
       setError("يرجى اختيار الدولة أولًا");
       return;
     }
@@ -67,35 +84,40 @@ export default function ChooseLocationScreen() {
 
       await dispatch(
         updateMyProfileSettings({
-          country: country.trim(),
-          city: city.trim() || "",
+          country: selectedCountryName,
+          city: city || "",
         })
       ).unwrap();
 
       router.replace("/(tabs)");
     } catch (e: any) {
-      setError(e || "فشل حفظ الموقع");
+      setError(typeof e === "string" ? e : "فشل حفظ الموقع");
     } finally {
       setLoading(false);
     }
   };
 
   const onSkip = async () => {
+    setError("");
+
+    if (!countryCode) {
+      setError("يجب اختيار الدولة على الأقل");
+      return;
+    }
+
     try {
       setLoading(true);
 
-      if (country.trim()) {
-        await dispatch(
-          updateMyProfileSettings({
-            country: country.trim(),
-            city: city.trim() || "",
-          })
-        ).unwrap();
-      }
+      await dispatch(
+        updateMyProfileSettings({
+          country: selectedCountryName,
+          city: city || "",
+        })
+      ).unwrap();
 
       router.replace("/(tabs)");
     } catch (e: any) {
-      setError(e || "فشل المتابعة");
+      setError(typeof e === "string" ? e : "فشل المتابعة");
     } finally {
       setLoading(false);
     }
@@ -115,40 +137,47 @@ export default function ChooseLocationScreen() {
           <View style={styles.card}>
             <Text style={styles.title}>اختر موقعك</Text>
             <Text style={styles.subtitle}>
-              أضف الدولة لتخصيص التجربة بشكل أفضل، ويمكنك إضافة المدينة بشكل اختياري.
+              يجب اختيار الدولة على الأقل، ويمكنك اختيار المدينة بشكل اختياري.
             </Text>
 
             <Text style={styles.label}>الدولة *</Text>
-            <View style={styles.countryWrap}>
-              {COUNTRIES.map((item) => {
-                const active = country === item;
-                return (
-                  <Pressable
-                    key={item}
-                    onPress={() => setCountry(item)}
-                    style={[styles.countryItem, active && styles.countryItemActive]}
-                  >
-                    <Text
-                      style={[
-                        styles.countryText,
-                        active && styles.countryTextActive,
-                      ]}
-                    >
-                      {item}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            <View style={styles.pickerWrap}>
+              <Picker
+                selectedValue={countryCode}
+                onValueChange={(value) => setCountryCode(String(value || ""))}
+                enabled={!loading}
+                dropdownIconColor={theme.text}
+                style={styles.picker}
+              >
+                <Picker.Item label="اختر الدولة" value="" />
+                {countries.map((item) => (
+                  <Picker.Item
+                    key={item.isoCode}
+                    label={item.name}
+                    value={item.isoCode}
+                  />
+                ))}
+              </Picker>
             </View>
 
             <Text style={styles.label}>المدينة (اختياري)</Text>
-            <TextInput
-              value={city}
-              onChangeText={setCity}
-              placeholder="مثال: Cairo"
-              placeholderTextColor={theme.mutedText}
-              style={styles.input}
-            />
+            <View style={styles.pickerWrap}>
+              <Picker
+                selectedValue={city}
+                onValueChange={(value) => setCity(String(value || ""))}
+                enabled={!loading && !!countryCode}
+                dropdownIconColor={theme.text}
+                style={styles.picker}
+              >
+                <Picker.Item
+                  label={countryCode ? "اختر المدينة" : "اختر الدولة أولًا"}
+                  value=""
+                />
+                {cities.map((item) => (
+                  <Picker.Item key={item.name} label={item.name} value={item.name} />
+                ))}
+              </Picker>
+            </View>
 
             {!!error && <Text style={styles.error}>{error}</Text>}
 
@@ -158,14 +187,18 @@ export default function ChooseLocationScreen() {
               style={[styles.primaryBtn, loading && styles.disabledBtn]}
             >
               {loading ? (
-                <ActivityIndicator />
+                <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.primaryBtnText}>حفظ ومتابعة</Text>
               )}
             </Pressable>
 
-            <Pressable onPress={onSkip} disabled={loading} style={styles.secondaryBtn}>
-              <Text style={styles.secondaryBtnText}>تخطي الآن</Text>
+            <Pressable
+              onPress={onSkip}
+              disabled={loading}
+              style={styles.secondaryBtn}
+            >
+              <Text style={styles.secondaryBtnText}>متابعة</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -205,7 +238,7 @@ function createStyles(theme: any, isDark: boolean) {
     subtitle: {
       fontSize: 14,
       lineHeight: 22,
-      color: theme.textMuted,
+      color: theme.textMuted || theme.mutedText,
       textAlign: "center",
       marginBottom: 22,
     },
@@ -215,49 +248,26 @@ function createStyles(theme: any, isDark: boolean) {
       color: theme.text,
       marginBottom: 10,
       marginTop: 8,
+      textAlign: "right",
     },
-    countryWrap: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 10,
-      marginBottom: 18,
-    },
-    countryItem: {
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-      borderRadius: 14,
-      backgroundColor: isDark ? "#151a22" : "#f3f4f6",
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    countryItemActive: {
-      backgroundColor: theme.primary,
-      borderColor: theme.primary,
-    },
-    countryText: {
-      color: theme.text,
-      fontSize: 14,
-      fontWeight: "600",
-    },
-    countryTextActive: {
-      color: "#fff",
-    },
-    input: {
-      backgroundColor: isDark ? "#151a22" : "#f9fafb",
+    pickerWrap: {
       borderWidth: 1,
       borderColor: theme.border,
       borderRadius: 14,
-      paddingHorizontal: 14,
-      paddingVertical: 14,
-      color: theme.text,
-      fontSize: 15,
+      overflow: "hidden",
       marginBottom: 14,
+      backgroundColor: isDark ? "#151a22" : "#f9fafb",
+    },
+    picker: {
+      color: theme.text,
+      backgroundColor: isDark ? "#151a22" : "#f9fafb",
     },
     error: {
       color: "#ef4444",
       marginBottom: 12,
       fontSize: 14,
       fontWeight: "600",
+      textAlign: "right",
     },
     primaryBtn: {
       backgroundColor: theme.primary,
@@ -278,7 +288,7 @@ function createStyles(theme: any, isDark: boolean) {
       marginTop: 10,
     },
     secondaryBtnText: {
-      color: theme.textMuted,
+      color: theme.textMuted || theme.mutedText,
       fontSize: 15,
       fontWeight: "700",
     },

@@ -7,10 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "bimo",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "supportsTablet": true,
-      "googleServicesFile": "./GoogleService-Info.plist"
-    },
+
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "googleServicesFile": "./google-services.json",

@@ -1,23 +1,23 @@
+
 // // app/(tabs)/notifications.tsx
-// // ✅ تصميم جديد نهائيًا (Inbox style) + Tabs (الكل/غير مقروء/طلبات)
+// // ✅ تصميم بسيط جدًا (List style) بدون Card
 // // ✅ RTL عربي + Dark/Light
 // // ✅ Grouping مع استثناء friend_request
-// // ✅ Swipe للحذف + زر "مقروء" داخل البطاقة
+// // ✅ Swipe للحذف + زر "مقروء"
 
 // import { Ionicons } from "@expo/vector-icons";
 // import { useRouter } from "expo-router";
-// import React, { useMemo, useState } from "react";
+// import React, { useEffect, useMemo, useRef, useState } from "react";
 // import {
 //   ActivityIndicator,
 //   FlatList,
 //   Image,
-//   Platform,
 //   Pressable,
 //   StyleSheet,
 //   Text,
 //   TouchableOpacity,
 //   useColorScheme,
-//   View,
+//   View
 // } from "react-native";
 // import { Swipeable } from "react-native-gesture-handler";
 // import Animated, { FadeInDown } from "react-native-reanimated";
@@ -27,6 +27,7 @@
 // import { Colors } from "@/constants/theme";
 // import { deleteNotification, markNotificationAsRead } from "@/redux/slices/notificationSlice";
 // import { AppDispatch, RootState } from "@/redux/store";
+// import { Audio } from "expo-av";
 
 // /* ================= TYPES ================= */
 
@@ -133,11 +134,14 @@
 //   return theme.muted;
 // };
 
-// /* ================= STYLES (NEW DESIGN) ================= */
+// /* ================= STYLES ================= */
 
 // const createStyles = (theme: any) =>
 //   StyleSheet.create({
-//     safe: { flex: 1, backgroundColor: theme.background },
+//     safe: {
+//       flex: 1,
+//       backgroundColor: theme.background,
+//     },
 
 //     top: {
 //       paddingHorizontal: 16,
@@ -155,107 +159,133 @@
 //       marginTop: 8,
 //     },
 
-//     screenTitle: { color: theme.text, fontSize: 22, fontWeight: "900", textAlign: "right" },
-//     actionsRow: { flexDirection: "row-reverse", alignItems: "center", gap: 10 },
+//     screenTitle: {
+//       color: theme.text,
+//       fontSize: 22,
+//       fontWeight: "900",
+//       textAlign: "right",
+//     },
+
+//     actionsRow: {
+//       flexDirection: "row-reverse",
+//       alignItems: "center",
+//       gap: 10,
+//     },
 
 //     actionBtn: {
 //       flexDirection: "row-reverse",
 //       alignItems: "center",
-//       gap: 8,
-//       paddingHorizontal: 12,
-//       paddingVertical: 10,
-//       borderRadius: 12,
-//       backgroundColor: theme.card,
-//       borderWidth: 1,
-//       borderColor: theme.border,
+//       gap: 6,
+//       paddingHorizontal: 10,
+//       paddingVertical: 8,
+//       borderRadius: 999,
+//       backgroundColor: theme.surface2,
 //     },
-//     actionText: { color: theme.text, fontWeight: "900", fontSize: 12 },
+
+//     actionText: {
+//       color: theme.text,
+//       fontWeight: "900",
+//       fontSize: 12,
+//     },
 
 //     tabsRow: {
 //       marginTop: 12,
 //       flexDirection: "row-reverse",
-//       gap: 10,
+//       gap: 8,
 //     },
+
 //     tab: {
 //       flex: 1,
 //       paddingVertical: 10,
 //       borderRadius: 999,
-//       borderWidth: 1,
-//       borderColor: theme.border,
-//       backgroundColor: theme.card,
+//       backgroundColor: theme.surface2,
 //       alignItems: "center",
 //       justifyContent: "center",
 //     },
+
 //     tabActive: {
-//       backgroundColor: theme.primary + "18",
-//       borderColor: theme.primary + "55",
+//       backgroundColor: theme.primary + "16",
 //     },
-//     tabText: { fontWeight: "900", fontSize: 12, color: theme.textSecondary },
-//     tabTextActive: { color: theme.primary },
+
+//     tabText: {
+//       fontWeight: "800",
+//       fontSize: 12,
+//       color: theme.textSecondary,
+//     },
+
+//     tabTextActive: {
+//       color: theme.primary,
+//     },
 
 //     countPill: {
-//       marginTop: 8,
+//       marginTop: 10,
 //       alignSelf: "flex-end",
 //       paddingHorizontal: 10,
 //       paddingVertical: 6,
 //       borderRadius: 999,
 //       backgroundColor: theme.surface2,
-//       borderWidth: 1,
-//       borderColor: theme.border,
 //       flexDirection: "row-reverse",
 //       alignItems: "center",
 //       gap: 6,
 //     },
-//     countText: { color: theme.textSecondary, fontWeight: "900", fontSize: 12 },
 
-//     listContent: { padding: 14, paddingBottom: 26 },
+//     countText: {
+//       color: theme.textSecondary,
+//       fontWeight: "800",
+//       fontSize: 12,
+//     },
 
-//     // Notification Row (NEW)
+//     listContent: {
+//       paddingBottom: 30,
+//     },
+
 //     row: {
 //       flexDirection: "row-reverse",
 //       alignItems: "center",
-//       borderRadius: 16,
-//       backgroundColor: theme.card,
-//       borderWidth: 1,
-//       borderColor: theme.border,
-//       paddingVertical: 12,
-//       paddingHorizontal: 12,
-//       marginBottom: 10,
-//       ...Platform.select({
-//         ios: {
-//           shadowColor: "#000",
-//           shadowOpacity: 0.03,
-//           shadowRadius: 12,
-//           shadowOffset: { width: 0, height: 6 },
-//         },
-//         android: { elevation: 2 },
-//       }),
+//       paddingHorizontal: 16,
+//       paddingVertical: 14,
+//       borderBottomWidth: 1,
+//       borderBottomColor: theme.border,
+//       backgroundColor: theme.background,
 //     },
 
-//     unreadStripe: {
-//       width: 4,
-//       alignSelf: "stretch",
-//       borderRadius: 999,
-//       backgroundColor: theme.border,
-//       marginLeft: 10,
+//     rowUnread: {
+//       backgroundColor: theme.primary + "08",
 //     },
-//     unreadStripeActive: { backgroundColor: theme.primary },
 
-//     avatarWrap: { width: 44, height: 44, borderRadius: 22, overflow: "hidden" },
-//     avatar: { width: "100%", height: "100%" },
+//     avatarWrap: {
+//       width: 42,
+//       height: 42,
+//       borderRadius: 21,
+//       overflow: "hidden",
+//       marginLeft: 12,
+//     },
+
+//     avatar: {
+//       width: "100%",
+//       height: "100%",
+//     },
+
 //     avatarFallback: {
-//       width: 44,
-//       height: 44,
-//       borderRadius: 22,
+//       width: 42,
+//       height: 42,
+//       borderRadius: 21,
 //       backgroundColor: theme.surface2,
-//       borderWidth: 1,
-//       borderColor: theme.border,
 //       alignItems: "center",
 //       justifyContent: "center",
+//       marginLeft: 12,
 //     },
-//     avatarFallbackText: { fontWeight: "900", color: theme.text },
 
-//     center: { flex: 1, minWidth: 0, marginRight: 10 },
+//     avatarFallbackText: {
+//       fontWeight: "900",
+//       color: theme.text,
+//       fontSize: 12,
+//     },
+
+//     center: {
+//       flex: 1,
+//       minWidth: 0,
+//     },
 
 //     headerLine: {
 //       flexDirection: "row-reverse",
@@ -264,8 +294,20 @@
 //       gap: 10,
 //     },
 
-//     name: { flex: 1, color: theme.text, fontWeight: "900", fontSize: 14, textAlign: "right" },
-//     time: { color: theme.muted, fontWeight: "800", fontSize: 11, textAlign: "right" },
+//     name: {
+//       flex: 1,
+//       color: theme.text,
+//       fontWeight: "900",
+//       fontSize: 14,
+//       textAlign: "right",
+//     },
+
+//     time: {
+//       color: theme.muted,
+//       fontWeight: "700",
+//       fontSize: 11,
+//       textAlign: "right",
+//     },
 
 //     subLine: {
 //       marginTop: 4,
@@ -275,69 +317,110 @@
 //     },
 
 //     iconDot: {
-//       width: 26,
-//       height: 26,
-//       borderRadius: 13,
+//       width: 22,
+//       height: 22,
+//       borderRadius: 11,
 //       alignItems: "center",
 //       justifyContent: "center",
 //       backgroundColor: theme.surface2,
-//       borderWidth: 1,
-//       borderColor: theme.border,
 //     },
 
-//     subtitle: { flex: 1, color: theme.textSecondary, fontWeight: "800", fontSize: 12, textAlign: "right" },
+//     subtitle: {
+//       color: theme.textSecondary,
+//       fontWeight: "700",
+//       fontSize: 12,
+//       textAlign: "right",
+//     },
 
 //     body: {
-//       marginTop: 6,
+//       marginTop: 4,
 //       color: theme.textSecondary,
-//       fontWeight: "600",
+//       fontWeight: "500",
 //       fontSize: 13,
 //       lineHeight: 18,
 //       textAlign: "right",
 //     },
 
-//     right: { alignItems: "flex-start", justifyContent: "center", gap: 8 },
+//     right: {
+//       alignItems: "flex-start",
+//       justifyContent: "center",
+//       marginRight: 10,
+//       gap: 8,
+//     },
 
 //     miniBtn: {
-//       paddingHorizontal: 10,
-//       paddingVertical: 8,
-//       borderRadius: 12,
+//       paddingHorizontal: 8,
+//       paddingVertical: 6,
+//       borderRadius: 999,
 //       backgroundColor: theme.surface2,
-//       borderWidth: 1,
-//       borderColor: theme.border,
 //       flexDirection: "row-reverse",
 //       alignItems: "center",
-//       gap: 6,
+//       gap: 4,
 //     },
-//     miniBtnText: { fontSize: 12, fontWeight: "900", color: theme.text },
+
+//     miniBtnText: {
+//       fontSize: 11,
+//       fontWeight: "800",
+//       color: theme.text,
+//     },
+
+//     unreadDot: {
+//       width: 10,
+//       height: 10,
+//       borderRadius: 5,
+//       backgroundColor: theme.primary,
+//     },
 
 //     bubbleCount: {
-//       minWidth: 26,
-//       height: 26,
-//       borderRadius: 13,
+//       minWidth: 22,
+//       height: 22,
+//       borderRadius: 11,
 //       alignItems: "center",
 //       justifyContent: "center",
-//       paddingHorizontal: 8,
+//       paddingHorizontal: 6,
 //       backgroundColor: theme.primary + "18",
-//       borderWidth: 1,
-//       borderColor: theme.primary + "55",
 //     },
-//     bubbleCountText: { fontWeight: "900", color: theme.primary, fontSize: 12 },
 
-//     // Swipe delete
+//     bubbleCountText: {
+//       fontWeight: "900",
+//       color: theme.primary,
+//       fontSize: 11,
+//     },
+
 //     deleteWrap: {
 //       justifyContent: "center",
 //       alignItems: "center",
 //       paddingHorizontal: 18,
-//       borderRadius: 16,
-//       marginBottom: 10,
 //       backgroundColor: theme.danger,
 //     },
-//     deleteText: { color: "#FFF", fontWeight: "900", marginTop: 6, fontSize: 12 },
 
-//     emptyWrap: { alignItems: "center", paddingTop: 56 },
-//     emptyTitle: { color: theme.text, fontSize: 16, fontWeight: "900" },
-//     emptySub: { color: theme.textSecondary, marginTop: 8, fontSize: 13, fontWeight: "700" },
+//     deleteText: {
+//       color: "#FFF",
+//       fontWeight: "900",
+//       marginTop: 6,
+//       fontSize: 12,
+//     },
+
+//     emptyWrap: {
+//       alignItems: "center",
+//       paddingTop: 56,
+//       paddingHorizontal: 20,
+//     },
+
+//     emptyTitle: {
+//       color: theme.text,
+//       fontSize: 16,
+//       fontWeight: "900",
+//       marginTop: 10,
+//     },
+
+//     emptySub: {
+//       color: theme.textSecondary,
+//       marginTop: 8,
+//       fontSize: 13,
+//       fontWeight: "600",
+//       textAlign: "center",
+//     },
 //   });
 
 // /* ================= SCREEN ================= */
@@ -353,12 +436,13 @@
 //   const { notifications, loading } = useSelector((state: RootState) => state.notification);
 
 //   const [tab, setTab] = useState<TabKey>("all");
-
+// const prevCountRef = useRef<number>(0);
+// const didInitRef = useRef(false);
+// const soundRef = useRef<Audio.Sound | null>(null);
 //   const unreadCount = useMemo(() => {
 //     return (notifications || []).reduce((acc: number, n: NotificationItem) => acc + (n?.isRead ? 0 : 1), 0);
 //   }, [notifications]);
 
-//   /* ================= GROUPING ================= */
 //   const groupedNotifications: GroupedNotification[] = useMemo(() => {
 //     const map: Record<string, GroupedNotification> = {};
 
@@ -387,7 +471,65 @@
 //     out.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 //     return out;
 //   }, [notifications]);
+// const playNotificationSound = async () => {
+//   try {
+//     if (soundRef.current) {
+//       try {
+//         await soundRef.current.unloadAsync();
+//       } catch {}
+//       soundRef.current = null;
+//     }
 
+//     await Audio.setAudioModeAsync({
+//       playsInSilentModeIOS: true,
+//       staysActiveInBackground: false,
+//       shouldDuckAndroid: true,
+//       playThroughEarpieceAndroid: false
+//     });
+
+//     const { sound } = await Audio.Sound.createAsync(
+//       require("@/assets/sounds/notification.mp3"),
+//       { shouldPlay: true }
+//     );
+
+//     soundRef.current = sound;
+
+//     sound.setOnPlaybackStatusUpdate((status) => {
+//       if (!status.isLoaded) return;
+//       if (status.didJustFinish) {
+//         sound.unloadAsync().catch(() => {});
+//         if (soundRef.current === sound) {
+//           soundRef.current = null;
+//         }
+//       }
+//     });
+//   } catch (e) {
+//     console.log("Notification sound failed:", e);
+//   }
+// };
+// useEffect(() => {
+//   const currentCount = Array.isArray(notifications) ? notifications.length : 0;
+
+//   if (!didInitRef.current) {
+//     didInitRef.current = true;
+//     prevCountRef.current = currentCount;
+//     return;
+//   }
+
+//   if (currentCount > prevCountRef.current) {
+//     playNotificationSound();
+//   }
+
+//   prevCountRef.current = currentCount;
+// }, [notifications]);
+// useEffect(() => {
+//   return () => {
+//     if (soundRef.current) {
+//       soundRef.current.unloadAsync().catch(() => {});
+//       soundRef.current = null;
+//     }
+//   };
+// }, []);
 //   const filtered = useMemo(() => {
 //     const list = groupedNotifications || [];
 //     if (tab === "unread") return list.filter((n) => !n.isRead);
@@ -399,7 +541,6 @@
 //     return (groupedNotifications || []).filter((n) => n.type === "friend_request").length;
 //   }, [groupedNotifications]);
 
-//   /* ================= NAV ================= */
 //   const handlePress = (item: GroupedNotification) => {
 //     if (!item.isRead) dispatch(markNotificationAsRead(item._id));
 
@@ -429,7 +570,6 @@
 //     }
 //   };
 
-//   /* ================= SWIPE DELETE ================= */
 //   const renderRightActions = (id: string) => (
 //     <TouchableOpacity
 //       style={styles.deleteWrap}
@@ -441,7 +581,6 @@
 //     </TouchableOpacity>
 //   );
 
-//   /* ================= RENDER ITEM ================= */
 //   const renderItem = ({ item, index }: { item: GroupedNotification; index: number }) => {
 //     const title = buildTitleAr(item);
 //     const subtitle = buildSubtitleAr(item.type);
@@ -454,11 +593,12 @@
 //     const initials = getInitials(title);
 
 //     return (
-//       <Animated.View entering={FadeInDown.delay(index * 35)}>
+//       <Animated.View entering={FadeInDown.delay(index * 25)}>
 //         <Swipeable renderRightActions={() => renderRightActions(item._id)}>
-//           <Pressable onPress={() => handlePress(item)} style={styles.row}>
-//             <View style={[styles.unreadStripe, !item.isRead && styles.unreadStripeActive]} />
-
+//           <Pressable
+//             onPress={() => handlePress(item)}
+//             style={[styles.row, !item.isRead && styles.rowUnread]}
+//           >
 //             {avatarUrl ? (
 //               <View style={styles.avatarWrap}>
 //                 <Image source={{ uri: avatarUrl }} style={styles.avatar} />
@@ -479,11 +619,13 @@
 
 //               <View style={styles.subLine}>
 //                 <View style={styles.iconDot}>
-//                   <Ionicons name={iconMeta.name as any} size={14} color={iconColor} />
+//                   <Ionicons name={iconMeta.name as any} size={13} color={iconColor} />
 //                 </View>
+
 //                 <Text style={styles.subtitle} numberOfLines={1}>
 //                   {subtitle}
 //                 </Text>
+
 //                 {item.count > 1 && (
 //                   <View style={styles.bubbleCount}>
 //                     <Text style={styles.bubbleCountText}>{item.count}</Text>
@@ -497,16 +639,19 @@
 //             </View>
 
 //             <View style={styles.right}>
-//               {!item.isRead && (
-//                 <TouchableOpacity
-//                   style={styles.miniBtn}
-//                   activeOpacity={0.9}
-//                   onPress={() => dispatch(markNotificationAsRead(item._id))}
-//                 >
-//                   <Ionicons name="checkmark" size={16} color={theme.primary} />
-//                   <Text style={styles.miniBtnText}>مقروء</Text>
-//                 </TouchableOpacity>
-//               )}
+//               {!item.isRead ? (
+//                 <>
+//                   <View style={styles.unreadDot} />
+//                   <TouchableOpacity
+//                     style={styles.miniBtn}
+//                     activeOpacity={0.9}
+//                     onPress={() => dispatch(markNotificationAsRead(item._id))}
+//                   >
+//                     <Ionicons name="checkmark" size={14} color={theme.primary} />
+//                     <Text style={styles.miniBtnText}>مقروء</Text>
+//                   </TouchableOpacity>
+//                 </>
+//               ) : null}
 //             </View>
 //           </Pressable>
 //         </Swipeable>
@@ -514,7 +659,6 @@
 //     );
 //   };
 
-//   /* ================= UI ================= */
 //   return (
 //     <SafeAreaView style={styles.safe}>
 //       <View style={styles.top}>
@@ -522,10 +666,6 @@
 //           <Text style={styles.screenTitle}>الإشعارات</Text>
 
 //           <View style={styles.actionsRow}>
-//             {/* اختياري: لو عندك أكشن markAllAsRead / clearAll */}
-//             {/* <TouchableOpacity style={styles.actionBtn}><Text style={styles.actionText}>تحديد الكل</Text></TouchableOpacity> */}
-//             {/* <TouchableOpacity style={styles.actionBtn}><Text style={styles.actionText}>حذف الكل</Text></TouchableOpacity> */}
-
 //             <View style={styles.actionBtn}>
 //               <Ionicons name="mail-unread" size={16} color={theme.text} />
 //               <Text style={styles.actionText}>{unreadCount}</Text>
@@ -547,7 +687,9 @@
 //             onPress={() => setTab("unread")}
 //             style={[styles.tab, tab === "unread" && styles.tabActive]}
 //           >
-//             <Text style={[styles.tabText, tab === "unread" && styles.tabTextActive]}>غير مقروء</Text>
+//             <Text style={[styles.tabText, tab === "unread" && styles.tabTextActive]}>
+//               غير مقروء
+//             </Text>
 //           </TouchableOpacity>
 
 //           <TouchableOpacity
@@ -590,16 +732,19 @@
 //     </SafeAreaView>
 //   );
 // }
-
 // app/(tabs)/notifications.tsx
-// ✅ تصميم بسيط جدًا (List style) بدون Card
+// ✅ List style بسيط
 // ✅ RTL عربي + Dark/Light
-// ✅ Grouping مع استثناء friend_request
-// ✅ Swipe للحذف + زر "مقروء"
+// ✅ تجميع ذكي: كل مرسل منفصل عن الآخر
+// ✅ friend_request منفصل دائمًا
+// ✅ message منفصل حسب sender + relatedChat
+// ✅ Swipe للحذف + زر مقروء
+// ✅ صوت عند إشعار جديد
 
 import { Ionicons } from "@expo/vector-icons";
+import { Audio } from "expo-av";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -1028,30 +1173,136 @@ export default function NotificationsScreen() {
 
   const [tab, setTab] = useState<TabKey>("all");
 
+  const prevCountRef = useRef<number>(0);
+  const didInitRef = useRef(false);
+  const soundRef = useRef<Audio.Sound | null>(null);
+
   const unreadCount = useMemo(() => {
-    return (notifications || []).reduce((acc: number, n: NotificationItem) => acc + (n?.isRead ? 0 : 1), 0);
+    return (notifications || []).reduce(
+      (acc: number, n: NotificationItem) => acc + (n?.isRead ? 0 : 1),
+      0
+    );
   }, [notifications]);
 
+  const playNotificationSound = async () => {
+    try {
+      if (soundRef.current) {
+        try {
+          await soundRef.current.unloadAsync();
+        } catch {}
+        soundRef.current = null;
+      }
+
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+
+      const { sound } = await Audio.Sound.createAsync(
+        require("@/assets/sounds/notification.mp3"),
+        { shouldPlay: true }
+      );
+
+      soundRef.current = sound;
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (!status.isLoaded) return;
+        if (status.didJustFinish) {
+          sound.unloadAsync().catch(() => {});
+          if (soundRef.current === sound) {
+            soundRef.current = null;
+          }
+        }
+      });
+    } catch (e) {
+      console.log("Notification sound failed:", e);
+    }
+  };
+
+  useEffect(() => {
+    const currentCount = Array.isArray(notifications) ? notifications.length : 0;
+
+    if (!didInitRef.current) {
+      didInitRef.current = true;
+      prevCountRef.current = currentCount;
+      return;
+    }
+
+    if (currentCount > prevCountRef.current) {
+      playNotificationSound();
+    }
+
+    prevCountRef.current = currentCount;
+  }, [notifications]);
+
+  useEffect(() => {
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync().catch(() => {});
+        soundRef.current = null;
+      }
+    };
+  }, []);
+
+  /* ================= GROUPING ================= */
   const groupedNotifications: GroupedNotification[] = useMemo(() => {
     const map: Record<string, GroupedNotification> = {};
 
     (notifications || []).forEach((item: NotificationItem) => {
+      const senderId = safeStr(item.sender?._id || "unknown");
+      const relatedTweet = safeStr(item.relatedTweet);
+      const relatedChat = safeStr(item.relatedChat);
+      const relatedRoom = safeStr(item.relatedRoom);
+
+      // طلبات الصداقة دائمًا منفصلة
       if (item.type === "friend_request") {
         map[item._id] = { ...item, count: 1, users: [item.sender] };
         return;
       }
 
-      const key = `${item.sender?._id || "unknown"}-${item.type}-${item.relatedTweet || ""}-${item.relatedChat || ""}-${item.relatedRoom || ""}`;
+      // الرسائل: منفصلة حسب الشخص + المحادثة
+      if (item.type === "message") {
+        const key = `message-${senderId}-${relatedChat || item._id}`;
+        if (!map[key]) {
+          map[key] = { ...item, count: 1, users: [item.sender] };
+        } else {
+          map[key].count += 1;
+          map[key].users.push(item.sender);
+
+          const cur = new Date(map[key].createdAt).getTime();
+          const next = new Date(item.createdAt).getTime();
+          if (next > cur) {
+            map[key] = {
+              ...map[key],
+              ...item,
+              users: map[key].users,
+              count: map[key].count,
+            };
+          }
+        }
+        return;
+      }
+
+      // باقي الأنواع: منفصلة حسب المرسل + النوع + المرجع
+      const key = `${senderId}-${item.type}-${relatedTweet}-${relatedChat}-${relatedRoom}`;
 
       if (!map[key]) {
         map[key] = { ...item, count: 1, users: [item.sender] };
       } else {
         map[key].count += 1;
         map[key].users.push(item.sender);
+
         const cur = new Date(map[key].createdAt).getTime();
         const next = new Date(item.createdAt).getTime();
         if (next > cur) {
-          map[key] = { ...map[key], ...item, users: map[key].users, count: map[key].count };
+          map[key] = {
+            ...map[key],
+            ...item,
+            users: map[key].users,
+            count: map[key].count,
+          };
         }
       }
     });

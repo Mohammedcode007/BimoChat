@@ -48,6 +48,10 @@ export type UpdateProfilePayload = {
   notificationSound?: boolean;
   readReceiptsEnabled?: boolean;
 };
+export type UpdateLocationPayload = {
+  country?: string;
+  city?: string;
+};
 
 export type UserFull = {
   _id: string;
@@ -239,6 +243,29 @@ export const updateMyProfileSettings = createAsyncThunk<UserFull, UpdateProfileP
     }
   }
 );
+export const updateMyLocation = createAsyncThunk<
+  UserFull,
+  UpdateLocationPayload,
+  { rejectValue: string }
+>(
+  "user/updateMyLocation",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const res = await api.patch("/users/update-location", payload);
+      const data = res?.data?.data ?? res?.data ?? {};
+
+      return {
+        ...(data as UserFull),
+      };
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.message ||
+        "Failed to update location";
+      return rejectWithValue(msg);
+    }
+  }
+);
 // PATCH /users/coinz/debit-me
 export const debitMyCoinz = createAsyncThunk<
   { CoinzBalance: number; debited: number },
@@ -312,6 +339,28 @@ const userSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+        // ===== update location =====
+    builder.addCase(updateMyLocation.pending, (state) => {
+      state.updating = true;
+      state.errorUpdate = null;
+    });
+
+    builder.addCase(updateMyLocation.fulfilled, (state, action) => {
+      state.updating = false;
+
+      if (state.me) {
+        state.me.country = action.payload.country;
+        state.me.city = action.payload.city;
+        state.me.updatedAt = action.payload.updatedAt;
+      } else {
+        state.me = action.payload;
+      }
+    });
+
+    builder.addCase(updateMyLocation.rejected, (state, action) => {
+      state.updating = false;
+      state.errorUpdate = action.payload || "Failed to update location";
+    });
     // ===== registerNoLogin =====
     builder.addCase(registerNoLogin.pending, (state) => {
       state.creatingAccount = true;

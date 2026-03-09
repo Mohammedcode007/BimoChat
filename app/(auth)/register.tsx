@@ -559,7 +559,8 @@ export default function RegisterScreen() {
           text1: "تم بنجاح",
           text2: "تم إنشاء الحساب",
         });
-        router.replace("/(tabs)");
+        router.replace("/(auth)/choose-location");
+        // router.replace("/(tabs)");
       } else {
         const msg = (result.payload as string) || "تعذر إنشاء الحساب";
         setErrors({ general: msg });

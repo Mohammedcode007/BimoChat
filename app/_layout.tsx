@@ -3,6 +3,7 @@
 // import { useLanguage } from '@/context/LanguageContext';
 import { toastConfig } from '@/components/AppToastConfig';
 import GlobalNotificationListener from '@/components/GlobalNotificationListener';
+import { LanguageProvider } from '@/context/LanguageContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { checkAuth } from '@/redux/slices/authSlice';
 import { AppDispatch, RootState, store } from '@/redux/store';
@@ -145,33 +146,28 @@ function AppContent() {
   /* =========================
      4) Socket only in foreground
   ========================= */
+    /* =========================
+     4) Socket always connected
+  ========================= */
   useEffect(() => {
     if (!hydrated) return;
 
     const connectIfNeeded = () => {
       if (!token) return;
 
-      console.log("🔌 Connecting socket because app is active");
+      console.log("🔌 Ensuring socket is connected...");
       connectSocket(token);
       attachSocketListeners(store.dispatch, store.getState);
     };
 
-    const disconnectIfNeeded = () => {
-      console.log("🔌 Disconnecting socket");
-      disconnectSocket();
-    };
-
     if (!token) {
-      disconnectIfNeeded();
+      console.log("🔴 No token -> disconnect socket");
+      disconnectSocket();
       return;
     }
 
-    // أول تشغيل
-    if (appStateRef.current === "active") {
-      connectIfNeeded();
-    } else {
-      disconnectIfNeeded();
-    }
+    // ✅ اتصل مرة واحدة طالما يوجد token
+    connectIfNeeded();
 
     const sub = AppState.addEventListener("change", (nextState) => {
       const prevState = appStateRef.current;
@@ -179,31 +175,82 @@ function AppContent() {
 
       console.log("📱 AppState changed:", prevState, "->", nextState);
 
-      // رجع للتطبيق
-      if (
-        (prevState === "background" || prevState === "inactive") &&
-        nextState === "active"
-      ) {
-        console.log("🟢 App returned to foreground -> reconnect socket");
+      // ✅ لا تفصل في الخلفية نهائيًا
+      // فقط لو رجع active وتأكدنا أن السوكيت انقطع لأي سبب، نعيد الاتصال
+      if (nextState === "active") {
+        console.log("🟢 App active -> ensure socket connected");
         connectIfNeeded();
-
-        // اختياري: أضف مزامنة هنا لو عندك thunks
-        // dispatch(fetchNotifications() as any);
-        // dispatch(fetchChats() as any);
-      }
-
-      // دخل الخلفية
-      if (nextState === "background" || nextState === "inactive") {
-        console.log("🌙 App moved to background -> disconnect socket");
-        disconnectIfNeeded();
       }
     });
 
     return () => {
       sub.remove();
-      disconnectIfNeeded();
+
+      // ✅ لا تفصل هنا إلا لو token اختفى أو المكون اتفك فعليًا
+      // وهذا طبيعي عند logout / reload
+      console.log("🧹 AppContent cleanup -> disconnect socket");
+      disconnectSocket();
     };
   }, [hydrated, token]);
+  // useEffect(() => {
+  //   if (!hydrated) return;
+
+  //   const connectIfNeeded = () => {
+  //     if (!token) return;
+
+  //     console.log("🔌 Connecting socket because app is active");
+  //     connectSocket(token);
+  //     attachSocketListeners(store.dispatch, store.getState);
+  //   };
+
+  //   const disconnectIfNeeded = () => {
+  //     console.log("🔌 Disconnecting socket");
+  //     disconnectSocket();
+  //   };
+
+  //   if (!token) {
+  //     disconnectIfNeeded();
+  //     return;
+  //   }
+
+  //   // أول تشغيل
+  //   if (appStateRef.current === "active") {
+  //     connectIfNeeded();
+  //   } else {
+  //     disconnectIfNeeded();
+  //   }
+
+  //   const sub = AppState.addEventListener("change", (nextState) => {
+  //     const prevState = appStateRef.current;
+  //     appStateRef.current = nextState;
+
+  //     console.log("📱 AppState changed:", prevState, "->", nextState);
+
+  //     // رجع للتطبيق
+  //     if (
+  //       (prevState === "background" || prevState === "inactive") &&
+  //       nextState === "active"
+  //     ) {
+  //       console.log("🟢 App returned to foreground -> reconnect socket");
+  //       connectIfNeeded();
+
+  //       // اختياري: أضف مزامنة هنا لو عندك thunks
+  //       // dispatch(fetchNotifications() as any);
+  //       // dispatch(fetchChats() as any);
+  //     }
+
+  //     // دخل الخلفية
+  //     if (nextState === "background" || nextState === "inactive") {
+  //       console.log("🌙 App moved to background -> disconnect socket");
+  //       disconnectIfNeeded();
+  //     }
+  //   });
+
+  //   return () => {
+  //     sub.remove();
+  //     disconnectIfNeeded();
+  //   };
+  // }, [hydrated, token]);
 
   /* =========================
      5) Force update navigation
@@ -218,9 +265,9 @@ function AppContent() {
   return (
     <>
       <RootStack />
-    <GlobalNotificationListener />
-    <Toast config={toastConfig} topOffset={55} />
-    <StatusBar style="auto" />
+      <GlobalNotificationListener />
+      <Toast config={toastConfig} topOffset={55} />
+      <StatusBar style="auto" />
     </>
   );
 }
@@ -234,16 +281,18 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-        <KeyboardProvider>
+    <KeyboardProvider>
 
       <Provider store={store}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <AppContent />
-          </ThemeProvider>
+          <LanguageProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <AppContent />
+            </ThemeProvider>
+          </LanguageProvider>
         </GestureHandlerRootView>
       </Provider>
-          </KeyboardProvider>
+    </KeyboardProvider>
 
   );
 }

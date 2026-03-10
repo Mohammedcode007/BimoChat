@@ -1,66 +1,1250 @@
 
-// ChatScreen.tsx
-// ✅ تطبيق Dark Mode فقط (بدون أي تغييرات أخرى في المنطق/التصميم)
-// ✅ عند الضغط على الصورة تفتح بحجم كامل (Modal)
+// // ChatScreen.tsx
+// // ✅ تطبيق Dark Mode فقط (بدون أي تغييرات أخرى في المنطق/التصميم)
+// // ✅ عند الضغط على الصورة تفتح بحجم كامل (Modal)
+
+// import Ionicons from "@expo/vector-icons/Ionicons";
+// import * as ImagePicker from "expo-image-picker";
+// import { useLocalSearchParams, useRouter } from "expo-router";
+// import React, { useEffect, useMemo, useRef, useState } from "react";
+// import {
+//   ActivityIndicator,
+//   FlatList,
+//   Image,
+//   ListRenderItem,
+//   Modal,
+//   Pressable,
+//   StyleSheet,
+//   Text,
+//   TextInput,
+//   TouchableOpacity,
+//   useColorScheme,
+//   View
+// } from "react-native";
+// import { useKeyboardHandler } from 'react-native-keyboard-controller';
+// import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+// import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+// import { useDispatch, useSelector } from "react-redux";
+
+// import {
+//   addMessage,
+//   clearChatMessages,
+//   loadMessages,
+//   MessageItem
+// } from "@/redux/slices/messageSlice";
+
+// import { setActiveChat } from "@/redux/slices/chatSlice";
+
+// import { AppDispatch, RootState } from "@/redux/store";
+// import {
+//   emitMarkAsSeen,
+//   emitTyping,
+//   joinChatRoom,
+//   leaveChatRoom,
+//   sendSocketMessage
+// } from "@/services/socket";
+
+// import {
+//   selectChatById,
+//   selectCurrentUser,
+//   selectMessagesByChatId,
+//   selectOtherUser,
+//   selectTypingUsersByChatId
+// } from "@/redux/selectors";
+// import * as DocumentPicker from "expo-document-picker";
+
+// import VoiceMessagePlayer from "@/components/VoiceMessagePlayer";
+// import VoiceRecorderPreview from "@/components/VoiceRecorderPreview";
+// import { blockUser } from "@/redux/slices/followSlice";
+// import { unblockUser } from "@/redux/slices/friendSlice";
+// import { fetchBlockStatus, fetchUserProfile } from "@/redux/slices/userSlice";
+// import { uploadToCloudinary } from "@/services/upload.service";
+// import { formatLastSeen, formatTime } from "@/utils/helpFunctions";
+// import { Audio, ResizeMode, Video } from "expo-av";
+// type RelationshipStatus =
+//   | "none"
+//   | "pending_sent"
+//   | "pending_received"
+//   | "accepted"
+//   | "blocked_by_me"
+//   | "blocked_me";
+
+// type ProfileUser = {
+//   _id: string;
+
+//   username: string;
+//   atUsername?: string;
+
+//   bio?: string;
+//   country?: string;
+//   city?: string;
+
+//   avatar?: string;
+//   coverImage?: string;
+
+//   dateOfBirth?: string;
+
+//   followersCount?: number;
+//   followingCount?: number;
+//   totalLikesReceived?: number;
+//   profileViews?: number;
+
+//   isOnline?: boolean;
+//   lastSeen?: string;
+
+//   isVerified?: boolean;
+
+//   tags?: string[];
+
+//   // ✅ مهم جداً لزر الصداقة
+//   relationshipStatus?: RelationshipStatus;
+
+//   // ✅ إن كانت موجودة من API (اختياري)
+//   isFollowing?: boolean;
+// };
+// /* ===================================================== */
+
+// export default function ChatScreen() {
+//   const router = useRouter();
+//   const { id } = useLocalSearchParams<{ id: string }>();
+//   const chatId = id as string;
+
+//   const colorScheme = useColorScheme();
+//   const isDark = colorScheme === "dark";
+
+//   const recordingRef = useRef<Audio.Recording | null>(null);
+//   const [isRecording, setIsRecording] = useState(false);
+//   const [recordedUri, setRecordedUri] = useState<string | null>(null);
+//   const [page, setPage] = useState(1);
+//   const [hasMore, setHasMore] = useState(true);
+//   const [inputBarHeight, setInputBarHeight] = useState(0);
+//   const dispatch = useDispatch<AppDispatch>();
+//   const insets = useSafeAreaInsets();
+//   const keyboardHeight = useSharedValue(0);
+
+//   useKeyboardHandler(
+//     {
+//       onMove: (e) => {
+//         "worklet";
+//         keyboardHeight.value = Math.max(0, e.height);
+//       },
+//       onEnd: (e) => {
+//         "worklet";
+//         keyboardHeight.value = Math.max(0, e.height);
+//       },
+//     },
+//     []
+//   );
+
+//   const inputBarAnimatedStyle = useAnimatedStyle(() => {
+//     return {
+//       transform: [
+//         {
+//           translateY: -keyboardHeight.value,
+//         },
+//       ],
+//     };
+//   });
+
+// const listSpacerAnimatedStyle = useAnimatedStyle(() => {
+//   return {
+//     height: keyboardHeight.value,
+//   };
+// });
+//   const flatListRef = useRef<any>(null);
+//   const typingTimeout = useRef<any>(null);
+
+//   const currentUser = useSelector(selectCurrentUser);
+
+//   const chat = useSelector(
+//     useMemo(() => selectChatById(chatId), [chatId])
+//   );
+
+//   const messages = useSelector(
+//     useMemo(() => selectMessagesByChatId(chatId), [chatId])
+//   );
+
+//   const loading = useSelector(
+//     (state: RootState) => state.message.loading
+//   );
+
+//   const typingUsers = useSelector(
+//     useMemo(
+//       () => selectTypingUsersByChatId(chatId, currentUser?._id),
+//       [chatId, currentUser?._id]
+//     )
+//   );
+
+//   const otherUser = useSelector(
+//     useMemo(
+//       () => selectOtherUser(chatId, currentUser?._id),
+//       [chatId, currentUser?._id]
+//     )
+//   );
+//   const [rel, setRel] = useState<RelationshipStatus>("none");
+
+//   const [text, setText] = useState("");
+//   const [menuOpen, setMenuOpen] = useState(false);
+//   // ✅ Fullscreen image preview
+//   const [imagePreview, setImagePreview] = useState<string | null>(null);
+//   const blockedByMe = rel === "blocked_by_me";
+//   const blockedMe = rel === "blocked_me";
+//   const isBlocked = blockedByMe || blockedMe;
+//   const doToggleBlock = async () => {
+//     const targetId = otherUser?._id;
+//     if (!targetId) return;
+
+//     if (blockedMe) {
+//       setMenuOpen(false);
+//       return;
+//     }
+//     try {
+//       if (blockedMe) { setMenuOpen(false); return; }
+
+//       if (blockedByMe) {
+//         await dispatch(unblockUser(targetId) as any).unwrap?.();
+//       } else {
+//         await dispatch(blockUser(targetId) as any).unwrap?.();
+//       }
+
+//       // ✅ الأهم: إعادة فحص حالة الحظر من المصدر الحقيقي
+//       await dispatch(fetchBlockStatus({ targetUserId: String(targetId) }) as any);
+
+//       // (اختياري) لو محتاج بيانات البروفايل نفسها
+//       await dispatch(fetchUserProfile(String(targetId)) as any).unwrap?.();
+
+//     } catch (e) {
+//       console.log("❌ doToggleBlock error:", e);
+//     } finally {
+//       setMenuOpen(false);
+//     }
+//   };
+//   const profileUser = useSelector((s: RootState) => (s.user as any).profileUser) as ProfileUser | null;
+//   const searchResults = useSelector((s: RootState) => (s.friends as any).searchResults) as any[];
+//   const [isFollowing, setIsFollowing] = useState(false);
+//   const blockStatus = useSelector((s: RootState) => (s.user as any).blockStatus) as
+//     | { blockedByMe: boolean; blockedMe: boolean; anyBlocked: boolean }
+//     | null;
+
+//   const blockLoading = useSelector((s: RootState) => (s.user as any).loadingBlockStatus) as boolean;
+//   useEffect(() => {
+//     const targetId = otherUser?._id;
+//     if (!targetId) return;
+
+//     console.log("[ChatScreen] fetchUserProfile targetId:", targetId);
+//     dispatch(fetchUserProfile(String(targetId)));
+//     dispatch(fetchBlockStatus({ targetUserId: String(targetId) }) as any);
+
+//   }, [otherUser?._id, dispatch]);
+//   useEffect(() => {
+//     if (!blockStatus) return;
+
+//     if (blockStatus.blockedMe) setRel("blocked_me");
+//     else if (blockStatus.blockedByMe) setRel("blocked_by_me");
+//     else setRel("none");
+//   }, [blockStatus?.blockedByMe, blockStatus?.blockedMe]);
+//   const user = profileUser;
+//   console.log(user, 'user');
+//   /* ================= INITIAL LOAD ================= */
+
+//   const startRecording = async () => {
+//     try {
+//       const permission = await Audio.requestPermissionsAsync();
+//       if (!permission.granted) return;
+
+//       await Audio.setAudioModeAsync({
+//         allowsRecordingIOS: true,
+//         playsInSilentModeIOS: true
+//       });
+
+//       const { recording } =
+//         await Audio.Recording.createAsync(
+//           Audio.RecordingOptionsPresets.HIGH_QUALITY
+//         );
+
+//       recordingRef.current = recording;
+//       setIsRecording(true);
+//     } catch (err) { }
+//   };
+
+//   const stopRecording = async () => {
+//     try {
+//       if (!recordingRef.current) return;
+
+//       await recordingRef.current.stopAndUnloadAsync();
+//       const uri = recordingRef.current.getURI();
+
+//       recordingRef.current = null;
+//       setIsRecording(false);
+
+//       if (!uri) return;
+
+//       // ✅ فقط عرض المعاينة
+//       setRecordedUri(uri);
+//     } catch (err) { }
+//   };
+
+//   useEffect(() => {
+//     if (!chatId) return;
+//     if (!currentUser?._id) return;
+
+//     dispatch(setActiveChat(chatId));
+//     joinChatRoom(chatId);
+
+//     dispatch(loadMessages({ chatId, page: 1 }))
+//       .unwrap()
+//       .then((res) => {
+//         const hasIncoming = res.messages.some(
+//           (m: any) => m.sender !== currentUser._id
+//         );
+
+//         if (hasIncoming) emitMarkAsSeen(chatId);
+//       })
+//       .catch(() => { });
+
+//     return () => {
+//       leaveChatRoom(chatId);
+//       dispatch(setActiveChat(undefined));
+//       dispatch(clearChatMessages(chatId));
+//     };
+//   }, [chatId, currentUser?._id, dispatch]);
+
+//   // useEffect(() => {
+//   //   if (!chatId) return;
+//   //   if (!currentUser?._id) return;
+
+//   //   dispatch(setActiveChat(chatId));
+
+//   //   return () => {
+//   //     dispatch(setActiveChat(undefined));
+//   //   };
+//   // }, [chatId]);
+
+//   const loadMore = () => {
+//     if (!hasMore || loading) return;
+
+//     const nextPage = page + 1;
+
+//     dispatch(loadMessages({ chatId, page: nextPage }))
+//       .unwrap()
+//       .then((res) => {
+//         if (res.messages.length < 20) {
+//           setHasMore(false);
+//         }
+//         setPage(nextPage);
+//       })
+//       .catch(() => { });
+//   };
+
+//   /* ================= SEND MESSAGE ================= */
+
+//   const sendMessage = () => {
+//     if (!text.trim() || !currentUser?._id) return;
+
+//     const tempId = `temp-${Date.now()}`;
+
+//     const optimistic: MessageItem = {
+//       _id: tempId,
+//       clientTempId: tempId,
+//       chat: chatId,
+//       sender: currentUser._id,
+//       type: "text",
+//       content: text,
+//       reactions: [],
+//       deliveryStatus: {
+//         deliveredTo: [],
+//         seenBy: []
+//       },
+//       createdAt: new Date().toISOString(),
+//       optimistic: true
+//     };
+
+//     dispatch(addMessage(optimistic));
+
+//     sendSocketMessage(chatId, text, "text", tempId);
+
+//     setText("");
+//   };
+
+//   const pickImage = async () => {
+//     try {
+//       const result = await ImagePicker.launchImageLibraryAsync({
+//         mediaTypes: ImagePicker.MediaTypeOptions.Images,
+//         quality: 0.8
+//       });
+
+//       if (!result.canceled && result.assets?.length) {
+//         const uri = result.assets[0].uri;
+
+//         const tempId = `temp-${Date.now()}`;
+
+//         // 1️⃣ Optimistic
+//         dispatch(addMessage({
+//           _id: tempId,
+//           clientTempId: tempId,
+//           chat: chatId,
+//           sender: currentUser!._id,
+//           type: "image",
+//           content: "",
+//           media: { url: uri },
+//           reactions: [],
+//           deliveryStatus: {
+//             deliveredTo: [],
+//             seenBy: []
+//           },
+//           createdAt: new Date().toISOString(),
+//           optimistic: true
+//         }));
+
+//         // 2️⃣ رفع إلى Cloudinary
+//         const url = await uploadToCloudinary(uri, "image");
+
+//         // 3️⃣ إرسال عبر Socket
+//         sendSocketMessage(chatId, url, "image", tempId);
+//       }
+//     } catch (error) { }
+//   };
+
+//   const sendMediaMessage = async (
+//     uri: string,
+//     type: "image" | "video" | "audio"
+//   ) => {
+//     if (!currentUser?._id) return;
+
+//     const tempId = `temp-${Date.now()}`;
+
+//     dispatch(addMessage({
+//       _id: tempId,
+//       clientTempId: tempId,
+//       chat: chatId,
+//       sender: currentUser._id,
+//       type,
+//       content: "",
+//       media: { url: uri },
+//       reactions: [],
+//       deliveryStatus: {
+//         deliveredTo: [],
+//         seenBy: []
+//       },
+//       createdAt: new Date().toISOString(),
+//       optimistic: true
+//     }));
+
+//     try {
+//       const cloudType =
+//         type === "image"
+//           ? "image"
+//           : type === "video"
+//             ? "video"
+//             : "raw";
+
+//       const url = await uploadToCloudinary(uri, cloudType);
+
+//       sendSocketMessage(chatId, url, type, tempId);
+//     } catch (err) { }
+//   };
+
+//   const pickVideo = async () => {
+//     const result = await ImagePicker.launchImageLibraryAsync({
+//       mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+//       quality: 0.8
+//     });
+
+//     if (!result.canceled) {
+//       const uri = result.assets[0].uri;
+//       sendMediaMessage(uri, "video");
+//     }
+//   };
+
+//   const pickAudio = async () => {
+//     try {
+//       const result = await DocumentPicker.getDocumentAsync({
+//         type: "audio/*",
+//         copyToCacheDirectory: true
+//       });
+
+//       if (!result.canceled && result.assets?.length) {
+//         const asset = result.assets[0];
+//         sendMediaMessage(asset.uri, "audio");
+//       }
+//     } catch (error) { }
+//   };
+
+//   useEffect(() => {
+//     const requestPermissions = async () => {
+//       const { status } =
+//         await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+//       if (status !== "granted") { }
+//     };
+
+//     requestPermissions();
+//   }, []);
+
+//   /* ================= RENDER MESSAGE ================= */
+
+//   const renderMessage: ListRenderItem<MessageItem> = ({ item }) => {
+//     const isMe = item.sender === currentUser?._id;
+//     const isMedia =
+//       item.type === "image" || item.type === "video";
+
+//     if (item.deletedForEveryone) {
+//       return (
+//         <View style={styles.deletedBubble}>
+//           <Text style={[styles.deletedText, { color: isDark ? "#9CA3AF" : "#6B7280" }]}>
+//             This message was deleted
+//           </Text>
+//         </View>
+//       );
+//     }
+
+//     return (
+//       <View
+//         style={[
+//           styles.messageContainer,
+//           isMe ? styles.rowMe : styles.rowOther
+//         ]}
+//       >
+//         <View
+//           style={[
+//             styles.bubble,
+//             !isMedia && (isMe ? styles.me : styles.other),
+//             isDark && !isMedia && !isMe ? styles.otherDark : null,
+//           ]}
+//         >
+//           {/* IMAGE */}
+//           {item.type === "image" && item.content ? (
+//             <TouchableOpacity
+//               activeOpacity={0.9}
+//               onPress={() => setImagePreview(item.content)}
+//             >
+//               <Image
+//                 source={{ uri: item.content }}
+//                 style={{ width: 220, height: 220, borderRadius: 14 }}
+//                 resizeMode="cover"
+//               />
+//             </TouchableOpacity>
+//           )
+
+//             /* VIDEO */
+//             : item.type === "video" && item.content ? (
+//               <Video
+//                 source={{ uri: item.content }}
+//                 style={{ width: 240, height: 240, borderRadius: 14 }}
+//                 useNativeControls
+//                 resizeMode={ResizeMode.CONTAIN}
+//                 isLooping={false}
+//               />
+//             )
+
+//               /* AUDIO */
+//               : item.type === "audio" && item.content ? (
+//                 <VoiceMessagePlayer
+//                   uri={item.content}
+//                   isMe={isMe}
+//                 />
+//               )
+
+//                 /* TEXT */
+//                 : (
+//                   <Text style={isMe ? styles.meText : [styles.otherText, { color: isDark ? "#E5E7EB" : "#111827" }]}>
+//                     {item.content}
+//                   </Text>
+//                 )}
+//         </View>
+
+//         {/* Time outside bubble */}
+//         <View style={[styles.timeWrapper, isMe ? styles.timeRight : styles.timeLeft]}>
+//           <Text
+//             style={[
+//               styles.timeText,
+//               isMe ? styles.timeMe : styles.timeOther,
+//               { color: isDark ? "#9CA3AF" : undefined }
+//             ]}
+//           >
+//             {formatTime(item.createdAt)}
+//           </Text>
+
+//           {isMe && (
+//             <View style={styles.statusIcon}>
+//               {item.deliveryStatus?.seenBy?.length ? (
+//                 <Ionicons name="checkmark-done" size={14} color="#60A5FA" />
+//               ) : item.deliveryStatus?.deliveredTo?.length ? (
+//                 <Ionicons name="checkmark-done" size={14} color={isDark ? "#9CA3AF" : "#E5E7EB"} />
+//               ) : (
+//                 <Ionicons name="checkmark" size={14} color={isDark ? "#9CA3AF" : "#E5E7EB"} />
+//               )}
+//             </View>
+//           )}
+//         </View>
+//       </View>
+//     );
+//   };
+
+//   /* ================= BLOCKED ================= */
+
+//   // if (isBlocked) {
+//   //   return (
+//   //     <SafeAreaView style={[styles.center, { backgroundColor: isDark ? "#0B1220" : "white" }]}>
+//   //       <Text style={{ color: isDark ? "#E5E7EB" : "#111827" }}>
+//   //         This conversation is blocked
+//   //       </Text>
+//   //     </SafeAreaView>
+//   //   );
+//   // }
+//   const menuLabel = blockedMe ? "محظور" : blockedByMe ? "فك الحظر" : "حظر";
+//   const menuIcon: keyof typeof Ionicons.glyphMap = blockedMe
+//     ? "alert-circle-outline"
+//     : blockedByMe
+//       ? "lock-open-outline"
+//       : "lock-closed-outline";
+
+//   /* ================= UI ================= */
+
+//   return (
+
+//     <SafeAreaView style={[styles.container, { backgroundColor: isDark ? "#0B1220" : "white" }]}>
+//       {/* HEADER */}
+//       <View
+//         style={[
+//           styles.header,
+//           {
+//             backgroundColor: isDark ? "#0F172A" : "#FFF",
+//             borderColor: isDark ? "#111827" : "#E5E7EB",
+//           },
+//         ]}
+//       >
+//         <View style={styles.headerLeft}>
+//           <TouchableOpacity
+//             style={styles.backBtn}
+//             onPress={() => router.back()}
+//           >
+//             <Ionicons
+//               name="arrow-back"
+//               size={22}
+//               color={isDark ? "#E5E7EB" : "#111827"}
+//             />
+//           </TouchableOpacity>
+
+//           {otherUser?.avatar ? (
+//             <Image source={{ uri: otherUser.avatar }} style={styles.avatar} />
+//           ) : (
+//             <View style={styles.avatarPlaceholder}>
+//               <Ionicons name="person" size={18} color="#FFF" />
+//             </View>
+//           )}
+
+//           <View style={styles.userInfo}>
+//             <Text
+//               style={[
+//                 styles.username,
+//                 { color: isDark ? "#E5E7EB" : "#111827" },
+//               ]}
+//               numberOfLines={1}
+//             >
+//               {otherUser?.username || "User"}
+//             </Text>
+
+//             {!!typingUsers.length ? (
+//               <Text
+//                 style={[
+//                   styles.typing,
+//                   { color: isDark ? "#9CA3AF" : "#6B7280" },
+//                 ]}
+//               >
+//                 Typing...
+//               </Text>
+//             ) : blockedByMe ? (
+//               <Text style={[styles.lastSeen, { color: "#EF4444" }]}>
+//                 تم حظر هذا الحساب
+//               </Text>
+//             ) : blockedMe ? (
+//               <Text style={[styles.lastSeen, { color: "#EF4444" }]}>
+//                 هذا الحساب حظرك
+//               </Text>
+//             ) : otherUser?.isOnline ? (
+//               <Text style={styles.onlineText}>Online</Text>
+//             ) : otherUser?.lastSeen ? (
+//               <Text
+//                 style={[
+//                   styles.lastSeen,
+//                   { color: isDark ? "#9CA3AF" : "#6B7280" },
+//                 ]}
+//               >
+//                 Last seen {formatLastSeen(otherUser.lastSeen)}
+//               </Text>
+//             ) : null}
+//           </View>
+//         </View>
+
+//         <View style={styles.headerRight}>
+//           <TouchableOpacity
+//             style={styles.iconBtn}
+//             onPress={() => setMenuOpen((v) => !v)}
+//           >
+//             <Ionicons
+//               name="ellipsis-vertical"
+//               size={20}
+//               color={isDark ? "#E5E7EB" : "#111827"}
+//             />
+//           </TouchableOpacity>
+//         </View>
+//       </View>
+
+
+//       {recordedUri && (
+//         <VoiceRecorderPreview
+//           uri={recordedUri}
+//           onCancel={() => setRecordedUri(null)}
+//           onSend={async () => {
+//             if (isBlocked) return;
+
+//             const url = await uploadToCloudinary(recordedUri, "raw");
+//             const tempId = `temp-${Date.now()}`;
+
+//             dispatch(
+//               addMessage({
+//                 _id: tempId,
+//                 clientTempId: tempId,
+//                 chat: chatId,
+//                 sender: currentUser!._id,
+//                 type: "audio",
+//                 content: url,
+//                 createdAt: new Date().toISOString(),
+//                 reactions: [],
+//                 deliveryStatus: { deliveredTo: [], seenBy: [] },
+//               } as any)
+//             );
+
+//             sendSocketMessage(chatId, url, "audio", tempId);
+//             setRecordedUri(null);
+//           }}
+//         />
+//       )}
+//       {isBlocked && (
+//         <View
+//           style={{
+//             marginHorizontal: 12,
+//             marginTop: 10,
+//             padding: 12,
+//             borderRadius: 14,
+//             borderWidth: 1,
+//             backgroundColor: "rgba(239,68,68,0.08)",
+//             borderColor: "rgba(239,68,68,0.25)",
+//             flexDirection: "row",
+//             alignItems: "center",
+//             gap: 10,
+//           }}
+//         >
+//           <Ionicons name="alert-circle-outline" size={18} color="#EF4444" />
+//           <Text style={{ flex: 1, fontWeight: "800", color: isDark ? "#E5E7EB" : "#111827" }}>
+//             {blockedMe
+//               ? "هذا الحساب قام بحظرك، لا يمكنك إرسال رسائل."
+//               : "لقد قمت بحظر هذا الحساب، قم بفك الحظر لإرسال رسائل."}
+//           </Text>
+//         </View>
+//       )}
+//       {/* CHAT LIST */}
+//       <FlatList
+//         ref={flatListRef}
+//         data={messages}
+//         inverted
+//         onEndReached={loadMore}
+//         onEndReachedThreshold={0.2}
+//         ListHeaderComponent={
+//           <Animated.View style={listSpacerAnimatedStyle} />
+//         }
+//         ListFooterComponent={
+//           loading && hasMore ? (
+//             <View style={styles.paginationLoader}>
+//               <ActivityIndicator size="small" color="#6D5DF6" />
+//             </View>
+//           ) : null
+//         }
+//         keyExtractor={(item) => item._id}
+//         renderItem={renderMessage}
+//         contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12 }}
+//         keyboardShouldPersistTaps="handled"
+//         showsVerticalScrollIndicator={false}
+//       />
+
+//       {/* INPUT BAR */}
+//       <Animated.View
+//         onLayout={(e) => {
+//           setInputBarHeight(e.nativeEvent.layout.height);
+//         }}
+//         style={[
+//           styles.inputBarWrap,
+//           inputBarAnimatedStyle,
+//           {
+//             paddingBottom: Math.max(insets.bottom, 8),
+//             backgroundColor: isDark ? "#0F172A" : "#FFF",
+//             borderColor: isDark ? "#111827" : "#E5E7EB",
+//             opacity: isBlocked ? 0.55 : 1,
+//           },
+//         ]}
+//         pointerEvents={isBlocked ? "none" : "auto"}
+//       >
+//         <View
+//           style={[
+//             styles.inputBar,
+//             {
+//               backgroundColor: isDark ? "#0F172A" : "#FFF",
+//               borderColor: isDark ? "#111827" : "#E5E7EB",
+//             },
+//           ]}
+//         >
+//           <TouchableOpacity style={styles.iconBtn} onPress={pickVideo}>
+//             <Ionicons
+//               name="videocam-outline"
+//               size={22}
+//               color={isDark ? "#9CA3AF" : "#6B7280"}
+//             />
+//           </TouchableOpacity>
+
+//           <TouchableOpacity style={styles.iconBtn} onPress={pickImage}>
+//             <Ionicons
+//               name="image-outline"
+//               size={22}
+//               color={isDark ? "#9CA3AF" : "#6B7280"}
+//             />
+//           </TouchableOpacity>
+
+//           <TextInput
+//             style={[
+//               styles.input,
+//               {
+//                 backgroundColor: isDark ? "#111827" : "#F3F4F6",
+//                 color: isDark ? "#E5E7EB" : "#111827",
+//               },
+//             ]}
+//             placeholder={isBlocked ? "لا يمكنك المراسلة أثناء الحظر" : "Type a message"}
+//             placeholderTextColor={isDark ? "#9CA3AF" : "#6B7280"}
+//             value={text}
+//             onChangeText={(v) => {
+//               setText(v);
+
+//               emitTyping(chatId, true);
+
+//               clearTimeout(typingTimeout.current);
+
+//               typingTimeout.current = setTimeout(() => {
+//                 emitTyping(chatId, false);
+//               }, 1500);
+//             }}
+//             onFocus={() => {
+//               setTimeout(() => {
+//                 flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+//               }, 50);
+//             }}
+//             multiline
+//           />
+
+//           {text.trim() ? (
+//             <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
+//               <Ionicons name="send" size={20} color="#FFF" />
+//             </TouchableOpacity>
+//           ) : (
+//             <TouchableOpacity
+//               style={styles.micBtn}
+//               onPressIn={startRecording}
+//               onPressOut={stopRecording}
+//             >
+//               <Ionicons
+//                 name={isRecording ? "mic" : "mic-outline"}
+//                 size={22}
+//                 color={isRecording ? "red" : isDark ? "#9CA3AF" : "#6B7280"}
+//               />
+//             </TouchableOpacity>
+//           )}
+//         </View>
+//       </Animated.View>
+//       {/* ✅ Fullscreen Image Modal */}
+//       <Modal
+//         visible={!!imagePreview}
+//         transparent
+//         animationType="fade"
+//         onRequestClose={() => setImagePreview(null)}
+//       >
+//         <View style={styles.previewOverlay}>
+//           <Pressable style={styles.previewCloseArea} onPress={() => setImagePreview(null)} />
+//           <View style={styles.previewHeader}>
+//             <TouchableOpacity onPress={() => setImagePreview(null)} style={styles.previewCloseBtn}>
+//               <Ionicons name="close" size={24} color="#FFF" />
+//             </TouchableOpacity>
+//           </View>
+//           <View style={styles.previewBody}>
+//             {!!imagePreview && (
+//               <Image
+//                 source={{ uri: imagePreview }}
+//                 style={styles.previewImage}
+//                 resizeMode="contain"
+//               />
+//             )}
+//           </View>
+//         </View>
+//       </Modal>
+//       {/* Dropdown Menu */}
+//       {menuOpen && (
+//         <Pressable
+//           style={styles.menuOverlay}
+//           onPress={() => setMenuOpen(false)}
+//         >
+//           <Pressable
+//             style={[
+//               styles.menuBox,
+//               {
+//                 backgroundColor: isDark ? "#0F172A" : "#FFF",
+//                 borderColor: isDark ? "#111827" : "#E5E7EB",
+//               },
+//             ]}
+//           >
+//             <TouchableOpacity
+//               style={styles.menuItem}
+//               onPress={doToggleBlock}
+//               disabled={blockedMe}
+//               activeOpacity={0.8}
+//             >
+//               <Ionicons
+//                 name={menuIcon}
+//                 size={18}
+//                 color={blockedMe ? "#EF4444" : blockedByMe ? "#22C55E" : "#EF4444"}
+//                 style={{ marginRight: 10 }}
+//               />
+//               <Text
+//                 style={[
+//                   styles.menuText,
+//                   { color: blockedMe ? "#EF4444" : blockedByMe ? "#22C55E" : "#EF4444" },
+//                 ]}
+//               >
+//                 {menuLabel}
+//               </Text>
+//             </TouchableOpacity>
+//           </Pressable>
+//         </Pressable>
+//       )}
+
+//     </SafeAreaView>
+//   );
+// }
+
+// /* ===================================================== */
+
+// const styles = StyleSheet.create({
+//   container: { flex: 1, backgroundColor: "white" },
+
+//   header: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     justifyContent: "space-between",
+//     paddingHorizontal: 12,
+//     paddingVertical: 10,
+//     borderBottomWidth: 1,
+//     borderColor: "#E5E7EB",
+//     backgroundColor: "#FFF",
+//   },
+
+//   headerLeft: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//   },
+
+//   headerRight: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//   },
+
+//   backBtn: {
+//     marginRight: 8,
+//   },
+
+//   avatar: {
+//     width: 38,
+//     height: 38,
+//     borderRadius: 19,
+//     marginRight: 10,
+//   },
+
+//   avatarPlaceholder: {
+//     width: 38,
+//     height: 38,
+//     borderRadius: 19,
+//     backgroundColor: "#6D5DF6",
+//     alignItems: "center",
+//     justifyContent: "center",
+//     marginRight: 10,
+//   },
+//   menuOverlay: {
+//     ...StyleSheet.absoluteFillObject,
+//     zIndex: 9999,
+//   },
+
+//   menuBox: {
+//     position: "absolute",
+//     top: 56,          // ✅ عدّلها حسب ارتفاع الهيدر عندك
+//     right: 12,
+//     minWidth: 160,
+//     borderWidth: 1,
+//     borderRadius: 12,
+//     overflow: "hidden",
+//     elevation: 6,     // Android shadow
+//   },
+
+//   menuItem: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     paddingHorizontal: 12,
+//     paddingVertical: 12,
+//   },
+
+//   menuText: {
+//     fontSize: 14,
+//     fontWeight: "600",
+//   },
+//   userInfo: {
+//     justifyContent: "center",
+//   },
+
+//   paginationLoader: {
+//     paddingVertical: 10,
+//     alignItems: "center",
+//   },
+
+//   username: {
+//     fontSize: 15,
+//     fontWeight: "600",
+//     color: "#111827",
+//   },
+
+//   onlineText: {
+//     fontSize: 12,
+//     color: "#22C55E",
+//     marginTop: 2,
+//   },
+
+//   lastSeen: {
+//     fontSize: 12,
+//     color: "#6B7280",
+//     marginTop: 2,
+//   },
+
+//   typing: {
+//     fontSize: 12,
+//     color: "#6B7280",
+//     fontStyle: "italic",
+//     marginTop: 2,
+//   },
+
+//   iconBtn: {
+//     paddingHorizontal: 6,
+//   },
+//   inputBarWrap: {
+//     borderTopWidth: 1,
+//   },
+//   messageRow: { marginVertical: 6 },
+//   me: { backgroundColor: "#80c080", borderBottomRightRadius: 4 },
+//   other: { backgroundColor: "#f5f5f5", borderBottomLeftRadius: 4 },
+
+//   // ✅ Dark alternative for other bubble only (text already handled)
+//   otherDark: { backgroundColor: "#111827" },
+
+//   meText: { color: "#FFF" },
+//   otherText: { color: "#111827" },
+
+//   reactionRow: { flexDirection: "row", marginTop: 6 },
+
+//   timeRow: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     justifyContent: "flex-end",
+//     marginTop: 6
+//   },
+
+//   sendBtn: {
+//     backgroundColor: "#6D5DF6",
+//     width: 36,
+//     height: 36,
+//     borderRadius: 18,
+//     alignItems: "center",
+//     justifyContent: "center",
+//   },
+
+//   micBtn: {
+//     padding: 6,
+//   },
+
+//   timeMe: { color: "#83858a" },
+//   timeOther: { color: "#6B7280" },
+//   statusIcon: { marginLeft: 2 },
+
+//   inputBar: {
+//     flexDirection: "row",
+//     paddingHorizontal: 12,
+//     paddingTop: 12,
+//     alignItems: "center",
+//     borderColor: "#E5E7EB",
+//     backgroundColor: "#FFF",
+//   },
+
+//   input: {
+//     flex: 1,
+//     backgroundColor: "#F3F4F6",
+//     borderRadius: 20,
+//     paddingHorizontal: 14,
+//     paddingVertical: 8,
+//     marginRight: 10
+//   },
+
+//   deletedBubble: { alignSelf: "center", marginVertical: 8 },
+//   deletedText: { fontStyle: "italic", color: "#6B7280" },
+//   center: { flex: 1, justifyContent: "center", alignItems: "center" },
+
+//   messageContainer: {
+//     marginVertical: 4,
+//   },
+
+//   bubble: {
+//     maxWidth: "75%",
+//     paddingVertical: 8,
+//     paddingHorizontal: 12,
+//     borderRadius: 16,
+//   },
+
+//   timeWrapper: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     marginTop: 2,
+//   },
+
+//   timeRight: {
+//     justifyContent: "flex-end",
+//   },
+
+//   timeLeft: {
+//     justifyContent: "flex-start",
+//   },
+
+//   timeText: {
+//     fontSize: 10,
+//   },
+
+//   rowMe: {
+//     alignItems: "flex-end",
+//   },
+
+//   rowOther: {
+//     alignItems: "flex-start",
+//   },
+
+//   /* ===== Fullscreen Image Preview ===== */
+//   previewOverlay: {
+//     flex: 1,
+//     backgroundColor: "rgba(0,0,0,0.95)",
+//   },
+//   previewCloseArea: {
+//     ...StyleSheet.absoluteFillObject,
+//   },
+//   previewHeader: {
+//     paddingTop: 50,
+//     paddingHorizontal: 16,
+//     flexDirection: "row",
+//     justifyContent: "flex-end",
+//   },
+//   previewCloseBtn: {
+//     width: 42,
+//     height: 42,
+//     borderRadius: 21,
+//     alignItems: "center",
+//     justifyContent: "center",
+//     backgroundColor: "rgba(255,255,255,0.15)",
+//   },
+//   previewBody: {
+//     flex: 1,
+//     justifyContent: "center",
+//     alignItems: "center",
+//     paddingHorizontal: 12,
+//   },
+//   previewImage: {
+//     width: "100%",
+//     height: "80%",
+//   },
+// });
 
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Audio, ResizeMode, Video } from "expo-av";
+import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActionSheetIOS,
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   ListRenderItem,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   useColorScheme,
-  View
+  View,
 } from "react-native";
-import { useKeyboardHandler } from 'react-native-keyboard-controller';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import { useKeyboardHandler } from "react-native-keyboard-controller";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
+
+import api from "@/services/api";
+
+import VoiceMessagePlayer from "@/components/VoiceMessagePlayer";
+import VoiceRecorderPreview from "@/components/VoiceRecorderPreview";
 
 import {
   addMessage,
   clearChatMessages,
   loadMessages,
-  MessageItem
+  MessageItem,
 } from "@/redux/slices/messageSlice";
 
-import { setActiveChat } from "@/redux/slices/chatSlice";
-
-import { AppDispatch, RootState } from "@/redux/store";
 import {
-  emitMarkAsSeen,
-  emitTyping,
-  joinChatRoom,
-  leaveChatRoom,
-  sendSocketMessage
-} from "@/services/socket";
+  clearSearchResults,
+  searchMessagesInChat,
+  setActiveChat,
+  setSearchQuery,
+} from "@/redux/slices/chatSlice";
+
+import { blockUser } from "@/redux/slices/followSlice";
+import { unblockUser } from "@/redux/slices/friendSlice";
+import {
+  fetchBlockStatus,
+  fetchUserProfile,
+} from "@/redux/slices/userSlice";
 
 import {
   selectChatById,
   selectCurrentUser,
   selectMessagesByChatId,
   selectOtherUser,
-  selectTypingUsersByChatId
+  selectTypingUsersByChatId,
 } from "@/redux/selectors";
-import * as DocumentPicker from "expo-document-picker";
-
-import VoiceMessagePlayer from "@/components/VoiceMessagePlayer";
-import VoiceRecorderPreview from "@/components/VoiceRecorderPreview";
-import { blockUser } from "@/redux/slices/followSlice";
-import { unblockUser } from "@/redux/slices/friendSlice";
-import { fetchBlockStatus, fetchUserProfile } from "@/redux/slices/userSlice";
+import { AppDispatch, RootState } from "@/redux/store";
+import {
+  emitMarkAsSeen,
+  emitTyping,
+  joinChatRoom,
+  leaveChatRoom,
+  sendSocketMessage,
+} from "@/services/socket";
 import { uploadToCloudinary } from "@/services/upload.service";
 import { formatLastSeen, formatTime } from "@/utils/helpFunctions";
-import { Audio, ResizeMode, Video } from "expo-av";
+
 type RelationshipStatus =
   | "none"
   | "pending_sent"
@@ -71,38 +1255,45 @@ type RelationshipStatus =
 
 type ProfileUser = {
   _id: string;
-
   username: string;
   atUsername?: string;
-
   bio?: string;
   country?: string;
   city?: string;
-
   avatar?: string;
   coverImage?: string;
-
   dateOfBirth?: string;
-
   followersCount?: number;
   followingCount?: number;
   totalLikesReceived?: number;
   profileViews?: number;
-
   isOnline?: boolean;
   lastSeen?: string;
-
   isVerified?: boolean;
-
   tags?: string[];
-
-  // ✅ مهم جداً لزر الصداقة
   relationshipStatus?: RelationshipStatus;
-
-  // ✅ إن كانت موجودة من API (اختياري)
   isFollowing?: boolean;
 };
-/* ===================================================== */
+
+type SearchResultItem = {
+  _id: string;
+  chat: string;
+  sender: string | { _id: string; username?: string; avatar?: string };
+  content: string;
+  type: string;
+  media?: any;
+  replyTo?: any;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ReplyState = {
+  _id: string;
+  content?: string;
+  type?: string;
+  sender?: string;
+  media?: any;
+} | null;
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -112,15 +1303,32 @@ export default function ChatScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordedUri, setRecordedUri] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [inputBarHeight, setInputBarHeight] = useState(0);
   const dispatch = useDispatch<AppDispatch>();
   const insets = useSafeAreaInsets();
+
   const keyboardHeight = useSharedValue(0);
+  const flatListRef = useRef<FlatList<any>>(null);
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const typingTimeout = useRef<any>(null);
+  const searchTimeout = useRef<any>(null);
+
+  const [page, setPage] = useState(1);
+  const [loadedPages, setLoadedPages] = useState<number[]>([1]);
+  const [hasMore, setHasMore] = useState(true);
+
+  const [text, setText] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedUri, setRecordedUri] = useState<string | null>(null);
+
+  const [rel, setRel] = useState<RelationshipStatus>("none");
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedSearchIndex, setSelectedSearchIndex] = useState(0);
+  const [selectedSearchMessageId, setSelectedSearchMessageId] = useState<string | null>(null);
+
+  const [replyToMessage, setReplyToMessage] = useState<ReplyState>(null);
 
   useKeyboardHandler(
     {
@@ -138,35 +1346,25 @@ export default function ChatScreen() {
 
   const inputBarAnimatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [
-        {
-          translateY: -keyboardHeight.value,
-        },
-      ],
+      transform: [{ translateY: -keyboardHeight.value }],
     };
   });
 
-const listSpacerAnimatedStyle = useAnimatedStyle(() => {
-  return {
-    height: keyboardHeight.value,
-  };
-});
-  const flatListRef = useRef<any>(null);
-  const typingTimeout = useRef<any>(null);
+  const listSpacerAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: keyboardHeight.value,
+    };
+  });
 
   const currentUser = useSelector(selectCurrentUser);
 
-  const chat = useSelector(
-    useMemo(() => selectChatById(chatId), [chatId])
-  );
+  const chat = useSelector(useMemo(() => selectChatById(chatId), [chatId]));
 
   const messages = useSelector(
     useMemo(() => selectMessagesByChatId(chatId), [chatId])
   );
 
-  const loading = useSelector(
-    (state: RootState) => state.message.loading
-  );
+  const loading = useSelector((state: RootState) => state.message.loading);
 
   const typingUsers = useSelector(
     useMemo(
@@ -181,15 +1379,48 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
       [chatId, currentUser?._id]
     )
   );
-  const [rel, setRel] = useState<RelationshipStatus>("none");
 
-  const [text, setText] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
-  // ✅ Fullscreen image preview
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const profileUser = useSelector(
+    (s: RootState) => (s.user as any).profileUser
+  ) as ProfileUser | null;
+
+  const blockStatus = useSelector((s: RootState) => (s.user as any).blockStatus) as
+    | { blockedByMe: boolean; blockedMe: boolean; anyBlocked: boolean }
+    | null;
+
+  const searchQuery = useSelector(
+    (s: RootState) => (s.chat as any).searchQuery || ""
+  ) as string;
+
+  const searchResults = useSelector(
+    (s: RootState) => ((s.chat as any).searchResults || [])
+  ) as SearchResultItem[];
+
+  const searchLoading = useSelector(
+    (s: RootState) => (s.chat as any).searchLoading || false
+  ) as boolean;
+
   const blockedByMe = rel === "blocked_by_me";
   const blockedMe = rel === "blocked_me";
   const isBlocked = blockedByMe || blockedMe;
+
+  const inputSearchValue = searchQuery || "";
+
+  const highlightedMessageIds = useMemo(
+    () => new Set(searchResults.map((item) => item._id)),
+    [searchResults]
+  );
+
+  const currentSelectedResult =
+    searchResults.length > 0 ? searchResults[selectedSearchIndex] : null;
+
+  const menuLabel = blockedMe ? "محظور" : blockedByMe ? "فك الحظر" : "حظر";
+  const menuIcon: keyof typeof Ionicons.glyphMap = blockedMe
+    ? "alert-circle-outline"
+    : blockedByMe
+      ? "lock-open-outline"
+      : "lock-closed-outline";
+
   const doToggleBlock = async () => {
     const targetId = otherUser?._id;
     if (!targetId) return;
@@ -198,44 +1429,31 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
       setMenuOpen(false);
       return;
     }
-    try {
-      if (blockedMe) { setMenuOpen(false); return; }
 
+    try {
       if (blockedByMe) {
         await dispatch(unblockUser(targetId) as any).unwrap?.();
       } else {
         await dispatch(blockUser(targetId) as any).unwrap?.();
       }
 
-      // ✅ الأهم: إعادة فحص حالة الحظر من المصدر الحقيقي
       await dispatch(fetchBlockStatus({ targetUserId: String(targetId) }) as any);
-
-      // (اختياري) لو محتاج بيانات البروفايل نفسها
       await dispatch(fetchUserProfile(String(targetId)) as any).unwrap?.();
-
     } catch (e) {
       console.log("❌ doToggleBlock error:", e);
     } finally {
       setMenuOpen(false);
     }
   };
-  const profileUser = useSelector((s: RootState) => (s.user as any).profileUser) as ProfileUser | null;
-  const searchResults = useSelector((s: RootState) => (s.friends as any).searchResults) as any[];
-  const [isFollowing, setIsFollowing] = useState(false);
-  const blockStatus = useSelector((s: RootState) => (s.user as any).blockStatus) as
-    | { blockedByMe: boolean; blockedMe: boolean; anyBlocked: boolean }
-    | null;
 
-  const blockLoading = useSelector((s: RootState) => (s.user as any).loadingBlockStatus) as boolean;
   useEffect(() => {
     const targetId = otherUser?._id;
     if (!targetId) return;
 
-    console.log("[ChatScreen] fetchUserProfile targetId:", targetId);
     dispatch(fetchUserProfile(String(targetId)));
     dispatch(fetchBlockStatus({ targetUserId: String(targetId) }) as any);
-
   }, [otherUser?._id, dispatch]);
+
   useEffect(() => {
     if (!blockStatus) return;
 
@@ -243,9 +1461,198 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
     else if (blockStatus.blockedByMe) setRel("blocked_by_me");
     else setRel("none");
   }, [blockStatus?.blockedByMe, blockStatus?.blockedMe]);
-  const user = profileUser;
-  console.log(user, 'user');
-  /* ================= INITIAL LOAD ================= */
+
+  const refreshMessages = async () => {
+    try {
+      dispatch(clearChatMessages(chatId));
+      setPage(1);
+      setLoadedPages([1]);
+      setHasMore(true);
+
+      const res = await dispatch(loadMessages({ chatId, page: 1 })).unwrap();
+      if (res.messages.length < 20) {
+        setHasMore(false);
+      }
+    } catch (e) {
+      console.log("❌ refreshMessages error:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (!chatId) return;
+    if (!currentUser?._id) return;
+
+    dispatch(setActiveChat(chatId));
+    joinChatRoom(chatId);
+
+    dispatch(loadMessages({ chatId, page: 1 }))
+      .unwrap()
+      .then((res) => {
+        setLoadedPages([1]);
+        setPage(1);
+
+        if (res.messages.length < 20) setHasMore(false);
+
+        const hasIncoming = res.messages.some(
+          (m: any) => String(m.sender) !== String(currentUser._id)
+        );
+
+        if (hasIncoming) emitMarkAsSeen(chatId);
+      })
+      .catch(() => { });
+
+    return () => {
+      leaveChatRoom(chatId);
+      dispatch(setActiveChat(undefined));
+      dispatch(clearChatMessages(chatId));
+      dispatch(clearSearchResults());
+      setReplyToMessage(null);
+    };
+  }, [chatId, currentUser?._id, dispatch]);
+
+  useEffect(() => {
+    const requestPermissions = async () => {
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    };
+    requestPermissions();
+  }, []);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+
+    clearTimeout(searchTimeout.current);
+
+    searchTimeout.current = setTimeout(() => {
+      const q = String(inputSearchValue || "").trim();
+
+      if (!q) {
+        dispatch(clearSearchResults());
+        setSelectedSearchIndex(0);
+        setSelectedSearchMessageId(null);
+        return;
+      }
+
+      dispatch(searchMessagesInChat({ chatId, query: q }) as any);
+    }, 350);
+
+    return () => clearTimeout(searchTimeout.current);
+  }, [inputSearchValue, searchOpen, chatId, dispatch]);
+
+  useEffect(() => {
+    if (!searchResults.length) {
+      setSelectedSearchIndex(0);
+      setSelectedSearchMessageId(null);
+      return;
+    }
+
+    const safeIndex = Math.min(selectedSearchIndex, searchResults.length - 1);
+    setSelectedSearchIndex(safeIndex);
+    setSelectedSearchMessageId(searchResults[safeIndex]?._id || null);
+  }, [searchResults.length]);
+
+  const loadMore = async () => {
+    if (!hasMore || loading) return;
+
+    const nextPage = page + 1;
+
+    try {
+      const res = await dispatch(loadMessages({ chatId, page: nextPage })).unwrap();
+
+      if (res.messages.length < 20) {
+        setHasMore(false);
+      }
+
+      setPage(nextPage);
+      setLoadedPages((prev) =>
+        prev.includes(nextPage) ? prev : [...prev, nextPage]
+      );
+    } catch { }
+  };
+
+  const ensureMessageLoaded = async (messageId: string) => {
+    let found = messages.some((m: { _id: string; }) => m._id === messageId);
+    if (found) return true;
+
+    let guard = 0;
+    while (!found && hasMore && guard < 30) {
+      guard += 1;
+
+      const nextPage = page + 1;
+
+      try {
+        const res = await dispatch(loadMessages({ chatId, page: nextPage })).unwrap();
+
+        if (res.messages.length < 20) {
+          setHasMore(false);
+        }
+
+        setPage(nextPage);
+        setLoadedPages((prev) =>
+          prev.includes(nextPage) ? prev : [...prev, nextPage]
+        );
+
+        const newlyFound = res.messages.some((m: any) => m._id === messageId);
+        if (newlyFound) {
+          found = true;
+          break;
+        }
+
+        if (res.messages.length < 20) {
+          break;
+        }
+      } catch {
+        break;
+      }
+    }
+
+    return found;
+  };
+
+  const scrollToMessageIfLoaded = async (messageId: string) => {
+    let index = messages.findIndex((m: { _id: string; }) => m._id === messageId);
+
+    if (index === -1) {
+      const ok = await ensureMessageLoaded(messageId);
+      if (!ok) return false;
+    }
+
+    setTimeout(() => {
+      const newIndex = messages.findIndex((m: { _id: string; }) => m._id === messageId);
+      if (newIndex === -1) return;
+
+      setSelectedSearchMessageId(messageId);
+      flatListRef.current?.scrollToIndex?.({
+        index: newIndex,
+        animated: true,
+        viewPosition: 0.5,
+      });
+    }, 350);
+
+    return true;
+  };
+
+  const goToSearchResult = async (index: number) => {
+    if (!searchResults.length) return;
+
+    const normalized =
+      index < 0
+        ? searchResults.length - 1
+        : index >= searchResults.length
+          ? 0
+          : index;
+
+    const item = searchResults[normalized];
+    setSelectedSearchIndex(normalized);
+    setSelectedSearchMessageId(item._id);
+    await scrollToMessageIfLoaded(item._id);
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSelectedSearchIndex(0);
+    setSelectedSearchMessageId(null);
+    dispatch(clearSearchResults());
+  };
 
   const startRecording = async () => {
     try {
@@ -254,17 +1661,16 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
 
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
-        playsInSilentModeIOS: true
+        playsInSilentModeIOS: true,
       });
 
-      const { recording } =
-        await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY
-        );
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
 
       recordingRef.current = recording;
       setIsRecording(true);
-    } catch (err) { }
+    } catch { }
   };
 
   const stopRecording = async () => {
@@ -278,65 +1684,18 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
       setIsRecording(false);
 
       if (!uri) return;
-
-      // ✅ فقط عرض المعاينة
       setRecordedUri(uri);
-    } catch (err) { }
+    } catch { }
   };
 
-  useEffect(() => {
-    if (!chatId) return;
-    if (!currentUser?._id) return;
-
-    dispatch(setActiveChat(chatId));
-    joinChatRoom(chatId);
-
-    dispatch(loadMessages({ chatId, page: 1 }))
-      .unwrap()
-      .then((res) => {
-        const hasIncoming = res.messages.some(
-          (m: any) => m.sender !== currentUser._id
-        );
-
-        if (hasIncoming) emitMarkAsSeen(chatId);
-      })
-      .catch(() => { });
-
-    return () => {
-      leaveChatRoom(chatId);
-      dispatch(setActiveChat(undefined));
-      dispatch(clearChatMessages(chatId));
-    };
-  }, [chatId, currentUser?._id, dispatch]);
-
-  // useEffect(() => {
-  //   if (!chatId) return;
-  //   if (!currentUser?._id) return;
-
-  //   dispatch(setActiveChat(chatId));
-
-  //   return () => {
-  //     dispatch(setActiveChat(undefined));
-  //   };
-  // }, [chatId]);
-
-  const loadMore = () => {
-    if (!hasMore || loading) return;
-
-    const nextPage = page + 1;
-
-    dispatch(loadMessages({ chatId, page: nextPage }))
-      .unwrap()
-      .then((res) => {
-        if (res.messages.length < 20) {
-          setHasMore(false);
-        }
-        setPage(nextPage);
-      })
-      .catch(() => { });
+  const getReplyPreviewText = (msg: any) => {
+    if (!msg) return "";
+    if (msg.type === "image") return "📷 صورة";
+    if (msg.type === "video") return "🎥 فيديو";
+    if (msg.type === "audio") return "🎤 رسالة صوتية";
+    if (msg.type === "file") return "📎 ملف";
+    return String(msg.content || "");
   };
-
-  /* ================= SEND MESSAGE ================= */
 
   const sendMessage = () => {
     if (!text.trim() || !currentUser?._id) return;
@@ -350,148 +1709,428 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
       sender: currentUser._id,
       type: "text",
       content: text,
+      replyTo: replyToMessage?._id,
       reactions: [],
       deliveryStatus: {
         deliveredTo: [],
-        seenBy: []
+        seenBy: [],
       },
       createdAt: new Date().toISOString(),
-      optimistic: true
-    };
+      optimistic: true,
+    } as any;
 
     dispatch(addMessage(optimistic));
 
-    sendSocketMessage(chatId, text, "text", tempId);
+    sendSocketMessage(
+      chatId,
+      text,
+      "text",
+      tempId,
+      undefined,
+      replyToMessage?._id
+    );
 
     setText("");
+    setReplyToMessage(null);
   };
+
+const sendMediaMessage = async (
+  uri: string,
+  type: "image" | "video" | "audio"
+) => {
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("🚀 sendMediaMessage START");
+  console.log("📌 chatId:", chatId);
+  console.log("📌 type:", type);
+  console.log("📌 uri:", uri);
+  console.log("📌 currentUser:", currentUser?._id);
+  console.log("📌 replyTo:", replyToMessage?._id);
+
+  if (!currentUser?._id) {
+    console.log("❌ sendMediaMessage STOP: currentUser._id not found");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    return;
+  }
+
+  const tempId = `temp-${Date.now()}`;
+  console.log("🆔 tempId:", tempId);
+
+  const optimisticMessage = {
+    _id: tempId,
+    clientTempId: tempId,
+    chat: chatId,
+    sender: currentUser._id,
+    type,
+    content: "",
+    media: { url: uri },
+    replyTo: replyToMessage?._id,
+    reactions: [],
+    deliveryStatus: {
+      deliveredTo: [],
+      seenBy: [],
+    },
+    createdAt: new Date().toISOString(),
+    optimistic: true,
+  };
+
+  console.log("📝 optimisticMessage:", optimisticMessage);
+
+  dispatch(addMessage(optimisticMessage as any));
+  console.log("✅ optimistic message dispatched");
+
+  try {
+    const cloudType =
+      type === "image" ? "image" : type === "video" ? "video" : "raw";
+
+    console.log("☁️ uploadToCloudinary START");
+    console.log("📌 cloudType:", cloudType);
+
+    const url = await uploadToCloudinary(uri, cloudType);
+
+    console.log("✅ uploadToCloudinary SUCCESS");
+    console.log("🔗 uploaded url:", url);
+
+    console.log("📤 sendSocketMessage START");
+    console.log("📌 chatId:", chatId);
+    console.log("📌 type:", type);
+    console.log("📌 tempId:", tempId);
+    console.log("📌 replyTo:", replyToMessage?._id);
+
+    sendSocketMessage(
+      chatId,
+      url,
+      type,
+      tempId,
+      undefined,
+      replyToMessage?._id
+    );
+
+    console.log("✅ sendSocketMessage CALLED");
+
+    setReplyToMessage(null);
+    console.log("✅ replyToMessage cleared");
+  } catch (error: any) {
+    console.log("❌ sendMediaMessage ERROR");
+    console.log("📛 error message:", error?.message);
+    console.log("📛 full error:", error);
+    console.log("📛 error response:", error?.response?.data);
+  } finally {
+    console.log("🏁 sendMediaMessage END");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  }
+};
 
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.8
+        mediaTypes: ["images"],
+        quality: 0.8,
       });
 
       if (!result.canceled && result.assets?.length) {
         const uri = result.assets[0].uri;
-
-        const tempId = `temp-${Date.now()}`;
-
-        // 1️⃣ Optimistic
-        dispatch(addMessage({
-          _id: tempId,
-          clientTempId: tempId,
-          chat: chatId,
-          sender: currentUser!._id,
-          type: "image",
-          content: "",
-          media: { url: uri },
-          reactions: [],
-          deliveryStatus: {
-            deliveredTo: [],
-            seenBy: []
-          },
-          createdAt: new Date().toISOString(),
-          optimistic: true
-        }));
-
-        // 2️⃣ رفع إلى Cloudinary
-        const url = await uploadToCloudinary(uri, "image");
-
-        // 3️⃣ إرسال عبر Socket
-        sendSocketMessage(chatId, url, "image", tempId);
+        await sendMediaMessage(uri, "image");
       }
-    } catch (error) { }
-  };
-
-  const sendMediaMessage = async (
-    uri: string,
-    type: "image" | "video" | "audio"
-  ) => {
-    if (!currentUser?._id) return;
-
-    const tempId = `temp-${Date.now()}`;
-
-    dispatch(addMessage({
-      _id: tempId,
-      clientTempId: tempId,
-      chat: chatId,
-      sender: currentUser._id,
-      type,
-      content: "",
-      media: { url: uri },
-      reactions: [],
-      deliveryStatus: {
-        deliveredTo: [],
-        seenBy: []
-      },
-      createdAt: new Date().toISOString(),
-      optimistic: true
-    }));
-
-    try {
-      const cloudType =
-        type === "image"
-          ? "image"
-          : type === "video"
-            ? "video"
-            : "raw";
-
-      const url = await uploadToCloudinary(uri, cloudType);
-
-      sendSocketMessage(chatId, url, type, tempId);
-    } catch (err) { }
+    } catch { }
   };
 
   const pickVideo = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      quality: 0.8
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["videos"],
+        quality: 0.8,
+      });
 
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      sendMediaMessage(uri, "video");
-    }
+      if (!result.canceled && result.assets?.length) {
+        const uri = result.assets[0].uri;
+        await sendMediaMessage(uri, "video");
+      }
+    } catch { }
   };
 
   const pickAudio = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: "audio/*",
-        copyToCacheDirectory: true
+        copyToCacheDirectory: true,
       });
 
       if (!result.canceled && result.assets?.length) {
-        const asset = result.assets[0];
-        sendMediaMessage(asset.uri, "audio");
+        await sendMediaMessage(result.assets[0].uri, "audio");
       }
-    } catch (error) { }
+    } catch { }
   };
 
-  useEffect(() => {
-    const requestPermissions = async () => {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const handleDeleteMessage = async (
+    messageId: string,
+    type: "me" | "everyone"
+  ) => {
+    try {
+      await api.delete("/messages/delete", {
+        data: { messageId, type },
+      });
 
-      if (status !== "granted") { }
-    };
+      await refreshMessages();
+    } catch (error: any) {
+      Alert.alert("خطأ", error?.response?.data?.message || "فشل حذف الرسالة");
+    }
+  };
 
-    requestPermissions();
-  }, []);
+  const openMessageActions = (item: MessageItem) => {
+    const isMe = String(item.sender) === String(currentUser?._id);
+    const options = ["Reply", "Delete for me"];
+    const actions: Array<() => void> = [
+      () => {
+        setReplyToMessage({
+          _id: item._id,
+          content: item.content,
+          type: item.type,
+          sender: String(item.sender),
+          media: item.media,
+        });
+      },
+      () => {
+        Alert.alert("حذف الرسالة", "هل تريد حذف الرسالة لديك فقط؟", [
+          { text: "إلغاء", style: "cancel" },
+          {
+            text: "حذف",
+            style: "destructive",
+            onPress: () => handleDeleteMessage(item._id, "me"),
+          },
+        ]);
+      },
+    ];
 
-  /* ================= RENDER MESSAGE ================= */
+    if (isMe) {
+      options.push("Delete for everyone");
+      actions.push(() => {
+        Alert.alert("حذف للجميع", "هل تريد حذف الرسالة لدى الجميع؟", [
+          { text: "إلغاء", style: "cancel" },
+          {
+            text: "حذف",
+            style: "destructive",
+            onPress: () => handleDeleteMessage(item._id, "everyone"),
+          },
+        ]);
+      });
+    }
+
+    options.push("Cancel");
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options,
+          cancelButtonIndex: options.length - 1,
+          destructiveButtonIndex: isMe ? [1, 2] as any : 1,
+        },
+        (buttonIndex) => {
+          if (buttonIndex < actions.length) actions[buttonIndex]();
+        }
+      );
+      return;
+    }
+
+    Alert.alert(
+      "خيارات الرسالة",
+      "اختر الإجراء المطلوب",
+      [
+        {
+          text: "Reply",
+          onPress: actions[0],
+        },
+        {
+          text: "Delete for me",
+          style: "destructive",
+          onPress: actions[1],
+        },
+        ...(isMe
+          ? [
+            {
+              text: "Delete for everyone",
+              style: "destructive" as const,
+              onPress: actions[2],
+            },
+          ]
+          : []),
+        {
+          text: "إلغاء",
+          style: "cancel",
+        },
+      ]
+    );
+  };
+
+  const findMessageById = (id?: string) => {
+    if (!id) return null;
+    return messages.find((m: { _id: string; }) => m._id === id) || null;
+  };
+
+  const renderHighlightedText = (
+    content: string,
+    query: string,
+    isMe: boolean,
+    isActiveResult: boolean
+  ) => {
+    const textValue = String(content || "");
+    const q = String(query || "").trim();
+
+    if (!q) {
+      return (
+        <Text
+          style={
+            isMe
+              ? styles.meText
+              : [styles.otherText, { color: isDark ? "#E5E7EB" : "#111827" }]
+          }
+        >
+          {textValue}
+        </Text>
+      );
+    }
+
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = textValue.split(new RegExp(`(${escaped})`, "gi"));
+
+    return (
+      <Text
+        style={
+          isMe
+            ? styles.meText
+            : [styles.otherText, { color: isDark ? "#E5E7EB" : "#111827" }]
+        }
+      >
+        {parts.map((part, index) => {
+          const matched = part.toLowerCase() === q.toLowerCase();
+          if (!matched) return <Text key={`${part}-${index}`}>{part}</Text>;
+
+          return (
+            <Text
+              key={`${part}-${index}`}
+              style={[
+                styles.highlightText,
+                isActiveResult && styles.highlightTextActive,
+              ]}
+            >
+              {part}
+            </Text>
+          );
+        })}
+      </Text>
+    );
+  };
+
+  const renderSearchResultSnippet = (textValue: string, q: string) => {
+    const text = String(textValue || "");
+    const query = String(q || "").trim();
+
+    if (!query) {
+      return (
+        <Text
+          numberOfLines={1}
+          style={{ color: isDark ? "#CBD5E1" : "#374151", fontSize: 13 }}
+        >
+          {text}
+        </Text>
+      );
+    }
+
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+
+    return (
+      <Text
+        numberOfLines={1}
+        style={{ color: isDark ? "#CBD5E1" : "#374151", fontSize: 13 }}
+      >
+        {parts.map((part, index) => {
+          const matched = part.toLowerCase() === query.toLowerCase();
+          return matched ? (
+            <Text key={`${part}-${index}`} style={styles.searchResultHighlight}>
+              {part}
+            </Text>
+          ) : (
+            <Text key={`${part}-${index}`}>{part}</Text>
+          );
+        })}
+      </Text>
+    );
+  };
+
+  const renderReplyBlock = (item: any, isMe: boolean) => {
+    const replyId =
+      typeof item.replyTo === "string"
+        ? item.replyTo
+        : item.replyTo?._id;
+
+    const repliedMsg =
+      typeof item.replyTo === "object" && item.replyTo?._id
+        ? item.replyTo
+        : findMessageById(replyId);
+
+    if (!replyId && !repliedMsg) return null;
+
+    const previewSource = repliedMsg || item.replyTo;
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => {
+          const targetId = previewSource?._id || replyId;
+          if (targetId) {
+            scrollToMessageIfLoaded(targetId);
+          }
+        }}
+        style={[
+          styles.replyPreviewBox,
+          {
+            backgroundColor: isMe
+              ? "rgba(255,255,255,0.16)"
+              : isDark
+                ? "rgba(255,255,255,0.06)"
+                : "#EEF2FF",
+            borderLeftColor: isMe ? "#E5E7EB" : "#6D5DF6",
+          },
+        ]}
+      >
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.replyPreviewTitle,
+            { color: isMe ? "#FFF" : "#6D5DF6" },
+          ]}
+        >
+          Reply
+        </Text>
+
+        <Text
+          numberOfLines={2}
+          style={[
+            styles.replyPreviewText,
+            { color: isMe ? "rgba(255,255,255,0.92)" : isDark ? "#CBD5E1" : "#374151" },
+          ]}
+        >
+          {getReplyPreviewText(previewSource)}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderMessage: ListRenderItem<MessageItem> = ({ item }) => {
-    const isMe = item.sender === currentUser?._id;
-    const isMedia =
-      item.type === "image" || item.type === "video";
+    const isMe = String(item.sender) === String(currentUser?._id);
+    const isMedia = item.type === "image" || item.type === "video";
+    const isMatched = highlightedMessageIds.has(item._id);
+    const isActiveResult = selectedSearchMessageId === item._id;
 
     if (item.deletedForEveryone) {
       return (
         <View style={styles.deletedBubble}>
-          <Text style={[styles.deletedText, { color: isDark ? "#9CA3AF" : "#6B7280" }]}>
+          <Text
+            style={[
+              styles.deletedText,
+              { color: isDark ? "#9CA3AF" : "#6B7280" },
+            ]}
+          >
             This message was deleted
           </Text>
         </View>
@@ -499,10 +2138,12 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
     }
 
     return (
-      <View
+      <Pressable
+        onLongPress={() => openMessageActions(item)}
+        delayLongPress={250}
         style={[
           styles.messageContainer,
-          isMe ? styles.rowMe : styles.rowOther
+          isMe ? styles.rowMe : styles.rowOther,
         ]}
       >
         <View
@@ -510,9 +2151,12 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
             styles.bubble,
             !isMedia && (isMe ? styles.me : styles.other),
             isDark && !isMedia && !isMe ? styles.otherDark : null,
+            isMatched && styles.searchMatchedBubble,
+            isActiveResult && styles.searchActiveBubble,
           ]}
         >
-          {/* IMAGE */}
+          {renderReplyBlock(item, isMe)}
+
           {item.type === "image" && item.content ? (
             <TouchableOpacity
               activeOpacity={0.9}
@@ -524,42 +2168,32 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
                 resizeMode="cover"
               />
             </TouchableOpacity>
-          )
-
-            /* VIDEO */
-            : item.type === "video" && item.content ? (
-              <Video
-                source={{ uri: item.content }}
-                style={{ width: 240, height: 240, borderRadius: 14 }}
-                useNativeControls
-                resizeMode={ResizeMode.CONTAIN}
-                isLooping={false}
-              />
+          ) : item.type === "video" && item.content ? (
+            <Video
+              source={{ uri: item.content }}
+              style={{ width: 240, height: 240, borderRadius: 14 }}
+              useNativeControls
+              resizeMode={ResizeMode.CONTAIN}
+              isLooping={false}
+            />
+          ) : item.type === "audio" && item.content ? (
+            <VoiceMessagePlayer uri={item.content} isMe={isMe} />
+          ) : (
+            renderHighlightedText(
+              item.content,
+              inputSearchValue,
+              isMe,
+              isActiveResult
             )
-
-              /* AUDIO */
-              : item.type === "audio" && item.content ? (
-                <VoiceMessagePlayer
-                  uri={item.content}
-                  isMe={isMe}
-                />
-              )
-
-                /* TEXT */
-                : (
-                  <Text style={isMe ? styles.meText : [styles.otherText, { color: isDark ? "#E5E7EB" : "#111827" }]}>
-                    {item.content}
-                  </Text>
-                )}
+          )}
         </View>
 
-        {/* Time outside bubble */}
         <View style={[styles.timeWrapper, isMe ? styles.timeRight : styles.timeLeft]}>
           <Text
             style={[
               styles.timeText,
               isMe ? styles.timeMe : styles.timeOther,
-              { color: isDark ? "#9CA3AF" : undefined }
+              { color: isDark ? "#9CA3AF" : undefined },
             ]}
           >
             {formatTime(item.createdAt)}
@@ -570,55 +2204,145 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
               {item.deliveryStatus?.seenBy?.length ? (
                 <Ionicons name="checkmark-done" size={14} color="#60A5FA" />
               ) : item.deliveryStatus?.deliveredTo?.length ? (
-                <Ionicons name="checkmark-done" size={14} color={isDark ? "#9CA3AF" : "#E5E7EB"} />
+                <Ionicons
+                  name="checkmark-done"
+                  size={14}
+                  color={isDark ? "#9CA3AF" : "#E5E7EB"}
+                />
               ) : (
-                <Ionicons name="checkmark" size={14} color={isDark ? "#9CA3AF" : "#E5E7EB"} />
+                <Ionicons
+                  name="checkmark"
+                  size={14}
+                  color={isDark ? "#9CA3AF" : "#E5E7EB"}
+                />
               )}
             </View>
           )}
         </View>
-      </View>
+      </Pressable>
     );
   };
 
-  /* ================= BLOCKED ================= */
-
-  // if (isBlocked) {
-  //   return (
-  //     <SafeAreaView style={[styles.center, { backgroundColor: isDark ? "#0B1220" : "white" }]}>
-  //       <Text style={{ color: isDark ? "#E5E7EB" : "#111827" }}>
-  //         This conversation is blocked
-  //       </Text>
-  //     </SafeAreaView>
-  //   );
-  // }
-  const menuLabel = blockedMe ? "محظور" : blockedByMe ? "فك الحظر" : "حظر";
-  const menuIcon: keyof typeof Ionicons.glyphMap = blockedMe
-    ? "alert-circle-outline"
-    : blockedByMe
-      ? "lock-open-outline"
-      : "lock-closed-outline";
-
-  /* ================= UI ================= */
+  const searchResultsCardVisible =
+    searchOpen &&
+    inputSearchValue.trim().length > 0 &&
+    (searchLoading || searchResults.length > 0);
 
   return (
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: isDark ? "#0B1220" : "white" },
+      ]}
+    >
+      {!searchOpen ? (
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: isDark ? "#0F172A" : "#FFF",
+              borderColor: isDark ? "#111827" : "#E5E7EB",
+            },
+          ]}
+        >
+          <View style={styles.headerLeft}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+              <Ionicons
+                name="arrow-back"
+                size={22}
+                color={isDark ? "#E5E7EB" : "#111827"}
+              />
+            </TouchableOpacity>
 
-    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? "#0B1220" : "white" }]}>
-      {/* HEADER */}
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: isDark ? "#0F172A" : "#FFF",
-            borderColor: isDark ? "#111827" : "#E5E7EB",
-          },
-        ]}
-      >
-        <View style={styles.headerLeft}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.back()}
-          >
+            {otherUser?.avatar ? (
+              <Image source={{ uri: otherUser.avatar }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons name="person" size={18} color="#FFF" />
+              </View>
+            )}
+
+            <View style={styles.userInfo}>
+              <Text
+                style={[
+                  styles.username,
+                  { color: isDark ? "#E5E7EB" : "#111827" },
+                ]}
+                numberOfLines={1}
+              >
+                {otherUser?.username || "User"}
+              </Text>
+
+              {!!typingUsers.length ? (
+                <Text
+                  style={[
+                    styles.typing,
+                    { color: isDark ? "#9CA3AF" : "#6B7280" },
+                  ]}
+                >
+                  Typing...
+                </Text>
+              ) : blockedByMe ? (
+                <Text style={[styles.lastSeen, { color: "#EF4444" }]}>
+                  تم حظر هذا الحساب
+                </Text>
+              ) : blockedMe ? (
+                <Text style={[styles.lastSeen, { color: "#EF4444" }]}>
+                  هذا الحساب حظرك
+                </Text>
+              ) : otherUser?.isOnline ? (
+                <Text style={styles.onlineText}>Online</Text>
+              ) : otherUser?.lastSeen ? (
+                <Text
+                  style={[
+                    styles.lastSeen,
+                    { color: isDark ? "#9CA3AF" : "#6B7280" },
+                  ]}
+                >
+                  Last seen {formatLastSeen(otherUser.lastSeen)}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => {
+                setSearchOpen(true);
+                setMenuOpen(false);
+              }}
+            >
+              <Ionicons
+                name="search-outline"
+                size={21}
+                color={isDark ? "#E5E7EB" : "#111827"}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => setMenuOpen((v) => !v)}
+            >
+              <Ionicons
+                name="ellipsis-vertical"
+                size={20}
+                color={isDark ? "#E5E7EB" : "#111827"}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.searchHeader,
+            {
+              backgroundColor: isDark ? "#0F172A" : "#FFF",
+              borderColor: isDark ? "#111827" : "#E5E7EB",
+            },
+          ]}
+        >
+          <TouchableOpacity style={styles.searchBackBtn} onPress={closeSearch}>
             <Ionicons
               name="arrow-back"
               size={22}
@@ -626,71 +2350,227 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
             />
           </TouchableOpacity>
 
-          {otherUser?.avatar ? (
-            <Image source={{ uri: otherUser.avatar }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={18} color="#FFF" />
-            </View>
-          )}
-
-          <View style={styles.userInfo}>
-            <Text
-              style={[
-                styles.username,
-                { color: isDark ? "#E5E7EB" : "#111827" },
-              ]}
-              numberOfLines={1}
-            >
-              {otherUser?.username || "User"}
-            </Text>
-
-            {!!typingUsers.length ? (
-              <Text
-                style={[
-                  styles.typing,
-                  { color: isDark ? "#9CA3AF" : "#6B7280" },
-                ]}
-              >
-                Typing...
-              </Text>
-            ) : blockedByMe ? (
-              <Text style={[styles.lastSeen, { color: "#EF4444" }]}>
-                تم حظر هذا الحساب
-              </Text>
-            ) : blockedMe ? (
-              <Text style={[styles.lastSeen, { color: "#EF4444" }]}>
-                هذا الحساب حظرك
-              </Text>
-            ) : otherUser?.isOnline ? (
-              <Text style={styles.onlineText}>Online</Text>
-            ) : otherUser?.lastSeen ? (
-              <Text
-                style={[
-                  styles.lastSeen,
-                  { color: isDark ? "#9CA3AF" : "#6B7280" },
-                ]}
-              >
-                Last seen {formatLastSeen(otherUser.lastSeen)}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => setMenuOpen((v) => !v)}
+          <View
+            style={[
+              styles.searchInputWrap,
+              {
+                backgroundColor: isDark ? "#111827" : "#F3F4F6",
+                borderColor: isDark ? "#1F2937" : "#E5E7EB",
+              },
+            ]}
           >
             <Ionicons
-              name="ellipsis-vertical"
+              name="search-outline"
+              size={18}
+              color={isDark ? "#9CA3AF" : "#6B7280"}
+            />
+
+            <TextInput
+              autoFocus
+              value={inputSearchValue}
+              onChangeText={(v) => {
+                dispatch(setSearchQuery(v));
+                setSelectedSearchIndex(0);
+                setSelectedSearchMessageId(null);
+              }}
+              placeholder="ابحث داخل المحادثة"
+              placeholderTextColor={isDark ? "#9CA3AF" : "#6B7280"}
+              style={[
+                styles.searchInput,
+                { color: isDark ? "#E5E7EB" : "#111827" },
+              ]}
+              returnKeyType="search"
+            />
+
+            {!!inputSearchValue.trim() && (
+              <TouchableOpacity
+                onPress={() => {
+                  dispatch(setSearchQuery(""));
+                  dispatch(clearSearchResults());
+                  setSelectedSearchIndex(0);
+                  setSelectedSearchMessageId(null);
+                }}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={18}
+                  color={isDark ? "#9CA3AF" : "#6B7280"}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.searchNav}>
+            <Text
+              style={[
+                styles.searchCounter,
+                { color: isDark ? "#CBD5E1" : "#374151" },
+              ]}
+            >
+              {searchLoading
+                ? "..."
+                : searchResults.length
+                  ? `${selectedSearchIndex + 1}/${searchResults.length}`
+                  : "0/0"}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.searchNavBtn}
+              onPress={() => goToSearchResult(selectedSearchIndex - 1)}
+              disabled={!searchResults.length}
+            >
+              <Ionicons
+                name="chevron-up"
+                size={20}
+                color={
+                  searchResults.length
+                    ? isDark
+                      ? "#E5E7EB"
+                      : "#111827"
+                    : "#9CA3AF"
+                }
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.searchNavBtn}
+              onPress={() => goToSearchResult(selectedSearchIndex + 1)}
+              disabled={!searchResults.length}
+            >
+              <Ionicons
+                name="chevron-down"
+                size={20}
+                color={
+                  searchResults.length
+                    ? isDark
+                      ? "#E5E7EB"
+                      : "#111827"
+                    : "#9CA3AF"
+                }
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {searchResultsCardVisible && (
+        <View
+          style={[
+            styles.searchResultsCard,
+            {
+              backgroundColor: isDark ? "#0F172A" : "#FFF",
+              borderColor: isDark ? "#111827" : "#E5E7EB",
+            },
+          ]}
+        >
+          {searchLoading ? (
+            <View style={styles.searchLoadingBox}>
+              <ActivityIndicator size="small" color="#6D5DF6" />
+              <Text
+                style={{
+                  marginTop: 8,
+                  color: isDark ? "#CBD5E1" : "#374151",
+                  fontSize: 13,
+                }}
+              >
+                جاري البحث...
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={searchResults.slice(0, 8)}
+              keyExtractor={(item) => item._id}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item, index }) => {
+                const active = selectedSearchMessageId === item._id;
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={async () => {
+                      setSelectedSearchIndex(index);
+                      setSelectedSearchMessageId(item._id);
+                      await scrollToMessageIfLoaded(item._id);
+                    }}
+                    style={[
+                      styles.searchResultItem,
+                      active && {
+                        backgroundColor: isDark
+                          ? "rgba(109,93,246,0.16)"
+                          : "rgba(109,93,246,0.08)",
+                      },
+                    ]}
+                  >
+                    <View style={styles.searchResultLeft}>
+                      <Ionicons
+                        name="search-outline"
+                        size={16}
+                        color={isDark ? "#9CA3AF" : "#6B7280"}
+                      />
+                    </View>
+
+                    <View style={styles.searchResultBody}>
+                      {renderSearchResultSnippet(item.content, inputSearchValue)}
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          marginTop: 4,
+                          color: isDark ? "#94A3B8" : "#6B7280",
+                          fontSize: 11,
+                        }}
+                      >
+                        {formatTime(item.createdAt)}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          )}
+        </View>
+      )}
+
+      {replyToMessage && (
+        <View
+          style={[
+            styles.replyComposer,
+            {
+              backgroundColor: isDark ? "#0F172A" : "#FFF",
+              borderColor: isDark ? "#1F2937" : "#E5E7EB",
+            },
+          ]}
+        >
+          <View style={styles.replyComposerLine} />
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[
+                styles.replyComposerTitle,
+                { color: "#6D5DF6" },
+              ]}
+            >
+              Replying
+            </Text>
+            <Text
+              numberOfLines={2}
+              style={{
+                color: isDark ? "#CBD5E1" : "#374151",
+                fontSize: 13,
+                marginTop: 2,
+              }}
+            >
+              {getReplyPreviewText(replyToMessage)}
+            </Text>
+          </View>
+
+          <TouchableOpacity onPress={() => setReplyToMessage(null)}>
+            <Ionicons
+              name="close"
               size={20}
-              color={isDark ? "#E5E7EB" : "#111827"}
+              color={isDark ? "#CBD5E1" : "#374151"}
             />
           </TouchableOpacity>
         </View>
-      </View>
-
+      )}
 
       {recordedUri && (
         <VoiceRecorderPreview
@@ -698,29 +2578,12 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
           onCancel={() => setRecordedUri(null)}
           onSend={async () => {
             if (isBlocked) return;
-
-            const url = await uploadToCloudinary(recordedUri, "raw");
-            const tempId = `temp-${Date.now()}`;
-
-            dispatch(
-              addMessage({
-                _id: tempId,
-                clientTempId: tempId,
-                chat: chatId,
-                sender: currentUser!._id,
-                type: "audio",
-                content: url,
-                createdAt: new Date().toISOString(),
-                reactions: [],
-                deliveryStatus: { deliveredTo: [], seenBy: [] },
-              } as any)
-            );
-
-            sendSocketMessage(chatId, url, "audio", tempId);
+            await sendMediaMessage(recordedUri, "audio");
             setRecordedUri(null);
           }}
         />
       )}
+
       {isBlocked && (
         <View
           style={{
@@ -737,23 +2600,27 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
           }}
         >
           <Ionicons name="alert-circle-outline" size={18} color="#EF4444" />
-          <Text style={{ flex: 1, fontWeight: "800", color: isDark ? "#E5E7EB" : "#111827" }}>
+          <Text
+            style={{
+              flex: 1,
+              fontWeight: "800",
+              color: isDark ? "#E5E7EB" : "#111827",
+            }}
+          >
             {blockedMe
               ? "هذا الحساب قام بحظرك، لا يمكنك إرسال رسائل."
               : "لقد قمت بحظر هذا الحساب، قم بفك الحظر لإرسال رسائل."}
           </Text>
         </View>
       )}
-      {/* CHAT LIST */}
+
       <FlatList
         ref={flatListRef}
         data={messages}
         inverted
         onEndReached={loadMore}
         onEndReachedThreshold={0.2}
-        ListHeaderComponent={
-          <Animated.View style={listSpacerAnimatedStyle} />
-        }
+        ListHeaderComponent={<Animated.View style={listSpacerAnimatedStyle} />}
         ListFooterComponent={
           loading && hasMore ? (
             <View style={styles.paginationLoader}>
@@ -763,16 +2630,17 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
         }
         keyExtractor={(item) => item._id}
         renderItem={renderMessage}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12 }}
+        contentContainerStyle={{
+          paddingHorizontal: 12,
+          paddingTop: searchResultsCardVisible ? 210 : 12,
+          paddingBottom: 8,
+        }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        onScrollToIndexFailed={() => { }}
       />
 
-      {/* INPUT BAR */}
       <Animated.View
-        onLayout={(e) => {
-          setInputBarHeight(e.nativeEvent.layout.height);
-        }}
         style={[
           styles.inputBarWrap,
           inputBarAnimatedStyle,
@@ -818,14 +2686,15 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
                 color: isDark ? "#E5E7EB" : "#111827",
               },
             ]}
-            placeholder={isBlocked ? "لا يمكنك المراسلة أثناء الحظر" : "Type a message"}
+            placeholder={
+              isBlocked ? "لا يمكنك المراسلة أثناء الحظر" : "Type a message"
+            }
             placeholderTextColor={isDark ? "#9CA3AF" : "#6B7280"}
             value={text}
             onChangeText={(v) => {
               setText(v);
 
               emitTyping(chatId, true);
-
               clearTimeout(typingTimeout.current);
 
               typingTimeout.current = setTimeout(() => {
@@ -834,7 +2703,10 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
             }}
             onFocus={() => {
               setTimeout(() => {
-                flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+                flatListRef.current?.scrollToOffset?.({
+                  offset: 0,
+                  animated: true,
+                });
               }, 50);
             }}
             multiline
@@ -858,8 +2730,26 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* <View style={styles.bottomQuickActions}>
+          <TouchableOpacity style={styles.quickBtn} onPress={pickAudio}>
+            <Ionicons
+              name="musical-notes-outline"
+              size={18}
+              color={isDark ? "#CBD5E1" : "#374151"}
+            />
+            <Text
+              style={[
+                styles.quickBtnText,
+                { color: isDark ? "#CBD5E1" : "#374151" },
+              ]}
+            >
+              Audio
+            </Text>
+          </TouchableOpacity>
+        </View> */}
       </Animated.View>
-      {/* ✅ Fullscreen Image Modal */}
+
       <Modal
         visible={!!imagePreview}
         transparent
@@ -867,9 +2757,15 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
         onRequestClose={() => setImagePreview(null)}
       >
         <View style={styles.previewOverlay}>
-          <Pressable style={styles.previewCloseArea} onPress={() => setImagePreview(null)} />
+          <Pressable
+            style={styles.previewCloseArea}
+            onPress={() => setImagePreview(null)}
+          />
           <View style={styles.previewHeader}>
-            <TouchableOpacity onPress={() => setImagePreview(null)} style={styles.previewCloseBtn}>
+            <TouchableOpacity
+              onPress={() => setImagePreview(null)}
+              style={styles.previewCloseBtn}
+            >
               <Ionicons name="close" size={24} color="#FFF" />
             </TouchableOpacity>
           </View>
@@ -884,12 +2780,9 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
           </View>
         </View>
       </Modal>
-      {/* Dropdown Menu */}
+
       {menuOpen && (
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => setMenuOpen(false)}
-        >
+        <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
           <Pressable
             style={[
               styles.menuBox,
@@ -908,13 +2801,18 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
               <Ionicons
                 name={menuIcon}
                 size={18}
-                color={blockedMe ? "#EF4444" : blockedByMe ? "#22C55E" : "#EF4444"}
+                color={
+                  blockedMe ? "#EF4444" : blockedByMe ? "#22C55E" : "#EF4444"
+                }
                 style={{ marginRight: 10 }}
               />
               <Text
                 style={[
                   styles.menuText,
-                  { color: blockedMe ? "#EF4444" : blockedByMe ? "#22C55E" : "#EF4444" },
+                  {
+                    color:
+                      blockedMe ? "#EF4444" : blockedByMe ? "#22C55E" : "#EF4444",
+                  },
                 ]}
               >
                 {menuLabel}
@@ -923,12 +2821,9 @@ const listSpacerAnimatedStyle = useAnimatedStyle(() => {
           </Pressable>
         </Pressable>
       )}
-
     </SafeAreaView>
   );
 }
-
-/* ===================================================== */
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "white" },
@@ -942,6 +2837,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#E5E7EB",
     backgroundColor: "#FFF",
+    zIndex: 20,
   },
 
   headerLeft: {
@@ -974,40 +2870,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 10,
   },
-  menuOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
-  },
 
-  menuBox: {
-    position: "absolute",
-    top: 56,          // ✅ عدّلها حسب ارتفاع الهيدر عندك
-    right: 12,
-    minWidth: 160,
-    borderWidth: 1,
-    borderRadius: 12,
-    overflow: "hidden",
-    elevation: 6,     // Android shadow
-  },
-
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-
-  menuText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
   userInfo: {
     justifyContent: "center",
-  },
-
-  paginationLoader: {
-    paddingVertical: 10,
-    alignItems: "center",
   },
 
   username: {
@@ -1035,47 +2900,136 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  iconBtn: {
-    paddingHorizontal: 6,
-  },
-  inputBarWrap: {
-    borderTopWidth: 1,
-  },
-  messageRow: { marginVertical: 6 },
-  me: { backgroundColor: "#80c080", borderBottomRightRadius: 4 },
-  other: { backgroundColor: "#f5f5f5", borderBottomLeftRadius: 4 },
-
-  // ✅ Dark alternative for other bubble only (text already handled)
-  otherDark: { backgroundColor: "#111827" },
-
-  meText: { color: "#FFF" },
-  otherText: { color: "#111827" },
-
-  reactionRow: { flexDirection: "row", marginTop: 6 },
-
-  timeRow: {
+  searchHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-end",
-    marginTop: 6
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    zIndex: 30,
   },
 
-  sendBtn: {
-    backgroundColor: "#6D5DF6",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  searchBackBtn: {
+    paddingHorizontal: 6,
+    marginRight: 4,
+  },
+
+  searchInputWrap: {
+    flex: 1,
+    height: 42,
+    borderRadius: 22,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    marginRight: 8,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingHorizontal: 8,
+  },
+
+  searchNav: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  searchCounter: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginRight: 4,
+    minWidth: 38,
+    textAlign: "center",
+  },
+
+  searchNavBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
   },
 
-  micBtn: {
-    padding: 6,
+  searchResultsCard: {
+    position: "absolute",
+    top: 120,
+    left: 12,
+    right: 12,
+    borderWidth: 1,
+    borderRadius: 16,
+    zIndex: 25,
+    maxHeight: 195,
+    overflow: "hidden",
   },
 
-  timeMe: { color: "#83858a" },
-  timeOther: { color: "#6B7280" },
-  statusIcon: { marginLeft: 2 },
+  searchLoadingBox: {
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+
+  searchResultLeft: {
+    width: 24,
+    alignItems: "center",
+    paddingTop: 2,
+  },
+
+  searchResultBody: {
+    flex: 1,
+    marginTop:50
+  },
+
+  searchResultHighlight: {
+    backgroundColor: "#FDE68A",
+    color: "#111827",
+    fontWeight: "700",
+  },
+
+  paginationLoader: {
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+
+  iconBtn: {
+    paddingHorizontal: 6,
+  },
+
+  replyComposer: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  replyComposerLine: {
+    width: 4,
+    alignSelf: "stretch",
+    borderRadius: 8,
+    backgroundColor: "#6D5DF6",
+  },
+
+  replyComposerTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  inputBarWrap: {
+    borderTopWidth: 1,
+  },
 
   inputBar: {
     flexDirection: "row",
@@ -1092,15 +3046,50 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginRight: 10
+    marginRight: 10,
   },
 
-  deletedBubble: { alignSelf: "center", marginVertical: 8 },
-  deletedText: { fontStyle: "italic", color: "#6B7280" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  sendBtn: {
+    backgroundColor: "#6D5DF6",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  micBtn: {
+    padding: 6,
+  },
+
+  bottomQuickActions: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    flexDirection: "row",
+  },
+
+  quickBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+  },
+
+  quickBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
 
   messageContainer: {
     marginVertical: 4,
+  },
+
+  rowMe: {
+    alignItems: "flex-end",
+  },
+
+  rowOther: {
+    alignItems: "flex-start",
   },
 
   bubble: {
@@ -1108,6 +3097,68 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 16,
+  },
+
+  me: {
+    backgroundColor: "#80c080",
+    borderBottomRightRadius: 4,
+  },
+
+  other: {
+    backgroundColor: "#f5f5f5",
+    borderBottomLeftRadius: 4,
+  },
+
+  otherDark: {
+    backgroundColor: "#111827",
+  },
+
+  meText: {
+    color: "#FFF",
+  },
+
+  otherText: {
+    color: "#111827",
+  },
+
+  replyPreviewBox: {
+    borderLeftWidth: 3,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+
+  replyPreviewTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  replyPreviewText: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+
+  highlightText: {
+    backgroundColor: "#FDE68A",
+    color: "#111827",
+    fontWeight: "700",
+    borderRadius: 4,
+  },
+
+  highlightTextActive: {
+    backgroundColor: "#F59E0B",
+    color: "#111827",
+  },
+
+  searchMatchedBubble: {
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.35)",
+  },
+
+  searchActiveBubble: {
+    borderWidth: 2,
+    borderColor: "#F59E0B",
   },
 
   timeWrapper: {
@@ -1128,28 +3179,44 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
 
-  rowMe: {
-    alignItems: "flex-end",
+  timeMe: {
+    color: "#83858a",
   },
 
-  rowOther: {
-    alignItems: "flex-start",
+  timeOther: {
+    color: "#6B7280",
   },
 
-  /* ===== Fullscreen Image Preview ===== */
+  statusIcon: {
+    marginLeft: 2,
+  },
+
+  deletedBubble: {
+    alignSelf: "center",
+    marginVertical: 8,
+  },
+
+  deletedText: {
+    fontStyle: "italic",
+    color: "#6B7280",
+  },
+
   previewOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.95)",
   },
+
   previewCloseArea: {
     ...StyleSheet.absoluteFillObject,
   },
+
   previewHeader: {
     paddingTop: 50,
     paddingHorizontal: 16,
     flexDirection: "row",
     justifyContent: "flex-end",
   },
+
   previewCloseBtn: {
     width: 42,
     height: 42,
@@ -1158,15 +3225,44 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.15)",
   },
+
   previewBody: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 12,
   },
+
   previewImage: {
     width: "100%",
     height: "80%",
   },
-});
 
+  menuOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+  },
+
+  menuBox: {
+    position: "absolute",
+    top: 56,
+    right: 12,
+    minWidth: 160,
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+    elevation: 6,
+  },
+
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+
+  menuText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+});

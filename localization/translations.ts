@@ -14,7 +14,8 @@ export const translations = {
       account: "Account",
       editProfile: "Edit Profile",
       verifyAccount: "Verify Account",
-
+profilePhotoCover: "Profile Photo & Cover",
+changePassword: "Change Password",
       privacy: "Privacy",
       onlineStatus: "Online Status",
       readReceipts: "Read Receipts",
@@ -49,6 +50,16 @@ export const translations = {
       logout: "Logout",
       version: "Bimo v1.0.0",
     },
+    tweetsScreen: {
+  followingTab: "Following",
+  forYouTab: "For You",
+  delete: "Delete",
+  follow: "Follow",
+  following: "Following",
+  unfollow: "Unfollow",
+  block: "Block",
+  report: "Report",
+}
   },
 
   ar: {
@@ -81,7 +92,8 @@ export const translations = {
       darkMode: "الوضع الليلي",
       theme: "الألوان والثيم",
       fontSize: "حجم الخط",
-
+profilePhotoCover: "الصورة الشخصية والغلاف",
+changePassword: "تغيير كلمة السر",
       media: "الوسائط",
       autoPlayVideos: "تشغيل الفيديو تلقائيًا",
       dataUsage: "استخدام البيانات",
@@ -101,5 +113,15 @@ export const translations = {
       logout: "تسجيل الخروج",
       version: "Bimo v1.0.0",
     },
+    tweetsScreen: {
+  followingTab: "المتابَعون",
+  forYouTab: "من أجلك",
+  delete: "حذف",
+  follow: "متابعة",
+  following: "تتم متابعته",
+  unfollow: "إلغاء المتابعة",
+  block: "حظر",
+  report: "إبلاغ",
+}
   },
 };

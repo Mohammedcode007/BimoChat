@@ -42,8 +42,7 @@
 //   return json.secure_url;
 // };
 
-import * as FileSystem from "expo-file-system";
-
+import * as FileSystem from "expo-file-system/legacy";
 export const uploadToCloudinary = async (
   uri: string,
   type: "image" | "video" | "raw" = "image"

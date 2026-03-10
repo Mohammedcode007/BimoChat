@@ -615,7 +615,21 @@ export interface ChatItem {
   createdAt: string;
   updatedAt: string;
 }
-
+export interface ChatSearchMessageItem {
+  _id: string;
+  chat: string;
+  sender: string | {
+    _id: string;
+    username?: string;
+    avatar?: string;
+  };
+  content: string;
+  type: string;
+  media?: any;
+  replyTo?: any;
+  createdAt: string;
+  updatedAt: string;
+}
 interface ChatState {
   chats: ChatItem[];
   activeChatId?: string;
@@ -623,15 +637,24 @@ interface ChatState {
   loading: boolean;
   totalUnread: number;
   currentUserId?: string;
-}
 
+  searchResults: ChatSearchMessageItem[];
+  searchLoading: boolean;
+  searchError?: string | null;
+  searchQuery: string;
+}
 const initialState: ChatState = {
   chats: [],
   activeChatId: undefined,
   typingUsers: {},
   loading: false,
   totalUnread: 0,
-  currentUserId: undefined // 🔥 مهم
+  currentUserId: undefined,
+
+  searchResults: [],
+  searchLoading: false,
+  searchError: null,
+  searchQuery: ""
 };
 
 /* =====================================================
@@ -714,7 +737,43 @@ export const createChat = createAsyncThunk<
     return thunkAPI.rejectWithValue("Failed to create chat") as any;
   }
 });
+export const searchMessagesInChat = createAsyncThunk<
+  { chatId: string; query: string; results: ChatSearchMessageItem[] },
+  { chatId: string; query: string },
+  { rejectValue: string }
+>(
+  "chat/searchMessagesInChat",
+  async ({ chatId, query }, thunkAPI) => {
+    try {
+      const q = String(query || "").trim();
 
+      if (!q) {
+        return {
+          chatId,
+          query: "",
+          results: [],
+        };
+      }
+
+      const res = await api.get(`/messages/${chatId}/search`, {
+        params: { q },
+      });
+
+      return {
+        chatId,
+        query: q,
+        results: Array.isArray(res.data) ? res.data : [],
+      };
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Search failed";
+
+      return thunkAPI.rejectWithValue(message);
+    }
+  }
+);
 export const deleteChat = createAsyncThunk<
   string,
   string,
@@ -769,7 +828,16 @@ const chatSlice = createSlice({
   initialState,
   reducers: {
     resetChatState: () => initialState,
+clearSearchResults: (state) => {
+  state.searchResults = [];
+  state.searchLoading = false;
+  state.searchError = null;
+  state.searchQuery = "";
+},
 
+setSearchQuery: (state, action: PayloadAction<string>) => {
+  state.searchQuery = action.payload;
+},
     /* ================= ACTIVE CHAT ================= */
 
     socketUpsertChatFromInbox: (
@@ -1115,6 +1183,23 @@ const chatSlice = createSlice({
         state.loading = false;
         console.log("❌ deleteChat.rejected:", action.payload);
       })
+            .addCase(searchMessagesInChat.pending, (state) => {
+        state.searchLoading = true;
+        state.searchError = null;
+      })
+
+      .addCase(searchMessagesInChat.fulfilled, (state, action) => {
+        state.searchLoading = false;
+        state.searchResults = action.payload.results;
+        state.searchQuery = action.payload.query;
+        state.searchError = null;
+      })
+
+      .addCase(searchMessagesInChat.rejected, (state, action) => {
+        state.searchLoading = false;
+        state.searchResults = [];
+        state.searchError = action.payload || "Search failed";
+      });
   }
 });
 
@@ -1126,7 +1211,9 @@ export const {
   resetChatState,
   updateChatPresence,
   socketUpsertChatFromInbox,
-  markChatSeenLocally
+  markChatSeenLocally,
+  clearSearchResults,
+  setSearchQuery
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

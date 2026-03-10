@@ -81,6 +81,7 @@ export default function FriendsScreen() {
     if (creatingChatId) return;
 
     try {
+      
       setCreatingChatId(targetUserId);
 
       const chat = await dispatch(createChat(targetUserId)).unwrap();

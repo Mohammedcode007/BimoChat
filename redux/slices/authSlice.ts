@@ -282,6 +282,7 @@
 // export default authSlice.reducer;
 
 // redux/slices/authSlice.ts
+import { isTokenExpired } from "@/utils/token";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import * as Device from "expo-device";
@@ -391,25 +392,35 @@ export const loginWithGoogle = createAsyncThunk(
    CHECK AUTH
 ===================================================== */
 
-export const checkAuth = createAsyncThunk("auth/checkAuth", async (_, thunkAPI) => {
-  try {
-    const token = await AsyncStorage.getItem("token");
-    const user = await AsyncStorage.getItem("user");
 
-    if (!token) return null;
+export const checkAuth = createAsyncThunk(
+  "auth/checkAuth",
+  async (_, thunkAPI) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const user = await AsyncStorage.getItem("user");
 
-    const savedSessions = await AsyncStorage.getItem("loginSessions");
+      if (!token) return null;
 
-    return {
-      token,
-      user: user ? JSON.parse(user) : null,
-      sessions: savedSessions ? JSON.parse(savedSessions) : [],
-    };
-  } catch {
-    return null;
+      const expired = isTokenExpired(token);
+
+      if (expired) {
+        await AsyncStorage.multiRemove(["token", "user"]);
+        return null;
+      }
+
+      const savedSessions = await AsyncStorage.getItem("loginSessions");
+
+      return {
+        token,
+        user: user ? JSON.parse(user) : null,
+        sessions: savedSessions ? JSON.parse(savedSessions) : [],
+      };
+    } catch {
+      return null;
+    }
   }
-});
-
+);
 /* =====================================================
    REGISTER
 ===================================================== */
@@ -459,18 +470,31 @@ export const login = createAsyncThunk(
 /* =====================================================
    LOGOUT
 ===================================================== */
-
-
 export const logout = createAsyncThunk("auth/logout", async (_, thunkAPI) => {
   try {
-    await api.post("/auth/logout");
-    await AsyncStorage.removeItem("token");
-    await AsyncStorage.removeItem("user");
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // تجاهل فشل logout من السيرفر
+    }
+
+    await AsyncStorage.multiRemove(["token", "user"]);
     return true;
   } catch {
     return thunkAPI.rejectWithValue("Logout failed");
   }
 });
+
+// export const logout = createAsyncThunk("auth/logout", async (_, thunkAPI) => {
+//   try {
+//     await api.post("/auth/logout");
+//     await AsyncStorage.removeItem("token");
+//     await AsyncStorage.removeItem("user");
+//     return true;
+//   } catch {
+//     return thunkAPI.rejectWithValue("Logout failed");
+//   }
+// });
 
 /* =====================================================
    TOGGLE INVISIBLE
@@ -505,6 +529,15 @@ const authSlice = createSlice({
     updateUser: (state, action) => {
       state.user = action.payload;
       AsyncStorage.setItem("user", JSON.stringify(action.payload));
+    },
+        forceLogout: (state) => {
+      state.loading = false;
+      state.hydrated = true;
+      state.user = null;
+      state.token = null;
+      state.isLoggedIn = false;
+      state.sessions = [];
+      state.error = null;
     },
   },
 
@@ -625,5 +658,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, updateUser } = authSlice.actions;
+export const { clearError, updateUser,forceLogout  } = authSlice.actions;
 export default authSlice.reducer;

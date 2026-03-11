@@ -954,6 +954,7 @@ const bioHtml = useMemo(() => {
                   <Ionicons name="create-outline" size={18} color={theme.textMuted} />
                 </Pressable> */}
               </View>
+              
               <RenderHtml
                 contentWidth={width}
                 source={bioHtml}

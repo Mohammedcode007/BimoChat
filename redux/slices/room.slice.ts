@@ -21,7 +21,13 @@ export type GiftPayload = {
   targetName?: string;  // اسم المستهدف (سهل للعرض)
   animation?: string;   // rocket / burst / rain ...
 };
-
+export type InvitationPayload = {
+  roomId: string;
+  roomName: string;
+  roomAvatar?: string;
+  invitedBy?: string;
+  message?: string;
+};
 export type RoomDetails = {
   room: {
     _id: string;
@@ -177,6 +183,8 @@ export type RoomMessageType =
   | "sticker"
   | "promotion"
   | "role"
+    | "invitation"
+
   | "ban"
   | "gift";
 
@@ -187,6 +195,8 @@ export type RoomMessage = {
   room: string;
   gift?: GiftPayload;
   clientId?: string;
+    invitation?: InvitationPayload;
+
   optimistic?: boolean; // اختياري
   failed?: boolean;     // اختياري
   sender?: RoomMessageSender;

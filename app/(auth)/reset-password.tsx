@@ -1,46 +1,33 @@
-
-// app/(auth)/login.tsx
-// ✅ Login Screen (Expo + RN + Reanimated)
-// ✅ Dark/Light via Colors
-// ✅ Validation: يقبل العربي/الإنجليزي + رموز محددة فقط
-// ✅ اسم المستخدم حتى 64 حرف
-// ✅ إظهار أخطاء لكل حقل + خطأ عام
-// ✅ Loading أثناء تسجيل الدخول
-
 import { Colors } from "@/constants/theme";
-import { login } from "@/redux/slices/authSlice";
-import { AppDispatch } from "@/redux/store";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useColorScheme,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from "react-native";
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withSequence,
+    withTiming,
 } from "react-native-reanimated";
 import Toast from "react-native-toast-message";
-import { useDispatch } from "react-redux";
 
 type FieldErrors = {
-  username?: string;
   password?: string;
+  confirmPassword?: string;
   general?: string;
 };
 
-export default function LoginScreen() {
-  const dispatch = useDispatch<AppDispatch>();
+export default function ResetPasswordScreen() {
   const router = useRouter();
 
   const colorScheme = useColorScheme();
@@ -50,27 +37,24 @@ export default function LoginScreen() {
 
   const copy = useMemo(
     () => ({
-      title: "مرحبًا بعودتك",
-      subtitle: "سجّل الدخول للمتابعة",
-      usernamePH: "اسم المستخدم",
-      passwordPH: "كلمة المرور",
-      loginBtn: "تسجيل الدخول",
-      loadingBtn: "جارٍ تسجيل الدخول...",
-      forgotPassword: "نسيت كلمة المرور؟",
-      registerLine: "ليس لديك حساب؟ ",
-      registerLink: "إنشاء حساب",
+      title: "تعيين كلمة مرور جديدة",
+      subtitle: "أدخل كلمة المرور الجديدة ثم أكدها للمتابعة",
+      passwordPH: "كلمة المرور الجديدة",
+      confirmPasswordPH: "تأكيد كلمة المرور الجديدة",
+      saveBtn: "حفظ كلمة المرور",
+      savingBtn: "جارٍ الحفظ...",
+      backLogin: "العودة لتسجيل الدخول",
     }),
     []
   );
 
-  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
 
-  /* ================= Animations ================= */
-  const userX = useSharedValue(-320);
-  const passX = useSharedValue(320);
+  const passX = useSharedValue(-320);
+  const confirmX = useSharedValue(320);
   const buttonY = useSharedValue(50);
   const errorOpacity = useSharedValue(0);
   const shakeX = useSharedValue(0);
@@ -81,8 +65,8 @@ export default function LoginScreen() {
   const rotate = useSharedValue(0);
 
   useEffect(() => {
-    userX.value = withTiming(0, { duration: 700 });
     passX.value = withTiming(0, { duration: 700 });
+    confirmX.value = withTiming(0, { duration: 700 });
     buttonY.value = withTiming(0, { duration: 700 });
 
     float1.value = withRepeat(withTiming(30, { duration: 8000 }), -1, true);
@@ -107,30 +91,14 @@ export default function LoginScreen() {
     errorOpacity.value = withTiming(0, { duration: 150 });
   };
 
-  /* ================= Validation ================= */
-
-  // اسم المستخدم: عربي/إنجليزي/أرقام + . _ -
-  // طول من 3 إلى 64
-  const USER_ALLOWED =
-    /^[A-Za-z0-9\u0600-\u06FF][A-Za-z0-9\u0600-\u06FF._-]{2,63}$/;
-
-  // كلمة المرور: عربي/إنجليزي/أرقام + رموز محددة
-  // طول من 6 إلى 64
   const PASS_ALLOWED =
     /^[A-Za-z0-9\u0600-\u06FF!@#$%^&*()_+\-=.,?\/\\:;'"[\]{}<>]{6,64}$/;
 
-  const validate = (u: string, p: string): FieldErrors => {
+  const validate = (p: string, cp: string): FieldErrors => {
     const next: FieldErrors = {};
-    const uTrim = u.trim();
-
-    if (!uTrim) {
-      next.username = "يرجى إدخال اسم المستخدم";
-    } else if (/\s/.test(uTrim)) {
-      next.username = "اسم المستخدم لا يجب أن يحتوي على مسافات";
-    }
 
     if (!p) {
-      next.password = "يرجى إدخال كلمة المرور";
+      next.password = "يرجى إدخال كلمة المرور الجديدة";
     } else if (/\s/.test(p)) {
       next.password = "كلمة المرور لا يجب أن تحتوي على مسافات";
     } else if (!PASS_ALLOWED.test(p)) {
@@ -138,22 +106,27 @@ export default function LoginScreen() {
         "كلمة المرور غير صالحة. مسموح: عربي/إنجليزي/أرقام + رموز محددة وطول من 6 إلى 64";
     }
 
+    if (!cp) {
+      next.confirmPassword = "يرجى تأكيد كلمة المرور";
+    } else if (p !== cp) {
+      next.confirmPassword = "كلمتا المرور غير متطابقتين";
+    }
+
     return next;
   };
 
-
-  const handleLogin = async () => {
+  const handleResetPassword = async () => {
     if (loading) return;
 
-    const v = validate(username, password);
+    const v = validate(password, confirmPassword);
 
-    if (v.username || v.password) {
+    if (v.password || v.confirmPassword) {
       setErrors(v);
       triggerErrorAnim();
       Toast.show({
         type: "error",
         text1: "خطأ",
-        text2: "تحقق من البيانات المدخلة",
+        text2: "تحقق من كلمة المرور الجديدة",
       });
       return;
     }
@@ -162,50 +135,41 @@ export default function LoginScreen() {
     clearErrors();
 
     try {
-      const resultAction = await dispatch(
-        login({
-          username: username.trim().toLowerCase(),
-          password,
-        })
-      );
+      // اربط هنا API الحقيقي
+      // مثال:
+      // await api.post("/auth/reset-password", {
+      //   password,
+      //   confirmPassword,
+      // });
 
-      if (login.fulfilled.match(resultAction)) {
-        Toast.show({
-          type: "success",
-          text1: "تم بنجاح",
-          text2: "تم تسجيل الدخول",
-        });
-      } else {
-        const msg = (resultAction.payload as string) || "بيانات غير صحيحة";
-        setErrors({ general: msg });
-        triggerErrorAnim();
-        Toast.show({
-          type: "error",
-          text1: "فشل تسجيل الدخول",
-          text2: msg,
-        });
-      }
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+      Toast.show({
+        type: "success",
+        text1: "تم بنجاح",
+        text2: "تم تغيير كلمة المرور بنجاح",
+      });
+
+      router.replace("/(auth)/login");
     } catch {
-      setErrors({ general: "حدث خطأ غير متوقع" });
+      setErrors({ general: "تعذر تغيير كلمة المرور، حاول مرة أخرى" });
       triggerErrorAnim();
       Toast.show({
         type: "error",
-        text1: "خطأ",
-        text2: "حدث خطأ غير متوقع",
+        text1: "فشل العملية",
+        text2: "حدث خطأ أثناء تغيير كلمة المرور",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  /* ================= Animated Styles ================= */
-
-  const userStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: userX.value }],
-  }));
-
   const passStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: passX.value }],
+  }));
+
+  const confirmStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: confirmX.value }],
   }));
 
   const buttonStyle = useAnimatedStyle(() => ({
@@ -220,7 +184,10 @@ export default function LoginScreen() {
 
   const floating = (v: any, r = false) =>
     useAnimatedStyle(() => ({
-      transform: [{ translateY: v.value }, ...(r ? [{ rotate: `${rotate.value}deg` }] : [])],
+      transform: [
+        { translateY: v.value },
+        ...(r ? [{ rotate: `${rotate.value}deg` }] : []),
+      ],
     }));
 
   return (
@@ -229,7 +196,6 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={s.container}>
-        {/* Background Shapes */}
         <Animated.View style={[s.circle, s.blue, floating(float1)]} />
         <Animated.View style={[s.square, s.purple, floating(float2, true)]} />
         <Animated.View style={[s.triangle, s.green, floating(float3)]} />
@@ -240,24 +206,6 @@ export default function LoginScreen() {
           <Text style={s.title}>{copy.title}</Text>
           <Text style={s.subtitle}>{copy.subtitle}</Text>
 
-          <Animated.View style={userStyle}>
-            <TextInput
-              placeholder={copy.usernamePH}
-              placeholderTextColor={theme.subtleText as any}
-              value={username}
-              onChangeText={setUsername}
-              style={[s.input, !!errors.username && s.inputError]}
-              autoCorrect={false}
-              autoCapitalize="none"
-              editable={!loading}
-            />
-            {!!errors.username && (
-              <Animated.Text style={[s.fieldError, errorAnimStyle]}>
-                {errors.username}
-              </Animated.Text>
-            )}
-          </Animated.View>
-
           <Animated.View style={passStyle}>
             <TextInput
               placeholder={copy.passwordPH}
@@ -267,11 +215,28 @@ export default function LoginScreen() {
               onChangeText={setPassword}
               style={[s.input, !!errors.password && s.inputError]}
               editable={!loading}
-              onSubmitEditing={handleLogin}
             />
             {!!errors.password && (
               <Animated.Text style={[s.fieldError, errorAnimStyle]}>
                 {errors.password}
+              </Animated.Text>
+            )}
+          </Animated.View>
+
+          <Animated.View style={confirmStyle}>
+            <TextInput
+              placeholder={copy.confirmPasswordPH}
+              placeholderTextColor={theme.subtleText as any}
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              style={[s.input, !!errors.confirmPassword && s.inputError]}
+              editable={!loading}
+              onSubmitEditing={handleResetPassword}
+            />
+            {!!errors.confirmPassword && (
+              <Animated.Text style={[s.fieldError, errorAnimStyle]}>
+                {errors.confirmPassword}
               </Animated.Text>
             )}
           </Animated.View>
@@ -281,48 +246,37 @@ export default function LoginScreen() {
               {errors.general}
             </Animated.Text>
           )}
-          <TouchableOpacity
-            onPress={() => !loading && router.push("/(auth)/forgot-password")}
-            disabled={loading}
-            activeOpacity={0.8}
-            style={s.forgotWrap}
-          >
-            <Text style={s.forgotText}>{copy.forgotPassword}</Text>
-          </TouchableOpacity>
+
           <Animated.View style={buttonStyle}>
             <TouchableOpacity
               style={[s.button, loading && { opacity: 0.8 }]}
-              onPress={handleLogin}
+              onPress={handleResetPassword}
               disabled={loading}
               activeOpacity={0.9}
             >
               {loading ? (
-                <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                <View style={s.rowCenter}>
                   <ActivityIndicator />
-                  <Text style={s.buttonText}>{copy.loadingBtn}</Text>
+                  <Text style={s.buttonText}>{copy.savingBtn}</Text>
                 </View>
               ) : (
-                <Text style={s.buttonText}>{copy.loginBtn}</Text>
+                <Text style={s.buttonText}>{copy.saveBtn}</Text>
               )}
             </TouchableOpacity>
           </Animated.View>
 
           <TouchableOpacity
-            onPress={() => !loading && router.push("/(auth)/register")}
+            onPress={() => !loading && router.replace("/(auth)/login")}
             disabled={loading}
+            activeOpacity={0.8}
           >
-            <Text style={s.registerText}>
-              {copy.registerLine}
-              <Text style={s.link}>{copy.registerLink}</Text>
-            </Text>
+            <Text style={s.backText}>{copy.backLogin}</Text>
           </TouchableOpacity>
         </View>
       </View>
     </KeyboardAvoidingView>
   );
 }
-
-/* ================= Styles ================= */
 
 function makeStyles(theme: any, isDark: boolean) {
   return StyleSheet.create({
@@ -334,7 +288,7 @@ function makeStyles(theme: any, isDark: boolean) {
       zIndex: 10,
     },
     title: {
-      fontSize: 34,
+      fontSize: 32,
       fontWeight: "800",
       color: theme.text,
     },
@@ -342,6 +296,7 @@ function makeStyles(theme: any, isDark: boolean) {
       fontSize: 14,
       color: theme.mutedText,
       marginBottom: 40,
+      lineHeight: 22,
     },
     input: {
       height: 54,
@@ -375,32 +330,24 @@ function makeStyles(theme: any, isDark: boolean) {
       fontSize: 16,
       fontWeight: "600",
     },
-    forgotWrap: {
-      alignSelf: "flex-end",
-      marginTop: 4,
-      marginBottom: 16,
-    },
-    forgotText: {
-      color: theme.tint,
-      fontSize: 13,
-      fontWeight: "800",
-    },
     error: {
       color: theme.danger,
       fontSize: 13,
       marginBottom: 12,
       fontWeight: "800",
     },
-    registerText: {
+    backText: {
       textAlign: "center",
       marginTop: 22,
       fontSize: 14,
-      color: theme.mutedText,
-      fontWeight: "700",
-    },
-    link: {
       color: theme.tint,
-      fontWeight: "900",
+      fontWeight: "800",
+    },
+    rowCenter: {
+      flexDirection: "row",
+      gap: 10,
+      alignItems: "center",
+      justifyContent: "center",
     },
 
     circle: { position: "absolute", borderRadius: 999 },

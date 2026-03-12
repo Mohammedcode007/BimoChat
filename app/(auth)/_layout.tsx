@@ -85,6 +85,8 @@ if (isLoggedIn && currentScreen !== "choose-location") {
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
             <Stack.Screen name="choose-location" />
+                        <Stack.Screen name="forgot-password" />
+
 
     </Stack>
   );

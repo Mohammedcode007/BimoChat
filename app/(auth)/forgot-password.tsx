@@ -1,46 +1,32 @@
-
-// app/(auth)/login.tsx
-// ✅ Login Screen (Expo + RN + Reanimated)
-// ✅ Dark/Light via Colors
-// ✅ Validation: يقبل العربي/الإنجليزي + رموز محددة فقط
-// ✅ اسم المستخدم حتى 64 حرف
-// ✅ إظهار أخطاء لكل حقل + خطأ عام
-// ✅ Loading أثناء تسجيل الدخول
-
 import { Colors } from "@/constants/theme";
-import { login } from "@/redux/slices/authSlice";
-import { AppDispatch } from "@/redux/store";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useColorScheme,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from "react-native";
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withSequence,
+    withTiming,
 } from "react-native-reanimated";
 import Toast from "react-native-toast-message";
-import { useDispatch } from "react-redux";
 
 type FieldErrors = {
-  username?: string;
-  password?: string;
+  emailOrUsername?: string;
   general?: string;
 };
 
-export default function LoginScreen() {
-  const dispatch = useDispatch<AppDispatch>();
+export default function ForgotPasswordScreen() {
   const router = useRouter();
 
   const colorScheme = useColorScheme();
@@ -50,27 +36,21 @@ export default function LoginScreen() {
 
   const copy = useMemo(
     () => ({
-      title: "مرحبًا بعودتك",
-      subtitle: "سجّل الدخول للمتابعة",
-      usernamePH: "اسم المستخدم",
-      passwordPH: "كلمة المرور",
-      loginBtn: "تسجيل الدخول",
-      loadingBtn: "جارٍ تسجيل الدخول...",
-      forgotPassword: "نسيت كلمة المرور؟",
-      registerLine: "ليس لديك حساب؟ ",
-      registerLink: "إنشاء حساب",
+      title: "استعادة كلمة المرور",
+      subtitle: "أدخل البريد الإلكتروني أو اسم المستخدم لإرسال رابط أو كود الاستعادة",
+      inputPH: "البريد الإلكتروني أو اسم المستخدم",
+      sendBtn: "إرسال",
+      sendingBtn: "جارٍ الإرسال...",
+      backBtn: "العودة لتسجيل الدخول",
     }),
     []
   );
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [emailOrUsername, setEmailOrUsername] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
 
-  /* ================= Animations ================= */
-  const userX = useSharedValue(-320);
-  const passX = useSharedValue(320);
+  const inputX = useSharedValue(-320);
   const buttonY = useSharedValue(50);
   const errorOpacity = useSharedValue(0);
   const shakeX = useSharedValue(0);
@@ -81,8 +61,7 @@ export default function LoginScreen() {
   const rotate = useSharedValue(0);
 
   useEffect(() => {
-    userX.value = withTiming(0, { duration: 700 });
-    passX.value = withTiming(0, { duration: 700 });
+    inputX.value = withTiming(0, { duration: 700 });
     buttonY.value = withTiming(0, { duration: 700 });
 
     float1.value = withRepeat(withTiming(30, { duration: 8000 }), -1, true);
@@ -107,47 +86,24 @@ export default function LoginScreen() {
     errorOpacity.value = withTiming(0, { duration: 150 });
   };
 
-  /* ================= Validation ================= */
-
-  // اسم المستخدم: عربي/إنجليزي/أرقام + . _ -
-  // طول من 3 إلى 64
-  const USER_ALLOWED =
-    /^[A-Za-z0-9\u0600-\u06FF][A-Za-z0-9\u0600-\u06FF._-]{2,63}$/;
-
-  // كلمة المرور: عربي/إنجليزي/أرقام + رموز محددة
-  // طول من 6 إلى 64
-  const PASS_ALLOWED =
-    /^[A-Za-z0-9\u0600-\u06FF!@#$%^&*()_+\-=.,?\/\\:;'"[\]{}<>]{6,64}$/;
-
-  const validate = (u: string, p: string): FieldErrors => {
+  const validate = (value: string): FieldErrors => {
     const next: FieldErrors = {};
-    const uTrim = u.trim();
+    const v = value.trim();
 
-    if (!uTrim) {
-      next.username = "يرجى إدخال اسم المستخدم";
-    } else if (/\s/.test(uTrim)) {
-      next.username = "اسم المستخدم لا يجب أن يحتوي على مسافات";
-    }
-
-    if (!p) {
-      next.password = "يرجى إدخال كلمة المرور";
-    } else if (/\s/.test(p)) {
-      next.password = "كلمة المرور لا يجب أن تحتوي على مسافات";
-    } else if (!PASS_ALLOWED.test(p)) {
-      next.password =
-        "كلمة المرور غير صالحة. مسموح: عربي/إنجليزي/أرقام + رموز محددة وطول من 6 إلى 64";
+    if (!v) {
+      next.emailOrUsername = "يرجى إدخال البريد الإلكتروني أو اسم المستخدم";
+    } else if (v.length < 3) {
+      next.emailOrUsername = "المدخل قصير جدًا";
     }
 
     return next;
   };
 
-
-  const handleLogin = async () => {
+  const handleSend = async () => {
     if (loading) return;
 
-    const v = validate(username, password);
-
-    if (v.username || v.password) {
+    const v = validate(emailOrUsername);
+    if (v.emailOrUsername) {
       setErrors(v);
       triggerErrorAnim();
       Toast.show({
@@ -162,50 +118,38 @@ export default function LoginScreen() {
     clearErrors();
 
     try {
-      const resultAction = await dispatch(
-        login({
-          username: username.trim().toLowerCase(),
-          password,
-        })
-      );
+      // هنا اربط API الخاص بك
+      // مثال:
+      // await api.post("/auth/forgot-password", {
+      //   emailOrUsername: emailOrUsername.trim(),
+      // });
 
-      if (login.fulfilled.match(resultAction)) {
-        Toast.show({
-          type: "success",
-          text1: "تم بنجاح",
-          text2: "تم تسجيل الدخول",
-        });
-      } else {
-        const msg = (resultAction.payload as string) || "بيانات غير صحيحة";
-        setErrors({ general: msg });
-        triggerErrorAnim();
-        Toast.show({
-          type: "error",
-          text1: "فشل تسجيل الدخول",
-          text2: msg,
-        });
-      }
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+      Toast.show({
+        type: "success",
+        text1: "تم الإرسال",
+        text2: "إذا كانت البيانات صحيحة ستصلك تعليمات الاستعادة",
+      });
+
+      router.push("/(auth)/login");
     } catch {
-      setErrors({ general: "حدث خطأ غير متوقع" });
+      setErrors({
+        general: "تعذر إرسال طلب الاستعادة، حاول مرة أخرى",
+      });
       triggerErrorAnim();
       Toast.show({
         type: "error",
-        text1: "خطأ",
-        text2: "حدث خطأ غير متوقع",
+        text1: "فشل الإرسال",
+        text2: "حدث خطأ أثناء إرسال طلب الاستعادة",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  /* ================= Animated Styles ================= */
-
-  const userStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: userX.value }],
-  }));
-
-  const passStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: passX.value }],
+  const inputStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: inputX.value }],
   }));
 
   const buttonStyle = useAnimatedStyle(() => ({
@@ -220,7 +164,10 @@ export default function LoginScreen() {
 
   const floating = (v: any, r = false) =>
     useAnimatedStyle(() => ({
-      transform: [{ translateY: v.value }, ...(r ? [{ rotate: `${rotate.value}deg` }] : [])],
+      transform: [
+        { translateY: v.value },
+        ...(r ? [{ rotate: `${rotate.value}deg` }] : []),
+      ],
     }));
 
   return (
@@ -229,7 +176,6 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={s.container}>
-        {/* Background Shapes */}
         <Animated.View style={[s.circle, s.blue, floating(float1)]} />
         <Animated.View style={[s.square, s.purple, floating(float2, true)]} />
         <Animated.View style={[s.triangle, s.green, floating(float3)]} />
@@ -240,38 +186,20 @@ export default function LoginScreen() {
           <Text style={s.title}>{copy.title}</Text>
           <Text style={s.subtitle}>{copy.subtitle}</Text>
 
-          <Animated.View style={userStyle}>
+          <Animated.View style={inputStyle}>
             <TextInput
-              placeholder={copy.usernamePH}
+              placeholder={copy.inputPH}
               placeholderTextColor={theme.subtleText as any}
-              value={username}
-              onChangeText={setUsername}
-              style={[s.input, !!errors.username && s.inputError]}
+              value={emailOrUsername}
+              onChangeText={setEmailOrUsername}
+              style={[s.input, !!errors.emailOrUsername && s.inputError]}
               autoCorrect={false}
               autoCapitalize="none"
               editable={!loading}
             />
-            {!!errors.username && (
+            {!!errors.emailOrUsername && (
               <Animated.Text style={[s.fieldError, errorAnimStyle]}>
-                {errors.username}
-              </Animated.Text>
-            )}
-          </Animated.View>
-
-          <Animated.View style={passStyle}>
-            <TextInput
-              placeholder={copy.passwordPH}
-              placeholderTextColor={theme.subtleText as any}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              style={[s.input, !!errors.password && s.inputError]}
-              editable={!loading}
-              onSubmitEditing={handleLogin}
-            />
-            {!!errors.password && (
-              <Animated.Text style={[s.fieldError, errorAnimStyle]}>
-                {errors.password}
+                {errors.emailOrUsername}
               </Animated.Text>
             )}
           </Animated.View>
@@ -281,48 +209,37 @@ export default function LoginScreen() {
               {errors.general}
             </Animated.Text>
           )}
-          <TouchableOpacity
-            onPress={() => !loading && router.push("/(auth)/forgot-password")}
-            disabled={loading}
-            activeOpacity={0.8}
-            style={s.forgotWrap}
-          >
-            <Text style={s.forgotText}>{copy.forgotPassword}</Text>
-          </TouchableOpacity>
+
           <Animated.View style={buttonStyle}>
             <TouchableOpacity
               style={[s.button, loading && { opacity: 0.8 }]}
-              onPress={handleLogin}
+              onPress={handleSend}
               disabled={loading}
               activeOpacity={0.9}
             >
               {loading ? (
                 <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
                   <ActivityIndicator />
-                  <Text style={s.buttonText}>{copy.loadingBtn}</Text>
+                  <Text style={s.buttonText}>{copy.sendingBtn}</Text>
                 </View>
               ) : (
-                <Text style={s.buttonText}>{copy.loginBtn}</Text>
+                <Text style={s.buttonText}>{copy.sendBtn}</Text>
               )}
             </TouchableOpacity>
           </Animated.View>
 
           <TouchableOpacity
-            onPress={() => !loading && router.push("/(auth)/register")}
+            onPress={() => !loading && router.push("/(auth)/login")}
             disabled={loading}
+            activeOpacity={0.8}
           >
-            <Text style={s.registerText}>
-              {copy.registerLine}
-              <Text style={s.link}>{copy.registerLink}</Text>
-            </Text>
+            <Text style={s.backText}>{copy.backBtn}</Text>
           </TouchableOpacity>
         </View>
       </View>
     </KeyboardAvoidingView>
   );
 }
-
-/* ================= Styles ================= */
 
 function makeStyles(theme: any, isDark: boolean) {
   return StyleSheet.create({
@@ -334,7 +251,7 @@ function makeStyles(theme: any, isDark: boolean) {
       zIndex: 10,
     },
     title: {
-      fontSize: 34,
+      fontSize: 32,
       fontWeight: "800",
       color: theme.text,
     },
@@ -342,6 +259,7 @@ function makeStyles(theme: any, isDark: boolean) {
       fontSize: 14,
       color: theme.mutedText,
       marginBottom: 40,
+      lineHeight: 22,
     },
     input: {
       height: 54,
@@ -375,32 +293,18 @@ function makeStyles(theme: any, isDark: boolean) {
       fontSize: 16,
       fontWeight: "600",
     },
-    forgotWrap: {
-      alignSelf: "flex-end",
-      marginTop: 4,
-      marginBottom: 16,
-    },
-    forgotText: {
-      color: theme.tint,
-      fontSize: 13,
-      fontWeight: "800",
-    },
     error: {
       color: theme.danger,
       fontSize: 13,
       marginBottom: 12,
       fontWeight: "800",
     },
-    registerText: {
+    backText: {
       textAlign: "center",
       marginTop: 22,
       fontSize: 14,
-      color: theme.mutedText,
-      fontWeight: "700",
-    },
-    link: {
       color: theme.tint,
-      fontWeight: "900",
+      fontWeight: "800",
     },
 
     circle: { position: "absolute", borderRadius: 999 },

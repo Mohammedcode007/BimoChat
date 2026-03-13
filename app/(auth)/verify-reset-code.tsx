@@ -1,33 +1,52 @@
 import { Colors } from "@/constants/theme";
-import { useRouter } from "expo-router";
+import {
+  clearError,
+  forgotPassword,
+  verifyResetOtp,
+} from "@/redux/slices/authSlice";
+import { AppDispatch, RootState } from "@/redux/store";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from "react-native";
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSequence,
-    withTiming,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
 import Toast from "react-native-toast-message";
+import { useDispatch, useSelector } from "react-redux";
 
 type FieldErrors = {
   otp?: string;
   general?: string;
 };
 
+const OTP_EXPIRE_SECONDS = 15 * 60; // 15 دقيقة
+const RESEND_COOLDOWN_SECONDS = 30; // 30 ثانية
+
 export default function VerifyResetCodeScreen() {
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
+  const params = useLocalSearchParams<{ email?: string }>();
+
+  const emailFromParams =
+    typeof params.email === "string" ? params.email.trim().toLowerCase() : "";
+
+  const { verifyOtpLoading, forgotPasswordLoading, error } = useSelector(
+    (state: RootState) => state.auth
+  );
 
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
@@ -37,21 +56,23 @@ export default function VerifyResetCodeScreen() {
   const copy = useMemo(
     () => ({
       title: "إدخال كود التحقق",
-      subtitle: "أدخل كود OTP المرسل إلى بريدك الإلكتروني أو رقمك",
+      subtitle: "أدخل كود OTP المرسل إلى بريدك الإلكتروني",
       otpPH: "أدخل الكود",
       verifyBtn: "تأكيد الكود",
       verifyingBtn: "جارٍ التحقق...",
       resendBtn: "إعادة إرسال الكود",
       resendingBtn: "جارٍ إعادة الإرسال...",
       loginBack: "العودة لتسجيل الدخول",
+      missingEmail: "لم يتم العثور على البريد الإلكتروني، أعد طلب الكود أولًا",
+      otpExpired: "انتهت صلاحية الكود، أعد إرسال كود جديد",
     }),
     []
   );
 
   const [otp, setOtp] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
+  const [otpRemaining, setOtpRemaining] = useState(OTP_EXPIRE_SECONDS);
+  const [resendRemaining, setResendRemaining] = useState(RESEND_COOLDOWN_SECONDS);
 
   const inputX = useSharedValue(-320);
   const buttonY = useSharedValue(50);
@@ -73,6 +94,47 @@ export default function VerifyResetCodeScreen() {
     rotate.value = withRepeat(withTiming(360, { duration: 30000 }), -1);
   }, []);
 
+  useEffect(() => {
+    if (error) {
+      setErrors((prev) => ({ ...prev, general: error }));
+      triggerErrorAnim();
+    }
+  }, [error]);
+
+  // عداد صلاحية الكود
+  useEffect(() => {
+    if (otpRemaining <= 0) return;
+
+    const timer = setInterval(() => {
+      setOtpRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [otpRemaining]);
+
+  // عداد إعادة الإرسال
+  useEffect(() => {
+    if (resendRemaining <= 0) return;
+
+    const timer = setInterval(() => {
+      setResendRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [resendRemaining]);
+
   const triggerErrorAnim = () => {
     errorOpacity.value = withTiming(1, { duration: 200 });
     shakeX.value = withSequence(
@@ -87,6 +149,13 @@ export default function VerifyResetCodeScreen() {
   const clearErrors = () => {
     setErrors({});
     errorOpacity.value = withTiming(0, { duration: 150 });
+    dispatch(clearError());
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
   const validate = (value: string): FieldErrors => {
@@ -103,7 +172,29 @@ export default function VerifyResetCodeScreen() {
   };
 
   const handleVerify = async () => {
-    if (loading) return;
+    if (verifyOtpLoading || forgotPasswordLoading) return;
+
+    if (!emailFromParams) {
+      setErrors({ general: copy.missingEmail });
+      triggerErrorAnim();
+      Toast.show({
+        type: "error",
+        text1: "خطأ",
+        text2: copy.missingEmail,
+      });
+      return;
+    }
+
+    if (otpRemaining <= 0) {
+      setErrors({ general: copy.otpExpired });
+      triggerErrorAnim();
+      Toast.show({
+        type: "error",
+        text1: "انتهت الصلاحية",
+        text2: copy.otpExpired,
+      });
+      return;
+    }
 
     const v = validate(otp);
     if (v.otp) {
@@ -117,64 +208,118 @@ export default function VerifyResetCodeScreen() {
       return;
     }
 
-    setLoading(true);
     clearErrors();
 
     try {
-      // اربط هنا API الحقيقي
-      // مثال:
-      // await api.post("/auth/verify-reset-code", { otp: otp.trim() });
+      const resultAction = await dispatch(
+        verifyResetOtp({
+          email: emailFromParams,
+          otp: otp.trim(),
+        })
+      );
 
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      if (verifyResetOtp.fulfilled.match(resultAction)) {
+        Toast.show({
+          type: "success",
+          text1: "تم التحقق",
+          text2: "يمكنك الآن تعيين كلمة مرور جديدة",
+        });
 
-      Toast.show({
-        type: "success",
-        text1: "تم التحقق",
-        text2: "يمكنك الآن تعيين كلمة مرور جديدة",
-      });
+        router.push({
+          pathname: "/(auth)/reset-password",
+          params: {
+            email: emailFromParams,
+            otp: otp.trim(),
+          },
+        });
+      } else {
+        const msg =
+          (resultAction.payload as string) ||
+          "كود التحقق غير صحيح أو منتهي الصلاحية";
 
-      router.push("/(auth)/reset-password");
+        setErrors({ general: msg });
+        triggerErrorAnim();
+
+        Toast.show({
+          type: "error",
+          text1: "فشل التحقق",
+          text2: msg,
+        });
+      }
     } catch {
       setErrors({ general: "كود التحقق غير صحيح أو منتهي الصلاحية" });
       triggerErrorAnim();
+
       Toast.show({
         type: "error",
         text1: "فشل التحقق",
         text2: "كود التحقق غير صحيح أو منتهي الصلاحية",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleResend = async () => {
-    if (resending) return;
+    if (forgotPasswordLoading || verifyOtpLoading) return;
 
-    setResending(true);
+    if (resendRemaining > 0) {
+      Toast.show({
+        type: "info",
+        text1: "انتظر قليلًا",
+        text2: `يمكنك إعادة الإرسال بعد ${resendRemaining} ثانية`,
+      });
+      return;
+    }
+
+    if (!emailFromParams) {
+      setErrors({ general: copy.missingEmail });
+      triggerErrorAnim();
+      Toast.show({
+        type: "error",
+        text1: "خطأ",
+        text2: copy.missingEmail,
+      });
+      return;
+    }
+
     clearErrors();
 
     try {
-      // اربط هنا API إعادة الإرسال
-      // مثال:
-      // await api.post("/auth/resend-reset-code");
+      const resultAction = await dispatch(
+        forgotPassword({ email: emailFromParams })
+      );
 
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      if (forgotPassword.fulfilled.match(resultAction)) {
+        setOtpRemaining(OTP_EXPIRE_SECONDS);
+        setResendRemaining(RESEND_COOLDOWN_SECONDS);
+        setOtp("");
 
-      Toast.show({
-        type: "success",
-        text1: "تم الإرسال",
-        text2: "تمت إعادة إرسال كود التحقق",
-      });
+        Toast.show({
+          type: "success",
+          text1: "تم الإرسال",
+          text2: "تمت إعادة إرسال كود التحقق",
+        });
+      } else {
+        const msg =
+          (resultAction.payload as string) || "تعذر إعادة إرسال الكود";
+
+        setErrors({ general: msg });
+        triggerErrorAnim();
+
+        Toast.show({
+          type: "error",
+          text1: "خطأ",
+          text2: msg,
+        });
+      }
     } catch {
       setErrors({ general: "تعذر إعادة إرسال الكود" });
       triggerErrorAnim();
+
       Toast.show({
         type: "error",
         text1: "خطأ",
         text2: "تعذر إعادة إرسال الكود",
       });
-    } finally {
-      setResending(false);
     }
   };
 
@@ -184,7 +329,7 @@ export default function VerifyResetCodeScreen() {
 
   const buttonStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: buttonY.value }],
-    opacity: loading ? 0.85 : 1,
+    opacity: verifyOtpLoading ? 0.85 : 1,
   }));
 
   const errorAnimStyle = useAnimatedStyle(() => ({
@@ -216,15 +361,52 @@ export default function VerifyResetCodeScreen() {
           <Text style={s.title}>{copy.title}</Text>
           <Text style={s.subtitle}>{copy.subtitle}</Text>
 
+          {!!emailFromParams && <Text style={s.emailHint}>{emailFromParams}</Text>}
+
+          <View style={s.timersBox}>
+            <View style={s.timerItem}>
+              <Text style={s.timerLabel}>صلاحية الكود</Text>
+              <Text
+                style={[
+                  s.timerValue,
+                  otpRemaining <= 60 && { color: theme.danger },
+                ]}
+              >
+                {formatTime(otpRemaining)}
+              </Text>
+            </View>
+
+            <View style={s.timerDivider} />
+
+            <View style={s.timerItem}>
+              <Text style={s.timerLabel}>إعادة الإرسال</Text>
+              <Text
+                style={[
+                  s.timerValue,
+                  resendRemaining === 0 && { color: theme.tint },
+                ]}
+              >
+                {resendRemaining > 0
+                  ? `${resendRemaining} ث`
+                  : "متاح الآن"}
+              </Text>
+            </View>
+          </View>
+
           <Animated.View style={inputStyle}>
             <TextInput
               placeholder={copy.otpPH}
               placeholderTextColor={theme.subtleText as any}
               value={otp}
-              onChangeText={(text) => setOtp(text.replace(/[^\d]/g, ""))}
+              onChangeText={(text) => {
+                setOtp(text.replace(/[^\d]/g, ""));
+                if (errors.otp || errors.general || error) {
+                  clearErrors();
+                }
+              }}
               style={[s.input, !!errors.otp && s.inputError]}
               keyboardType="number-pad"
-              editable={!loading && !resending}
+              editable={!verifyOtpLoading && !forgotPasswordLoading && otpRemaining > 0}
               maxLength={8}
             />
             {!!errors.otp && (
@@ -242,12 +424,15 @@ export default function VerifyResetCodeScreen() {
 
           <Animated.View style={buttonStyle}>
             <TouchableOpacity
-              style={[s.button, loading && { opacity: 0.8 }]}
+              style={[
+                s.button,
+                (verifyOtpLoading || otpRemaining <= 0) && { opacity: 0.8 },
+              ]}
               onPress={handleVerify}
-              disabled={loading || resending}
+              disabled={verifyOtpLoading || forgotPasswordLoading || otpRemaining <= 0}
               activeOpacity={0.9}
             >
-              {loading ? (
+              {verifyOtpLoading ? (
                 <View style={s.rowCenter}>
                   <ActivityIndicator />
                   <Text style={s.buttonText}>{copy.verifyingBtn}</Text>
@@ -259,24 +444,35 @@ export default function VerifyResetCodeScreen() {
           </Animated.View>
 
           <TouchableOpacity
-            style={[s.secondaryButton, resending && { opacity: 0.8 }]}
+            style={[
+              s.secondaryButton,
+              (forgotPasswordLoading || resendRemaining > 0) && { opacity: 0.6 },
+            ]}
             onPress={handleResend}
-            disabled={resending || loading}
+            disabled={forgotPasswordLoading || verifyOtpLoading || resendRemaining > 0}
             activeOpacity={0.9}
           >
-            {resending ? (
+            {forgotPasswordLoading ? (
               <View style={s.rowCenter}>
                 <ActivityIndicator />
                 <Text style={s.secondaryButtonText}>{copy.resendingBtn}</Text>
               </View>
             ) : (
-              <Text style={s.secondaryButtonText}>{copy.resendBtn}</Text>
+              <Text style={s.secondaryButtonText}>
+                {resendRemaining > 0
+                  ? `إعادة الإرسال خلال ${resendRemaining} ثانية`
+                  : copy.resendBtn}
+              </Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => !loading && !resending && router.push("/(auth)/login")}
-            disabled={loading || resending}
+            onPress={() =>
+              !verifyOtpLoading &&
+              !forgotPasswordLoading &&
+              router.push("/(auth)/login")
+            }
+            disabled={verifyOtpLoading || forgotPasswordLoading}
             activeOpacity={0.8}
           >
             <Text style={s.backText}>{copy.loginBack}</Text>
@@ -304,8 +500,48 @@ function makeStyles(theme: any, isDark: boolean) {
     subtitle: {
       fontSize: 14,
       color: theme.mutedText,
-      marginBottom: 40,
+      marginBottom: 14,
       lineHeight: 22,
+    },
+    emailHint: {
+      fontSize: 13,
+      color: theme.tint,
+      marginBottom: 18,
+      fontWeight: "700",
+    },
+    timersBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 16,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      marginBottom: 22,
+      backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "#FFFFFF",
+    },
+    timerItem: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    timerDivider: {
+      width: 1,
+      alignSelf: "stretch",
+      backgroundColor: theme.border,
+      marginHorizontal: 10,
+    },
+    timerLabel: {
+      fontSize: 12,
+      color: theme.mutedText,
+      marginBottom: 4,
+      fontWeight: "700",
+    },
+    timerValue: {
+      fontSize: 18,
+      color: theme.text,
+      fontWeight: "800",
     },
     input: {
       height: 54,

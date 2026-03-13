@@ -8,6 +8,7 @@ export const translations = {
     search: "Search",
     profile: "Profile",
 
+
     settingsScreen: {
       header: "Settings",
 
@@ -21,7 +22,7 @@ changePassword: "Change Password",
       readReceipts: "Read Receipts",
       locationSharing: "Location Sharing",
       blockedAccounts: "Blocked Accounts",
-
+changeEmail:"Change Email",
       notifications: "Notifications",
       notificationToggle: "Notifications",
       notificationSounds: "Notification Sounds",
@@ -83,6 +84,7 @@ changePassword: "Change Password",
       readReceipts: "إيصالات القراءة",
       locationSharing: "مشاركة الموقع",
       blockedAccounts: "الحسابات المحظورة",
+changeEmail:"تغير البريد",
 
       notifications: "الإشعارات",
       notificationToggle: "الإشعارات",

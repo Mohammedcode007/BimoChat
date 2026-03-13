@@ -19,6 +19,7 @@ export type UpdateProfilePayload = {
   country?: string;
   city?: string;
   dateOfBirth?: string | Date;
+  email?: string;
 
   avatar?: string;
   coverImage?: string;
@@ -71,6 +72,7 @@ export type UserFull = {
   CoinzBalance: number;
 
   dateOfBirth?: string;
+  
   country?: string;
   city?: string;
   displayName?: string;
@@ -214,6 +216,25 @@ export const registerNoLogin = createAsyncThunk<
     return rejectWithValue(msg);
   }
 });
+export const changeMyEmail = createAsyncThunk<
+  UserFull,
+  { email: string },
+  { rejectValue: string }
+>(
+  "user/changeMyEmail",
+  async ({ email }, { rejectWithValue }) => {
+    try {
+      const res = await api.patch("/users/me/change-email", { email });
+      return pickUserFromApi(res);
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.message ||
+        "Failed to change email";
+      return rejectWithValue(msg);
+    }
+  }
+);
 export const fetchBlockStatus = createAsyncThunk<
   { blockedByMe: boolean; blockedMe: boolean; anyBlocked: boolean },
   { targetUserId: string },
@@ -339,6 +360,21 @@ const userSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    // ===== change email =====
+builder.addCase(changeMyEmail.pending, (state) => {
+  state.updating = true;
+  state.errorUpdate = null;
+});
+
+builder.addCase(changeMyEmail.fulfilled, (state, action) => {
+  state.updating = false;
+  state.me = action.payload;
+});
+
+builder.addCase(changeMyEmail.rejected, (state, action) => {
+  state.updating = false;
+  state.errorUpdate = action.payload || "Failed to change email";
+});
         // ===== update location =====
     builder.addCase(updateMyLocation.pending, (state) => {
       state.updating = true;
@@ -453,8 +489,13 @@ builder.addCase(fetchBlockStatus.rejected, (state, action) => {
   },
 });
 
-export const { setMe, patchMe, clearUserErrors, clearProfile } = userSlice.actions;
-
+export const {
+  setMe,
+  patchMe,
+  clearUserErrors,
+  clearProfile,
+  clearBlockStatus,
+} = userSlice.actions;
 export default userSlice.reducer;
 
 /* =========================

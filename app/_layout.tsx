@@ -57,6 +57,8 @@ function RootStack() {
       <Stack.Screen name="terms-conditions" />
       <Stack.Screen name="blocked" />
       <Stack.Screen name="room-details" />
+      <Stack.Screen name="change-email" />
+
 
       <Stack.Screen name="add-friend" />
       <Stack.Screen

@@ -377,6 +377,7 @@
 //     color: '#9CA3AF',
 //   },
 // });
+
 import { Colors } from '@/constants/theme';
 import { useHideTabBarOnScroll } from '@/hooks/useHideTabBarOnScroll';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -486,6 +487,12 @@ export default function SettingsScreen() {
           arrow
           onPress={() => router.push('/profile/settings')}
         />
+        <Row
+  icon="mail-outline"
+  text={t('settingsScreen.changeEmail')}
+  arrow
+  onPress={() => router.push('/change-email')}
+/>
     <Row
   icon="image-outline"
   text={t('settingsScreen.profilePhotoCover')}

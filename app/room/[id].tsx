@@ -22,8 +22,10 @@ import {
   Image,
   ImageSourcePropType,
   Keyboard,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -88,6 +90,7 @@ import { debitMyCoinz } from "@/redux/slices/userSlice";
 import { RootState } from "@/redux/store";
 import { uploadToCloudinary } from "@/services/upload.service";
 import LottieView from "lottie-react-native";
+import { ScrollView } from "react-native-gesture-handler";
 import { useSelector } from "react-redux";
 
 /* ================= TYPES ================= */
@@ -843,7 +846,8 @@ function MessageItem({
           <RenderHTML
             contentWidth={width - 40}
             source={{ html: String(item.text || "") }}
-            baseStyle={{ fontSize: 13, color: theme.text, textAlign: "center", fontWeight: "700", lineHeight: 18 }}
+            enableCSSInlineProcessing={true}
+
           />
           <Text style={bubble.sysTime}>{item.time}</Text>
         </View>
@@ -1248,7 +1252,7 @@ export default function ChatScreen() {
     dispatch(fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false }));
     dispatch(fetchRoomUsers(roomId));
     dispatch(fetchRoomStats(roomId));
-  dispatch(getMyInventory() as any);
+    dispatch(getMyInventory() as any);
 
     joinRoomSocket(roomId);
     ensureMicPermission();
@@ -1789,8 +1793,8 @@ export default function ChatScreen() {
   const currentUserId = useSelector((s: RootState) => s.auth.user?._id);
   // اختياري لو عندك بيانات المستخدم كاملة
   const me = useSelector((s: RootState) => s.auth.user);
-const myStore = useAppSelector(selectMyStore);
-const myCoinz = myStore?.coinzBalance ?? 0;
+  const myStore = useAppSelector(selectMyStore);
+  const myCoinz = myStore?.coinzBalance ?? 0;
   const sendText = async () => {
     const content = text.trim();
     if (!content || !roomId) return;
@@ -2545,80 +2549,111 @@ const myCoinz = myStore?.coinzBalance ?? 0;
       </Modal>
 
       {/* ================= PIN MODAL ================= */}
-      <Modal transparent visible={showPinModal} animationType="fade" onRequestClose={() => setShowPinModal(false)}>
-        <Pressable style={styles.pinOverlay} onPress={() => setShowPinModal(false)}>
-          <Pressable style={styles.pinSheet} onPress={() => { }}>
-            <View style={styles.pinHeader}>
-              <Text style={styles.pinTitle}>Pin a message</Text>
-              <TouchableOpacity onPress={() => setShowPinModal(false)} style={styles.pinCloseBtn} activeOpacity={0.85}>
-                <Ionicons name="close" size={20} color={theme.text} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.pinList}>
-              <Text style={styles.pinLabel}>رسالة التثبيت</Text>
-
-              <View style={styles.pinInputWrap}>
-                <Ionicons name="text-outline" size={18} color={theme.icon} />
-                <TextInput
-                  style={styles.pinInput}
-                  placeholder="اكتب رسالة التثبيت (تقبل HTML مثل <b>...</b> و <br /> )"
-                  placeholderTextColor={theme.subtleText}
-                  value={pinHtml}
-                  onChangeText={setPinHtml}
-                  multiline
-                />
-              </View>
-
-              {!!pinHtml.trim() && (
-                <View style={styles.pinPreviewBox}>
-                  <Text style={styles.pinPreviewTitle}>معاينة</Text>
-                  <RenderHTML
-                    contentWidth={width - 60}
-                    source={{ html: String(pinHtml) }}
-                    baseStyle={{ fontSize: 13, color: theme.text, lineHeight: 20 }}
-                  />
-                </View>
-              )}
-            </View>
-
-            <View style={styles.pinActions}>
-              <TouchableOpacity style={[styles.pinBtn, styles.pinBtnCancel]} onPress={() => setShowPinModal(false)} activeOpacity={0.85}>
-                <Text style={styles.pinBtnCancelText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.pinBtn, !pinHtml.trim() && styles.pinBtnDisabled]}
-                disabled={!pinHtml.trim()}
-                activeOpacity={0.85}
-                onPress={async () => {
-                  try {
-                    const content = pinHtml.trim();
-                    if (!content) return;
-
-                    const created = await dispatch(sendRoomMessage({ roomId, content, type: "announcement" })).unwrap();
-                    const messageId = created?.message?._id;
-
-                    if (!messageId) {
-                      Alert.alert("Error", "لم يتم الحصول على id للرسالة الجديدة.");
-                      return;
-                    }
-
-                    await dispatch(pinRoomMessage({ roomId, messageId, pinned: true })).unwrap();
-                    setShowPinModal(false);
-                    setPinHtml("");
-                    Alert.alert("Done", "تم إرسال الرسالة وتثبيتها");
-                  } catch (e: any) {
-                    Alert.alert("Error", e?.message || "Pin failed");
-                  }
-                }}
+      <Modal
+        transparent
+        visible={showPinModal}
+        animationType="fade"
+        onRequestClose={() => setShowPinModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+        >
+          <Pressable style={styles.pinOverlay} onPress={() => setShowPinModal(false)}>
+            <Pressable style={styles.pinSheet} onPress={() => { }}>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 10 }}
               >
-                <Ionicons name="pin" size={16} color={theme.primaryText} />
-                <Text style={styles.pinBtnText}>Pin</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.pinHeader}>
+                  <Text style={styles.pinTitle}>Pin a message</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowPinModal(false)}
+                    style={styles.pinCloseBtn}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="close" size={20} color={theme.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.pinList}>
+                  <Text style={styles.pinLabel}>رسالة التثبيت</Text>
+
+                  <View style={styles.pinInputWrap}>
+                    <Ionicons name="text-outline" size={18} color={theme.icon} />
+                    <TextInput
+                      style={styles.pinInput}
+                      placeholder="اكتب رسالة التثبيت (تقبل HTML مثل <b>...</b> و <br /> )"
+                      placeholderTextColor={theme.subtleText}
+                      value={pinHtml}
+                      onChangeText={setPinHtml}
+                      multiline
+                      textAlignVertical="top"
+                    />
+                  </View>
+
+                  {!!pinHtml.trim() && (
+                    <View style={styles.pinPreviewBox}>
+                      <Text style={styles.pinPreviewTitle}>معاينة</Text>
+                      <RenderHTML
+                        contentWidth={width - 60}
+                        source={{ html: String(pinHtml) }}
+                      />
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.pinActions}>
+                  <TouchableOpacity
+                    style={[styles.pinBtn, styles.pinBtnCancel]}
+                    onPress={() => setShowPinModal(false)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.pinBtnCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.pinBtn, !pinHtml.trim() && styles.pinBtnDisabled]}
+                    disabled={!pinHtml.trim()}
+                    activeOpacity={0.85}
+                    onPress={async () => {
+                      try {
+                        const content = pinHtml.trim();
+                        if (!content) return;
+
+                        const created = await dispatch(
+                          sendRoomMessage({ roomId, content, type: "announcement" })
+                        ).unwrap();
+
+                        const messageId = created?.message?._id;
+
+                        if (!messageId) {
+                          Alert.alert("Error", "لم يتم الحصول على id للرسالة الجديدة.");
+                          return;
+                        }
+
+                        await dispatch(
+                          pinRoomMessage({ roomId, messageId, pinned: true })
+                        ).unwrap();
+
+                        setShowPinModal(false);
+                        setPinHtml("");
+                        Alert.alert("Done", "تم إرسال الرسالة وتثبيتها");
+                      } catch (e: any) {
+                        Alert.alert("Error", e?.message || "Pin failed");
+                      }
+                    }}
+                  >
+                    <Ionicons name="pin" size={16} color={theme.primaryText} />
+                    <Text style={styles.pinBtnText}>Pin</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ================= PIN PREVIEW FULL ================= */}
@@ -2650,9 +2685,10 @@ const myCoinz = myStore?.coinzBalance ?? 0;
                   </Text>
 
                   <RenderHTML
-                    contentWidth={width - 40}
+                    contentWidth={width }
                     source={{ html: String(raw || "") }}
-                    baseStyle={{ fontSize: 13, color: theme.text, lineHeight: 20 }}
+                    enableCSSInlineProcessing={true}
+
                   />
                 </>
               );
@@ -2732,92 +2768,92 @@ const myCoinz = myStore?.coinzBalance ?? 0;
         target={giftPicker.target}
         onClose={() => setGiftPicker({ visible: false, target: null })}
         theme={theme}
-     onPick={async (g) => {
-  try {
-    const target = giftPicker.target;
-    setGiftPicker({ visible: false, target: null });
+        onPick={async (g) => {
+          try {
+            const target = giftPicker.target;
+            setGiftPicker({ visible: false, target: null });
 
-    if (!roomId) return;
+            if (!roomId) return;
 
-    const isBoost = String(g.key || "").startsWith("boost");
+            const isBoost = String(g.key || "").startsWith("boost");
 
-    if (!isBoost && !target?.id) {
-      Alert.alert("Error", "Target user not found");
-      return;
-    }
+            if (!isBoost && !target?.id) {
+              Alert.alert("Error", "Target user not found");
+              return;
+            }
 
-    const tempGift = TEMP_GIFTS.find((x) => x.key === g.key);
-    const giftPrice = Number(tempGift?.price || 0);
+            const tempGift = TEMP_GIFTS.find((x) => x.key === g.key);
+            const giftPrice = Number(tempGift?.price || 0);
 
-    if (myCoinz < giftPrice) {
-      Alert.alert(
-        "رصيد غير كافٍ",
-        `هذه الهدية تحتاج ${giftPrice} Coinz، بينما رصيدك الحالي ${myCoinz} Coinz.`,
-        [
-          { text: "إلغاء", style: "cancel" },
-          {
-            text: "الذهاب إلى المتجر",
-            onPress: () => router.push("/store")
+            if (myCoinz < giftPrice) {
+              Alert.alert(
+                "رصيد غير كافٍ",
+                `هذه الهدية تحتاج ${giftPrice} Coinz، بينما رصيدك الحالي ${myCoinz} Coinz.`,
+                [
+                  { text: "إلغاء", style: "cancel" },
+                  {
+                    text: "الذهاب إلى المتجر",
+                    onPress: () => router.push("/store")
+                  }
+                ]
+              );
+              return;
+            }
+
+            if (giftPrice > 0) {
+              const debitRes = await dispatch(
+                debitMyCoinz({
+                  amount: giftPrice,
+                  reason: `gift:${g.key}`
+                }) as any
+              );
+
+              if (!debitMyCoinz.fulfilled.match(debitRes)) {
+                Alert.alert(
+                  "تعذر الخصم",
+                  String((debitRes as any)?.payload || "فشل خصم الرصيد")
+                );
+                await dispatch(getMyInventory() as any);
+                return;
+              }
+
+              await dispatch(getMyInventory() as any);
+            }
+
+            const meta = GIFT_META[g.key] || { icon: "🎁", count: 45, lottie: undefined };
+
+            await dispatch(
+              sendRoomMessage({
+                roomId,
+                type: "gift",
+                content: g.key,
+                gift: {
+                  key: g.key,
+                  icon: meta.icon,
+                  targetId: isBoost ? undefined : target!.id,
+                  targetName: isBoost ? undefined : target!.name,
+                  count: meta.count
+                }
+              } as any)
+            ).unwrap();
+
+            const toLabel = isBoost ? "Room" : target?.name || "Someone";
+            const announce = `🎁 <b>${myName}</b> sent ${meta.icon} to <b>${toLabel}</b>`;
+
+            await dispatch(
+              sendRoomMessage({
+                roomId,
+                content: announce,
+                type: "announcement"
+              })
+            ).unwrap();
+
+            await dispatch(getMyInventory() as any);
+          } catch (e: any) {
+            Alert.alert("Error", e?.message || "Failed to send gift");
+            await dispatch(getMyInventory() as any);
           }
-        ]
-      );
-      return;
-    }
-
-    if (giftPrice > 0) {
-      const debitRes = await dispatch(
-        debitMyCoinz({
-          amount: giftPrice,
-          reason: `gift:${g.key}`
-        }) as any
-      );
-
-      if (!debitMyCoinz.fulfilled.match(debitRes)) {
-        Alert.alert(
-          "تعذر الخصم",
-          String((debitRes as any)?.payload || "فشل خصم الرصيد")
-        );
-        await dispatch(getMyInventory() as any);
-        return;
-      }
-
-      await dispatch(getMyInventory() as any);
-    }
-
-    const meta = GIFT_META[g.key] || { icon: "🎁", count: 45, lottie: undefined };
-
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        type: "gift",
-        content: g.key,
-        gift: {
-          key: g.key,
-          icon: meta.icon,
-          targetId: isBoost ? undefined : target!.id,
-          targetName: isBoost ? undefined : target!.name,
-          count: meta.count
-        }
-      } as any)
-    ).unwrap();
-
-    const toLabel = isBoost ? "Room" : target?.name || "Someone";
-    const announce = `🎁 <b>${myName}</b> sent ${meta.icon} to <b>${toLabel}</b>`;
-
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        content: announce,
-        type: "announcement"
-      })
-    ).unwrap();
-
-    await dispatch(getMyInventory() as any);
-  } catch (e: any) {
-    Alert.alert("Error", e?.message || "Failed to send gift");
-    await dispatch(getMyInventory() as any);
-  }
-}}
+        }}
       />
     </SafeAreaView>
   );

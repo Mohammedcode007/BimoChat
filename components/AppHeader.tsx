@@ -14,13 +14,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
+import ConnectedDotsBackground from "./ConnectedDotsBackground";
 
 export default function AppHeader() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
-
+  const isDark = colorScheme === "dark";
   const unreadCount = useSelector((state: RootState) => state.notification.unreadCount);
   const user = useSelector((state: RootState) => state.auth.user);
 
@@ -41,6 +42,18 @@ export default function AppHeader() {
 
   return (
     <View style={[s.wrap, { paddingTop: insets.top }]}>
+          <ConnectedDotsBackground
+
+  backgroundColor={isDark ? "rgba(20,20,24,0.92)" : "rgba(255,255,255,0.92)"}
+
+  dotColor={isDark ? "#FFD700" : "#D4AF37"}     // لون النقاط
+  lineColor={isDark ? "#FACC15" : "#E6B800"}    // لون الخطوط
+
+      height={62 + insets.top}
+      style={s.headerBg}
+    />
+
+    {/* <View style={s.overlay} /> */}
       <View style={s.container}>
         {/* Left: User */}
         <TouchableOpacity
@@ -133,20 +146,37 @@ function IconBtn({
 
 function makeStyles(theme: any, isDark: boolean) {
   return StyleSheet.create({
-    wrap: {
-      backgroundColor: theme.background,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.separator ?? (isDark ? "rgba(255,255,255,0.10)" : "rgba(17,24,28,0.10)"),
-    },
 
-    container: {
-      paddingHorizontal: 16,
-      paddingBottom: 10,
-      paddingTop: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
+
+wrap: {
+  position: "relative",
+  overflow: "hidden",
+  backgroundColor: theme.background,
+  borderBottomWidth: 1,
+  borderBottomColor:
+    theme.separator ?? (isDark ? "rgba(255,255,255,0.10)" : "rgba(17,24,28,0.10)"),
+},
+
+headerBg: {
+  ...StyleSheet.absoluteFillObject,
+  zIndex: 0,
+},
+
+overlay: {
+  ...StyleSheet.absoluteFillObject,
+  backgroundColor: isDark ? "rgba(20,20,24,0.78)" : "rgba(255,255,255,0.82)",
+  zIndex: 1,
+},
+
+container: {
+  zIndex: 2,
+  paddingHorizontal: 16,
+  paddingBottom: 10,
+  paddingTop: 10,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+},
 
     userContainer: {
       flexDirection: "row",

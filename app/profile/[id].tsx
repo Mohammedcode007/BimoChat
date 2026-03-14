@@ -566,14 +566,17 @@ console.log(user,'user');
     }
   };
   // داخل الـ component
-const bioHtml = useMemo(() => {
-  const raw = profileUser?.bio?.trim() ?? "";
-  const html = raw
-    ? (/<[a-z][\s\S]*>/i.test(raw) ? raw : `<p>${raw.replace(/\n/g, "<br/>")}</p>`)
-    : `<p style="color:#94A3B8;">لا توجد نبذة بعد.</p>`;
+  const bioHtml = useMemo(() => {
+    const raw = profileUser?.bio?.trim() ?? "";
 
-  return { html }; // ✅ HTMLSource
-}, [profileUser?.bio]);
+    const html = raw
+      ? (/<[a-z][\s\S]*>/i.test(raw)
+          ? raw
+          : `<p>${raw.replace(/\n/g, "<br/>")}</p>`)
+      : `<p style="color:#94A3B8; font-size:16px;">لا توجد نبذة بعد.</p>`;
+
+    return { html };
+  }, [profileUser?.bio]);
 
   /* ================= Actions ================= */
 
@@ -948,17 +951,13 @@ const bioHtml = useMemo(() => {
 
             {/* Bio */}
             <View style={[styles.sectionCard, { backgroundColor: theme.surface2, borderColor: theme.border }]}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>نبذة</Text>
-                {/* <Pressable onPress={() => setSheet("editBio")} style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
-                  <Ionicons name="create-outline" size={18} color={theme.textMuted} />
-                </Pressable> */}
-              </View>
+       
               
-              <RenderHtml
-                contentWidth={width}
-                source={bioHtml}
-              />
+      <RenderHtml
+        contentWidth={width - 32}
+        source={bioHtml}
+        enableCSSInlineProcessing={true}
+      />
               {/* <Text style={[styles.bio, { color: theme.textMuted }]}>
                 {user.bio?.trim() ? user.bio : "لا توجد نبذة بعد."}
               </Text> */}

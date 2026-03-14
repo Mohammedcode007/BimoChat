@@ -13,6 +13,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 import AppHeader from "@/components/AppHeader";
+import ConnectedDotsBackground from "@/components/ConnectedDotsBackground";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useSelector } from "react-redux";
 
@@ -62,8 +63,17 @@ export default function TabLayout() {
             tabBarStyle: [s.tabBar, tabBarHidden && s.tabBarHidden],
 
             tabBarItemStyle: s.item,
-            tabBarBackground: () => <View style={s.tabBarBg} />,
-          }}
+tabBarBackground: () => (
+<ConnectedDotsBackground
+  height={50}
+  backgroundColor={isDark ? "rgba(20,20,24,0.92)" : "rgba(255,255,255,0.92)"}
+
+  dotColor={isDark ? "#FFD700" : "#D4AF37"}     // لون النقاط
+  lineColor={isDark ? "#FACC15" : "#E6B800"}    // لون الخطوط
+
+  style={s.tabBarBg}
+/>
+)          }}
         >
           {/* <Tabs.Screen
             name="index"

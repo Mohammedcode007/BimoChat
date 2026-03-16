@@ -1,33 +1,43 @@
+
+
 // import { Colors } from "@/constants/theme";
+// import { clearError, forgotPassword } from "@/redux/slices/authSlice";
+// import { AppDispatch, RootState } from "@/redux/store";
 // import { useRouter } from "expo-router";
 // import React, { useEffect, useMemo, useState } from "react";
 // import {
-//     ActivityIndicator,
-//     KeyboardAvoidingView,
-//     Platform,
-//     StyleSheet,
-//     Text,
-//     TextInput,
-//     TouchableOpacity,
-//     useColorScheme,
-//     View,
+//   ActivityIndicator,
+//   KeyboardAvoidingView,
+//   Platform,
+//   StyleSheet,
+//   Text,
+//   TextInput,
+//   TouchableOpacity,
+//   useColorScheme,
+//   View,
 // } from "react-native";
 // import Animated, {
-//     useAnimatedStyle,
-//     useSharedValue,
-//     withRepeat,
-//     withSequence,
-//     withTiming,
+//   useAnimatedStyle,
+//   useSharedValue,
+//   withRepeat,
+//   withSequence,
+//   withTiming,
 // } from "react-native-reanimated";
 // import Toast from "react-native-toast-message";
+// import { useDispatch, useSelector } from "react-redux";
 
 // type FieldErrors = {
-//   emailOrUsername?: string;
+//   email?: string;
 //   general?: string;
 // };
 
 // export default function ForgotPasswordScreen() {
 //   const router = useRouter();
+//   const dispatch = useDispatch<AppDispatch>();
+
+//   const { forgotPasswordLoading, error } = useSelector(
+//     (state: RootState) => state.auth
+//   );
 
 //   const colorScheme = useColorScheme();
 //   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
@@ -37,18 +47,17 @@
 //   const copy = useMemo(
 //     () => ({
 //       title: "استعادة كلمة المرور",
-//       subtitle: "أدخل البريد الإلكتروني أو اسم المستخدم لإرسال رابط أو كود الاستعادة",
-//       inputPH: "البريد الإلكتروني أو اسم المستخدم",
-//       sendBtn: "إرسال",
+//       subtitle: "أدخل بريدك الإلكتروني لإرسال كود التحقق",
+//       inputPH: "البريد الإلكتروني",
+//       sendBtn: "إرسال الكود",
 //       sendingBtn: "جارٍ الإرسال...",
 //       backBtn: "العودة لتسجيل الدخول",
 //     }),
 //     []
 //   );
 
-//   const [emailOrUsername, setEmailOrUsername] = useState("");
+//   const [email, setEmail] = useState("");
 //   const [errors, setErrors] = useState<FieldErrors>({});
-//   const [loading, setLoading] = useState(false);
 
 //   const inputX = useSharedValue(-320);
 //   const buttonY = useSharedValue(50);
@@ -70,6 +79,13 @@
 //     rotate.value = withRepeat(withTiming(360, { duration: 30000 }), -1);
 //   }, []);
 
+//   useEffect(() => {
+//     if (error) {
+//       setErrors((prev) => ({ ...prev, general: error }));
+//       triggerErrorAnim();
+//     }
+//   }, [error]);
+
 //   const triggerErrorAnim = () => {
 //     errorOpacity.value = withTiming(1, { duration: 200 });
 //     shakeX.value = withSequence(
@@ -84,67 +100,82 @@
 //   const clearErrors = () => {
 //     setErrors({});
 //     errorOpacity.value = withTiming(0, { duration: 150 });
+//     dispatch(clearError());
 //   };
 
 //   const validate = (value: string): FieldErrors => {
 //     const next: FieldErrors = {};
-//     const v = value.trim();
+//     const v = value.trim().toLowerCase();
 
 //     if (!v) {
-//       next.emailOrUsername = "يرجى إدخال البريد الإلكتروني أو اسم المستخدم";
-//     } else if (v.length < 3) {
-//       next.emailOrUsername = "المدخل قصير جدًا";
+//       next.email = "يرجى إدخال البريد الإلكتروني";
+//     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+//       next.email = "يرجى إدخال بريد إلكتروني صحيح";
 //     }
 
 //     return next;
 //   };
 
 //   const handleSend = async () => {
-//     if (loading) return;
+//     if (forgotPasswordLoading) return;
 
-//     const v = validate(emailOrUsername);
-//     if (v.emailOrUsername) {
+//     const v = validate(email);
+//     if (v.email) {
 //       setErrors(v);
 //       triggerErrorAnim();
 //       Toast.show({
 //         type: "error",
 //         text1: "خطأ",
-//         text2: "تحقق من البيانات المدخلة",
+//         text2: "تحقق من البريد الإلكتروني",
 //       });
 //       return;
 //     }
 
-//     setLoading(true);
 //     clearErrors();
 
 //     try {
-//       // هنا اربط API الخاص بك
-//       // مثال:
-//       // await api.post("/auth/forgot-password", {
-//       //   emailOrUsername: emailOrUsername.trim(),
-//       // });
+//       const normalizedEmail = email.trim().toLowerCase();
 
-//       await new Promise((resolve) => setTimeout(resolve, 1200));
+//       const resultAction = await dispatch(
+//         forgotPassword({ email: normalizedEmail })
+//       );
 
-//       Toast.show({
-//         type: "success",
-//         text1: "تم الإرسال",
-//         text2: "إذا كانت البيانات صحيحة ستصلك تعليمات الاستعادة",
-//       });
+//       if (forgotPassword.fulfilled.match(resultAction)) {
+//         Toast.show({
+//           type: "success",
+//           text1: "تم الإرسال",
+//           text2: "إذا كان البريد موجودًا فسيصلك كود التحقق",
+//         });
 
-//       router.push("/(auth)/login");
+//         router.push({
+//           pathname: "/(auth)/verify-reset-code",
+//           params: { email: normalizedEmail },
+//         });
+//       } else {
+//         const msg =
+//           (resultAction.payload as string) ||
+//           "تعذر إرسال كود التحقق، حاول مرة أخرى";
+
+//         setErrors({ general: msg });
+//         triggerErrorAnim();
+
+//         Toast.show({
+//           type: "error",
+//           text1: "فشل الإرسال",
+//           text2: msg,
+//         });
+//       }
 //     } catch {
 //       setErrors({
-//         general: "تعذر إرسال طلب الاستعادة، حاول مرة أخرى",
+//         general: "تعذر إرسال كود التحقق، حاول مرة أخرى",
 //       });
 //       triggerErrorAnim();
+
 //       Toast.show({
 //         type: "error",
 //         text1: "فشل الإرسال",
-//         text2: "حدث خطأ أثناء إرسال طلب الاستعادة",
+//         text2: "حدث خطأ أثناء إرسال الطلب",
 //       });
-//     } finally {
-//       setLoading(false);
 //     }
 //   };
 
@@ -154,7 +185,7 @@
 
 //   const buttonStyle = useAnimatedStyle(() => ({
 //     transform: [{ translateY: buttonY.value }],
-//     opacity: loading ? 0.85 : 1,
+//     opacity: forgotPasswordLoading ? 0.85 : 1,
 //   }));
 
 //   const errorAnimStyle = useAnimatedStyle(() => ({
@@ -190,16 +221,23 @@
 //             <TextInput
 //               placeholder={copy.inputPH}
 //               placeholderTextColor={theme.subtleText as any}
-//               value={emailOrUsername}
-//               onChangeText={setEmailOrUsername}
-//               style={[s.input, !!errors.emailOrUsername && s.inputError]}
+//               value={email}
+//               onChangeText={(text) => {
+//                 setEmail(text);
+//                 if (errors.email || errors.general || error) {
+//                   clearErrors();
+//                 }
+//               }}
+//               style={[s.input, !!errors.email && s.inputError]}
 //               autoCorrect={false}
 //               autoCapitalize="none"
-//               editable={!loading}
+//               keyboardType="email-address"
+//               editable={!forgotPasswordLoading}
 //             />
-//             {!!errors.emailOrUsername && (
+
+//             {!!errors.email && (
 //               <Animated.Text style={[s.fieldError, errorAnimStyle]}>
-//                 {errors.emailOrUsername}
+//                 {errors.email}
 //               </Animated.Text>
 //             )}
 //           </Animated.View>
@@ -212,13 +250,19 @@
 
 //           <Animated.View style={buttonStyle}>
 //             <TouchableOpacity
-//               style={[s.button, loading && { opacity: 0.8 }]}
+//               style={[s.button, forgotPasswordLoading && { opacity: 0.8 }]}
 //               onPress={handleSend}
-//               disabled={loading}
+//               disabled={forgotPasswordLoading}
 //               activeOpacity={0.9}
 //             >
-//               {loading ? (
-//                 <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+//               {forgotPasswordLoading ? (
+//                 <View
+//                   style={{
+//                     flexDirection: "row",
+//                     gap: 10,
+//                     alignItems: "center",
+//                   }}
+//                 >
 //                   <ActivityIndicator />
 //                   <Text style={s.buttonText}>{copy.sendingBtn}</Text>
 //                 </View>
@@ -229,8 +273,10 @@
 //           </Animated.View>
 
 //           <TouchableOpacity
-//             onPress={() => !loading && router.push("/(auth)/login")}
-//             disabled={loading}
+//             onPress={() =>
+//               !forgotPasswordLoading && router.push("/(auth)/login")
+//             }
+//             disabled={forgotPasswordLoading}
 //             activeOpacity={0.8}
 //           >
 //             <Text style={s.backText}>{copy.backBtn}</Text>
@@ -268,6 +314,7 @@
 //       fontSize: 16,
 //       marginBottom: 10,
 //       color: theme.text,
+//       textAlign: "left",
 //     },
 //     inputError: {
 //       borderBottomColor: theme.danger,
@@ -373,6 +420,7 @@
 // }
 
 import { Colors } from "@/constants/theme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { clearError, forgotPassword } from "@/redux/slices/authSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import { useRouter } from "expo-router";
@@ -406,6 +454,7 @@ type FieldErrors = {
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
+  const { t } = useTranslation();
 
   const { forgotPasswordLoading, error } = useSelector(
     (state: RootState) => state.auth
@@ -415,18 +464,6 @@ export default function ForgotPasswordScreen() {
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
   const s = useMemo(() => makeStyles(theme, isDark), [theme, isDark]);
-
-  const copy = useMemo(
-    () => ({
-      title: "استعادة كلمة المرور",
-      subtitle: "أدخل بريدك الإلكتروني لإرسال كود التحقق",
-      inputPH: "البريد الإلكتروني",
-      sendBtn: "إرسال الكود",
-      sendingBtn: "جارٍ الإرسال...",
-      backBtn: "العودة لتسجيل الدخول",
-    }),
-    []
-  );
 
   const [email, setEmail] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -480,9 +517,9 @@ export default function ForgotPasswordScreen() {
     const v = value.trim().toLowerCase();
 
     if (!v) {
-      next.email = "يرجى إدخال البريد الإلكتروني";
+      next.email = t("forgotPasswordScreen.errors.emailRequired");
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
-      next.email = "يرجى إدخال بريد إلكتروني صحيح";
+      next.email = t("forgotPasswordScreen.errors.emailInvalid");
     }
 
     return next;
@@ -497,8 +534,8 @@ export default function ForgotPasswordScreen() {
       triggerErrorAnim();
       Toast.show({
         type: "error",
-        text1: "خطأ",
-        text2: "تحقق من البريد الإلكتروني",
+        text1: t("common.error"),
+        text2: t("forgotPasswordScreen.toasts.checkEmail"),
       });
       return;
     }
@@ -515,8 +552,8 @@ export default function ForgotPasswordScreen() {
       if (forgotPassword.fulfilled.match(resultAction)) {
         Toast.show({
           type: "success",
-          text1: "تم الإرسال",
-          text2: "إذا كان البريد موجودًا فسيصلك كود التحقق",
+          text1: t("forgotPasswordScreen.toasts.sentTitle"),
+          text2: t("forgotPasswordScreen.toasts.sentMessage"),
         });
 
         router.push({
@@ -526,27 +563,27 @@ export default function ForgotPasswordScreen() {
       } else {
         const msg =
           (resultAction.payload as string) ||
-          "تعذر إرسال كود التحقق، حاول مرة أخرى";
+          t("forgotPasswordScreen.errors.sendFailed");
 
         setErrors({ general: msg });
         triggerErrorAnim();
 
         Toast.show({
           type: "error",
-          text1: "فشل الإرسال",
+          text1: t("forgotPasswordScreen.toasts.sendFailedTitle"),
           text2: msg,
         });
       }
     } catch {
       setErrors({
-        general: "تعذر إرسال كود التحقق، حاول مرة أخرى",
+        general: t("forgotPasswordScreen.errors.sendFailed"),
       });
       triggerErrorAnim();
 
       Toast.show({
         type: "error",
-        text1: "فشل الإرسال",
-        text2: "حدث خطأ أثناء إرسال الطلب",
+        text1: t("forgotPasswordScreen.toasts.sendFailedTitle"),
+        text2: t("forgotPasswordScreen.toasts.requestError"),
       });
     }
   };
@@ -586,12 +623,12 @@ export default function ForgotPasswordScreen() {
         <Animated.View style={[s.circle, s.light, floating(float2)]} />
 
         <View style={s.content}>
-          <Text style={s.title}>{copy.title}</Text>
-          <Text style={s.subtitle}>{copy.subtitle}</Text>
+          <Text style={s.title}>{t("forgotPasswordScreen.title")}</Text>
+          <Text style={s.subtitle}>{t("forgotPasswordScreen.subtitle")}</Text>
 
           <Animated.View style={inputStyle}>
             <TextInput
-              placeholder={copy.inputPH}
+              placeholder={t("forgotPasswordScreen.inputPH")}
               placeholderTextColor={theme.subtleText as any}
               value={email}
               onChangeText={(text) => {
@@ -636,10 +673,14 @@ export default function ForgotPasswordScreen() {
                   }}
                 >
                   <ActivityIndicator />
-                  <Text style={s.buttonText}>{copy.sendingBtn}</Text>
+                  <Text style={s.buttonText}>
+                    {t("forgotPasswordScreen.sendingBtn")}
+                  </Text>
                 </View>
               ) : (
-                <Text style={s.buttonText}>{copy.sendBtn}</Text>
+                <Text style={s.buttonText}>
+                  {t("forgotPasswordScreen.sendBtn")}
+                </Text>
               )}
             </TouchableOpacity>
           </Animated.View>
@@ -651,7 +692,7 @@ export default function ForgotPasswordScreen() {
             disabled={forgotPasswordLoading}
             activeOpacity={0.8}
           >
-            <Text style={s.backText}>{copy.backBtn}</Text>
+            <Text style={s.backText}>{t("forgotPasswordScreen.backBtn")}</Text>
           </TouchableOpacity>
         </View>
       </View>

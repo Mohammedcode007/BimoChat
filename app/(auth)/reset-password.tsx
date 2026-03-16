@@ -1,25 +1,33 @@
+
 // import { Colors } from "@/constants/theme";
-// import { useRouter } from "expo-router";
+// import {
+//   clearError,
+//   clearForgotPasswordState,
+//   resetPassword,
+// } from "@/redux/slices/authSlice";
+// import { AppDispatch, RootState } from "@/redux/store";
+// import { useLocalSearchParams, useRouter } from "expo-router";
 // import React, { useEffect, useMemo, useState } from "react";
 // import {
-//     ActivityIndicator,
-//     KeyboardAvoidingView,
-//     Platform,
-//     StyleSheet,
-//     Text,
-//     TextInput,
-//     TouchableOpacity,
-//     useColorScheme,
-//     View,
+//   ActivityIndicator,
+//   KeyboardAvoidingView,
+//   Platform,
+//   StyleSheet,
+//   Text,
+//   TextInput,
+//   TouchableOpacity,
+//   useColorScheme,
+//   View,
 // } from "react-native";
 // import Animated, {
-//     useAnimatedStyle,
-//     useSharedValue,
-//     withRepeat,
-//     withSequence,
-//     withTiming,
+//   useAnimatedStyle,
+//   useSharedValue,
+//   withRepeat,
+//   withSequence,
+//   withTiming,
 // } from "react-native-reanimated";
 // import Toast from "react-native-toast-message";
+// import { useDispatch, useSelector } from "react-redux";
 
 // type FieldErrors = {
 //   password?: string;
@@ -29,6 +37,17 @@
 
 // export default function ResetPasswordScreen() {
 //   const router = useRouter();
+//   const dispatch = useDispatch<AppDispatch>();
+//   const params = useLocalSearchParams<{ email?: string; otp?: string }>();
+
+//   const emailFromParams =
+//     typeof params.email === "string" ? params.email.trim().toLowerCase() : "";
+//   const otpFromParams =
+//     typeof params.otp === "string" ? params.otp.trim() : "";
+
+//   const { resetPasswordLoading, error } = useSelector(
+//     (state: RootState) => state.auth
+//   );
 
 //   const colorScheme = useColorScheme();
 //   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
@@ -44,6 +63,7 @@
 //       saveBtn: "حفظ كلمة المرور",
 //       savingBtn: "جارٍ الحفظ...",
 //       backLogin: "العودة لتسجيل الدخول",
+//       missingData: "بيانات إعادة التعيين غير مكتملة، أعد طلب كود التحقق أولًا",
 //     }),
 //     []
 //   );
@@ -51,7 +71,6 @@
 //   const [password, setPassword] = useState("");
 //   const [confirmPassword, setConfirmPassword] = useState("");
 //   const [errors, setErrors] = useState<FieldErrors>({});
-//   const [loading, setLoading] = useState(false);
 
 //   const passX = useSharedValue(-320);
 //   const confirmX = useSharedValue(320);
@@ -75,6 +94,13 @@
 //     rotate.value = withRepeat(withTiming(360, { duration: 30000 }), -1);
 //   }, []);
 
+//   useEffect(() => {
+//     if (error) {
+//       setErrors((prev) => ({ ...prev, general: error }));
+//       triggerErrorAnim();
+//     }
+//   }, [error]);
+
 //   const triggerErrorAnim = () => {
 //     errorOpacity.value = withTiming(1, { duration: 200 });
 //     shakeX.value = withSequence(
@@ -89,6 +115,7 @@
 //   const clearErrors = () => {
 //     setErrors({});
 //     errorOpacity.value = withTiming(0, { duration: 150 });
+//     dispatch(clearError());
 //   };
 
 //   const PASS_ALLOWED =
@@ -116,7 +143,18 @@
 //   };
 
 //   const handleResetPassword = async () => {
-//     if (loading) return;
+//     if (resetPasswordLoading) return;
+
+//     if (!emailFromParams || !otpFromParams) {
+//       setErrors({ general: copy.missingData });
+//       triggerErrorAnim();
+//       Toast.show({
+//         type: "error",
+//         text1: "خطأ",
+//         text2: copy.missingData,
+//       });
+//       return;
+//     }
 
 //     const v = validate(password, confirmPassword);
 
@@ -131,36 +169,50 @@
 //       return;
 //     }
 
-//     setLoading(true);
 //     clearErrors();
 
 //     try {
-//       // اربط هنا API الحقيقي
-//       // مثال:
-//       // await api.post("/auth/reset-password", {
-//       //   password,
-//       //   confirmPassword,
-//       // });
+//       const resultAction = await dispatch(
+//         resetPassword({
+//           email: emailFromParams,
+//           otp: otpFromParams,
+//           newPassword: password,
+//         })
+//       );
 
-//       await new Promise((resolve) => setTimeout(resolve, 1200));
+//       if (resetPassword.fulfilled.match(resultAction)) {
+//         dispatch(clearForgotPasswordState());
 
-//       Toast.show({
-//         type: "success",
-//         text1: "تم بنجاح",
-//         text2: "تم تغيير كلمة المرور بنجاح",
-//       });
+//         Toast.show({
+//           type: "success",
+//           text1: "تم بنجاح",
+//           text2: "تم تغيير كلمة المرور بنجاح",
+//         });
 
-//       router.replace("/(auth)/login");
+//         router.replace("/(auth)/login");
+//       } else {
+//         const msg =
+//           (resultAction.payload as string) ||
+//           "تعذر تغيير كلمة المرور، حاول مرة أخرى";
+
+//         setErrors({ general: msg });
+//         triggerErrorAnim();
+
+//         Toast.show({
+//           type: "error",
+//           text1: "فشل العملية",
+//           text2: msg,
+//         });
+//       }
 //     } catch {
 //       setErrors({ general: "تعذر تغيير كلمة المرور، حاول مرة أخرى" });
 //       triggerErrorAnim();
+
 //       Toast.show({
 //         type: "error",
 //         text1: "فشل العملية",
 //         text2: "حدث خطأ أثناء تغيير كلمة المرور",
 //       });
-//     } finally {
-//       setLoading(false);
 //     }
 //   };
 
@@ -174,7 +226,7 @@
 
 //   const buttonStyle = useAnimatedStyle(() => ({
 //     transform: [{ translateY: buttonY.value }],
-//     opacity: loading ? 0.85 : 1,
+//     opacity: resetPasswordLoading ? 0.85 : 1,
 //   }));
 
 //   const errorAnimStyle = useAnimatedStyle(() => ({
@@ -206,15 +258,22 @@
 //           <Text style={s.title}>{copy.title}</Text>
 //           <Text style={s.subtitle}>{copy.subtitle}</Text>
 
+//           {!!emailFromParams && <Text style={s.emailHint}>{emailFromParams}</Text>}
+
 //           <Animated.View style={passStyle}>
 //             <TextInput
 //               placeholder={copy.passwordPH}
 //               placeholderTextColor={theme.subtleText as any}
 //               secureTextEntry
 //               value={password}
-//               onChangeText={setPassword}
+//               onChangeText={(text) => {
+//                 setPassword(text);
+//                 if (errors.password || errors.general || error) {
+//                   clearErrors();
+//                 }
+//               }}
 //               style={[s.input, !!errors.password && s.inputError]}
-//               editable={!loading}
+//               editable={!resetPasswordLoading}
 //             />
 //             {!!errors.password && (
 //               <Animated.Text style={[s.fieldError, errorAnimStyle]}>
@@ -229,9 +288,14 @@
 //               placeholderTextColor={theme.subtleText as any}
 //               secureTextEntry
 //               value={confirmPassword}
-//               onChangeText={setConfirmPassword}
+//               onChangeText={(text) => {
+//                 setConfirmPassword(text);
+//                 if (errors.confirmPassword || errors.general || error) {
+//                   clearErrors();
+//                 }
+//               }}
 //               style={[s.input, !!errors.confirmPassword && s.inputError]}
-//               editable={!loading}
+//               editable={!resetPasswordLoading}
 //               onSubmitEditing={handleResetPassword}
 //             />
 //             {!!errors.confirmPassword && (
@@ -249,12 +313,12 @@
 
 //           <Animated.View style={buttonStyle}>
 //             <TouchableOpacity
-//               style={[s.button, loading && { opacity: 0.8 }]}
+//               style={[s.button, resetPasswordLoading && { opacity: 0.8 }]}
 //               onPress={handleResetPassword}
-//               disabled={loading}
+//               disabled={resetPasswordLoading}
 //               activeOpacity={0.9}
 //             >
-//               {loading ? (
+//               {resetPasswordLoading ? (
 //                 <View style={s.rowCenter}>
 //                   <ActivityIndicator />
 //                   <Text style={s.buttonText}>{copy.savingBtn}</Text>
@@ -266,8 +330,8 @@
 //           </Animated.View>
 
 //           <TouchableOpacity
-//             onPress={() => !loading && router.replace("/(auth)/login")}
-//             disabled={loading}
+//             onPress={() => !resetPasswordLoading && router.replace("/(auth)/login")}
+//             disabled={resetPasswordLoading}
 //             activeOpacity={0.8}
 //           >
 //             <Text style={s.backText}>{copy.backLogin}</Text>
@@ -295,8 +359,14 @@
 //     subtitle: {
 //       fontSize: 14,
 //       color: theme.mutedText,
-//       marginBottom: 40,
+//       marginBottom: 14,
 //       lineHeight: 22,
+//     },
+//     emailHint: {
+//       fontSize: 13,
+//       color: theme.tint,
+//       marginBottom: 26,
+//       fontWeight: "700",
 //     },
 //     input: {
 //       height: 54,
@@ -416,6 +486,7 @@
 // }
 
 import { Colors } from "@/constants/theme";
+import { useTranslation } from "@/hooks/useTranslation";
 import {
   clearError,
   clearForgotPasswordState,
@@ -454,6 +525,7 @@ type FieldErrors = {
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ email?: string; otp?: string }>();
 
   const emailFromParams =
@@ -469,20 +541,6 @@ export default function ResetPasswordScreen() {
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
   const s = useMemo(() => makeStyles(theme, isDark), [theme, isDark]);
-
-  const copy = useMemo(
-    () => ({
-      title: "تعيين كلمة مرور جديدة",
-      subtitle: "أدخل كلمة المرور الجديدة ثم أكدها للمتابعة",
-      passwordPH: "كلمة المرور الجديدة",
-      confirmPasswordPH: "تأكيد كلمة المرور الجديدة",
-      saveBtn: "حفظ كلمة المرور",
-      savingBtn: "جارٍ الحفظ...",
-      backLogin: "العودة لتسجيل الدخول",
-      missingData: "بيانات إعادة التعيين غير مكتملة، أعد طلب كود التحقق أولًا",
-    }),
-    []
-  );
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -541,18 +599,17 @@ export default function ResetPasswordScreen() {
     const next: FieldErrors = {};
 
     if (!p) {
-      next.password = "يرجى إدخال كلمة المرور الجديدة";
+      next.password = t("resetPasswordScreen.errors.passwordRequired");
     } else if (/\s/.test(p)) {
-      next.password = "كلمة المرور لا يجب أن تحتوي على مسافات";
+      next.password = t("resetPasswordScreen.errors.passwordNoSpaces");
     } else if (!PASS_ALLOWED.test(p)) {
-      next.password =
-        "كلمة المرور غير صالحة. مسموح: عربي/إنجليزي/أرقام + رموز محددة وطول من 6 إلى 64";
+      next.password = t("resetPasswordScreen.errors.passwordInvalid");
     }
 
     if (!cp) {
-      next.confirmPassword = "يرجى تأكيد كلمة المرور";
+      next.confirmPassword = t("resetPasswordScreen.errors.confirmPasswordRequired");
     } else if (p !== cp) {
-      next.confirmPassword = "كلمتا المرور غير متطابقتين";
+      next.confirmPassword = t("resetPasswordScreen.errors.passwordsMismatch");
     }
 
     return next;
@@ -562,12 +619,12 @@ export default function ResetPasswordScreen() {
     if (resetPasswordLoading) return;
 
     if (!emailFromParams || !otpFromParams) {
-      setErrors({ general: copy.missingData });
+      setErrors({ general: t("resetPasswordScreen.errors.missingData") });
       triggerErrorAnim();
       Toast.show({
         type: "error",
-        text1: "خطأ",
-        text2: copy.missingData,
+        text1: t("common.error"),
+        text2: t("resetPasswordScreen.errors.missingData"),
       });
       return;
     }
@@ -579,8 +636,8 @@ export default function ResetPasswordScreen() {
       triggerErrorAnim();
       Toast.show({
         type: "error",
-        text1: "خطأ",
-        text2: "تحقق من كلمة المرور الجديدة",
+        text1: t("common.error"),
+        text2: t("resetPasswordScreen.toasts.checkPassword"),
       });
       return;
     }
@@ -601,33 +658,33 @@ export default function ResetPasswordScreen() {
 
         Toast.show({
           type: "success",
-          text1: "تم بنجاح",
-          text2: "تم تغيير كلمة المرور بنجاح",
+          text1: t("common.success"),
+          text2: t("resetPasswordScreen.toasts.resetSuccess"),
         });
 
         router.replace("/(auth)/login");
       } else {
         const msg =
           (resultAction.payload as string) ||
-          "تعذر تغيير كلمة المرور، حاول مرة أخرى";
+          t("resetPasswordScreen.errors.resetFailed");
 
         setErrors({ general: msg });
         triggerErrorAnim();
 
         Toast.show({
           type: "error",
-          text1: "فشل العملية",
+          text1: t("resetPasswordScreen.toasts.operationFailedTitle"),
           text2: msg,
         });
       }
     } catch {
-      setErrors({ general: "تعذر تغيير كلمة المرور، حاول مرة أخرى" });
+      setErrors({ general: t("resetPasswordScreen.errors.resetFailed") });
       triggerErrorAnim();
 
       Toast.show({
         type: "error",
-        text1: "فشل العملية",
-        text2: "حدث خطأ أثناء تغيير كلمة المرور",
+        text1: t("resetPasswordScreen.toasts.operationFailedTitle"),
+        text2: t("resetPasswordScreen.toasts.requestError"),
       });
     }
   };
@@ -671,14 +728,14 @@ export default function ResetPasswordScreen() {
         <Animated.View style={[s.circle, s.light, floating(float2)]} />
 
         <View style={s.content}>
-          <Text style={s.title}>{copy.title}</Text>
-          <Text style={s.subtitle}>{copy.subtitle}</Text>
+          <Text style={s.title}>{t("resetPasswordScreen.title")}</Text>
+          <Text style={s.subtitle}>{t("resetPasswordScreen.subtitle")}</Text>
 
           {!!emailFromParams && <Text style={s.emailHint}>{emailFromParams}</Text>}
 
           <Animated.View style={passStyle}>
             <TextInput
-              placeholder={copy.passwordPH}
+              placeholder={t("resetPasswordScreen.passwordPH")}
               placeholderTextColor={theme.subtleText as any}
               secureTextEntry
               value={password}
@@ -700,7 +757,7 @@ export default function ResetPasswordScreen() {
 
           <Animated.View style={confirmStyle}>
             <TextInput
-              placeholder={copy.confirmPasswordPH}
+              placeholder={t("resetPasswordScreen.confirmPasswordPH")}
               placeholderTextColor={theme.subtleText as any}
               secureTextEntry
               value={confirmPassword}
@@ -737,10 +794,14 @@ export default function ResetPasswordScreen() {
               {resetPasswordLoading ? (
                 <View style={s.rowCenter}>
                   <ActivityIndicator />
-                  <Text style={s.buttonText}>{copy.savingBtn}</Text>
+                  <Text style={s.buttonText}>
+                    {t("resetPasswordScreen.savingBtn")}
+                  </Text>
                 </View>
               ) : (
-                <Text style={s.buttonText}>{copy.saveBtn}</Text>
+                <Text style={s.buttonText}>
+                  {t("resetPasswordScreen.saveBtn")}
+                </Text>
               )}
             </TouchableOpacity>
           </Animated.View>
@@ -750,7 +811,7 @@ export default function ResetPasswordScreen() {
             disabled={resetPasswordLoading}
             activeOpacity={0.8}
           >
-            <Text style={s.backText}>{copy.backLogin}</Text>
+            <Text style={s.backText}>{t("resetPasswordScreen.backLogin")}</Text>
           </TouchableOpacity>
         </View>
       </View>

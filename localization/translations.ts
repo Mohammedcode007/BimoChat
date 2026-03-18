@@ -11,10 +11,40 @@ export const translations = {
       error: "Error",
       success: "Success",
       cancel: "Cancel",
+      user: "User",
       save: "Save",
 
 
     },
+    friendsScreenLAN: {
+      searchPlaceholder: "Search friends",
+      suggested: "Suggested",
+      add: "Add",
+      remove: "Remove",
+      deleteTitle: "Confirm removal",
+      deleteMessage: "Are you sure you want to remove this friend?",
+      noMatching: "No matching friends",
+      noFriendsYet: "No friends yet",
+      tryAnother: "Try another name.",
+      addFriendsHint: "Add friends to start chatting instantly.",
+      addFriend: "Add friend",
+      noBio: "No bio",
+      confirmRemove: "Remove",
+    },
+
+    stories: {
+      myStory: "Your story",
+      add: "Add",
+      noStories: "No stories",
+    },
+
+    status: {
+      online: "Online",
+      lastSeen: "Last seen",
+      now: "Now",
+    },
+
+
     chooseLocationScreen: {
       title: "Choose Your Location",
       subtitle:
@@ -179,6 +209,346 @@ export const translations = {
         confirmPasswordRequired: "Please confirm the password",
         passwordsMismatch: "Passwords do not match",
         resetFailed: "Could not change the password, please try again",
+      },
+    },
+    suggestedFriends: {
+      title: "Suggested friends",
+      subtitle: "People you may want to add and connect with",
+      loading: "Loading suggestions...",
+      emptyTitle: "No suggestions right now",
+      emptyText: "Add your city and interests to get better suggestions",
+
+      online: "Online",
+
+      add: "Add",
+      cancelRequest: "Cancel request",
+      pendingYou: "Waiting for you",
+      friends: "Friends",
+      blocked: "Blocked",
+      blockedYou: "Blocked you",
+    },
+    chatssCREENlAN: {
+      searchPlaceholder: "Search chats",
+      startChatting: "Start chatting...",
+      messageDeleted: "Message deleted",
+      photo: "📷 Photo",
+      voiceMessage: "🎙 Voice message",
+      online: "Online",
+      typing: "typing...",
+      deleteChat: "Delete Chat",
+    },
+    storyCreate: {
+      title: "Add story",
+
+      textTab: "Text",
+      imageTab: "Image",
+      videoTab: "Video",
+
+      privacy: "Privacy",
+      followers: "Friends",
+      public: "Public",
+      private: "Private",
+
+      storyText: "Story text",
+      storyTextPlaceholder: "Write your story...",
+
+      imageFile: "Image file",
+      videoFile: "Video file",
+      chooseFromDevice: "Choose from device",
+      changeFile: "Change file",
+      optionalComment: "Comment (optional)",
+      commentPlaceholder: "Write a comment...",
+
+      size: "Size",
+      uploaded: "Uploaded",
+
+      preparingImage: "Preparing image...",
+      preparingVideo: "Preparing video...",
+      videoCompressedUploading: "Video compressed - uploading...",
+      videoNotCompressedUploading: "Compression unavailable - uploading...",
+      uploadingImage: "Uploading image...",
+      uploadSuccess: "Uploaded successfully ✓",
+
+      waitTitle: "Please wait",
+      waitMessage: "Please wait until upload finishes.",
+      missingDataTitle: "Missing data",
+      missingTextMessage: "Write the story text.",
+      missingFileMessage: "Choose a file.",
+      permissionTitle: "Permissions",
+      permissionMessage: "You need to grant access to photos/videos.",
+      operationFailed: "Operation failed",
+      genericError: "An error occurred.",
+      noFileSelected: "No file selected.",
+      uploadFailed: "An error occurred while uploading the file.",
+      uploadParseFailed: "Failed to parse upload response.",
+      networkUploadError: "Network error during upload.",
+
+      publishLoading: "Publishing...",
+      uploadLoading: "Uploading...",
+      publishStory: "Publish story",
+
+      noteStoriesLimit:
+        "* The backend prevents adding more than two active stories. If you delete one, you can add another.",
+      noteVideoCompression:
+        "* Video compression only works in Bare or Expo Dev Client, not Expo Go.",
+    },
+    addFriend: {
+      title: "Add Friends",
+      subtitle: "Search, then send a request or start chatting",
+      searchPlaceholder: "Search users...",
+      noUsersFound: "No users found",
+
+      add: "Add",
+      cancel: "Cancel",
+      pending: "Pending",
+      friends: "Friends",
+      blocked: "Blocked",
+      blockedYou: "Blocked You",
+      online: "Online",
+    },
+    storeScreen: {
+      tabs: {
+        all: "All",
+        coinz: "Coinz",
+        avatarFrame: "Frames",
+        badge: "Badges",
+        messageEffect: "Effects",
+        profileEntryAnimation: "Entry",
+        gift: "Gifts",
+        bundles: "Bundles",
+        limited: "Limited",
+      },
+
+      prettyType: {
+        avatarFrame: "Avatar Frame",
+        badge: "Badge",
+        messageEffect: "Message Effect",
+        gift: "Gift",
+        profileEntryAnimation: "Profile Entry",
+        verification: "Verification",
+        item: "Item",
+      },
+
+      common: {
+        ok: "OK",
+        none: "None",
+        owned: "Owned",
+        active: "Active",
+        deactivate: "Deactivate",
+        activate: "Activate",
+        activating: "Activating...",
+        expired: "Expired",
+        custom: "Custom",
+        days30: "30 days",
+        coinz: "Coinz",
+        service: "Service",
+        oneTime: "One-time",
+        cost: "Cost",
+        insufficient: "Insufficient",
+        create: "Create",
+        details: "Details",
+        duration: "Duration:",
+        expires: "Expires:",
+        permanent: "Permanent",
+        permanentLower: "permanent",
+        timed: "Timed",
+        new: "New",
+        bundle: "Bundle",
+        limited: "Limited",
+        price: "Price",
+        buy: "Buy",
+        img: "IMG",
+        loading: "Loading...",
+        pleaseWait: "Please wait...",
+        cancel: "Cancel",
+        close: "Close",
+        info: "Info",
+        use: "Use",
+        applying: "Applying...",
+        remove: "Remove",
+        add: "Add",
+        yourBalance: "Your balance:",
+        qty: "qty:",
+        daysSuffix: "day(s)",
+      },
+
+      wallet: {
+        title: "Wallet",
+        subtitle: "Use Coinz to unlock frames, badges, effects and more.",
+        buyCoinz: "Buy Coinz",
+      },
+
+      active: {
+        frame: "Frame",
+        effect: "Effect",
+        entry: "Entry",
+        badges: "Badges",
+        emojiBadge: "Emoji Badge",
+      },
+
+      search: {
+        coinz: "Search coinz packs...",
+        store: "Search store items...",
+      },
+
+      sections: {
+        coinzPacks: "Coinz Packs",
+        store: "Store",
+        coinzSub: "Secure checkout via Paymob.",
+        storeSub: "Pick something and personalize your profile.",
+      },
+
+      coinzPacks: {
+        p1: { title: "Starter", subtitle: "100 Coinz" },
+        p2: { title: "Popular", subtitle: "260 Coinz" },
+        p3: { title: "Pro", subtitle: "550 Coinz" },
+      },
+
+      coinz: {
+        buyTitle: "Buy Coinz",
+        paymentUrlMissing: "Payment URL not returned.",
+        paymentCreateFailed: "Failed to create payment",
+        youGet: "You get",
+        redirecting: "Redirecting...",
+        buyNow: "Buy Now",
+        redirectNote: "You will be redirected to Paymob checkout to complete your payment.",
+        redirectDetails: "You will be redirected to Paymob checkout to complete payment.",
+      },
+
+      customEmoji: {
+        title: "Custom Emoji Badge",
+        cardTitle: "Custom Emoji Badge",
+        cardDesc: "Buy your own single emoji badge and choose whether to activate it immediately.",
+        current: "Current:",
+        noneOwned: "You have not purchased a custom emoji badge yet.",
+        replaceBadge: "Replace Badge",
+        buyBadge: "Buy Badge",
+        enterEmoji: "Please enter one emoji.",
+        notOwnedYet: "You do not own a custom emoji badge yet.",
+        expiredBuyAgain: "Your custom emoji badge has expired. Please buy again.",
+        enterOneEmoji: "Enter one emoji only. Price:",
+        emojiField: "Emoji",
+        preview: "Preview",
+        activateNow: "Activate now",
+        saving: "Saving...",
+        noBadgeTitle: "No custom emoji badge",
+        noBadgeSub: "Buy one from the card above to use it on your profile.",
+        ownedTitle: "Custom Badge",
+        emojiLabel: "Emoji:",
+      },
+
+      createAccount: {
+        title: "Create Account",
+        cardTitle: "Create Account",
+        cardDescPrefix: "Create a new account and pay",
+        cardDescSuffix: "from your balance.",
+        detailsMessage: "After success you can copy username and password.",
+        usernameRequired: "Username is required",
+        passwordMin: "Password must be at least 6 characters",
+        insufficientBalance: "Insufficient Coinz balance",
+        debitFailed: "Failed to debit coinz",
+        registrationFailed: "Registration failed",
+        usernameField: "Username",
+        passwordField: "Password",
+        usernamePlaceholder: "username",
+        passwordPlaceholder: "password",
+        creating: "Creating...",
+      },
+
+      createdAccount: {
+        title: "Account Created",
+        copy: "Copy",
+        copying: "Copying...",
+      },
+
+      purchase: {
+        title: "Purchase",
+        quantity: "Quantity",
+        autoActivate: "Auto-activate",
+        total: "Total",
+        buying: "Buying...",
+        confirm: "Confirm",
+      },
+
+      inventory: {
+        title: "Your Inventory",
+        subtitle: "Manage items you already own.",
+        noItemsTitle: "No items yet",
+        noItemsSub: "Buy something from the store to see it here.",
+      },
+
+      empty: {
+        noCoinzPacks: "No coinz packs found",
+        noItems: "No items match your search",
+        tryKeyword: "Try a different keyword.",
+      },
+
+      alerts: {
+        storeTitle: "Store",
+        alreadyOwnedTitle: "Already owned",
+        alreadyOwnedMessage: "You already own this item.",
+        expiredTitle: "Expired",
+        expiredItemMessage: "This item has expired. Please renew or buy again.",
+        invalidItemTitle: "Invalid item",
+        verificationTypeMissing: "verificationType is missing in item.meta",
+        copiedTitle: "Copied",
+        credentialsCopied: "Credentials copied to clipboard",
+      },
+    },
+    editProfile: {
+      countries: {
+        egypt: "Egypt",
+        saudiArabia: "Saudi Arabia",
+        uae: "United Arab Emirates",
+        unitedStates: "United States",
+        morocco: "Morocco",
+      },
+
+      alerts: {
+        permissionTitle: "Notice",
+        permissionMessage: "You must allow photo access to choose an image.",
+        successTitle: "Done",
+        successMessage: "Profile updated successfully",
+        errorTitle: "Error",
+        errorFallback: "Something went wrong",
+      },
+
+      loading: {
+        title: "Saving changes...",
+        subtitle: "Please wait a moment",
+      },
+
+      actions: {
+        changeCover: "Change Cover",
+        saveChanges: "Save Changes",
+      },
+
+      header: {
+        title: "Edit Profile",
+        subtitle: "Update your information, photo, country, and bio",
+      },
+
+      fields: {
+        username: "Username",
+        country: "Country",
+        bio: "Bio",
+      },
+
+      placeholders: {
+        username: "@username",
+        country: "Select country",
+        search: "Search...",
+        bioPreview: "Tap to add a bio",
+        bioEditor: "Write a bio...",
+      },
+
+      footerHint: "Images will be uploaded automatically, then your data will be saved.",
+
+      modal: {
+        cancel: "Cancel",
+        title: "Edit Bio",
+        save: "Save",
+        hint: "Note: You can use formatting such as Bold and Lists.",
       },
     },
     helpSupport: {
@@ -346,8 +716,329 @@ export const translations = {
         confirm: "Yes, unblock",
       },
     },
+    notifications: {
+      title: "Notifications",
+      all: "All",
+      unread: "Unread",
+      requests: "Requests",
+      read: "Read",
+      delete: "Delete",
+      emptyTitle: "No notifications",
+      emptySub: "Everything new related to your account will appear here.",
+      unknownUser: "User",
+      others: "others",
+      newNotification: "New notification",
+      dash: "—",
 
+      types: {
+        tweet_like: "liked your post",
+        tweet_reply: "replied to your post",
+        follow: "started following you",
+        friend_request: "sent you a friend request",
+        message: "sent a message",
+        room_invite: "room invitation",
+        default: "New notification",
+      },
+    },
+    roomsScreenLan: {
+      searchPlaceholder: "ابحث عن الغرف",
+      tabs: {
+        all: "الكل",
+        active: "النشطة",
+        trending: "الرائجة",
+        vip: "VIP",
+        private: "الخاصة",
+      },
 
+      membersCount: "{{current}}/{{max}} عضو",
+      onlineCount: "{{count}} متصل",
+
+      badges: {
+        banned: "محظور",
+        active: "نشطة",
+        trending: "رائجة",
+        vip: "VIP",
+        verified: "موثقة",
+        voice: "صوتية",
+        protected: "مقفلة",
+        private: "خاصة",
+      },
+
+      roomFallbackName: "غرفة",
+
+      refreshFailed: "فشل التحديث",
+      loadMoreFailed: "فشل تحميل المزيد",
+      searchFailed: "فشل البحث",
+      createRoomFailed: "فشل إنشاء الغرفة",
+      enterRoomFailed: "فشل الدخول إلى الغرفة",
+      joinFailed: "فشل الانضمام",
+      bannedRoom: "أنت محظور من هذه الغرفة",
+      passwordRequired: "كلمة المرور مطلوبة",
+      roomNameRequired: "اسم الغرفة مطلوب",
+      roomNameExists: "اسم الغرفة موجود بالفعل",
+
+      createRoom: "إنشاء غرفة",
+      roomName: "اسم الغرفة",
+      cancel: "إلغاء",
+      create: "إنشاء",
+      creating: "جارٍ الإنشاء...",
+
+      enterPassword: "أدخل كلمة المرور",
+      roomPassword: "كلمة مرور الغرفة",
+      join: "انضمام",
+      joining: "جارٍ الانضمام...",
+
+      loading: "جارٍ التحميل...",
+      searching: "جارٍ البحث...",
+      noRoomsFound: "لا توجد غرف",
+      loadingMore: "جارٍ تحميل المزيد...",
+
+      creatingRoomTitle: "جارٍ إنشاء الغرفة...",
+      creatingRoomSubtitle: "يرجى الانتظار قليلًا",
+    },
+    profileScreenLan: {
+      verified: "Verified",
+      activeNow: "Active now",
+      offline: "Offline",
+      unspecified: "Unspecified",
+
+      message: "Message",
+      startChat: "Start chat",
+      startChatNow: "Start now",
+      typeFirstMessage: "Write your first message...",
+      close: "Close",
+
+      add: "Add",
+      friends: "Friends",
+      cancel: "Cancel",
+      pending: "Pending",
+      unblock: "Unblock",
+      blockedYou: "Blocked You",
+
+      follow: "Follow",
+      following: "Following",
+
+      followers: "Followers",
+      followingCount: "Following",
+      likes: "Likes",
+      views: "Views",
+
+      noBioYet: "No bio yet.",
+      about: "About",
+      posts: "Posts",
+      media: "Media",
+
+      basicInfo: "Basic information",
+      username: "Username",
+      country: "Country",
+
+      noPostsYet: "No posts yet",
+      postsApiHint: "This section will show the user's posts when connected to the API.",
+      mediaLabel: "Media",
+      mediaPrivacyHint: "Media display is controlled by privacy settings.",
+
+      footerNote:
+        "Please communicate respectfully. Abuse or inappropriate requests may be reported and the account may be blocked according to the platform policy.",
+
+      loadingProfile: "Loading profile...",
+      profileLoadFailed: "Failed to load profile",
+      retry: "Retry",
+      noData: "No profile data to display",
+
+      friendSheetAcceptedTitle: "Already friends",
+      friendSheetAcceptedSub: "You are already friends.",
+      friendSheetPendingSentTitle: "Cancel friend request?",
+      friendSheetPendingSentSub: "The sent request will be cancelled.",
+      friendSheetPendingReceivedTitle: "Incoming friend request",
+      friendSheetPendingReceivedSub: "The request is waiting for your approval.",
+      friendSheetBlockedByMeTitle: "Unblock",
+      friendSheetBlockedByMeSub: "This account will be unblocked.",
+      friendSheetBlockedMeTitle: "This account blocked you",
+      friendSheetBlockedMeSub: "You cannot send a friend request.",
+      friendSheetAddTitle: "Add friend",
+      friendSheetAddSub: "A friend request will be sent to this account.",
+
+      followSheetFollowingTitle: "Unfollow?",
+      followSheetFollowTitle: "Follow account",
+      followSheetBlockedSub: "You cannot follow because this account blocked you.",
+      followSheetFollowingSub: "You will stop seeing this account's updates in following.",
+      followSheetFollowSub: "You will receive this account's updates according to your settings.",
+
+      blockSheetBlockedTitle: "Blocked",
+      blockSheetUnblockTitle: "Unblock",
+      blockSheetBlockTitle: "Block account",
+      blockSheetBlockedMeSub: "You cannot manage blocking because this account blocked you.",
+      blockSheetUnblockSub: "This account will be able to interact with you according to settings.",
+      blockSheetBlockSub: "This account will no longer be able to message or interact with you.",
+      blockNoteBlockedMe: "This account has blocked you, so you cannot send messages or requests.",
+      blockNoteUnblock: "You are about to unblock this account.",
+      blockNoteBlock: "Blocking is a strong action to protect your privacy.",
+      confirmBlock: "Confirm block",
+
+      reportTitle: "Report account",
+      reportSub: "Choose a reason and add details if needed. It will be handled confidentially.",
+      reportReason: "Report reason",
+      reportDetails: "Additional details (optional)",
+      send: "Send",
+
+      shareTitle: "Share profile",
+      shareSub: "Choose a sharing method or copy the profile link.",
+      copyLink: "Copy link",
+      copyLinkSub: "Copy the profile link to the clipboard.",
+      sendToFriend: "Send to a friend",
+      sendToFriendSub: "Choose a chat to send the link.",
+
+      editBioTitle: "Edit bio",
+      editBioSub: "This is UI only. Connect it later to /me/settings.",
+      writeNewBio: "Write a new bio...",
+      save: "Save",
+
+      tagTitle: "Interest / tag",
+      tagSub: "Interactive example (mock).",
+      similarProfiles: "Show similar profiles",
+      similarProfilesSub: "Suggestions based on this tag.",
+      saveInterest: "Save as interest",
+      saveInterestSub: "Add this tag to your interests.",
+
+      mediaSheetTitle: "Media",
+      mediaSheetSub: "Media display depends on privacy settings (mock).",
+      mediaSheetNote: "To display media for real: connect the grid to image data and open a viewer screen.",
+
+      moreTitle: "More options",
+      moreSub: "Quick account actions.",
+      messaging: "Messaging",
+      messagingSub: "Start a direct chat.",
+      friendship: "Friendship",
+      friendshipSub: "Add / cancel request / show status.",
+      reportAction: "Report",
+      reportActionSub: "Report inappropriate behavior.",
+      blockActionSub: "Prevent interaction with you.",
+
+      cannotMessageBlockedByThem: "You cannot message this account because they blocked you.",
+      cannotMessageBlockedByMe: "You cannot message this account because you blocked it.",
+      messageWillSendTo: "A message will be sent to {{name}}",
+      cannotCommunicate: "You cannot communicate with this account.",
+      unblockFirstToMessage: "Unblock first to send a message.",
+    },
+    profileSettings: {
+      headerTitle: "Profile Settings",
+      headerSub: "Quick editing with dark mode support",
+      loading: "Loading your data...",
+
+      theme: {
+        dark: "Dark",
+        light: "Light",
+      },
+
+      actions: {
+        save: "Save",
+        saving: "Saving...",
+        back: "Back",
+      },
+
+      quickSummary: {
+        title: "Quick Summary",
+        subtitle: "Mini preview after your changes",
+      },
+
+      basic: {
+        title: "Basic Information",
+        subtitle: "Display name, username, and location",
+        readOnly: "Read only",
+        fields: {
+          displayName: "Display Name",
+          username: "Username",
+          city: "City",
+          country: "Country",
+          bio: "Bio",
+        },
+        placeholders: {
+          displayName: "Enter display name",
+          username: "@username",
+          city: "Enter city",
+          country: "Enter country",
+          bio: "Write a short bio about yourself",
+        },
+      },
+
+      media: {
+        title: "Media",
+        subtitle: "Quick control over media visibility",
+        allowMedia: {
+          title: "Allow media display",
+          subtitle: "Control showing the media grid inside the profile.",
+        },
+      },
+
+      partner: {
+        title: "Life Partner Preferences",
+        subtitle: "Optional fields",
+        fields: {
+          ageRange: "Preferred Age Range",
+          location: "Location",
+          maritalStatus: "Marital Status",
+          religiosity: "Religiosity",
+        },
+        placeholders: {
+          ageRange: "Example: 25 - 32",
+          location: "City or country",
+          maritalStatus: "Example: Single",
+          religiosity: "Example: Practicing",
+        },
+      },
+
+      interests: {
+        title: "Interests",
+        subtitle: "Choose tags shown on your profile",
+      },
+
+      tags: {
+        calm: "Calm",
+        respect: "Respect",
+        reading: "Reading",
+        education: "Education",
+        lightSports: "Light Sports",
+        familyLife: "Family Life",
+        travel: "Travel",
+        volunteering: "Volunteering",
+      },
+
+      privacy: {
+        title: "Privacy",
+        subtitle: "Control visibility and messaging",
+
+        profileVisible: {
+          title: "Show profile to others",
+          subtitle: "When disabled, your profile appears in a limited way.",
+        },
+        lastActive: {
+          title: "Show last active",
+          subtitle: "Hide “active since …”.",
+        },
+        allowMessages: {
+          title: "Allow messages",
+          subtitle: "Who can start a conversation with you.",
+        },
+      },
+
+      notifications: {
+        title: "Notifications",
+        subtitle: "Messages, likes, and follows",
+
+        messages: {
+          title: "Message notifications",
+          subtitle: "Get notified when a message arrives.",
+        },
+        likes: {
+          title: "Like notifications",
+          subtitle: "Get notified when someone likes your profile.",
+        },
+        follows: {
+          title: "Follow notifications",
+          subtitle: "Get notified when someone follows you.",
+        },
+      },
+    },
     privacy: {
       headerTitle: "Privacy Policy",
       headerSub: "How we collect, use, and protect data",
@@ -459,27 +1150,27 @@ export const translations = {
       },
     },
     changeEmail: {
-  title: "Change Email",
-  currentEmailLabel: "Current Email",
-  newEmailLabel: "New Email",
-  newEmailPlaceholder: "example@email.com",
-  unavailable: "Unavailable",
-  saveButton: "Save New Email",
+      title: "Change Email",
+      currentEmailLabel: "Current Email",
+      newEmailLabel: "New Email",
+      newEmailPlaceholder: "example@email.com",
+      unavailable: "Unavailable",
+      saveButton: "Save New Email",
 
-  note: "Make sure to enter a valid and accessible email address, as it may be used later for account recovery or verification.",
+      note: "Make sure to enter a valid and accessible email address, as it may be used later for account recovery or verification.",
 
-  errors: {
-    required: "Please enter your email address",
-    invalid: "Please enter a valid email address",
-    sameAsCurrent: "This is the same as your current email",
-  },
+      errors: {
+        required: "Please enter your email address",
+        invalid: "Please enter a valid email address",
+        sameAsCurrent: "This is the same as your current email",
+      },
 
-  toasts: {
-    success: "Email changed successfully",
-    failed: "Failed to change email",
-    unexpected: "An unexpected error occurred",
-  },
-},
+      toasts: {
+        success: "Email changed successfully",
+        failed: "Failed to change email",
+        unexpected: "An unexpected error occurred",
+      },
+    },
 
 
     registerScreen: {
@@ -616,10 +1307,95 @@ export const translations = {
       error: "خطأ",
       success: "تم بنجاح",
       cancel: "إلغاء",
+      user: "مستخدم",
       save: "حفظ",
 
 
     },
+    friendsScreenLAN: {
+      searchPlaceholder: "ابحث عن الأصدقاء",
+      suggested: "المقترحون",
+      add: "إضافة",
+      remove: "إزالة",
+      deleteTitle: "تأكيد الحذف",
+      deleteMessage: "هل أنت متأكد أنك تريد إزالة هذا الصديق؟",
+      noMatching: "لا يوجد أصدقاء مطابقون",
+      noFriendsYet: "لا يوجد أصدقاء بعد",
+      tryAnother: "جرّب اسمًا آخر.",
+      addFriendsHint: "أضف أصدقاء لبدء المحادثة فورًا.",
+      addFriend: "إضافة صديق",
+      noBio: "لا توجد نبذة",
+      confirmRemove: "إزالة",
+    },
+    roomsScreenLan: {
+      searchPlaceholder: "Search rooms",
+      tabs: {
+        all: "All",
+        active: "Active",
+        trending: "Trending",
+        vip: "VIP",
+        private: "Private",
+      },
+
+      membersCount: "{{current}}/{{max}} members",
+      onlineCount: "{{count}} online",
+
+      badges: {
+        banned: "Banned",
+        active: "Active",
+        trending: "Trending",
+        vip: "VIP",
+        verified: "Verified",
+        voice: "Voice",
+        protected: "Protected",
+        private: "Private",
+      },
+
+      roomFallbackName: "Room",
+
+      refreshFailed: "Refresh failed",
+      loadMoreFailed: "Load more failed",
+      searchFailed: "Search failed",
+      createRoomFailed: "Create room failed",
+      enterRoomFailed: "Enter room failed",
+      joinFailed: "Join failed",
+      bannedRoom: "You are banned from this room",
+      passwordRequired: "Password is required",
+      roomNameRequired: "Room name is required",
+      roomNameExists: "Room name already exists",
+
+      createRoom: "Create Room",
+      roomName: "Room name",
+      cancel: "Cancel",
+      create: "Create",
+      creating: "Creating...",
+
+      enterPassword: "Enter Password",
+      roomPassword: "Room password",
+      join: "Join",
+      joining: "Joining...",
+
+      loading: "Loading...",
+      searching: "Searching...",
+      noRoomsFound: "No rooms found",
+      loadingMore: "Loading more...",
+
+      creatingRoomTitle: "Creating room...",
+      creatingRoomSubtitle: "Please wait a moment",
+    },
+    stories: {
+      myStory: "حالتك",
+      add: "إضافة",
+      noStories: "لا توجد حالات",
+    },
+
+    status: {
+      online: "متصل",
+      lastSeen: "آخر ظهور",
+      now: "الآن",
+    },
+
+
     welcomeScreen: {
       counterText: "46,023 شخص وجدوا مجتمعهم",
       googleLogin: "تسجيل الدخول إلى Google",
@@ -805,7 +1581,62 @@ export const translations = {
       },
     },
 
+    editProfile: {
+      countries: {
+        egypt: "مصر",
+        saudiArabia: "السعودية",
+        uae: "الإمارات",
+        unitedStates: "الولايات المتحدة",
+        morocco: "المغرب",
+      },
 
+      alerts: {
+        permissionTitle: "تنبيه",
+        permissionMessage: "يجب السماح بالوصول للصور لاختيار صورة.",
+        successTitle: "تم",
+        successMessage: "تم تحديث الملف الشخصي بنجاح",
+        errorTitle: "خطأ",
+        errorFallback: "حدث خطأ",
+      },
+
+      loading: {
+        title: "جاري حفظ التعديلات...",
+        subtitle: "الرجاء الانتظار لحظات",
+      },
+
+      actions: {
+        changeCover: "تغيير الغلاف",
+        saveChanges: "حفظ التغييرات",
+      },
+
+      header: {
+        title: "تعديل الملف الشخصي",
+        subtitle: "حدّث بياناتك وصورتك وبلدك والنبذة التعريفية",
+      },
+
+      fields: {
+        username: "المعرّف",
+        country: "الدولة",
+        bio: "النبذة التعريفية",
+      },
+
+      placeholders: {
+        username: "@username",
+        country: "اختر الدولة",
+        search: "ابحث...",
+        bioPreview: "اضغط لإضافة نبذة تعريفية",
+        bioEditor: "اكتب نبذة تعريفية...",
+      },
+
+      footerHint: "سيتم رفع الصور تلقائيًا ثم حفظ البيانات.",
+
+      modal: {
+        cancel: "إلغاء",
+        title: "تعديل النبذة",
+        save: "حفظ",
+        hint: "ملاحظة: يمكنك استخدام تنسيقات مثل Bold و Lists.",
+      },
+    },
     terms: {
       headerTitle: "الشروط والأحكام",
       headerSub: "يرجى القراءة بعناية قبل استخدام التطبيق",
@@ -994,30 +1825,347 @@ export const translations = {
         en: "الإنجليزية",
       },
     },
+    chatssCREENlAN: {
+      searchPlaceholder: "ابحث في المحادثات",
+      startChatting: "ابدأ المحادثة...",
+      messageDeleted: "تم حذف الرسالة",
+      photo: "📷 صورة",
+      voiceMessage: "🎙 رسالة صوتية",
+      online: "متصل",
+      typing: "يكتب...",
+      deleteChat: "حذف المحادثة",
+    },
+    storeScreen: {
+      tabs: {
+        all: "الكل",
+        coinz: "كوينز",
+        avatarFrame: "الإطارات",
+        badge: "الشارات",
+        messageEffect: "التأثيرات",
+        profileEntryAnimation: "الدخول",
+        gift: "الهدايا",
+        bundles: "الباقات",
+        limited: "محدود",
+      },
+
+      prettyType: {
+        avatarFrame: "إطار الصورة",
+        badge: "شارة",
+        messageEffect: "تأثير الرسائل",
+        gift: "هدية",
+        profileEntryAnimation: "دخول الملف",
+        verification: "توثيق",
+        item: "عنصر",
+      },
+
+      common: {
+        ok: "موافق",
+        none: "لا يوجد",
+        owned: "مملوك",
+        active: "مفعل",
+        deactivate: "إلغاء التفعيل",
+        activate: "تفعيل",
+        activating: "جارٍ التفعيل...",
+        expired: "منتهي",
+        custom: "مخصص",
+        days30: "30 يومًا",
+        coinz: "كوينز",
+        service: "خدمة",
+        oneTime: "مرة واحدة",
+        cost: "التكلفة",
+        insufficient: "غير كافٍ",
+        create: "إنشاء",
+        details: "التفاصيل",
+        duration: "المدة:",
+        expires: "ينتهي:",
+        permanent: "دائم",
+        permanentLower: "دائم",
+        timed: "مؤقت",
+        new: "جديد",
+        bundle: "باقة",
+        limited: "محدود",
+        price: "السعر",
+        buy: "شراء",
+        img: "صورة",
+        loading: "جارٍ التحميل...",
+        pleaseWait: "يرجى الانتظار...",
+        cancel: "إلغاء",
+        close: "إغلاق",
+        info: "معلومة",
+        use: "استخدام",
+        applying: "جارٍ التطبيق...",
+        remove: "إزالة",
+        add: "إضافة",
+        yourBalance: "رصيدك:",
+        qty: "الكمية:",
+        daysSuffix: "يوم",
+      },
+
+      wallet: {
+        title: "المحفظة",
+        subtitle: "استخدم الكوينز لفتح الإطارات والشارات والتأثيرات والمزيد.",
+        buyCoinz: "شراء كوينز",
+      },
+
+      active: {
+        frame: "الإطار",
+        effect: "التأثير",
+        entry: "الدخول",
+        badges: "الشارات",
+        emojiBadge: "شارة الإيموجي",
+      },
+
+      search: {
+        coinz: "ابحث في باقات الكوينز...",
+        store: "ابحث في عناصر المتجر...",
+      },
+
+      sections: {
+        coinzPacks: "باقات الكوينز",
+        store: "المتجر",
+        coinzSub: "دفع آمن عبر Paymob.",
+        storeSub: "اختر ما يناسبك وخصص ملفك الشخصي.",
+      },
+
+      coinzPacks: {
+        p1: { title: "مبتدئ", subtitle: "100 كوينز" },
+        p2: { title: "الأشهر", subtitle: "260 كوينز" },
+        p3: { title: "احترافي", subtitle: "550 كوينز" },
+      },
+
+      coinz: {
+        buyTitle: "شراء كوينز",
+        paymentUrlMissing: "لم يتم إرجاع رابط الدفع.",
+        paymentCreateFailed: "فشل إنشاء عملية الدفع",
+        youGet: "ستحصل على",
+        redirecting: "جارٍ التحويل...",
+        buyNow: "اشتر الآن",
+        redirectNote: "سيتم تحويلك إلى صفحة Paymob لإتمام الدفع.",
+        redirectDetails: "سيتم تحويلك إلى صفحة Paymob لإتمام الدفع.",
+      },
+
+      customEmoji: {
+        title: "شارة إيموجي مخصصة",
+        cardTitle: "شارة إيموجي مخصصة",
+        cardDesc: "اشترِ شارة بإيموجي خاص بك وحدد ما إذا كنت تريد تفعيلها فورًا.",
+        current: "الحالي:",
+        noneOwned: "أنت لم تشترِ شارة إيموجي مخصصة بعد.",
+        replaceBadge: "استبدال الشارة",
+        buyBadge: "شراء الشارة",
+        enterEmoji: "يرجى إدخال إيموجي واحد.",
+        notOwnedYet: "أنت لا تملك شارة إيموجي مخصصة بعد.",
+        expiredBuyAgain: "انتهت صلاحية شارة الإيموجي الخاصة بك. يرجى الشراء مرة أخرى.",
+        enterOneEmoji: "أدخل إيموجي واحد فقط. السعر:",
+        emojiField: "الإيموجي",
+        preview: "المعاينة",
+        activateNow: "تفعيل الآن",
+        saving: "جارٍ الحفظ...",
+        noBadgeTitle: "لا توجد شارة إيموجي مخصصة",
+        noBadgeSub: "اشترِ واحدة من البطاقة بالأعلى لاستخدامها في ملفك الشخصي.",
+        ownedTitle: "شارة مخصصة",
+        emojiLabel: "الإيموجي:",
+      },
+
+      createAccount: {
+        title: "إنشاء حساب",
+        cardTitle: "إنشاء حساب",
+        cardDescPrefix: "أنشئ حسابًا جديدًا وادفع",
+        cardDescSuffix: "من رصيدك.",
+        detailsMessage: "بعد النجاح يمكنك نسخ اسم المستخدم وكلمة المرور.",
+        usernameRequired: "اسم المستخدم مطلوب",
+        passwordMin: "يجب ألا تقل كلمة المرور عن 6 أحرف",
+        insufficientBalance: "رصيد الكوينز غير كافٍ",
+        debitFailed: "فشل خصم الكوينز",
+        registrationFailed: "فشل التسجيل",
+        usernameField: "اسم المستخدم",
+        passwordField: "كلمة المرور",
+        usernamePlaceholder: "اسم_المستخدم",
+        passwordPlaceholder: "كلمة المرور",
+        creating: "جارٍ الإنشاء...",
+      },
+
+      createdAccount: {
+        title: "تم إنشاء الحساب",
+        copy: "نسخ",
+        copying: "جارٍ النسخ...",
+      },
+
+      purchase: {
+        title: "شراء",
+        quantity: "الكمية",
+        autoActivate: "تفعيل تلقائي",
+        total: "الإجمالي",
+        buying: "جارٍ الشراء...",
+        confirm: "تأكيد",
+      },
+
+      inventory: {
+        title: "مخزونك",
+        subtitle: "قم بإدارة العناصر التي تملكها بالفعل.",
+        noItemsTitle: "لا توجد عناصر بعد",
+        noItemsSub: "اشترِ شيئًا من المتجر ليظهر هنا.",
+      },
+
+      empty: {
+        noCoinzPacks: "لا توجد باقات كوينز",
+        noItems: "لا توجد عناصر مطابقة لبحثك",
+        tryKeyword: "جرّب كلمة بحث مختلفة.",
+      },
+
+      alerts: {
+        storeTitle: "المتجر",
+        alreadyOwnedTitle: "مملوك بالفعل",
+        alreadyOwnedMessage: "أنت تملك هذا العنصر بالفعل.",
+        expiredTitle: "منتهي",
+        expiredItemMessage: "انتهت صلاحية هذا العنصر. يرجى التجديد أو الشراء مرة أخرى.",
+        invalidItemTitle: "عنصر غير صالح",
+        verificationTypeMissing: "نوع التوثيق مفقود في بيانات العنصر",
+        copiedTitle: "تم النسخ",
+        credentialsCopied: "تم نسخ بيانات الدخول إلى الحافظة",
+      },
+    },
     changeEmail: {
-  title: "تغيير البريد الإلكتروني",
-  currentEmailLabel: "البريد الحالي",
-  newEmailLabel: "البريد الجديد",
-  newEmailPlaceholder: "example@email.com",
-  unavailable: "غير متوفر",
-  saveButton: "حفظ البريد الجديد",
+      title: "تغيير البريد الإلكتروني",
+      currentEmailLabel: "البريد الحالي",
+      newEmailLabel: "البريد الجديد",
+      newEmailPlaceholder: "example@email.com",
+      unavailable: "غير متوفر",
+      saveButton: "حفظ البريد الجديد",
 
-  note: "تأكد من إدخال بريد صحيح ويمكن الوصول إليه، لأنه قد يُستخدم لاحقًا في استعادة الحساب أو التحقق.",
+      note: "تأكد من إدخال بريد صحيح ويمكن الوصول إليه، لأنه قد يُستخدم لاحقًا في استعادة الحساب أو التحقق.",
 
-  errors: {
-    required: "يرجى إدخال البريد الإلكتروني",
-    invalid: "يرجى إدخال بريد إلكتروني صحيح",
-    sameAsCurrent: "هذا هو نفس البريد الحالي",
-  },
+      errors: {
+        required: "يرجى إدخال البريد الإلكتروني",
+        invalid: "يرجى إدخال بريد إلكتروني صحيح",
+        sameAsCurrent: "هذا هو نفس البريد الحالي",
+      },
 
-  toasts: {
-    success: "تم تغيير البريد الإلكتروني",
-    failed: "فشل تغيير البريد الإلكتروني",
-    unexpected: "حدث خطأ غير متوقع",
-  },
-},
+      toasts: {
+        success: "تم تغيير البريد الإلكتروني",
+        failed: "فشل تغيير البريد الإلكتروني",
+        unexpected: "حدث خطأ غير متوقع",
+      },
+    },
 
+    profileSettings: {
+      headerTitle: "إعدادات الملف",
+      headerSub: "تعديل سريع مع دعم الوضع الداكن",
+      loading: "جارٍ تحميل بياناتك...",
 
+      theme: {
+        dark: "داكن",
+        light: "فاتح",
+      },
+
+      actions: {
+        save: "حفظ",
+        saving: "جارٍ...",
+        back: "رجوع",
+      },
+
+      quickSummary: {
+        title: "ملخص سريع",
+        subtitle: "مظهر مصغر بعد التعديلات",
+      },
+
+      basic: {
+        title: "البيانات الأساسية",
+        subtitle: "اسم العرض، المستخدم، الموقع",
+        readOnly: "غير قابل للتعديل",
+        fields: {
+          displayName: "اسم العرض",
+          username: "اسم المستخدم",
+          city: "المدينة",
+          country: "الدولة",
+          bio: "النبذة",
+        },
+        placeholders: {
+          displayName: "أدخل اسم العرض",
+          username: "@username",
+          city: "أدخل المدينة",
+          country: "أدخل الدولة",
+          bio: "اكتب نبذة قصيرة عنك",
+        },
+      },
+
+      media: {
+        title: "الوسائط",
+        subtitle: "تحكم سريع في عرض الوسائط",
+        allowMedia: {
+          title: "السماح بعرض الوسائط",
+          subtitle: "التحكم في ظهور الشبكة داخل البروفايل.",
+        },
+      },
+
+      partner: {
+        title: "تفضيلات شريك الحياة",
+        subtitle: "حقول اختيارية",
+        fields: {
+          ageRange: "العمر المناسب",
+          location: "المكان",
+          maritalStatus: "الحالة الاجتماعية",
+          religiosity: "الالتزام",
+        },
+        placeholders: {
+          ageRange: "مثال: 25 - 32",
+          location: "المدينة أو الدولة",
+          maritalStatus: "مثال: أعزب",
+          religiosity: "مثال: ملتزم",
+        },
+      },
+
+      interests: {
+        title: "الاهتمامات",
+        subtitle: "اختر وسوم تظهر في صفحتك",
+      },
+
+      tags: {
+        calm: "هدوء",
+        respect: "احترام",
+        reading: "قراءة",
+        education: "تعليم",
+        lightSports: "رياضة خفيفة",
+        familyLife: "حياة أسرية",
+        travel: "سفر",
+        volunteering: "تطوع",
+      },
+
+      privacy: {
+        title: "الخصوصية",
+        subtitle: "تحكم في الظهور والمراسلات",
+
+        profileVisible: {
+          title: "إظهار الملف للآخرين",
+          subtitle: "عند الإيقاف يظهر الملف بشكل محدود.",
+        },
+        lastActive: {
+          title: "إظهار آخر ظهور",
+          subtitle: "إخفاء “نشط منذ …”.",
+        },
+        allowMessages: {
+          title: "السماح بالرسائل",
+          subtitle: "من يمكنه بدء محادثة معك.",
+        },
+      },
+
+      notifications: {
+        title: "الإشعارات",
+        subtitle: "الرسائل، الإعجابات، المتابعة",
+
+        messages: {
+          title: "إشعارات الرسائل",
+          subtitle: "تنبيه عند وصول رسالة.",
+        },
+        likes: {
+          title: "إشعارات الإعجاب",
+          subtitle: "تنبيه عند إعجاب.",
+        },
+        follows: {
+          title: "إشعارات المتابعة",
+          subtitle: "تنبيه عند متابعة.",
+        },
+      },
+    },
     resetPasswordScreen: {
       title: "تعيين كلمة مرور جديدة",
       subtitle: "أدخل كلمة المرور الجديدة ثم أكدها للمتابعة",
@@ -1154,7 +2302,239 @@ export const translations = {
         unexpected: "حدث خطأ غير متوقع",
       },
     },
+    notifications: {
+      title: "الإشعارات",
+      all: "الكل",
+      unread: "غير مقروء",
+      requests: "الطلبات",
+      read: "مقروء",
+      delete: "حذف",
+      emptyTitle: "لا توجد إشعارات",
+      emptySub: "سيظهر هنا كل جديد يحدث في حسابك.",
+      unknownUser: "مستخدم",
+      others: "آخرين",
+      newNotification: "إشعار جديد",
+      dash: "—",
 
+      types: {
+        tweet_like: "أُعجب بمنشورك",
+        tweet_reply: "رد على منشورك",
+        follow: "بدأ يتابعك",
+        friend_request: "أرسل طلب صداقة",
+        message: "أرسل رسالة",
+        room_invite: "دعوة لغرفة",
+        default: "إشعار جديد",
+      },
+    },
+    suggestedFriends: {
+      title: "الأصدقاء المقترحون",
+      subtitle: "أشخاص مناسبون للإضافة والتواصل",
+      loading: "جارٍ تحميل المقترحات...",
+      emptyTitle: "لا توجد اقتراحات الآن",
+      emptyText: "أضف مدينتك واهتماماتك لتحصل على اقتراحات أفضل",
+
+      online: "متصل",
+
+      add: "إضافة",
+      cancelRequest: "إلغاء الطلب",
+      pendingYou: "بانتظارك",
+      friends: "أصدقاء",
+      blocked: "محظور",
+      blockedYou: "حظرك",
+    },
+    addFriend: {
+      title: "إضافة أصدقاء",
+      subtitle: "ابحث ثم أرسل طلب أو ابدأ دردشة",
+      searchPlaceholder: "ابحث عن مستخدمين...",
+      noUsersFound: "لا يوجد مستخدمون",
+
+      add: "إضافة",
+      cancel: "إلغاء",
+      pending: "قيد الانتظار",
+      friends: "أصدقاء",
+      blocked: "محظور",
+      blockedYou: "حظرك",
+      online: "متصل",
+    },
+    profileScreenLan: {
+      verified: "موثّق",
+      activeNow: "نشط الآن",
+      offline: "غير متصل",
+      unspecified: "غير محدد",
+
+      message: "رسالة",
+      startChat: "بدء محادثة",
+      startChatNow: "بدء الآن",
+      typeFirstMessage: "اكتب أول رسالة…",
+      close: "إغلاق",
+
+      add: "إضافة",
+      friends: "الأصدقاء",
+      cancel: "إلغاء",
+      pending: "قيد الانتظار",
+      unblock: "فك الحظر",
+      blockedYou: "حظرك",
+
+      follow: "متابعة",
+      following: "يتابع",
+
+      followers: "متابعون",
+      followingCount: "يتابع",
+      likes: "إعجابات",
+      views: "مشاهدات",
+
+      noBioYet: "لا توجد نبذة بعد.",
+      about: "حول",
+      posts: "منشورات",
+      media: "وسائط",
+
+      basicInfo: "البيانات الأساسية",
+      username: "اسم المستخدم",
+      country: "الدولة",
+
+      noPostsYet: "لا توجد منشورات بعد",
+      postsApiHint: "هذا القسم سيعرض منشورات المستخدم عند ربطه بواجهة API.",
+      mediaLabel: "وسائط",
+      mediaPrivacyHint: "يتم التحكم في عرض الوسائط وفق إعدادات الخصوصية.",
+
+      footerNote:
+        "تواصل محترم فقط. أي إساءة أو طلب غير لائق يتم الإبلاغ عنه وحظر الحساب وفق سياسة المنصة.",
+
+      loadingProfile: "جاري تحميل الملف…",
+      profileLoadFailed: "تعذر تحميل الملف الشخصي",
+      retry: "إعادة المحاولة",
+      noData: "لا توجد بيانات للعرض",
+
+      friendSheetAcceptedTitle: "صديق بالفعل",
+      friendSheetAcceptedSub: "أنتما أصدقاء.",
+      friendSheetPendingSentTitle: "إلغاء طلب الصداقة؟",
+      friendSheetPendingSentSub: "سيتم إلغاء الطلب المرسل.",
+      friendSheetPendingReceivedTitle: "طلب صداقة وارد",
+      friendSheetPendingReceivedSub: "الطلب بانتظار قبولك.",
+      friendSheetBlockedByMeTitle: "فك الحظر",
+      friendSheetBlockedByMeSub: "سيتم فك الحظر عن هذا الحساب.",
+      friendSheetBlockedMeTitle: "هذا الحساب حظرك",
+      friendSheetBlockedMeSub: "لا يمكنك إرسال طلب صداقة.",
+      friendSheetAddTitle: "إضافة صديق",
+      friendSheetAddSub: "سيتم إرسال طلب صداقة إلى هذا الحساب.",
+
+      followSheetFollowingTitle: "إلغاء المتابعة؟",
+      followSheetFollowTitle: "متابعة الحساب",
+      followSheetBlockedSub: "لا يمكنك المتابعة لأن هذا الحساب قام بحظرك.",
+      followSheetFollowingSub: "لن ترى تحديثات هذا الحساب في المتابعة.",
+      followSheetFollowSub: "ستصلك تحديثات هذا الحساب حسب إعداداتك.",
+
+      blockSheetBlockedTitle: "محظور",
+      blockSheetUnblockTitle: "فك الحظر",
+      blockSheetBlockTitle: "حظر الحساب",
+      blockSheetBlockedMeSub: "لا يمكنك التحكم في الحظر لأن هذا الحساب قام بحظرك.",
+      blockSheetUnblockSub: "سيصبح بإمكان هذا الحساب التفاعل معك حسب الإعدادات.",
+      blockSheetBlockSub: "لن يتمكن هذا الحساب من مراسلتك أو التفاعل معك.",
+      blockNoteBlockedMe: "هذا الحساب قام بحظرك، لذلك لا يمكنك إرسال رسائل أو طلبات.",
+      blockNoteUnblock: "أنت على وشك فك الحظر.",
+      blockNoteBlock: "الحظر إجراء قوي لحماية خصوصيتك.",
+      confirmBlock: "تأكيد الحظر",
+
+      reportTitle: "إبلاغ عن الحساب",
+      reportSub: "اختر سبب الإبلاغ وأضف تفاصيل إن لزم. سيتم التعامل بسرية.",
+      reportReason: "سبب الإبلاغ",
+      reportDetails: "تفاصيل إضافية (اختياري)",
+      send: "إرسال",
+
+      shareTitle: "مشاركة الملف",
+      shareSub: "اختر طريقة المشاركة أو نسخ رابط الملف.",
+      copyLink: "نسخ الرابط",
+      copyLinkSub: "نسخ رابط الملف الشخصي إلى الحافظة.",
+      sendToFriend: "إرسال إلى صديق",
+      sendToFriendSub: "اختر محادثة لإرسال الرابط.",
+
+      editBioTitle: "تعديل النبذة",
+      editBioSub: "هذه نافذة UI فقط. اربطها لاحقًا بـ /me/settings.",
+      writeNewBio: "اكتب نبذة جديدة…",
+      save: "حفظ",
+
+      tagTitle: "اهتمام / وسم",
+      tagSub: "مثال تفاعلي.",
+      similarProfiles: "عرض ملفات مشابهة",
+      similarProfilesSub: "اقتراحات حسب هذا الوسم.",
+      saveInterest: "حفظ كاهتمام",
+      saveInterestSub: "إضافة هذا الوسم لاهتماماتك.",
+
+      mediaSheetTitle: "الوسائط",
+      mediaSheetSub: "عرض الوسائط يعتمد على الخصوصية.",
+      mediaSheetNote: "لعرض الوسائط فعليًا: اربط Grid ببيانات الصور وافتح شاشة Viewer.",
+
+      moreTitle: "خيارات إضافية",
+      moreSub: "إجراءات سريعة على الحساب.",
+      messaging: "مراسلة",
+      messagingSub: "بدء محادثة مباشرة.",
+      friendship: "صداقة",
+      friendshipSub: "إضافة/إلغاء طلب/عرض الحالة.",
+      reportAction: "إبلاغ",
+      reportActionSub: "الإبلاغ عن سلوك غير مناسب.",
+      blockActionSub: "منع التفاعل معك.",
+
+      cannotMessageBlockedByThem: "لا يمكنك مراسلة هذا الحساب لأنه قام بحظرك.",
+      cannotMessageBlockedByMe: "لا يمكنك مراسلة هذا الحساب لأنه محظور من طرفك.",
+      messageWillSendTo: "سيتم إرسال رسالة إلى {{name}}",
+      cannotCommunicate: "لا يمكنك التواصل مع هذا الحساب.",
+      unblockFirstToMessage: "قم بفك الحظر أولاً لإرسال رسالة.",
+    },
+    storyCreate: {
+      title: "إضافة حالة",
+
+      textTab: "نص",
+      imageTab: "صورة",
+      videoTab: "فيديو",
+
+      privacy: "الخصوصية",
+      followers: "الأصدقاء",
+      public: "عام",
+      private: "خاص",
+
+      storyText: "نص الحالة",
+      storyTextPlaceholder: "اكتب حالتك...",
+
+      imageFile: "ملف الصورة",
+      videoFile: "ملف الفيديو",
+      chooseFromDevice: "اختر من جهازك",
+      changeFile: "تغيير الملف",
+      optionalComment: "تعليق (اختياري)",
+      commentPlaceholder: "اكتب تعليق...",
+
+      size: "الحجم",
+      uploaded: "تم الرفع",
+
+      preparingImage: "تجهيز الصورة...",
+      preparingVideo: "تجهيز الفيديو...",
+      videoCompressedUploading: "تم ضغط الفيديو - جاري الرفع...",
+      videoNotCompressedUploading: "لم يتم الضغط - جاري الرفع...",
+      uploadingImage: "رفع الصورة...",
+      uploadSuccess: "تم الرفع بنجاح ✓",
+
+      waitTitle: "انتظار",
+      waitMessage: "يرجى انتظار اكتمال رفع الملف.",
+      missingDataTitle: "نقص بيانات",
+      missingTextMessage: "اكتب نص الحالة.",
+      missingFileMessage: "اختر ملفًا.",
+      permissionTitle: "صلاحيات",
+      permissionMessage: "يجب منح صلاحية الوصول للصور/الفيديو.",
+      operationFailed: "فشل العملية",
+      genericError: "حدث خطأ.",
+      noFileSelected: "لا يوجد ملف محدد.",
+      uploadFailed: "حدث خطأ أثناء رفع الملف.",
+      uploadParseFailed: "فشل قراءة استجابة الرفع.",
+      networkUploadError: "خطأ شبكة أثناء الرفع.",
+
+      publishLoading: "جاري النشر...",
+      uploadLoading: "جاري الرفع...",
+      publishStory: "نشر الحالة",
+
+      noteStoriesLimit:
+        "* الباك يمنع إضافة أكثر من حالتين نشطتين. إذا حذفت حالة يمكنك إضافة أخرى.",
+      noteVideoCompression:
+        "* ضغط الفيديو يعمل فقط في Bare أو Expo Dev Client (وليس Expo Go).",
+    },
     settingsScreen: {
       header: "الإعدادات",
 

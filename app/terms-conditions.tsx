@@ -718,6 +718,7 @@ function makeStyles(theme: any) {
       alignItems: "center",
       gap: 10,
     },
+    
     footerText: {
       flex: 1,
       fontSize: 13,

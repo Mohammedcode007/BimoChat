@@ -388,6 +388,7 @@ import React, { useMemo } from "react";
 import {
   Linking,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -501,8 +502,11 @@ export default function HelpSupportScreen() {
 
   return (
     <SafeAreaView style={s.safeArea} edges={["top"]}>
-      <View style={s.container}>
-        {/* Header */}
+  <ScrollView
+    style={s.container}
+    contentContainerStyle={{ paddingBottom: 24 }}
+    showsVerticalScrollIndicator={false}
+  >     
         <View style={s.header}>
           <View style={s.headerIcon}>
             <Ionicons name="help-circle-outline" size={18} color={theme.tint} />
@@ -551,7 +555,7 @@ export default function HelpSupportScreen() {
           <Ionicons name="lock-closed-outline" size={16} color={theme.icon} />
           <Text style={s.footerText}>{t("helpSupport.footer")}</Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -606,7 +610,6 @@ function makeStyles(theme: any) {
     container: {
       flex: 1,
       backgroundColor: theme.background,
-      paddingBottom: 16,
     },
 
     header: {
@@ -755,6 +758,7 @@ function makeStyles(theme: any) {
       alignItems: "center",
       gap: 10,
     },
+    
     footerText: {
       flex: 1,
       fontSize: 12.5,

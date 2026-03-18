@@ -387,8 +387,8 @@
 // ✅ Loading Overlay أنيق
 // ✅ تصميم عصري للكفر/الأفاتار/النموذج + مودال تعديل Bio
 // ✅ تحسينات UX: تعطيل الحفظ أثناء التحميل، إشعارات، Borders/Surfaces من الثيم
-
 import { Colors } from "@/constants/theme";
+import { useTranslation } from "@/hooks/useTranslation";
 import { updateProfile } from "@/redux/slices/profileSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import { uploadToCloudinary } from "@/services/upload.service";
@@ -415,23 +415,28 @@ import { RichEditor, RichToolbar } from "react-native-pell-rich-editor";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 
-const COUNTRIES = [
-  { label: "مصر", value: "مصر" },
-  { label: "السعودية", value: "السعودية" },
-  { label: "الإمارات", value: "الإمارات" },
-  { label: "الولايات المتحدة", value: "الولايات المتحدة" },
-  { label: "المغرب", value: "المغرب" },
-];
-
 export default function EditProfileScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const { loading } = useSelector((state: RootState) => state.profile);
 
+  const { t } = useTranslation();
+
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
 
   const richText = useRef<RichEditor | null>(null);
+
+  const COUNTRIES = useMemo(
+    () => [
+      { label: t("editProfile.countries.egypt"), value: t("editProfile.countries.egypt") },
+      { label: t("editProfile.countries.saudiArabia"), value: t("editProfile.countries.saudiArabia") },
+      { label: t("editProfile.countries.uae"), value: t("editProfile.countries.uae") },
+      { label: t("editProfile.countries.unitedStates"), value: t("editProfile.countries.unitedStates") },
+      { label: t("editProfile.countries.morocco"), value: t("editProfile.countries.morocco") },
+    ],
+    [t]
+  );
 
   const [userId, setUserId] = useState("");
   const [bio, setBio] = useState("");
@@ -457,14 +462,16 @@ export default function EditProfileScreen() {
   }, [user]);
 
   const canSave = useMemo(() => {
-    // ممكن تضيف قواعد هنا لو تحب
     return !loading;
   }, [loading]);
 
   const ensureMediaPermission = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("تنبيه", "يجب السماح بالوصول للصور لاختيار صورة.");
+      Alert.alert(
+        t("editProfile.alerts.permissionTitle"),
+        t("editProfile.alerts.permissionMessage")
+      );
       return false;
     }
     return true;
@@ -514,101 +521,179 @@ export default function EditProfileScreen() {
         })
       ).unwrap();
 
-      Alert.alert("تم", "تم تحديث الملف الشخصي بنجاح");
+      Alert.alert(
+        t("editProfile.alerts.successTitle"),
+        t("editProfile.alerts.successMessage")
+      );
     } catch (e: any) {
-      Alert.alert("خطأ", String(e?.message || e || "حدث خطأ"));
+      Alert.alert(
+        t("editProfile.alerts.errorTitle"),
+        String(e?.message || e || t("editProfile.alerts.errorFallback"))
+      );
     }
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={["top", "bottom"]}>
-      <StatusBar barStyle={colorScheme === "dark" ? "light-content" : "dark-content"} />
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: theme.background }]}
+      edges={["top", "bottom"]}
+    >
+      <StatusBar
+        barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
+      />
 
-      {/* ✅ Loading Modal */}
       <Modal visible={!!loading} transparent animationType="fade">
         <View style={styles.loadingOverlay}>
-          <View style={[styles.loadingCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View
+            style={[
+              styles.loadingCard,
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
+          >
             <ActivityIndicator />
-            <Text style={[styles.loadingText, { color: theme.text }]}>جاري حفظ التعديلات...</Text>
-            <Text style={[styles.loadingSubText, { color: theme.mutedText as any }]}>
-              الرجاء الانتظار لحظات
+            <Text style={[styles.loadingText, { color: theme.text }]}>
+              {t("editProfile.loading.title")}
+            </Text>
+            <Text
+              style={[
+                styles.loadingSubText,
+                { color: theme.mutedText as any },
+              ]}
+            >
+              {t("editProfile.loading.subtitle")}
             </Text>
           </View>
         </View>
       </Modal>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-        {/* Cover */}
-        <View style={[styles.coverContainer, { backgroundColor: theme.surface2 }]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 24 }}
+      >
+        <View
+          style={[styles.coverContainer, { backgroundColor: theme.surface2 }]}
+        >
           {cover ? (
             <Image source={{ uri: cover }} style={styles.coverImage} />
           ) : (
-            <View style={[styles.coverPlaceholder, { backgroundColor: theme.surface2 }]} />
+            <View
+              style={[
+                styles.coverPlaceholder,
+                { backgroundColor: theme.surface2 },
+              ]}
+            />
           )}
 
-          {/* Cover overlay gradient-like */}
-          <View style={[styles.coverShade, { backgroundColor: theme.overlay }]} />
+          <View
+            style={[styles.coverShade, { backgroundColor: theme.overlay }]}
+          />
 
           <TouchableOpacity
-            style={[styles.coverEditBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
+            style={[
+              styles.coverEditBtn,
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
             onPress={() => pickImage("cover")}
             activeOpacity={0.85}
           >
-            <Ionicons name="camera-outline" size={18} color={theme.icon} />
-            <Text style={[styles.coverEditText, { color: theme.text }]}>تغيير الغلاف</Text>
+            <Ionicons
+              name="camera-outline"
+              size={18}
+              color={theme.icon}
+            />
+            <Text style={[styles.coverEditText, { color: theme.text }]}>
+              {t("editProfile.actions.changeCover")}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Avatar + Header Card */}
         <View style={styles.headerCardWrap}>
-          <View style={[styles.headerCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View
+            style={[
+              styles.headerCard,
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
+          >
             <View style={styles.avatarRow}>
-              <View style={[styles.avatarWrapper, { borderColor: theme.border, backgroundColor: theme.surface2 }]}>
+              <View
+                style={[
+                  styles.avatarWrapper,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: theme.surface2,
+                  },
+                ]}
+              >
                 {avatar ? (
                   <Image source={{ uri: avatar }} style={styles.avatar} />
                 ) : (
-                  <Ionicons name="person-outline" size={52} color={theme.icon} />
+                  <Ionicons
+                    name="person-outline"
+                    size={52}
+                    color={theme.icon}
+                  />
                 )}
 
                 <TouchableOpacity
-                  style={[styles.avatarEditBtn, { backgroundColor: theme.primary }]}
+                  style={[
+                    styles.avatarEditBtn,
+                    { backgroundColor: theme.primary },
+                  ]}
                   onPress={() => pickImage("avatar")}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="camera" size={14} color={theme.primaryText} />
+                  <Ionicons
+                    name="camera"
+                    size={14}
+                    color={theme.primaryText}
+                  />
                 </TouchableOpacity>
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={[styles.headerTitle, { color: theme.text }]}>تعديل الملف الشخصي</Text>
-                <Text style={[styles.headerSub, { color: theme.mutedText as any }]}>
-                  حدّث بياناتك وصورتك وبلدك والنبذة التعريفية
+                <Text style={[styles.headerTitle, { color: theme.text }]}>
+                  {t("editProfile.header.title")}
+                </Text>
+                <Text
+                  style={[
+                    styles.headerSub,
+                    { color: theme.mutedText as any },
+                  ]}
+                >
+                  {t("editProfile.header.subtitle")}
                 </Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Form */}
         <View style={styles.formSection}>
           <FormInput
-            label="المعرّف"
+            label={t("editProfile.fields.username")}
             value={userId}
             onChangeText={setUserId}
             theme={theme}
-            placeholder="@username"
+            placeholder={t("editProfile.placeholders.username")}
           />
 
-          <Text style={[styles.label, { color: theme.mutedText as any }]}>الدولة</Text>
-          <View style={[styles.dropdownWrap, { borderColor: theme.border, backgroundColor: theme.card }]}>
+          <Text style={[styles.label, { color: theme.mutedText as any }]}>
+            {t("editProfile.fields.country")}
+          </Text>
+
+          <View
+            style={[
+              styles.dropdownWrap,
+              { borderColor: theme.border, backgroundColor: theme.card },
+            ]}
+          >
             <Dropdown
               style={styles.dropdown}
               data={COUNTRIES}
               search
               labelField="label"
               valueField="value"
-              placeholder="اختر الدولة"
-              searchPlaceholder="ابحث..."
+              placeholder={t("editProfile.placeholders.country")}
+              searchPlaceholder={t("editProfile.placeholders.search")}
               value={country}
               onChange={(item: any) => setCountry(item.value)}
               containerStyle={[
@@ -617,7 +702,10 @@ export default function EditProfileScreen() {
               ]}
               itemTextStyle={{ color: theme.text }}
               selectedTextStyle={{ color: theme.text, fontWeight: "800" }}
-              placeholderStyle={{ color: theme.mutedText as any, fontWeight: "700" }}
+              placeholderStyle={{
+                color: theme.mutedText as any,
+                fontWeight: "700",
+              }}
               inputSearchStyle={{
                 color: theme.text,
                 backgroundColor: theme.surface2,
@@ -626,34 +714,65 @@ export default function EditProfileScreen() {
                 borderColor: theme.border,
               }}
               activeColor={theme.surface2 as any}
-              renderRightIcon={() => <Ionicons name="chevron-down" size={16} color={theme.icon} />}
+              renderRightIcon={() => (
+                <Ionicons
+                  name="chevron-down"
+                  size={16}
+                  color={theme.icon}
+                />
+              )}
             />
           </View>
 
-          {/* Bio Preview */}
           <TouchableOpacity
-            style={[styles.bioPreviewBox, { borderColor: theme.border, backgroundColor: theme.card }]}
+            style={[
+              styles.bioPreviewBox,
+              { borderColor: theme.border, backgroundColor: theme.card },
+            ]}
             onPress={() => setBioModalVisible(true)}
             activeOpacity={0.9}
           >
             <View style={styles.bioHeader}>
-              <View style={[styles.bioIcon, { backgroundColor: theme.primarySoft as any }]}>
-                <Ionicons name="document-text-outline" size={16} color={theme.primary} />
+              <View
+                style={[
+                  styles.bioIcon,
+                  { backgroundColor: theme.primarySoft as any },
+                ]}
+              >
+                <Ionicons
+                  name="document-text-outline"
+                  size={16}
+                  color={theme.primary}
+                />
               </View>
-              <Text style={[styles.bioTitle, { color: theme.text }]}>النبذة التعريفية</Text>
+
+              <Text style={[styles.bioTitle, { color: theme.text }]}>
+                {t("editProfile.fields.bio")}
+              </Text>
+
               <View style={{ flex: 1 }} />
-              <Ionicons name="create-outline" size={18} color={theme.icon} />
+
+              <Ionicons
+                name="create-outline"
+                size={18}
+                color={theme.icon}
+              />
             </View>
 
-            <Text numberOfLines={4} style={[styles.bioPreviewText, { color: theme.mutedText as any }]}>
-              {bio ? bio.replace(/<[^>]+>/g, "") : "اضغط لإضافة نبذة تعريفية"}
+            <Text
+              numberOfLines={4}
+              style={[
+                styles.bioPreviewText,
+                { color: theme.mutedText as any },
+              ]}
+            >
+              {bio
+                ? bio.replace(/<[^>]+>/g, "")
+                : t("editProfile.placeholders.bioPreview")}
             </Text>
           </TouchableOpacity>
-
-  
         </View>
 
-        {/* Save */}
         <View style={{ paddingHorizontal: 16, marginTop: 6 }}>
           <TouchableOpacity
             style={[
@@ -665,25 +784,62 @@ export default function EditProfileScreen() {
             onPress={handleSave}
             activeOpacity={0.9}
           >
-            <Ionicons name="save-outline" size={18} color={theme.primaryText} />
-            <Text style={[styles.saveText, { color: theme.primaryText }]}>حفظ التغييرات</Text>
+            <Ionicons
+              name="save-outline"
+              size={18}
+              color={theme.primaryText}
+            />
+            <Text style={[styles.saveText, { color: theme.primaryText }]}>
+              {t("editProfile.actions.saveChanges")}
+            </Text>
           </TouchableOpacity>
 
-          <Text style={[styles.footerHint, { color: theme.subtleText as any }]}>
-            سيتم رفع الصور تلقائيًا ثم حفظ البيانات.
+          <Text
+            style={[
+              styles.footerHint,
+              { color: theme.subtleText as any },
+            ]}
+          >
+            {t("editProfile.footerHint")}
           </Text>
         </View>
       </ScrollView>
 
-      {/* BIO MODAL */}
-      <Modal visible={bioModalVisible} animationType="slide" onRequestClose={() => setBioModalVisible(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }} edges={["top", "bottom"]}>
-          <View style={[styles.modalHeader, { borderBottomColor: theme.border, backgroundColor: theme.background }]}>
-            <TouchableOpacity onPress={() => setBioModalVisible(false)} hitSlop={10}>
-              <Text style={[styles.cancelText, { color: theme.mutedText as any }]}>إلغاء</Text>
+      <Modal
+        visible={bioModalVisible}
+        animationType="slide"
+        onRequestClose={() => setBioModalVisible(false)}
+      >
+        <SafeAreaView
+          style={{ flex: 1, backgroundColor: theme.background }}
+          edges={["top", "bottom"]}
+        >
+          <View
+            style={[
+              styles.modalHeader,
+              {
+                borderBottomColor: theme.border,
+                backgroundColor: theme.background,
+              },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => setBioModalVisible(false)}
+              hitSlop={10}
+            >
+              <Text
+                style={[
+                  styles.cancelText,
+                  { color: theme.mutedText as any },
+                ]}
+              >
+                {t("editProfile.modal.cancel")}
+              </Text>
             </TouchableOpacity>
 
-            <Text style={[styles.modalTitle, { color: theme.text }]}>تعديل النبذة</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              {t("editProfile.modal.title")}
+            </Text>
 
             <TouchableOpacity
               onPress={() => {
@@ -692,17 +848,29 @@ export default function EditProfileScreen() {
               }}
               hitSlop={10}
             >
-              <Text style={[styles.saveModalText, { color: theme.primary }]}>حفظ</Text>
+              <Text
+                style={[
+                  styles.saveModalText,
+                  { color: theme.primary },
+                ]}
+              >
+                {t("editProfile.modal.save")}
+              </Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
-            <View style={[styles.richWrap, { borderColor: theme.border, backgroundColor: theme.card }]}>
+            <View
+              style={[
+                styles.richWrap,
+                { borderColor: theme.border, backgroundColor: theme.card },
+              ]}
+            >
               <RichEditor
                 ref={richText}
                 initialContentHTML={tempBio}
                 style={styles.richEditor}
-                placeholder="اكتب نبذة تعريفية..."
+                placeholder={t("editProfile.placeholders.bioEditor")}
                 onChange={setTempBio}
                 editorStyle={{
                   backgroundColor: theme.card as any,
@@ -716,10 +884,18 @@ export default function EditProfileScreen() {
               />
             </View>
 
-            <View style={[styles.toolbarWrap, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View
+              style={[
+                styles.toolbarWrap,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
               <RichToolbar
                 editor={richText}
-                style={[styles.richToolbar, { backgroundColor: theme.card }]}
+                style={[
+                  styles.richToolbar,
+                  { backgroundColor: theme.card },
+                ]}
                 actions={[
                   "bold",
                   "italic",
@@ -734,8 +910,13 @@ export default function EditProfileScreen() {
               />
             </View>
 
-            <Text style={[styles.modalHint, { color: theme.subtleText as any }]}>
-              ملاحظة: يمكنك استخدام تنسيقات مثل Bold و Lists.
+            <Text
+              style={[
+                styles.modalHint,
+                { color: theme.subtleText as any },
+              ]}
+            >
+              {t("editProfile.modal.hint")}
             </Text>
           </ScrollView>
         </SafeAreaView>
@@ -747,8 +928,15 @@ export default function EditProfileScreen() {
 function FormInput({ label, theme, style, ...props }: any) {
   return (
     <View style={{ marginBottom: 14 }}>
-      <Text style={[styles.label, { color: theme.mutedText as any }]}>{label}</Text>
-      <View style={[styles.inputWrap, { borderColor: theme.border, backgroundColor: theme.card }]}>
+      <Text style={[styles.label, { color: theme.mutedText as any }]}>
+        {label}
+      </Text>
+      <View
+        style={[
+          styles.inputWrap,
+          { borderColor: theme.border, backgroundColor: theme.card },
+        ]}
+      >
         <TextInput
           {...props}
           style={[styles.input, { color: theme.text }, style]}
@@ -762,7 +950,6 @@ function FormInput({ label, theme, style, ...props }: any) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
 
-  /* Loading */
   loadingOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -781,7 +968,6 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 10, fontSize: 15, fontWeight: "900" },
   loadingSubText: { marginTop: 4, fontSize: 12, fontWeight: "700" },
 
-  /* Cover */
   coverContainer: {
     height: 220,
     position: "relative",
@@ -807,20 +993,31 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     ...Platform.select({
-      ios: { shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 8 } },
+      ios: {
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 8 },
+      },
       android: { elevation: 8 },
     }),
   },
   coverEditText: { fontSize: 13, fontWeight: "900" },
 
-  /* Header Card */
-  headerCardWrap: { paddingHorizontal: 16, marginTop: -36, marginBottom: 8 },
+  headerCardWrap: {
+    paddingHorizontal: 16,
+    marginTop: -36,
+    marginBottom: 8,
+  },
   headerCard: {
     borderRadius: 18,
     borderWidth: 1,
     padding: 14,
     ...Platform.select({
-      ios: { shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 10 } },
+      ios: {
+        shadowOpacity: 0.06,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 10 },
+      },
       android: { elevation: 3 },
     }),
   },
@@ -852,9 +1049,13 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: "900" },
   headerSub: { marginTop: 4, fontSize: 12, fontWeight: "700" },
 
-  /* Form */
   formSection: { paddingHorizontal: 16, marginTop: 6 },
-  sectionMiniTitle: { marginTop: 8, marginBottom: 10, fontSize: 13, fontWeight: "900" },
+  sectionMiniTitle: {
+    marginTop: 8,
+    marginBottom: 10,
+    fontSize: 13,
+    fontWeight: "900",
+  },
 
   label: { fontSize: 12, fontWeight: "800", marginBottom: 6 },
 
@@ -876,9 +1077,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   dropdown: { width: "100%" },
-  dropdownContainer: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
+  dropdownContainer: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
 
-  /* Bio preview */
   bioPreviewBox: {
     borderWidth: 1,
     borderRadius: 18,
@@ -886,12 +1090,22 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 8,
   },
-  bioHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
-  bioIcon: { width: 32, height: 32, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  bioHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 8,
+  },
+  bioIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   bioTitle: { fontSize: 13, fontWeight: "900" },
   bioPreviewText: { fontSize: 13, fontWeight: "700", lineHeight: 18 },
 
-  /* Save */
   saveButton: {
     height: 52,
     borderRadius: 18,
@@ -901,9 +1115,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   saveText: { fontWeight: "900", fontSize: 15 },
-  footerHint: { marginTop: 10, fontSize: 11, fontWeight: "700", textAlign: "center" },
+  footerHint: {
+    marginTop: 10,
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
 
-  /* Modal */
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -916,9 +1134,18 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 14, fontWeight: "800" },
   saveModalText: { fontSize: 14, fontWeight: "900" },
 
-  richWrap: { borderWidth: 1, borderRadius: 18, overflow: "hidden" },
+  richWrap: {
+    borderWidth: 1,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
   richEditor: { minHeight: 220 },
-  toolbarWrap: { marginTop: 10, borderWidth: 1, borderRadius: 16, overflow: "hidden" },
+  toolbarWrap: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
   richToolbar: { borderRadius: 16 },
 
   modalHint: { marginTop: 10, fontSize: 11, fontWeight: "700" },

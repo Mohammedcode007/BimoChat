@@ -345,6 +345,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useMemo } from "react";
 import {
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   useColorScheme,
@@ -363,7 +364,11 @@ export default function AboutAppScreen() {
 
   return (
     <SafeAreaView style={s.safeArea} edges={["top"]}>
-      <View style={s.container}>
+      <ScrollView
+        style={s.container}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={s.header}>
           <View style={s.headerIcon}>
@@ -473,7 +478,7 @@ export default function AboutAppScreen() {
             </Text>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

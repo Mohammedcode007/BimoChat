@@ -1,5 +1,6 @@
-// // app/story/create.tsx
+
 // import { Colors } from "@/constants/theme";
+// import { useTranslation } from "@/hooks/useTranslation";
 // import { createStory, fetchMyStories, fetchStoriesFeed } from "@/redux/slices/storySlice";
 // import { AppDispatch, RootState } from "@/redux/store";
 // import Ionicons from "@expo/vector-icons/Ionicons";
@@ -9,28 +10,25 @@
 // import { useRouter } from "expo-router";
 // import React, { useMemo, useRef, useState } from "react";
 // import {
-//     ActivityIndicator,
-//     Alert,
-//     Image,
-//     KeyboardAvoidingView,
-//     Platform,
-//     Pressable,
-//     SafeAreaView,
-//     ScrollView,
-//     StyleSheet,
-//     Text,
-//     TextInput,
-//     useColorScheme,
-//     View,
+//   ActivityIndicator,
+//   Alert,
+//   I18nManager,
+//   Image,
+//   KeyboardAvoidingView,
+//   Platform,
+//   Pressable,
+//   ScrollView,
+//   StyleSheet,
+//   Text,
+//   TextInput,
+//   useColorScheme,
+//   View,
 // } from "react-native";
+// import { SafeAreaView } from "react-native-safe-area-context";
 // import { useDispatch, useSelector } from "react-redux";
 
 // type Tab = "text" | "image" | "video";
 
-// /** =========================================
-//  * ✅ Cloudinary Upload with REAL progress (XHR)
-//  * - يعطيك progress حقيقي
-//  * ========================================= */
 // async function uploadToCloudinaryWithProgress(opts: {
 //   uri: string;
 //   type: "image" | "video" | "raw";
@@ -49,8 +47,8 @@
 //         type === "image"
 //           ? "image/jpeg"
 //           : type === "video"
-//           ? "video/mp4"
-//           : "application/octet-stream",
+//             ? "video/mp4"
+//             : "application/octet-stream",
 //       name: type === "image" ? "upload.jpg" : type === "video" ? "upload.mp4" : "upload.dat",
 //     } as any
 //   );
@@ -81,12 +79,9 @@
 //     if (xhr.upload && onProgress) {
 //       xhr.upload.onprogress = (evt) => {
 //         if (!evt.lengthComputable) return;
-
-//         // ✅ حماية قوية من تجاوز 100%
 //         const total = Math.max(1, evt.total || 1);
 //         const loaded = Math.min(evt.loaded || 0, total);
 //         const percent = Math.round((loaded / total) * 100);
-
 //         onProgress(percent, loaded, total);
 //       };
 //     }
@@ -95,18 +90,12 @@
 //   });
 // }
 
-// /** =========================================
-//  * ✅ Video compression (FFMPEG) - Optional
-//  * - يعمل فقط في Bare أو Expo Dev Client
-//  * - لو غير متاح: يرجع نفس الملف
-//  * ========================================= */
 // async function compressVideoIfPossible(
 //   inputUri: string
 // ): Promise<{ uri: string; didCompress: boolean }> {
 //   let FFmpegKit: any = null;
 
 //   try {
-//     // eslint-disable-next-line @typescript-eslint/no-var-requires
 //     const mod = require("ffmpeg-kit-react-native");
 //     FFmpegKit = mod?.FFmpegKit;
 //   } catch {
@@ -155,32 +144,74 @@
 // export default function CreateStoryScreen() {
 //   const router = useRouter();
 //   const dispatch = useDispatch<AppDispatch>();
+//   const { language, t } = useTranslation();
+//   const isRTL = language === "ar" || I18nManager.isRTL;
 
 //   const colorScheme = useColorScheme();
 //   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
-//   const s = useMemo(() => makeStyles(theme), [theme]);
+//   const s = useMemo(() => makeStyles(theme, isRTL), [theme, isRTL]);
+
+//   const copy = useMemo(
+//     () => ({
+//       title: t("storyCreate.title"),
+//       textTab: t("storyCreate.textTab"),
+//       imageTab: t("storyCreate.imageTab"),
+//       videoTab: t("storyCreate.videoTab"),
+//       privacy: t("storyCreate.privacy"),
+//       followers: t("storyCreate.followers"),
+//       public: t("storyCreate.public"),
+//       private: t("storyCreate.private"),
+//       storyText: t("storyCreate.storyText"),
+//       storyTextPlaceholder: t("storyCreate.storyTextPlaceholder"),
+//       imageFile: t("storyCreate.imageFile"),
+//       videoFile: t("storyCreate.videoFile"),
+//       chooseFromDevice: t("storyCreate.chooseFromDevice"),
+//       changeFile: t("storyCreate.changeFile"),
+//       optionalComment: t("storyCreate.optionalComment"),
+//       commentPlaceholder: t("storyCreate.commentPlaceholder"),
+//       size: t("storyCreate.size"),
+//       uploaded: t("storyCreate.uploaded"),
+//       preparingImage: t("storyCreate.preparingImage"),
+//       preparingVideo: t("storyCreate.preparingVideo"),
+//       videoCompressedUploading: t("storyCreate.videoCompressedUploading"),
+//       videoNotCompressedUploading: t("storyCreate.videoNotCompressedUploading"),
+//       uploadingImage: t("storyCreate.uploadingImage"),
+//       uploadSuccess: t("storyCreate.uploadSuccess"),
+//       waitTitle: t("storyCreate.waitTitle"),
+//       waitMessage: t("storyCreate.waitMessage"),
+//       missingDataTitle: t("storyCreate.missingDataTitle"),
+//       missingTextMessage: t("storyCreate.missingTextMessage"),
+//       missingFileMessage: t("storyCreate.missingFileMessage"),
+//       permissionTitle: t("storyCreate.permissionTitle"),
+//       permissionMessage: t("storyCreate.permissionMessage"),
+//       operationFailed: t("storyCreate.operationFailed"),
+//       genericError: t("storyCreate.genericError"),
+//       noFileSelected: t("storyCreate.noFileSelected"),
+//       uploadFailed: t("storyCreate.uploadFailed"),
+//       publishLoading: t("storyCreate.publishLoading"),
+//       uploadLoading: t("storyCreate.uploadLoading"),
+//       publishStory: t("storyCreate.publishStory"),
+//       noteStoriesLimit: t("storyCreate.noteStoriesLimit"),
+//       noteVideoCompression: t("storyCreate.noteVideoCompression"),
+//     }),
+//     [t]
+//   );
 
 //   const loadingCreate = useSelector((st: RootState) => Boolean(st.stories?.loadingCreate));
 //   const error = useSelector((st: RootState) => st.stories?.error);
 
 //   const [tab, setTab] = useState<Tab>("text");
-
-//   // Story fields
 //   const [text, setText] = useState("");
-//   const [mediaUrl, setMediaUrl] = useState(""); // ✅ يتحدد عند النشر فقط
-//   const [localUri, setLocalUri] = useState<string>(""); // ✅ معاينة محلية
+//   const [mediaUrl, setMediaUrl] = useState("");
+//   const [localUri, setLocalUri] = useState<string>("");
 //   const [privacy, setPrivacy] = useState<"public" | "followers" | "private">("followers");
-
-//   // Upload state
 //   const [uploading, setUploading] = useState(false);
 //   const [uploadPct, setUploadPct] = useState(0);
 //   const [uploadLabel, setUploadLabel] = useState<string>("");
 //   const [pickedInfo, setPickedInfo] = useState<{ sizeMB?: number } | null>(null);
 
-//   // Video preview control
 //   const videoRef = useRef<Video | null>(null);
 
-//   // Cloudinary settings (ضعها ثابتة أو من env)
 //   const CLOUD_NAME = "dmejkp0m4";
 //   const UPLOAD_PRESET = "bimoChat";
 
@@ -192,11 +223,10 @@
 //     setPickedInfo(null);
 //   };
 
-//   /** ✅ اختيار من الجهاز (بدون رفع) */
 //   const pickFromDevice = async (kind: "image" | "video") => {
 //     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
 //     if (!perm.granted) {
-//       Alert.alert("صلاحيات", "يجب منح صلاحية الوصول للصور/الفيديو.");
+//       Alert.alert(copy.permissionTitle, copy.permissionMessage);
 //       return;
 //     }
 
@@ -211,14 +241,12 @@
 //     const uri = result.assets?.[0]?.uri;
 //     if (!uri) return;
 
-//     // ✅ معاينة فقط - لا يوجد رفع هنا
 //     setLocalUri(uri);
 //     setMediaUrl("");
 //     setUploadPct(0);
 //     setUploadLabel("");
 //     setPickedInfo(null);
 
-//     // معلومات حجم الملف
 //     try {
 //       const info = await FileSystem.getInfoAsync(uri);
 //       if (info.exists && typeof info.size === "number") {
@@ -229,24 +257,22 @@
 
 //   const clampPct = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
 
-//   /** ✅ رفع الملف عند النشر فقط */
 //   const uploadSelectedMedia = async (kind: "image" | "video") => {
-//     if (!localUri) throw new Error("لا يوجد ملف محدد.");
+//     if (!localUri) throw new Error(copy.noFileSelected);
 
 //     setUploading(true);
 //     setUploadPct(0);
-//     setUploadLabel(kind === "image" ? "تجهيز الصورة..." : "تجهيز الفيديو...");
+//     setUploadLabel(kind === "image" ? copy.preparingImage : copy.preparingVideo);
 
 //     try {
 //       let uriToUpload = localUri;
 
 //       if (kind === "video") {
-//         // ضغط الفيديو إن أمكن
 //         const { uri: compressedUri, didCompress } = await compressVideoIfPossible(localUri);
 //         uriToUpload = compressedUri;
 
 //         if (didCompress) {
-//           setUploadLabel("تم ضغط الفيديو - جاري الرفع...");
+//           setUploadLabel(copy.videoCompressedUploading);
 //           try {
 //             const info2 = await FileSystem.getInfoAsync(uriToUpload);
 //             if (info2.exists && typeof info2.size === "number") {
@@ -254,10 +280,10 @@
 //             }
 //           } catch {}
 //         } else {
-//           setUploadLabel("لم يتم الضغط (غير متاح) - جاري الرفع...");
+//           setUploadLabel(copy.videoNotCompressedUploading);
 //         }
 //       } else {
-//         setUploadLabel("رفع الصورة...");
+//         setUploadLabel(copy.uploadingImage);
 //       }
 
 //       const url = await uploadToCloudinaryWithProgress({
@@ -265,11 +291,11 @@
 //         type: kind,
 //         uploadPreset: UPLOAD_PRESET,
 //         cloudName: CLOUD_NAME,
-//         onProgress: (p) => setUploadPct(clampPct(p)), // ✅ لا تتجاوز 100%
+//         onProgress: (p) => setUploadPct(clampPct(p)),
 //       });
 
 //       setUploadPct(100);
-//       setUploadLabel("تم الرفع بنجاح ✓");
+//       setUploadLabel(copy.uploadSuccess);
 //       setMediaUrl(url);
 
 //       return url;
@@ -278,31 +304,25 @@
 //       setUploadLabel("");
 //       setUploadPct(0);
 //       setMediaUrl("");
-//       throw new Error(e?.message || "حدث خطأ أثناء رفع الملف.");
+//       throw new Error(e?.message || copy.uploadFailed);
 //     } finally {
 //       setUploading(false);
 //     }
 //   };
 
-//   /** ✅ يسمح بالنشر:
-//    * - نص: لازم نص
-//    * - صورة/فيديو: لازم اختيار ملف محلي (الرفع عند النشر)
-//    */
 //   const canSubmit = useMemo(() => {
 //     if (loadingCreate || uploading) return false;
-
 //     if (tab === "text") return text.trim().length > 0;
-
 //     return Boolean(localUri);
 //   }, [loadingCreate, uploading, tab, text, localUri]);
 
 //   const submit = async () => {
 //     if (!canSubmit) {
 //       if (uploading) {
-//         Alert.alert("انتظار", "يرجى انتظار اكتمال رفع الملف.");
+//         Alert.alert(copy.waitTitle, copy.waitMessage);
 //         return;
 //       }
-//       Alert.alert("نقص بيانات", tab === "text" ? "اكتب نص الحالة." : "اختر ملفًا.");
+//       Alert.alert(copy.missingDataTitle, tab === "text" ? copy.missingTextMessage : copy.missingFileMessage);
 //       return;
 //     }
 
@@ -313,10 +333,9 @@
 //         payload.type = "text";
 //         payload.text = text.trim();
 //       } else {
-//         // ✅ رفع عند النشر فقط
 //         const url = await uploadSelectedMedia(tab);
 //         payload.type = tab;
-//         payload.mediaUrl = url; // Cloudinary secure_url
+//         payload.mediaUrl = url;
 //         if (text.trim()) payload.text = text.trim();
 //         payload.durationMs = tab === "video" ? 0 : 6000;
 //       }
@@ -330,7 +349,7 @@
 //         router.back();
 //       }
 //     } catch (e: any) {
-//       Alert.alert("فشل العملية", e?.message || "حدث خطأ.");
+//       Alert.alert(copy.operationFailed, e?.message || copy.genericError);
 //     }
 //   };
 
@@ -341,23 +360,24 @@
 //         behavior={Platform.select({ ios: "padding", android: undefined })}
 //         keyboardVerticalOffset={Platform.select({ ios: 10, android: 0 })}
 //       >
-//         {/* ✅ Scrollable Content */}
 //         <ScrollView
 //           style={{ flex: 1 }}
 //           contentContainerStyle={s.scrollContent}
 //           keyboardShouldPersistTaps="handled"
 //           showsVerticalScrollIndicator={false}
 //         >
-//           {/* Header */}
 //           <View style={s.header}>
 //             <Pressable onPress={() => router.back()} style={s.iconBtn}>
-//               <Ionicons name="chevron-back" size={20} color={theme.text} />
+//               <Ionicons
+//                 name={isRTL ? "chevron-forward" : "chevron-back"}
+//                 size={20}
+//                 color={theme.text}
+//               />
 //             </Pressable>
-//             <Text style={s.title}>إضافة حالة</Text>
+//             <Text style={s.title}>{copy.title}</Text>
 //             <View style={{ width: 44 }} />
 //           </View>
 
-//           {/* Tabs */}
 //           <View style={s.tabs}>
 //             <Pressable
 //               onPress={() => {
@@ -366,7 +386,7 @@
 //               }}
 //               style={[s.tab, tab === "text" && s.tabActive]}
 //             >
-//               <Text style={[s.tabText, tab === "text" && s.tabTextActive]}>نص</Text>
+//               <Text style={[s.tabText, tab === "text" && s.tabTextActive]}>{copy.textTab}</Text>
 //             </Pressable>
 
 //             <Pressable
@@ -376,7 +396,7 @@
 //               }}
 //               style={[s.tab, tab === "image" && s.tabActive]}
 //             >
-//               <Text style={[s.tabText, tab === "image" && s.tabTextActive]}>صورة</Text>
+//               <Text style={[s.tabText, tab === "image" && s.tabTextActive]}>{copy.imageTab}</Text>
 //             </Pressable>
 
 //             <Pressable
@@ -386,14 +406,13 @@
 //               }}
 //               style={[s.tab, tab === "video" && s.tabActive]}
 //             >
-//               <Text style={[s.tabText, tab === "video" && s.tabTextActive]}>فيديو</Text>
+//               <Text style={[s.tabText, tab === "video" && s.tabTextActive]}>{copy.videoTab}</Text>
 //             </Pressable>
 //           </View>
 
 //           <View style={s.card}>
-//             {/* Privacy */}
-//             <Text style={s.label}>الخصوصية</Text>
-//             <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+//             <Text style={s.label}>{copy.privacy}</Text>
+//             <View style={s.privacyRow}>
 //               {(["followers", "public", "private"] as const).map((p) => (
 //                 <Pressable
 //                   key={p}
@@ -401,20 +420,19 @@
 //                   style={[s.pill, privacy === p && s.pillActive]}
 //                 >
 //                   <Text style={[s.pillText, privacy === p && s.pillTextActive]}>
-//                     {p === "followers" ? "الأصدقاء" : p === "public" ? "عام" : "خاص"}
+//                     {p === "followers" ? copy.followers : p === "public" ? copy.public : copy.private}
 //                   </Text>
 //                 </Pressable>
 //               ))}
 //             </View>
 
-//             {/* Content by tab */}
 //             {tab === "text" ? (
 //               <>
-//                 <Text style={s.label}>نص الحالة</Text>
+//                 <Text style={s.label}>{copy.storyText}</Text>
 //                 <TextInput
 //                   value={text}
 //                   onChangeText={setText}
-//                   placeholder="اكتب حالتك..."
+//                   placeholder={copy.storyTextPlaceholder}
 //                   placeholderTextColor={theme.subtleText}
 //                   style={s.inputMultiline}
 //                   multiline
@@ -422,7 +440,7 @@
 //               </>
 //             ) : (
 //               <>
-//                 <Text style={s.label}>{tab === "image" ? "ملف الصورة" : "ملف الفيديو"}</Text>
+//                 <Text style={s.label}>{tab === "image" ? copy.imageFile : copy.videoFile}</Text>
 
 //                 <Pressable
 //                   onPress={() => pickFromDevice(tab)}
@@ -435,22 +453,29 @@
 //                     color={theme.tint}
 //                   />
 //                   <Text style={{ color: theme.text, fontWeight: "900" }}>
-//                     {localUri ? "تغيير الملف" : "اختر من جهازك"}
+//                     {localUri ? copy.changeFile : copy.chooseFromDevice}
 //                   </Text>
 //                   <View style={{ flex: 1 }} />
-//                   <Ionicons name="chevron-forward" size={18} color={theme.icon} />
+//                   <Ionicons
+//                     name={isRTL ? "chevron-back" : "chevron-forward"}
+//                     size={18}
+//                     color={theme.icon}
+//                   />
 //                 </Pressable>
 
-//                 {!!pickedInfo?.sizeMB && <Text style={s.metaText}>الحجم: {pickedInfo.sizeMB} MB</Text>}
+//                 {!!pickedInfo?.sizeMB && (
+//                   <Text style={s.metaText}>
+//                     {copy.size}: {pickedInfo.sizeMB} MB
+//                   </Text>
+//                 )}
 
-//                 {/* Preview */}
 //                 {!!localUri && tab === "image" && (
 //                   <View style={s.previewWrap}>
 //                     <Image source={{ uri: localUri }} style={s.previewImage} resizeMode="cover" />
 //                     {!!mediaUrl && (
 //                       <View style={s.okBadge}>
 //                         <Ionicons name="checkmark" size={14} color={"#fff"} />
-//                         <Text style={s.okText}>تم الرفع</Text>
+//                         <Text style={s.okText}>{copy.uploaded}</Text>
 //                       </View>
 //                     )}
 //                   </View>
@@ -472,24 +497,22 @@
 //                     {!!mediaUrl && (
 //                       <View style={s.okBadge}>
 //                         <Ionicons name="checkmark" size={14} color={"#fff"} />
-//                         <Text style={s.okText}>تم الرفع</Text>
+//                         <Text style={s.okText}>{copy.uploaded}</Text>
 //                       </View>
 //                     )}
 //                   </View>
 //                 )}
 
-//                 {/* Comment */}
-//                 <Text style={[s.label, { marginTop: 10 }]}>تعليق (اختياري)</Text>
+//                 <Text style={[s.label, { marginTop: 10 }]}>{copy.optionalComment}</Text>
 //                 <TextInput
 //                   value={text}
 //                   onChangeText={setText}
-//                   placeholder="اكتب تعليق..."
+//                   placeholder={copy.commentPlaceholder}
 //                   placeholderTextColor={theme.subtleText}
 //                   style={s.inputMultiline}
 //                   multiline
 //                 />
 
-//                 {/* Upload Progress */}
 //                 {(uploading || uploadPct > 0 || uploadLabel) && (
 //                   <View style={{ marginTop: 12 }}>
 //                     <View style={s.progressRow}>
@@ -513,19 +536,12 @@
 
 //             {!!error && <Text style={s.err}>{String(error)}</Text>}
 
-//             <Text style={s.note}>
-//               * الباك يمنع إضافة أكثر من حالتين نشطتين. إذا حذفت حالة يمكنك إضافة أخرى.
-//             </Text>
+//             <Text style={s.note}>{copy.noteStoriesLimit}</Text>
 
-//             {tab === "video" && (
-//               <Text style={s.note}>
-//                 * ضغط الفيديو يعمل فقط في Bare أو Expo Dev Client (وليس Expo Go).
-//               </Text>
-//             )}
+//             {tab === "video" && <Text style={s.note}>{copy.noteVideoCompression}</Text>}
 //           </View>
 //         </ScrollView>
 
-//         {/* ✅ Sticky Bottom Bar (زر ثابت) */}
 //         <View style={s.bottomBar}>
 //           <Pressable
 //             onPress={submit}
@@ -535,17 +551,17 @@
 //             {loadingCreate ? (
 //               <>
 //                 <ActivityIndicator />
-//                 <Text style={s.btnText}>جاري النشر...</Text>
+//                 <Text style={s.btnText}>{copy.publishLoading}</Text>
 //               </>
 //             ) : uploading ? (
 //               <>
 //                 <ActivityIndicator />
-//                 <Text style={s.btnText}>جاري الرفع...</Text>
+//                 <Text style={s.btnText}>{copy.uploadLoading}</Text>
 //               </>
 //             ) : (
 //               <>
 //                 <Ionicons name="cloud-upload-outline" size={18} color={"#fff"} />
-//                 <Text style={s.btnText}>نشر الحالة</Text>
+//                 <Text style={s.btnText}>{copy.publishStory}</Text>
 //               </>
 //             )}
 //           </Pressable>
@@ -555,11 +571,21 @@
 //   );
 // }
 
-// function makeStyles(theme: any) {
+// function makeStyles(theme: any, isRTL: boolean) {
 //   return StyleSheet.create({
-//     root: { flex: 1, backgroundColor: theme.background, padding: 16 },
+//     root: {
+//       flex: 1,
+//       backgroundColor: theme.background,
+//     },
 
-//     header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+//     header: {
+//       flexDirection: isRTL ? "row-reverse" : "row",
+//       alignItems: "center",
+//       justifyContent: "space-between",
+//       paddingHorizontal: 16,
+//       paddingTop: 16,
+//     },
+
 //     iconBtn: {
 //       width: 44,
 //       height: 44,
@@ -570,9 +596,21 @@
 //       borderWidth: 1,
 //       borderColor: theme.border,
 //     },
-//     title: { fontSize: 16, fontWeight: "900", color: theme.text },
 
-//     tabs: { flexDirection: "row", gap: 8, marginTop: 12 },
+//     title: {
+//       fontSize: 16,
+//       fontWeight: "900",
+//       color: theme.text,
+//       textAlign: "center",
+//     },
+
+//     tabs: {
+//       flexDirection: isRTL ? "row-reverse" : "row",
+//       gap: 8,
+//       marginTop: 12,
+//       paddingHorizontal: 16,
+//     },
+
 //     tab: {
 //       flex: 1,
 //       paddingVertical: 10,
@@ -582,12 +620,14 @@
 //       backgroundColor: theme.cardAlt,
 //       alignItems: "center",
 //     },
+
 //     tabActive: { backgroundColor: theme.primary, borderColor: theme.primary },
 //     tabText: { fontWeight: "900", color: theme.mutedText, fontSize: 12 },
 //     tabTextActive: { color: theme.primaryText },
 
 //     card: {
 //       marginTop: 12,
+//       marginHorizontal: 16,
 //       borderRadius: 18,
 //       backgroundColor: theme.surface,
 //       borderWidth: 1,
@@ -595,7 +635,19 @@
 //       padding: 12,
 //     },
 
-//     label: { color: theme.text, fontWeight: "900", marginBottom: 8, marginTop: 6 },
+//     label: {
+//       color: theme.text,
+//       fontWeight: "900",
+//       marginBottom: 8,
+//       marginTop: 6,
+//       textAlign: isRTL ? "right" : "left",
+//     },
+
+//     privacyRow: {
+//       flexDirection: isRTL ? "row-reverse" : "row",
+//       gap: 8,
+//       marginBottom: 12,
+//     },
 
 //     inputMultiline: {
 //       minHeight: 110,
@@ -608,6 +660,8 @@
 //       color: theme.text,
 //       fontWeight: "800",
 //       textAlignVertical: "top",
+//       textAlign: isRTL ? "right" : "left",
+//       writingDirection: isRTL ? "rtl" : "ltr",
 //     },
 
 //     pill: {
@@ -618,6 +672,7 @@
 //       borderColor: theme.border,
 //       backgroundColor: theme.cardAlt,
 //     },
+
 //     pillActive: { backgroundColor: theme.primary, borderColor: theme.primary },
 //     pillText: { color: theme.mutedText, fontWeight: "900", fontSize: 12 },
 //     pillTextActive: { color: theme.primaryText },
@@ -631,12 +686,12 @@
 //       paddingHorizontal: 12,
 //       alignItems: "center",
 //       justifyContent: "center",
-//       flexDirection: "row",
+//       flexDirection: isRTL ? "row-reverse" : "row",
 //       gap: 10,
 //     },
+
 //     scrollContent: {
-//       padding: 16,
-//       paddingBottom: 110, // مهم حتى لا يغطي الزر آخر المحتوى
+//       paddingBottom: 110,
 //     },
 
 //     metaText: {
@@ -644,6 +699,7 @@
 //       color: theme.subtleText,
 //       fontWeight: "800",
 //       fontSize: 12,
+//       textAlign: isRTL ? "right" : "left",
 //     },
 
 //     previewWrap: {
@@ -655,10 +711,12 @@
 //       backgroundColor: theme.cardAlt,
 //       position: "relative",
 //     },
+
 //     previewImage: {
 //       width: "100%",
 //       height: 240,
 //     },
+
 //     previewVideo: {
 //       width: "100%",
 //       height: 240,
@@ -668,27 +726,30 @@
 //     okBadge: {
 //       position: "absolute",
 //       top: 10,
-//       right: 10,
+//       right: isRTL ? undefined : 10,
+//       left: isRTL ? 10 : undefined,
 //       backgroundColor: "rgba(0,0,0,0.55)",
 //       borderWidth: 1,
 //       borderColor: "rgba(255,255,255,0.18)",
 //       borderRadius: 999,
 //       paddingHorizontal: 10,
 //       paddingVertical: 6,
-//       flexDirection: "row",
+//       flexDirection: isRTL ? "row-reverse" : "row",
 //       alignItems: "center",
 //       gap: 6,
 //     },
+
 //     okText: { color: "#fff", fontWeight: "900", fontSize: 12 },
 
 //     progressRow: {
-//       flexDirection: "row",
+//       flexDirection: isRTL ? "row-reverse" : "row",
 //       alignItems: "center",
 //       justifyContent: "space-between",
 //       marginBottom: 8,
 //     },
-//     progressLabel: { color: theme.text, fontWeight: "900", fontSize: 12 },
-//     progressPct: { color: theme.text, fontWeight: "900", fontSize: 12 },
+
+//     progressLabel: { color: theme.text, fontWeight: "900", fontSize: 12, textAlign: isRTL ? "right" : "left" },
+//     progressPct: { color: theme.text, fontWeight: "900", fontSize: 12, textAlign: isRTL ? "left" : "right" },
 
 //     progressTrack: {
 //       height: 10,
@@ -698,6 +759,7 @@
 //       borderColor: theme.border,
 //       overflow: "hidden",
 //     },
+
 //     progressFill: {
 //       height: "100%",
 //       borderRadius: 999,
@@ -711,14 +773,16 @@
 //       backgroundColor: theme.primary,
 //       alignItems: "center",
 //       justifyContent: "center",
-//       flexDirection: "row",
+//       flexDirection: isRTL ? "row-reverse" : "row",
 //       gap: 10,
 //     },
+
 //     btnText: { color: "#fff", fontWeight: "900" },
 
-//     err: { marginTop: 10, color: theme.danger, fontWeight: "900" },
-//     note: { marginTop: 10, color: theme.subtleText, fontWeight: "800", fontSize: 12 },
-//       bottomBar: {
+//     err: { marginTop: 10, color: theme.danger, fontWeight: "900", textAlign: isRTL ? "right" : "left" },
+//     note: { marginTop: 10, color: theme.subtleText, fontWeight: "800", fontSize: 12, textAlign: isRTL ? "right" : "left" },
+
+//     bottomBar: {
 //       paddingHorizontal: 16,
 //       paddingTop: 10,
 //       paddingBottom: Platform.select({ ios: 16, android: 12 }),
@@ -728,7 +792,6 @@
 //     },
 //   });
 // }
-// app/story/create.tsx
 import { Colors } from "@/constants/theme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { createStory, fetchMyStories, fetchStoriesFeed } from "@/redux/slices/storySlice";
@@ -738,6 +801,7 @@ import { ResizeMode, Video } from "expo-av";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import React, { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -871,6 +935,20 @@ async function compressVideoIfPossible(
   }
 }
 
+async function generateVideoThumbnail(videoUri: string): Promise<string> {
+  try {
+    const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, {
+      time: 1000,
+      quality: 0.8,
+    });
+
+    return uri || "";
+  } catch (e) {
+    console.log("[generateVideoThumbnail] Error:", e);
+    return "";
+  }
+}
+
 export default function CreateStoryScreen() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
@@ -923,8 +1001,17 @@ export default function CreateStoryScreen() {
       publishStory: t("storyCreate.publishStory"),
       noteStoriesLimit: t("storyCreate.noteStoriesLimit"),
       noteVideoCompression: t("storyCreate.noteVideoCompression"),
+      thumbnailPreparing:
+        t("storyCreate.thumbnailPreparing") ||
+        (isRTL ? "جارٍ تجهيز لقطة الفيديو..." : "Preparing video thumbnail..."),
+      thumbnailUploading:
+        t("storyCreate.thumbnailUploading") ||
+        (isRTL ? "جارٍ رفع لقطة الفيديو..." : "Uploading video thumbnail..."),
+      thumbnailReady:
+        t("storyCreate.thumbnailReady") ||
+        (isRTL ? "تم تجهيز لقطة الفيديو" : "Video thumbnail ready"),
     }),
-    [t]
+    [t, isRTL]
   );
 
   const loadingCreate = useSelector((st: RootState) => Boolean(st.stories?.loadingCreate));
@@ -933,7 +1020,9 @@ export default function CreateStoryScreen() {
   const [tab, setTab] = useState<Tab>("text");
   const [text, setText] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
+  const [thumbUrl, setThumbUrl] = useState("");
   const [localUri, setLocalUri] = useState<string>("");
+  const [localThumbUri, setLocalThumbUri] = useState<string>("");
   const [privacy, setPrivacy] = useState<"public" | "followers" | "private">("followers");
   const [uploading, setUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState(0);
@@ -947,7 +1036,9 @@ export default function CreateStoryScreen() {
 
   const resetMediaState = () => {
     setLocalUri("");
+    setLocalThumbUri("");
     setMediaUrl("");
+    setThumbUrl("");
     setUploadPct(0);
     setUploadLabel("");
     setPickedInfo(null);
@@ -972,7 +1063,9 @@ export default function CreateStoryScreen() {
     if (!uri) return;
 
     setLocalUri(uri);
+    setLocalThumbUri("");
     setMediaUrl("");
+    setThumbUrl("");
     setUploadPct(0);
     setUploadLabel("");
     setPickedInfo(null);
@@ -983,11 +1076,25 @@ export default function CreateStoryScreen() {
         setPickedInfo({ sizeMB: Math.round((info.size / 1024 / 1024) * 100) / 100 });
       }
     } catch {}
+
+    if (kind === "video") {
+      try {
+        setUploadLabel(copy.thumbnailPreparing);
+        const thumb = await generateVideoThumbnail(uri);
+        setLocalThumbUri(thumb);
+        setUploadLabel(thumb ? copy.thumbnailReady : "");
+      } catch {
+        setLocalThumbUri("");
+        setUploadLabel("");
+      }
+    }
   };
 
   const clampPct = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
 
-  const uploadSelectedMedia = async (kind: "image" | "video") => {
+  const uploadSelectedMedia = async (
+    kind: "image" | "video"
+  ): Promise<{ mediaUrl: string; thumbUrl?: string }> => {
     if (!localUri) throw new Error(copy.noFileSelected);
 
     setUploading(true);
@@ -996,6 +1103,7 @@ export default function CreateStoryScreen() {
 
     try {
       let uriToUpload = localUri;
+      let uploadedThumbUrl = "";
 
       if (kind === "video") {
         const { uri: compressedUri, didCompress } = await compressVideoIfPossible(localUri);
@@ -1016,7 +1124,7 @@ export default function CreateStoryScreen() {
         setUploadLabel(copy.uploadingImage);
       }
 
-      const url = await uploadToCloudinaryWithProgress({
+      const uploadedMediaUrl = await uploadToCloudinaryWithProgress({
         uri: uriToUpload,
         type: kind,
         uploadPreset: UPLOAD_PRESET,
@@ -1024,16 +1132,46 @@ export default function CreateStoryScreen() {
         onProgress: (p) => setUploadPct(clampPct(p)),
       });
 
+      setMediaUrl(uploadedMediaUrl);
+
+      if (kind === "video") {
+        let thumbToUpload = localThumbUri;
+
+        if (!thumbToUpload) {
+          setUploadLabel(copy.thumbnailPreparing);
+          thumbToUpload = await generateVideoThumbnail(localUri);
+          setLocalThumbUri(thumbToUpload);
+        }
+
+        if (thumbToUpload) {
+          setUploadPct(0);
+          setUploadLabel(copy.thumbnailUploading);
+
+          uploadedThumbUrl = await uploadToCloudinaryWithProgress({
+            uri: thumbToUpload,
+            type: "image",
+            uploadPreset: UPLOAD_PRESET,
+            cloudName: CLOUD_NAME,
+            onProgress: (p) => setUploadPct(clampPct(p)),
+          });
+
+          setThumbUrl(uploadedThumbUrl);
+        }
+      }
+
       setUploadPct(100);
       setUploadLabel(copy.uploadSuccess);
-      setMediaUrl(url);
 
-      return url;
+      return {
+        mediaUrl: uploadedMediaUrl,
+        thumbUrl: uploadedThumbUrl,
+      };
     } catch (e: any) {
       console.log(e);
       setUploadLabel("");
       setUploadPct(0);
       setMediaUrl("");
+      setThumbUrl("");
       throw new Error(e?.message || copy.uploadFailed);
     } finally {
       setUploading(false);
@@ -1063,11 +1201,14 @@ export default function CreateStoryScreen() {
         payload.type = "text";
         payload.text = text.trim();
       } else {
-        const url = await uploadSelectedMedia(tab);
+        const uploaded = await uploadSelectedMedia(tab);
         payload.type = tab;
-        payload.mediaUrl = url;
+        payload.mediaUrl = uploaded.mediaUrl;
+        if (tab === "video" && uploaded.thumbUrl) {
+          payload.thumbUrl = uploaded.thumbUrl;
+        }
         if (text.trim()) payload.text = text.trim();
-        payload.durationMs = tab === "video" ? 0 : 6000;
+        payload.durationMs = tab === "video" ? 15000 : 6000;
       }
 
       const res = await dispatch(createStory(payload) as any);
@@ -1212,25 +1353,48 @@ export default function CreateStoryScreen() {
                 )}
 
                 {!!localUri && tab === "video" && (
-                  <View style={s.previewWrap}>
-                    <Video
-                      ref={(r) => {
-                        videoRef.current = r;
-                      }}
-                      source={{ uri: localUri }}
-                      style={s.previewVideo}
-                      resizeMode={ResizeMode.COVER}
-                      shouldPlay={false}
-                      isLooping
-                      useNativeControls
-                    />
-                    {!!mediaUrl && (
-                      <View style={s.okBadge}>
-                        <Ionicons name="checkmark" size={14} color={"#fff"} />
-                        <Text style={s.okText}>{copy.uploaded}</Text>
+                  <>
+                    <View style={s.previewWrap}>
+                      <Video
+                        ref={(r) => {
+                          videoRef.current = r;
+                        }}
+                        source={{ uri: localUri }}
+                        style={s.previewVideo}
+                        resizeMode={ResizeMode.COVER}
+                        shouldPlay={false}
+                        isLooping
+                        useNativeControls
+                      />
+                      {!!mediaUrl && (
+                        <View style={s.okBadge}>
+                          <Ionicons name="checkmark" size={14} color={"#fff"} />
+                          <Text style={s.okText}>{copy.uploaded}</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {!!localThumbUri && (
+                      <View style={s.thumbSection}>
+                        <Text style={s.label}>
+                          {isRTL ? "لقطة الفيديو" : "Video thumbnail"}
+                        </Text>
+                        <View style={s.thumbPreviewWrap}>
+                          <Image
+                            source={{ uri: localThumbUri }}
+                            style={s.thumbPreviewImage}
+                            resizeMode="cover"
+                          />
+                          {!!thumbUrl && (
+                            <View style={s.okBadgeSmall}>
+                              <Ionicons name="checkmark" size={12} color={"#fff"} />
+                              <Text style={s.okTextSmall}>{copy.uploaded}</Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
                     )}
-                  </View>
+                  </>
                 )}
 
                 <Text style={[s.label, { marginTop: 10 }]}>{copy.optionalComment}</Text>
@@ -1453,6 +1617,27 @@ function makeStyles(theme: any, isRTL: boolean) {
       backgroundColor: "#000",
     },
 
+    thumbSection: {
+      marginTop: 10,
+    },
+
+    thumbPreviewWrap: {
+      marginTop: 6,
+      width: 140,
+      height: 200,
+      borderRadius: 16,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.cardAlt,
+      position: "relative",
+    },
+
+    thumbPreviewImage: {
+      width: "100%",
+      height: "100%",
+    },
+
     okBadge: {
       position: "absolute",
       top: 10,
@@ -1469,7 +1654,24 @@ function makeStyles(theme: any, isRTL: boolean) {
       gap: 6,
     },
 
+    okBadgeSmall: {
+      position: "absolute",
+      top: 8,
+      right: isRTL ? undefined : 8,
+      left: isRTL ? 8 : undefined,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.18)",
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      flexDirection: isRTL ? "row-reverse" : "row",
+      alignItems: "center",
+      gap: 5,
+    },
+
     okText: { color: "#fff", fontWeight: "900", fontSize: 12 },
+    okTextSmall: { color: "#fff", fontWeight: "900", fontSize: 11 },
 
     progressRow: {
       flexDirection: isRTL ? "row-reverse" : "row",
@@ -1478,8 +1680,19 @@ function makeStyles(theme: any, isRTL: boolean) {
       marginBottom: 8,
     },
 
-    progressLabel: { color: theme.text, fontWeight: "900", fontSize: 12, textAlign: isRTL ? "right" : "left" },
-    progressPct: { color: theme.text, fontWeight: "900", fontSize: 12, textAlign: isRTL ? "left" : "right" },
+    progressLabel: {
+      color: theme.text,
+      fontWeight: "900",
+      fontSize: 12,
+      textAlign: isRTL ? "right" : "left",
+    },
+
+    progressPct: {
+      color: theme.text,
+      fontWeight: "900",
+      fontSize: 12,
+      textAlign: isRTL ? "left" : "right",
+    },
 
     progressTrack: {
       height: 10,
@@ -1509,8 +1722,20 @@ function makeStyles(theme: any, isRTL: boolean) {
 
     btnText: { color: "#fff", fontWeight: "900" },
 
-    err: { marginTop: 10, color: theme.danger, fontWeight: "900", textAlign: isRTL ? "right" : "left" },
-    note: { marginTop: 10, color: theme.subtleText, fontWeight: "800", fontSize: 12, textAlign: isRTL ? "right" : "left" },
+    err: {
+      marginTop: 10,
+      color: theme.danger,
+      fontWeight: "900",
+      textAlign: isRTL ? "right" : "left",
+    },
+
+    note: {
+      marginTop: 10,
+      color: theme.subtleText,
+      fontWeight: "800",
+      fontSize: 12,
+      textAlign: isRTL ? "right" : "left",
+    },
 
     bottomBar: {
       paddingHorizontal: 16,

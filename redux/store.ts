@@ -13,6 +13,7 @@ import appReducer from "@/redux/slices/appSlice";
 import storiesReducer from "@/redux/slices/storySlice";
 import chatReducer from "./slices/chatSlice";
 import contactUsReducer from "./slices/contactUsSlice";
+import reportReducer from "./slices/reportSlice";
 import roomReducer from "./slices/room.slice";
 import roomControlReducer from "./slices/roomControl.slice";
 import uiReducer from "./slices/ui.slice";
@@ -36,10 +37,10 @@ export const store = configureStore({
     ui: uiReducer,
     user: userReducer,
     stories: storiesReducer,
-      app: appReducer, // ✅ جديد
-          contactUs: contactUsReducer,
-            changePassword: changePasswordReducer,
-
+    app: appReducer, // ✅ جديد
+    contactUs: contactUsReducer,
+    changePassword: changePasswordReducer,
+    report: reportReducer
 
 
 

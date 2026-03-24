@@ -2,7 +2,9 @@
 import { Colors } from "@/constants/theme";
 import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
 import { useTranslation } from "@/hooks/useTranslation";
-import { toggleFollow } from "@/redux/slices/followSlice";
+import { blockUser, toggleFollow } from "@/redux/slices/followSlice";
+import { unblockUser } from "@/redux/slices/friendSlice";
+import { clearReportError, clearReportSuccess, ReportReason, resetReportForm, selectReportError, selectReportSubmitting, selectReportSuccess, submitReport } from "@/redux/slices/reportSlice";
 import {
   deleteTweet,
   getFollowingFeed,
@@ -18,6 +20,7 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Linking,
@@ -27,6 +30,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   useColorScheme,
   View,
@@ -574,6 +578,16 @@ function ImagePreviewModal({
     </Modal>
   );
 }
+const REPORT_REASON_OPTIONS: { label: string; value: ReportReason }[] = [
+  { label: "رسائل مزعجة", value: "spam" },
+  { label: "تحرش أو إساءة", value: "harassment" },
+  { label: "محتوى جنسي", value: "sexual" },
+  { label: "عنف", value: "violence" },
+  { label: "كراهية", value: "hate" },
+  { label: "حساب مزيف", value: "fake_account" },
+  { label: "احتيال", value: "scam" },
+  { label: "أخرى", value: "other" },
+];
 /* ================= Screen ================= */
 
 export default function TweetsScreen() {
@@ -581,11 +595,22 @@ export default function TweetsScreen() {
   const router = useRouter();
   const { onScroll, onScrollBeginDrag } = useHideTabBarOnScroll();
   const { t, language } = useTranslation();
-const [previewImage, setPreviewImage] = useState<string | null>(null);
-const [showImageModal, setShowImageModal] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showSheet, setShowSheet] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
+  const [reportTarget, setReportTarget] = useState<{
+    targetType: "user" | "tweet";
+    targetId: string;
+    label?: string;
+  } | null>(null);
+  const [selectedReason, setSelectedReasonLocal] = useState<ReportReason | null>(null);
+  const [reportDetails, setReportDetailsLocal] = useState("");
+  const reportSubmitting = useSelector(selectReportSubmitting);
+  const reportSuccess = useSelector(selectReportSuccess);
+  const reportError = useSelector(selectReportError);
   const { following, forYou, loading } = useSelector(
     (state: RootState) => state.tweets
   );
@@ -595,7 +620,30 @@ const [showImageModal, setShowImageModal] = useState(false);
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
+  const handleToggleBlock = async () => {
+    if (!selectedUser?._id) return;
 
+    try {
+      setActionLoading(`block-${selectedUser._id}`);
+
+      const relationshipStatus = selectedUser?.relationshipStatus;
+
+      if (relationshipStatus === "blocked_by_me") {
+        await dispatch(unblockUser(selectedUser._id));
+      } else {
+        await dispatch(blockUser(selectedUser._id));
+      }
+
+      closeSheet();
+
+      await dispatch(getFollowingFeed({ page: 1 }));
+      await dispatch(getForYouFeed({ page: 1 }));
+    } catch (error) {
+      console.log("handleToggleBlock error", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
   const s = useMemo(() => makeStyles(theme, isDark), [theme, isDark]);
 
   const [activeTab, setActiveTab] = useState<"following" | "foryou">(
@@ -618,7 +666,64 @@ const [showImageModal, setShowImageModal] = useState(false);
     dispatch(getFollowingFeed({ page: 1 }));
     dispatch(getForYouFeed({ page: 1 }));
   }, [dispatch]);
+  useEffect(() => {
+    if (reportSuccess) {
+      Alert.alert("تم", "تم إرسال البلاغ بنجاح");
+      setShowReportModal(false);
+      setReportTarget(null);
+      setSelectedReasonLocal(null);
+      setReportDetailsLocal("");
+      dispatch(clearReportSuccess());
+      dispatch(resetReportForm());
+    }
+  }, [reportSuccess, dispatch]);
 
+  useEffect(() => {
+    if (reportError) {
+      Alert.alert("خطأ", reportError);
+      dispatch(clearReportError());
+    }
+  }, [reportError, dispatch]);
+  const openReportModal = (target: {
+    targetType: "user" | "tweet";
+    targetId: string;
+    label?: string;
+  }) => {
+    setReportTarget(target);
+    setSelectedReasonLocal(null);
+    setReportDetailsLocal("");
+    setShowReportModal(true);
+    closeSheet();
+  };
+
+  const closeReportModal = () => {
+    setShowReportModal(false);
+    setReportTarget(null);
+    setSelectedReasonLocal(null);
+    setReportDetailsLocal("");
+  };
+
+  const handleSubmitReport = async () => {
+    if (!reportTarget) return;
+
+    if (!selectedReason) {
+      Alert.alert("تنبيه", "اختر سبب البلاغ أولاً");
+      return;
+    }
+
+    const resultAction = await dispatch(
+      submitReport({
+        targetType: reportTarget.targetType,
+        targetId: reportTarget.targetId,
+        reason: selectedReason,
+        details: reportDetails,
+      })
+    );
+
+    if (submitReport.rejected.match(resultAction)) {
+      return;
+    }
+  };
   const openSheet = (author: any) => {
     setSelectedUser(author);
     setShowSheet(true);
@@ -638,15 +743,15 @@ const [showImageModal, setShowImageModal] = useState(false);
     }
     setRefreshing(false);
   };
-const openImagePreview = (url: string) => {
-  setPreviewImage(url);
-  setShowImageModal(true);
-};
+  const openImagePreview = (url: string) => {
+    setPreviewImage(url);
+    setShowImageModal(true);
+  };
 
-const closeImagePreview = () => {
-  setShowImageModal(false);
-  setPreviewImage(null);
-};
+  const closeImagePreview = () => {
+    setShowImageModal(false);
+    setPreviewImage(null);
+  };
   const handleLoadMore = () => {
     if (loading) return;
 
@@ -736,8 +841,11 @@ const closeImagePreview = () => {
             : "https://i.pravatar.cc/150?img=3";
 
           const linkPreview = item?.linkPreview ?? null;
-const detectedUrl =
-  linkPreview?.url || extractFirstUrl(item?.content || "");
+          const detectedUrl =
+            linkPreview?.url || extractFirstUrl(item?.content || "");
+          const isBlockedByMe = item?.author?.relationshipStatus === "blocked_by_me";
+          const blockedMe = item?.author?.relationshipStatus === "blocked_me";
+          const isBlocked = isBlockedByMe || blockedMe;
           return (
             <Swipeable
               renderRightActions={() =>
@@ -794,7 +902,7 @@ const detectedUrl =
                         {item.author.atUsername}
                       </Text>
                     </View>
-
+ 
                     {!isOwnTweet && (
                       <TouchableOpacity
                         style={[
@@ -831,6 +939,22 @@ const detectedUrl =
                       </TouchableOpacity>
                     )}
 
+                    {/* {!isOwnTweet && !isBlocked && (
+                      <TouchableOpacity
+                        style={[
+                          s.followBtn,
+                          isFollowing ? s.followBtnOn : s.followBtnOff,
+                        ]}
+                        onPress={async () => {
+                          setActionLoading(`follow-${item.author._id}`);
+                          await dispatch(toggleFollow(item.author._id));
+                          setActionLoading(null);
+                        }}
+                        activeOpacity={0.9}
+                      >
+                        ...
+                      </TouchableOpacity>
+                    )} */}
                     <TouchableOpacity
                       onPress={() => openSheet(item.author)}
                       style={s.moreBtn}
@@ -841,6 +965,19 @@ const detectedUrl =
                         size={18}
                         color={theme.icon}
                       />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() =>
+                        openReportModal({
+                          targetType: "tweet",
+                          targetId: item._id,
+                          label: "تويت",
+                        })
+                      }
+                      style={s.moreBtn}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="flag-outline" size={18} color={theme.icon} />
                     </TouchableOpacity>
                   </View>
 
@@ -856,13 +993,13 @@ const detectedUrl =
                     />
                   </TouchableOpacity>
 
-              {Array.isArray(item.media) && item.media.length > 0 && (
-  <TweetMediaGrid
-    media={item.media}
-    s={s}
-    onPressImage={openImagePreview}
-  />
-)}
+                  {Array.isArray(item.media) && item.media.length > 0 && (
+                    <TweetMediaGrid
+                      media={item.media}
+                      s={s}
+                      onPressImage={openImagePreview}
+                    />
+                  )}
 
                   {!Array.isArray(item.media) || item.media.length === 0 ? (
                     detectedUrl ? (
@@ -924,7 +1061,7 @@ const detectedUrl =
         }}
       />
 
-         {showSheet && (
+      {showSheet && (
         <View style={s.overlay}>
           <TouchableOpacity
             style={{ flex: 1 }}
@@ -970,7 +1107,11 @@ const detectedUrl =
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={s.sheetItem} activeOpacity={0.9}>
+                <TouchableOpacity
+                  style={s.sheetItem}
+                  activeOpacity={0.9}
+                  onPress={handleToggleBlock}
+                >
                   <View
                     style={[
                       s.sheetIcon,
@@ -981,12 +1122,38 @@ const detectedUrl =
                       },
                     ]}
                   >
-                    <Ionicons name="ban-outline" size={18} color="#EF4444" />
+                    {actionLoading === `block-${selectedUser?._id}` ? (
+                      <ActivityIndicator size="small" color="#EF4444" />
+                    ) : (
+                      <Ionicons
+                        name={
+                          selectedUser?.relationshipStatus === "blocked_by_me"
+                            ? "lock-open-outline"
+                            : "ban-outline"
+                        }
+                        size={18}
+                        color="#EF4444"
+                      />
+                    )}
                   </View>
-                  <Text style={s.sheetText}>{t("tweetsScreen.block")}</Text>
-                </TouchableOpacity>
 
-                <TouchableOpacity style={s.sheetItem} activeOpacity={0.9}>
+                  <Text style={s.sheetText}>
+                    {selectedUser?.relationshipStatus === "blocked_by_me"
+                      ? "إلغاء الحظر"
+                      : t("tweetsScreen.block")}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={s.sheetItem}
+                  activeOpacity={0.9}
+                  onPress={() =>
+                    openReportModal({
+                      targetType: "user",
+                      targetId: selectedUser._id,
+                      label: selectedUser.atUsername,
+                    })
+                  }
+                >
                   <View
                     style={[
                       s.sheetIcon,
@@ -1013,7 +1180,96 @@ const detectedUrl =
         onClose={closeImagePreview}
         s={s}
       />
+      <Modal
+        visible={showReportModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeReportModal}
+      >
+        <View style={s.reportOverlay}>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={1}
+            onPress={closeReportModal}
+          />
 
+          <View style={s.reportSheet}>
+            <Text style={s.reportTitle}>إرسال بلاغ</Text>
+
+            {!!reportTarget?.label && (
+              <Text style={s.reportSubtitle}>
+                الهدف: {reportTarget.label}
+              </Text>
+            )}
+
+            <Text style={s.reportSectionTitle}>اختر السبب</Text>
+
+            <View style={s.reportReasonsWrap}>
+              {REPORT_REASON_OPTIONS.map((reasonItem) => {
+                const active = selectedReason === reasonItem.value;
+
+                return (
+                  <TouchableOpacity
+                    key={reasonItem.value}
+                    activeOpacity={0.9}
+                    onPress={() => setSelectedReasonLocal(reasonItem.value)}
+                    style={[
+                      s.reportReasonChip,
+                      active && s.reportReasonChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.reportReasonText,
+                        active && s.reportReasonTextActive,
+                      ]}
+                    >
+                      {reasonItem.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={s.reportSectionTitle}>تفاصيل إضافية</Text>
+
+            <TextInput
+              value={reportDetails}
+              onChangeText={setReportDetailsLocal}
+              placeholder="اكتب تفاصيل البلاغ هنا"
+              placeholderTextColor={theme.mutedText}
+              multiline
+              style={s.reportInput}
+              textAlignVertical="top"
+              maxLength={1000}
+            />
+
+            <View style={s.reportActionsRow}>
+              <TouchableOpacity
+                style={s.reportCancelBtn}
+                onPress={closeReportModal}
+                activeOpacity={0.9}
+                disabled={reportSubmitting}
+              >
+                <Text style={s.reportCancelText}>إلغاء</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={s.reportSubmitBtn}
+                onPress={handleSubmitReport}
+                activeOpacity={0.9}
+                disabled={reportSubmitting}
+              >
+                {reportSubmitting ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={s.reportSubmitText}>إرسال البلاغ</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <TouchableOpacity
         style={s.fab}
         activeOpacity={0.85}
@@ -1021,7 +1277,7 @@ const detectedUrl =
       >
         <Ionicons name="create-outline" size={24} color="#FFF" />
       </TouchableOpacity>
-   
+
     </View>
   );
 }
@@ -1087,7 +1343,142 @@ function makeStyles(theme: any, isDark: boolean) {
       borderWidth: 1,
       borderColor: theme.border,
     },
+    reportOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.45)",
+      justifyContent: "flex-end",
+    },
 
+    reportSheet: {
+      backgroundColor: cardBg,
+      borderTopLeftRadius: 22,
+      borderTopRightRadius: 22,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 16,
+      paddingBottom: 22,
+      maxHeight: "78%",
+      ...Platform.select({
+        ios: {
+          shadowColor: "#000",
+          shadowOpacity: 0.18,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: -8 },
+        },
+        android: { elevation: 10 },
+      }),
+    },
+
+    reportTitle: {
+      fontSize: 16,
+      fontWeight: "900",
+      color: theme.text,
+      marginBottom: 6,
+    },
+
+    reportSubtitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: theme.mutedText,
+      marginBottom: 14,
+    },
+
+    reportSectionTitle: {
+      fontSize: 13,
+      fontWeight: "900",
+      color: theme.text,
+      marginBottom: 10,
+      marginTop: 4,
+    },
+
+    reportReasonsWrap: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 14,
+    },
+
+    reportReasonChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 999,
+      backgroundColor: surface2,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+
+    reportReasonChipActive: {
+      backgroundColor: theme.tint,
+      borderColor: theme.tint,
+    },
+
+    reportReasonText: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: theme.text,
+    },
+
+    reportReasonTextActive: {
+      color: "#FFF",
+    },
+
+    reportInput: {
+      minHeight: 110,
+      maxHeight: 180,
+      borderRadius: 16,
+      backgroundColor: surface2,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      color: theme.text,
+      fontSize: 14,
+      fontWeight: "600",
+      marginBottom: 16,
+    },
+
+    reportActionsRow: {
+      flexDirection: "row",
+      gap: 10,
+    },
+
+    reportCancelBtn: {
+      flex: 1,
+      height: 46,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: surface2,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+
+    reportCancelText: {
+      fontSize: 14,
+      fontWeight: "900",
+      color: theme.text,
+    },
+
+    reportSubmitBtn: {
+      flex: 1,
+      height: 46,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "#EF4444",
+      borderWidth: 1,
+      borderColor: "#EF4444",
+    },
+
+    reportSubmitText: {
+      fontSize: 14,
+      fontWeight: "900",
+      color: "#FFF",
+    },
     tabBtn: {
       flex: 1,
       height: 40,
@@ -1095,43 +1486,43 @@ function makeStyles(theme: any, isDark: boolean) {
       alignItems: "center",
       justifyContent: "center",
     },
-imageModalOverlay: {
-  flex: 1,
-  backgroundColor: "rgba(0,0,0,0.96)",
-},
+    imageModalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.96)",
+    },
 
-imageModalBackdrop: {
-  ...StyleSheet.absoluteFillObject,
-},
+    imageModalBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+    },
 
-imageModalHeader: {
-  position: "absolute",
-  top: 50,
-  right: 16,
-  zIndex: 5,
-},
+    imageModalHeader: {
+      position: "absolute",
+      top: 50,
+      right: 16,
+      zIndex: 5,
+    },
 
-imageModalCloseBtn: {
-  width: 42,
-  height: 42,
-  borderRadius: 21,
-  backgroundColor: "rgba(255,255,255,0.14)",
-  alignItems: "center",
-  justifyContent: "center",
-},
+    imageModalCloseBtn: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: "rgba(255,255,255,0.14)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
 
-imageModalContent: {
-  flex: 1,
-  alignItems: "center",
-  justifyContent: "center",
-  paddingHorizontal: 12,
-  paddingVertical: 40,
-},
+    imageModalContent: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 12,
+      paddingVertical: 40,
+    },
 
-imageModalImage: {
-  width: "100%",
-  height: "85%",
-},
+    imageModalImage: {
+      width: "100%",
+      height: "85%",
+    },
     tabBtnActive: {
       backgroundColor: theme.primary,
       borderWidth: 1,

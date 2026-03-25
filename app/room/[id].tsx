@@ -1246,21 +1246,35 @@ export default function ChatScreen() {
   };
 
   /* ================= FETCH + SOCKET (مرة واحدة فقط) ================= */
-  useEffect(() => {
-    if (!roomId) return;
+  // useEffect(() => {
+  //   if (!roomId) return;
 
-    dispatch(fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false }));
-    dispatch(fetchRoomUsers(roomId));
-    dispatch(fetchRoomStats(roomId));
-    dispatch(getMyInventory() as any);
+  //   dispatch(fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false }));
+  //   dispatch(fetchRoomUsers(roomId));
+  //   dispatch(fetchRoomStats(roomId));
+  //   dispatch(getMyInventory() as any);
 
-    joinRoomSocket(roomId);
-    ensureMicPermission();
+  //   joinRoomSocket(roomId);
+  //   ensureMicPermission();
 
-    return () => { };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
+  //   return () => { };
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [roomId]);
+useEffect(() => {
+  if (!roomId) return;
 
+  dispatch(fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false }));
+  dispatch(fetchRoomUsers(roomId));
+  dispatch(fetchRoomStats(roomId));
+  dispatch(getMyInventory() as any);
+
+  joinRoomSocket(roomId);
+  ensureMicPermission();
+
+  return () => {
+    // leaveRoomSocket(roomId);
+  };
+}, [roomId]);
   /* ================= KICK/BAN HANDLERS ================= */
   useEffect(() => {
     if (!roomId || !kicked) return;
@@ -2020,25 +2034,40 @@ export default function ChatScreen() {
       Alert.alert("Error", e?.message || "Failed to load stats");
     }
   };
+  const onLeaveRoom = () => {
+  if (!roomId) return;
+  if (didLeaveRef.current) return;
 
-  const onLeaveRoom = async () => {
-    if (!roomId) return;
-    if (didLeaveRef.current) return;
+  setShowRoomMenu(false);
+  didLeaveRef.current = true;
 
-    try {
-      setShowRoomMenu(false);
-      didLeaveRef.current = true;
+  leaveRoomSocket(roomId);
+  router.back();
 
-      leaveRoomSocket(roomId);
-      await dispatch(leaveRoomAndExit({ roomId, cleanup: true })).unwrap();
-      await dispatch(leaveAndRefreshRooms({ roomId, type: "public" })).unwrap();
+  setTimeout(() => {
+    dispatch(leaveRoomAndExit({ roomId, cleanup: true }));
+    dispatch(leaveAndRefreshRooms({ roomId, type: "public" }));
+  }, 0);
+};
 
-      router.back();
-    } catch (e: any) {
-      didLeaveRef.current = false;
-      Alert.alert("Error", e?.message || "Failed to leave room");
-    }
-  };
+  // const onLeaveRoom = async () => {
+  //   if (!roomId) return;
+  //   if (didLeaveRef.current) return;
+
+  //   try {
+  //     setShowRoomMenu(false);
+  //     didLeaveRef.current = true;
+
+  //     leaveRoomSocket(roomId);
+  //     await dispatch(leaveRoomAndExit({ roomId, cleanup: true })).unwrap();
+  //     await dispatch(leaveAndRefreshRooms({ roomId, type: "public" })).unwrap();
+
+  //     router.back();
+  //   } catch (e: any) {
+  //     didLeaveRef.current = false;
+  //     Alert.alert("Error", e?.message || "Failed to leave room");
+  //   }
+  // };
 
   /* ================= USERS: COPY/ROLE/KICK/BAN ================= */
   const onCopyUser = async (u: UserUI) => {

@@ -1,4 +1,6 @@
+
 // import { Colors } from "@/constants/theme";
+// import { useTranslation } from "@/hooks/useTranslation";
 // import { loginWithGoogle } from "@/redux/slices/authSlice";
 // import { AppDispatch, RootState } from "@/redux/store";
 // import { signInWithGoogle } from "@/services/googleAuth";
@@ -39,11 +41,12 @@
 
 // export default function WelcomeScreen() {
 //   const router = useRouter();
+//   const { t } = useTranslation();
 //   const colorScheme = useColorScheme();
 //   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
 //   const [acceptedPrivacy, setAcceptedPrivacy] = useState(true);
-// const dispatch = useDispatch<AppDispatch>();
-// const { loading } = useSelector((state: RootState) => state.auth);
+//   const dispatch = useDispatch<AppDispatch>();
+//   const { loading } = useSelector((state: RootState) => state.auth);
 //   const translateY = useRef(new Animated.Value(0)).current;
 
 //   useEffect(() => {
@@ -94,68 +97,82 @@
 //   const column1 = allImages.filter((_, index) => index % 3 === 0);
 //   const column2 = allImages.filter((_, index) => index % 3 === 1);
 //   const column3 = allImages.filter((_, index) => index % 3 === 2);
-// const goToGoogle = async () => {
-//   try {
-//     if (!acceptedPrivacy) {
-//       Alert.alert("تنبيه", "يجب الموافقة على اتفاقية المستخدم وسياسة الخصوصية أولًا");
-//       return;
-//     }
 
-//     const userCredential = await signInWithGoogle();
-//     const user = userCredential.user;
+//   const goToGoogle = async () => {
+//     try {
+//       if (!acceptedPrivacy) {
+//         Alert.alert(
+//           t("welcomeScreen.alerts.noticeTitle"),
+//           t("welcomeScreen.alerts.acceptPrivacyFirst")
+//         );
+//         return;
+//       }
 
-//     // مهم: هذا هو التوكن الذي سترسله للباك
-//     const idToken = await user.getIdToken();
+//       const userCredential = await signInWithGoogle();
+//       const user = userCredential.user;
+//       const idToken = await user.getIdToken();
 
-//     const resultAction = await dispatch(
-//       loginWithGoogle({
-//         idToken,
-//         username: user.displayName || undefined,
-//         email: user.email || undefined,
-//         photo: user.photoURL || undefined,
-//       })
-//     );
-
-//     if (loginWithGoogle.fulfilled.match(resultAction)) {
-//       router.replace("/(tabs)");
-//       return;
-//     }
-
-//     const message =
-//       (resultAction.payload as string) || "فشل تسجيل الدخول بواسطة Google";
-//     Alert.alert("خطأ", message);
-//   } catch (error: any) {
-//     console.log("❌ Google login error:", error);
-
-//     const errorCode = error?.code || "";
-
-//     if (
-//       errorCode === "SIGN_IN_CANCELLED" ||
-//       errorCode === "12501" ||
-//       errorCode === "cancelled"
-//     ) {
-//       return;
-//     }
-
-//     if (errorCode === "PLAY_SERVICES_NOT_AVAILABLE") {
-//       Alert.alert("خطأ", "خدمات Google Play غير متاحة على هذا الجهاز");
-//       return;
-//     }
-
-//     if (errorCode === "DEVELOPER_ERROR") {
-//       Alert.alert(
-//         "خطأ",
-//         "يوجد خطأ في إعداد Google Sign-In. تأكد من SHA-1 و webClientId و google-services.json"
+//       const resultAction = await dispatch(
+//         loginWithGoogle({
+//           idToken,
+//           username: user.displayName || undefined,
+//           email: user.email || undefined,
+//           photo: user.photoURL || undefined,
+//         })
 //       );
-//       return;
-//     }
 
-//     Alert.alert("خطأ", error?.message || "فشل تسجيل الدخول بواسطة Google");
-//   }
-// };
+//       if (loginWithGoogle.fulfilled.match(resultAction)) {
+//         router.replace("/(tabs)");
+//         return;
+//       }
+
+//       const message =
+//         (resultAction.payload as string) ||
+//         t("welcomeScreen.alerts.googleLoginFailed");
+
+//       Alert.alert(t("common.error"), message);
+//     } catch (error: any) {
+//       console.log("❌ Google login error:", error);
+
+//       const errorCode = error?.code || "";
+
+//       if (
+//         errorCode === "SIGN_IN_CANCELLED" ||
+//         errorCode === "12501" ||
+//         errorCode === "cancelled"
+//       ) {
+//         return;
+//       }
+
+//       if (errorCode === "PLAY_SERVICES_NOT_AVAILABLE") {
+//         Alert.alert(
+//           t("common.error"),
+//           t("welcomeScreen.alerts.playServicesUnavailable")
+//         );
+//         return;
+//       }
+
+//       if (errorCode === "DEVELOPER_ERROR") {
+//         Alert.alert(
+//           t("common.error"),
+//           t("welcomeScreen.alerts.googleConfigError")
+//         );
+//         return;
+//       }
+
+//       Alert.alert(
+//         t("common.error"),
+//         error?.message || t("welcomeScreen.alerts.googleLoginFailed")
+//       );
+//     }
+//   };
+
 //   const goToPhone = () => {
 //     if (!acceptedPrivacy) {
-//       Alert.alert("تنبيه", "يجب الموافقة على اتفاقية المستخدم وسياسة الخصوصية أولًا");
+//       Alert.alert(
+//         t("welcomeScreen.alerts.noticeTitle"),
+//         t("welcomeScreen.alerts.acceptPrivacyFirst")
+//       );
 //       return;
 //     }
 //     router.push("/(auth)/register");
@@ -163,10 +180,16 @@
 
 //   const goToTikTok = () => {
 //     if (!acceptedPrivacy) {
-//       Alert.alert("تنبيه", "يجب الموافقة على اتفاقية المستخدم وسياسة الخصوصية أولًا");
+//       Alert.alert(
+//         t("welcomeScreen.alerts.noticeTitle"),
+//         t("welcomeScreen.alerts.acceptPrivacyFirst")
+//       );
 //       return;
 //     }
-//     Alert.alert("قريبًا", "يمكنك ربط تسجيل TikTok لاحقًا");
+//     Alert.alert(
+//       t("welcomeScreen.alerts.comingSoonTitle"),
+//       t("welcomeScreen.alerts.tiktokSoon")
+//     );
 //   };
 
 //   const openPrivacy = async () => {
@@ -174,7 +197,10 @@
 //     const supported = await Linking.canOpenURL(url);
 
 //     if (!supported) {
-//       Alert.alert("خطأ", "تعذر فتح سياسة الخصوصية");
+//       Alert.alert(
+//         t("common.error"),
+//         t("welcomeScreen.alerts.openPrivacyFailed")
+//       );
 //       return;
 //     }
 
@@ -186,7 +212,10 @@
 //     const supported = await Linking.canOpenURL(url);
 
 //     if (!supported) {
-//       Alert.alert("خطأ", "تعذر فتح اتفاقية المستخدم");
+//       Alert.alert(
+//         t("common.error"),
+//         t("welcomeScreen.alerts.openTermsFailed")
+//       );
 //       return;
 //     }
 
@@ -208,33 +237,41 @@
 
 //       <SafeAreaView style={styles.safeArea}>
 //         <View style={styles.content}>
-//           <View style={styles.topArea}>
-        
-//           </View>
+//           <View style={styles.topArea}></View>
 
 //           <View style={styles.centerArea}>
 //             <Text style={styles.logoText}>BIMO</Text>
-//             <Text style={styles.counterText}>46,023 شخص وجدوا مجتمعهم</Text>
+//             <Text style={styles.counterText}>
+//               {t("welcomeScreen.counterText")}
+//             </Text>
 //           </View>
 
 //           <View style={styles.bottomArea}>
-//             <Pressable style={styles.mainButton} onPress={goToGoogle}>
+//             <Pressable
+//               style={[styles.mainButton, loading && { opacity: 0.8 }]}
+//               onPress={goToGoogle}
+//               disabled={loading}
+//             >
 //               <View style={styles.buttonRightIcon}>
 //                 <AntDesign name="google" size={22} color="#4285F4" />
 //               </View>
-//               <Text style={styles.mainButtonText}>تسجيل الدخول إلى Google</Text>
+//               <Text style={styles.mainButtonText}>
+//                 {t("welcomeScreen.googleLogin")}
+//               </Text>
 //             </Pressable>
 
 //             <Pressable style={styles.mainButton} onPress={goToPhone}>
 //               <View style={styles.buttonRightIcon}>
 //                 <Feather name="smartphone" size={22} color="#4A7DFF" />
 //               </View>
-//               <Text style={styles.mainButtonText}>تسجيل الدخول باستخدام الهاتف</Text>
+//               <Text style={styles.mainButtonText}>
+//                 {t("welcomeScreen.phoneLogin")}
+//               </Text>
 //             </Pressable>
 
 //             <View style={styles.orWrap}>
 //               <View style={styles.orLine} />
-//               <Text style={styles.orText}>Or</Text>
+//               <Text style={styles.orText}>{t("welcomeScreen.or")}</Text>
 //               <View style={styles.orLine} />
 //             </View>
 
@@ -249,7 +286,10 @@
 //               <View
 //                 style={[
 //                   styles.checkbox,
-//                   acceptedPrivacy && { backgroundColor: "#fff", borderColor: "#fff" },
+//                   acceptedPrivacy && {
+//                     backgroundColor: "#fff",
+//                     borderColor: "#fff",
+//                   },
 //                 ]}
 //               >
 //                 {acceptedPrivacy ? (
@@ -258,13 +298,13 @@
 //               </View>
 
 //               <Text style={styles.privacyText}>
-//                 يعني النقر لتسجيل الدخول أنك قرأت ووافقت{" "}
+//                 {t("welcomeScreen.privacyPrefix")}{" "}
 //                 <Text onPress={openTerms} style={styles.linkText}>
-//                   اتفاقية المستخدم
+//                   {t("welcomeScreen.userAgreement")}
 //                 </Text>{" "}
-//                 و{" "}
+//                 {t("welcomeScreen.and")}{" "}
 //                 <Text onPress={openPrivacy} style={styles.linkText}>
-//                   اتفاقية الخصوصية
+//                   {t("welcomeScreen.privacyPolicy")}
 //                 </Text>
 //               </Text>
 //             </Pressable>
@@ -397,40 +437,40 @@
 //   bottomArea: {
 //     paddingBottom: 18,
 //   },
-// mainButton: {
-//   height: 50,
-//   borderRadius: 25,
-//   backgroundColor: "#FFFFFF",
-//   marginBottom: 12,
-//   justifyContent: "center",
-//   alignItems: "center",
-//   position: "relative",
-//   paddingHorizontal: 20,
-// },
-// mainButtonText: {
-//   color: "#111111",
-//   fontSize: 14,
-//   fontWeight: "700",
-// },
-// buttonRightIcon: {
-//   position: "absolute",
-//   right: 16,
-//   top: 0,
-//   bottom: 0,
-//   justifyContent: "center",
-// },
-// tiktokButton: {
-//   width: 54,
-//   height: 54,
-//   borderRadius: 27,
-//   backgroundColor: "#111111",
-//   alignItems: "center",
-//   justifyContent: "center",
-//   alignSelf: "center",
-//   marginBottom: 14,
-//   borderWidth: 1,
-//   borderColor: "rgba(255,255,255,0.12)",
-// },
+//   mainButton: {
+//     height: 50,
+//     borderRadius: 25,
+//     backgroundColor: "#FFFFFF",
+//     marginBottom: 12,
+//     justifyContent: "center",
+//     alignItems: "center",
+//     position: "relative",
+//     paddingHorizontal: 20,
+//   },
+//   mainButtonText: {
+//     color: "#111111",
+//     fontSize: 14,
+//     fontWeight: "700",
+//   },
+//   buttonRightIcon: {
+//     position: "absolute",
+//     right: 16,
+//     top: 0,
+//     bottom: 0,
+//     justifyContent: "center",
+//   },
+//   tiktokButton: {
+//     width: 54,
+//     height: 54,
+//     borderRadius: 27,
+//     backgroundColor: "#111111",
+//     alignItems: "center",
+//     justifyContent: "center",
+//     alignSelf: "center",
+//     marginBottom: 14,
+//     borderWidth: 1,
+//     borderColor: "rgba(255,255,255,0.12)",
+//   },
 //   orWrap: {
 //     flexDirection: "row",
 //     alignItems: "center",
@@ -481,6 +521,7 @@
 //   },
 // });
 import { Colors } from "@/constants/theme";
+import { useLanguage } from "@/context/LanguageContext";
 import { useTranslation } from "@/hooks/useTranslation";
 import { loginWithGoogle } from "@/redux/slices/authSlice";
 import { AppDispatch, RootState } from "@/redux/store";
@@ -498,11 +539,13 @@ import {
   Easing,
   ImageSourcePropType,
   Linking,
+  Modal,
   Pressable,
   SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
+  TouchableWithoutFeedback,
   useColorScheme,
   View,
 } from "react-native";
@@ -523,9 +566,11 @@ type BgItem = {
 export default function WelcomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { language, changeLanguage } = useLanguage();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(true);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const { loading } = useSelector((state: RootState) => state.auth);
   const translateY = useRef(new Animated.Value(0)).current;
@@ -703,6 +748,16 @@ export default function WelcomeScreen() {
     await Linking.openURL(url);
   };
 
+  const handleSelectLanguage = async (lang: "ar" | "en") => {
+    try {
+      await changeLanguage(lang);
+      setLanguageModalVisible(false);
+    } catch (e) {
+      console.log("changeLanguage error:", e);
+      setLanguageModalVisible(false);
+    }
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
@@ -718,7 +773,16 @@ export default function WelcomeScreen() {
 
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.content}>
-          <View style={styles.topArea}></View>
+          <View style={styles.topArea}>
+            <Pressable
+              style={styles.languageChip}
+              onPress={() => setLanguageModalVisible(true)}
+            >
+              <Ionicons name="globe-outline" size={15} color="#FFFFFF" />
+              <Text style={styles.languageChipText}>{language.toUpperCase()}</Text>
+              <Ionicons name="chevron-down" size={14} color="#FFFFFF" />
+            </Pressable>
+          </View>
 
           <View style={styles.centerArea}>
             <Text style={styles.logoText}>BIMO</Text>
@@ -792,6 +856,66 @@ export default function WelcomeScreen() {
           </View>
         </View>
       </SafeAreaView>
+
+      <Modal
+        transparent
+        visible={languageModalVisible}
+        animationType="fade"
+        onRequestClose={() => setLanguageModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setLanguageModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalCard}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Language</Text>
+                  <Pressable onPress={() => setLanguageModalVisible(false)}>
+                    <Ionicons name="close" size={22} color="#111" />
+                  </Pressable>
+                </View>
+
+                <Pressable
+                  style={[
+                    styles.languageOption,
+                    language === "ar" && styles.languageOptionActive,
+                  ]}
+                  onPress={() => handleSelectLanguage("ar")}
+                >
+                  <View style={styles.languageOptionLeft}>
+                    <Text style={styles.languageOptionTitle}>AR</Text>
+                    <Text style={styles.languageOptionSub}>العربية</Text>
+                  </View>
+
+                  {language === "ar" ? (
+                    <Ionicons name="checkmark-circle" size={22} color="#2563EB" />
+                  ) : (
+                    <Ionicons name="ellipse-outline" size={20} color="#A1A1AA" />
+                  )}
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.languageOption,
+                    language === "en" && styles.languageOptionActive,
+                  ]}
+                  onPress={() => handleSelectLanguage("en")}
+                >
+                  <View style={styles.languageOptionLeft}>
+                    <Text style={styles.languageOptionTitle}>EN</Text>
+                    <Text style={styles.languageOptionSub}>English</Text>
+                  </View>
+
+                  {language === "en" ? (
+                    <Ionicons name="checkmark-circle" size={22} color="#2563EB" />
+                  ) : (
+                    <Ionicons name="ellipse-outline" size={20} color="#A1A1AA" />
+                  )}
+                </Pressable>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -888,7 +1012,24 @@ const styles = StyleSheet.create({
   },
   topArea: {
     paddingTop: 8,
-    alignItems: "flex-start",
+    alignItems: "flex-end",
+  },
+  languageChip: {
+    minHeight: 38,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.24)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  languageChipText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   loginLinkWrap: {
     paddingVertical: 8,
@@ -970,7 +1111,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "400",
   },
-
   privacyRow: {
     flexDirection: "row-reverse",
     alignItems: "flex-start",
@@ -999,5 +1139,61 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     textDecorationLine: "underline",
     fontWeight: "700",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 18,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#111111",
+  },
+  languageOption: {
+    minHeight: 58,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: "#F6F7FB",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#E8EAF2",
+  },
+  languageOptionActive: {
+    borderColor: "#BFDBFE",
+    backgroundColor: "#EFF6FF",
+  },
+  languageOptionLeft: {
+    flexDirection: "column",
+  },
+  languageOptionTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#111111",
+  },
+  languageOptionSub: {
+    marginTop: 3,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
   },
 });

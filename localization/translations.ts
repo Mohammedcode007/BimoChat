@@ -1174,8 +1174,8 @@ export const translations = {
 
 
     registerScreen: {
-      title: "Create Account",
-      subtitle: "Join the conversation",
+title: "One step away",
+subtitle: "Enter your new world",
       usernamePH: "Username",
       passwordPH: "Password",
       confirmPH: "Confirm Password",
@@ -1210,8 +1210,8 @@ export const translations = {
       },
     },
     loginScreen: {
-      title: "Welcome Back",
-      subtitle: "Sign in to continue",
+     title: "We missed you",
+subtitle: "Pick up right where you left off",
       usernamePH: "Username",
       passwordPH: "Password",
       loginBtn: "Login",
@@ -2237,8 +2237,8 @@ export const translations = {
     },
 
     registerScreen: {
-      title: "إنشاء حساب",
-      subtitle: "انضم إلى المحادثة",
+    title: "خطوة واحدة تفصلك",
+subtitle: "انضم لعالمك الجديد",
       usernamePH: "اسم المستخدم",
       passwordPH: "كلمة المرور",
       confirmPH: "تأكيد كلمة المرور",
@@ -2273,8 +2273,8 @@ export const translations = {
       },
     },
     loginScreen: {
-      title: "مرحبًا بعودتك",
-      subtitle: "سجّل الدخول للمتابعة",
+     title: "اشتقنا لك",
+subtitle: "كل شيء ينتظرك هنا",
       usernamePH: "اسم المستخدم",
       passwordPH: "كلمة المرور",
       loginBtn: "تسجيل الدخول",

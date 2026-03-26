@@ -22,6 +22,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 import { Provider, useDispatch, useSelector } from 'react-redux';
+import AuthLoadingScreen from './auth-loading';
 
 function RootStack() {
   // const { language } = useLanguage();
@@ -87,7 +88,7 @@ function AppContent() {
   const token = useSelector((state: RootState) => state.auth.token);
   const hydrated = useSelector((state: RootState) => state.auth.hydrated);
   const forceUpdateRequired = useSelector((state: RootState) => state.app.required);
-
+const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   /* =========================
@@ -263,7 +264,9 @@ function AppContent() {
       router.replace("/force-update" as any);
     }
   }, [forceUpdateRequired, router]);
-
+  if (!hydrated) {
+    return <AuthLoadingScreen />;
+  }
   return (
     <>
       <RootStack />

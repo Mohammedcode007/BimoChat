@@ -1107,14 +1107,12 @@ import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
 import { useTranslation } from "@/hooks/useTranslation";
 import { createChat, setActiveChat } from "@/redux/slices/chatSlice";
 import { getFriends, removeFriend } from "@/redux/slices/friendSlice";
-import { setMessages } from "@/redux/slices/messageSlice";
 import {
   fetchMyStories,
   fetchStoriesFeed,
   StoryOwnerGroup,
 } from "@/redux/slices/storySlice";
 import { AppDispatch, RootState } from "@/redux/store";
-import api from "@/services/api";
 import { formatLastSeenListFriend } from "@/utils/helpFunctions";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -1152,7 +1150,7 @@ export default function FriendsScreen() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const me = useSelector((st: RootState) => st.auth?.user);
-
+const chats = useSelector((state: RootState) => state.chat?.chats || []);
   const { friends, loading } = useSelector((state: RootState) => state.friends);
   const storiesFeed = useSelector((st: RootState) => st.stories?.feed || []);
   const myStories = useSelector((st: RootState) => st.stories?.myStories || null);
@@ -1343,30 +1341,71 @@ export default function FriendsScreen() {
     ]);
   };
 
-  const openChat = async (targetUserId: string) => {
-    if (creatingChatId) return;
+  const findExistingChatId = useCallback(
+  (targetUserId: string) => {
+    const foundChat = chats.find((chat: any) => {
+      const participants = Array.isArray(chat?.participants)
+        ? chat.participants
+        : [];
 
-    try {
-      setCreatingChatId(targetUserId);
+      return participants.some((p: any) => {
+        const participantId = typeof p === "string" ? p : p?._id;
+        return String(participantId) === String(targetUserId);
+      });
+    });
 
-      const chat = await dispatch(createChat(targetUserId)).unwrap();
-      dispatch(setActiveChat(chat._id));
+    return foundChat?._id || null;
+  },
+  [chats]
+);
 
-      const messagesRes = await api.get(`/messages/${chat._id}?page=1`);
-      dispatch(
-        setMessages({
-          chatId: chat._id,
-          messages: messagesRes.data,
-        })
-      );
+const openChat = async (targetUserId: string) => {
+  if (creatingChatId) return;
 
-      router.push(`/chat/${chat._id}`);
-    } catch (e) {
-      console.log("openChat error:", e);
-    } finally {
-      setCreatingChatId(null);
-    }
-  };
+  const existingChatId = findExistingChatId(targetUserId);
+
+  if (existingChatId) {
+    dispatch(setActiveChat(existingChatId));
+    router.push(`/chat/${existingChatId}`);
+    return;
+  }
+
+  try {
+    setCreatingChatId(targetUserId);
+
+    const chat = await dispatch(createChat(targetUserId)).unwrap();
+    dispatch(setActiveChat(chat._id));
+    router.push(`/chat/${chat._id}`);
+  } catch (e) {
+    console.log("openChat error:", e);
+  } finally {
+    setCreatingChatId(null);
+  }
+};
+  // const openChat = async (targetUserId: string) => {
+  //   if (creatingChatId) return;
+
+  //   try {
+  //     setCreatingChatId(targetUserId);
+
+  //     const chat = await dispatch(createChat(targetUserId)).unwrap();
+  //     dispatch(setActiveChat(chat._id));
+
+  //     const messagesRes = await api.get(`/messages/${chat._id}?page=1`);
+  //     dispatch(
+  //       setMessages({
+  //         chatId: chat._id,
+  //         messages: messagesRes.data,
+  //       })
+  //     );
+
+  //     router.push(`/chat/${chat._id}`);
+  //   } catch (e) {
+  //     console.log("openChat error:", e);
+  //   } finally {
+  //     setCreatingChatId(null);
+  //   }
+  // };
 
   const isSeen = useCallback(
     (storyId?: string) => {
@@ -1670,71 +1709,71 @@ export default function FriendsScreen() {
               </Text>
             </View>
           }
-        renderItem={({ item }) => {
-  const isMeBubble = String(item._id) === String(me?._id);
-  const hasStories = (item?.stories?.length || 0) > 0;
-  const ringState = getBubbleRingState(item);
+          renderItem={({ item }) => {
+            const isMeBubble = String(item._id) === String(me?._id);
+            const hasStories = (item?.stories?.length || 0) > 0;
+            const ringState = getBubbleRingState(item);
 
-  if (isMeBubble && !hasStories) {
-    return (
-      <TouchableOpacity
-        activeOpacity={0.92}
-        style={s.storyItem} 
-        onPress={() => onPressStoryBubble(item)}
-      >
-        <View style={{ position: "relative" }}>
-          <View style={s.storyAddRing}>
-            <View style={s.storyInnerFrame}>
-              <View style={s.storyAddInner}>
-                <Ionicons name="add" size={20} color={theme.primary} />
-              </View>
-            </View>
-          </View>
+            if (isMeBubble && !hasStories) {
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.92}
+                  style={s.storyItem}
+                  onPress={() => onPressStoryBubble(item)}
+                >
+                  <View style={{ position: "relative" }}>
+                    <View style={s.storyAddRing}>
+                      <View style={s.storyInnerFrame}>
+                        <View style={s.storyAddInner}>
+                          <Ionicons name="add" size={20} color={theme.primary} />
+                        </View>
+                      </View>
+                    </View>
 
-          <TouchableOpacity
-            onPress={() => router.push("/story/create" as any)}
-            style={s.addStoryMiniBtn}
-            activeOpacity={0.9}
-          >
-            <Ionicons name="add" size={14} color="#fff" />
-          </TouchableOpacity>
-        </View>
+                    <TouchableOpacity
+                      onPress={() => router.push("/story/create" as any)}
+                      style={s.addStoryMiniBtn}
+                      activeOpacity={0.9}
+                    >
+                      <Ionicons name="add" size={14} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
 
-        <Text style={s.storyName} numberOfLines={1}>
-          {copy.addStory}
-        </Text>
-      </TouchableOpacity>
-    );
-  }
+                  <Text style={s.storyName} numberOfLines={1}>
+                    {copy.addStory}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }
 
-  return (
-    <TouchableOpacity
-      activeOpacity={0.92}
-      style={s.storyItem}
-      onPress={() => onPressStoryBubble(item)}
-    >
-      <View style={{ position: "relative" }}>
-        <StoryRing seen={ringState.allSeen}>
-          <StoryPreviewContent item={item} isMeBubble={isMeBubble} />
-        </StoryRing>
+            return (
+              <TouchableOpacity
+                activeOpacity={0.92}
+                style={s.storyItem}
+                onPress={() => onPressStoryBubble(item)}
+              >
+                <View style={{ position: "relative" }}>
+                  <StoryRing seen={ringState.allSeen}>
+                    <StoryPreviewContent item={item} isMeBubble={isMeBubble} />
+                  </StoryRing>
 
-        {isMeBubble && (
-          <TouchableOpacity
-            onPress={() => router.push("/story/create" as any)}
-            style={s.addStoryMiniBtn}
-            activeOpacity={0.9}
-          >
-            <Ionicons name="add" size={14} color="#fff" />
-          </TouchableOpacity>
-        )}
-      </View>
+                  {isMeBubble && (
+                    <TouchableOpacity
+                      onPress={() => router.push("/story/create" as any)}
+                      style={s.addStoryMiniBtn}
+                      activeOpacity={0.9}
+                    >
+                      <Ionicons name="add" size={14} color="#fff" />
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-      <Text style={s.storyName} numberOfLines={1}>
-        {isMeBubble ? copy.myStory : item.username || copy.user}
-      </Text>
-    </TouchableOpacity>
-  );
-}}
+                <Text style={s.storyName} numberOfLines={1}>
+                  {isMeBubble ? copy.myStory : item.username || copy.user}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
         />
       </View>
 

@@ -1953,7 +1953,7 @@ function makeStyles(theme: any, isDark: boolean) {
     fab: {
       position: "absolute",
       right: 18,
-      bottom: 28,
+      bottom: 90,
       width: 58,
       height: 58,
       borderRadius: 18,

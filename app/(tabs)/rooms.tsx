@@ -911,17 +911,22 @@ const styles = StyleSheet.create({
   empty: { marginTop: 40, alignItems: "center" },
   emptyText: { marginTop: 10, color: "#9CA3AF" },
 
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 20,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: "#4F46E5",
-    alignItems: "center",
-    justifyContent: "center"
-  },
+fab: {
+  position: "absolute",
+  right: 20,
+  bottom: 90, // ✅ كان 20
+  width: 58,
+  height: 58,
+  borderRadius: 29,
+  backgroundColor: "#4F46E5",
+  alignItems: "center",
+  justifyContent: "center",
+  elevation: 10,
+  shadowColor: "#000",
+  shadowOpacity: 0.2,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 6 },
+},
 
   modalOverlay: {
     flex: 1,

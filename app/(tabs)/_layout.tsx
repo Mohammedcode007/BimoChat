@@ -538,6 +538,7 @@
 //     letterSpacing: 0.1,
 //   },
 // });
+
 import { Redirect, Tabs } from "expo-router";
 import React, { useEffect, useMemo } from "react";
 
@@ -566,24 +567,29 @@ import Animated, {
 import { useSelector } from "react-redux";
 
 const TAB_CONFIG = [
-  { name: "index", label: "Home", icon: "home-outline", activeIcon: "home" },
+  {
+    name: "index",
+    label: "Chat",
+    icon: "chatbubble-outline",
+    activeIcon: "chatbubble",
+  },
   {
     name: "rooms",
-    label: "Rooms",
-    icon: "radio-button-off-outline",
-    activeIcon: "radio-button-on",
+    label: "Room",
+  icon: "chatbubbles-outline",
+activeIcon: "chatbubbles",
   },
   {
     name: "friends",
-    label: "Friends",
-    icon: "pie-chart-outline",
-    activeIcon: "pie-chart",
+    label: "Friend",
+    icon: "people-outline",
+    activeIcon: "people",
   },
   {
     name: "tweets",
-    label: "Tweets",
-    icon: "time-outline",
-    activeIcon: "time",
+    label: "Tweet",
+  icon: "newspaper-outline",
+activeIcon: "newspaper",
   },
 ] as const;
 
@@ -600,11 +606,12 @@ const INNER_BAR_WIDTH =
 const SLOT_WIDTH = INNER_BAR_WIDTH / TAB_COUNT;
 
 /** زدنا العرض حتى يحتوي الأيقونة + النص بالكامل */
-const INDICATOR_WIDTH = 80;
-
-const getIndicatorTranslateX = (index: number) =>
-  index * SLOT_WIDTH + (SLOT_WIDTH - INDICATOR_WIDTH) / 2;
-
+const INDICATOR_WIDTH = Math.min(SLOT_WIDTH - 2, 104);
+const getIndicatorTranslateX = (index: number) => {
+  const raw = index * SLOT_WIDTH + (SLOT_WIDTH - INDICATOR_WIDTH) / 2;
+  const max = INNER_BAR_WIDTH - INDICATOR_WIDTH;
+  return Math.max(0, Math.min(raw, max));
+};
 function TabButton({
   focused,
   label,
@@ -639,33 +646,17 @@ function TabButton({
     transform: [
       { scale: interpolate(progress.value, [0, 1], [1, 1.05]) },
       {
-        translateX: interpolate(
-          progress.value,
-          [0, 1],
-          [0, focused && isFirstTab ? 0 : -2]
-        ),
+    translateX: interpolate(progress.value, [0, 1], [0, -1]),
       },
     ],
   }));
 
-  const labelStyle = useAnimatedStyle(() => {
-    if (focused && isFirstTab) {
-      return {
-        opacity: 1,
-        width: 44,
-        marginLeft: 6,
-        transform: [{ translateX: 0 }],
-      };
-    }
-
-    return {
-      opacity: interpolate(progress.value, [0, 1], [0, 1]),
-      width: interpolate(progress.value, [0, 1], [0, 44]),
-      marginLeft: interpolate(progress.value, [0, 1], [0, 6]),
-      transform: [{ translateX: interpolate(progress.value, [0, 1], [8, 0]) }],
-    };
-  });
-
+const labelStyle = useAnimatedStyle(() => ({
+  opacity: interpolate(progress.value, [0, 1], [0, 1]),
+  width: interpolate(progress.value, [0, 1], [0, 42]),
+  marginLeft: interpolate(progress.value, [0, 1], [0, 6]),
+  transform: [{ translateX: interpolate(progress.value, [0, 1], [6, 0]) }],
+}));
   return (
     <Pressable onPress={onPress} onLongPress={onLongPress} style={styles.tabPressable}>
       <View style={styles.tabInner}>
@@ -895,21 +886,21 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
 
-  tabPressable: {
-    width: INDICATOR_WIDTH,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+tabPressable: {
+  width: INDICATOR_WIDTH,
+  height: 44,
+  alignItems: "center",
+  justifyContent: "center",
+},
 
-  tabInner: {
-    width: INDICATOR_WIDTH,
-    height: 40,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 8,
-  },
+tabInner: {
+  width: INDICATOR_WIDTH,
+  height: 40,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  paddingHorizontal: 6,
+},
 
   iconHolder: {
     width: 20,

@@ -1233,14 +1233,14 @@ function makeStyles(theme: any, isDark: boolean, isRTL: boolean) {
       zIndex: 20,
     },
 
-    fabArea: {
-      position: "absolute",
-      bottom: 24,
-      right: isRTL ? undefined : 18,
-      left: isRTL ? 18 : undefined,
-      zIndex: 40,
-      alignItems: isRTL ? "flex-start" : "flex-end",
-    },
+  fabArea: {
+  position: "absolute",
+  bottom: 90, // ✅ بدل 24
+  right: isRTL ? undefined : 18,
+  left: isRTL ? 18 : undefined,
+  zIndex: 40,
+  alignItems: isRTL ? "flex-start" : "flex-end",
+},
 
     menuItemWrap: {
       marginBottom: 10,

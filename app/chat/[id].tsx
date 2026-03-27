@@ -152,7 +152,9 @@ export default function ChatScreen() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
-
+  const [mediaSendingState, setMediaSendingState] = useState<
+    Record<string, "uploading" | "sending">
+  >({});
   const [rel, setRel] = useState<RelationshipStatus>("none");
 
   const [searchOpen, setSearchOpen] = useState(false);
@@ -449,66 +451,66 @@ export default function ChatScreen() {
   //   };
   // }, [chatId, currentUser?._id, dispatch]);
   useEffect(() => {
-  if (!chatId) return;
-  if (!currentUser?._id) return;
+    if (!chatId) return;
+    if (!currentUser?._id) return;
 
-  let isMounted = true;
+    let isMounted = true;
 
-  const run = async () => {
-    try {
-      dispatch(setActiveChat(chatId));
-      joinChatRoom(chatId);
+    const run = async () => {
+      try {
+        dispatch(setActiveChat(chatId));
+        joinChatRoom(chatId);
 
-      // 1) عرض الكاش فورًا
-      const cached = await loadMessagesFromCache(currentUser._id!, chatId);
+        // 1) عرض الكاش فورًا
+        const cached = await loadMessagesFromCache(currentUser._id!, chatId);
 
-      if (!isMounted) return;
+        if (!isMounted) return;
 
-      if (cached.length) {
-        dispatch(setMessages({ chatId, messages: cached }));
+        if (cached.length) {
+          dispatch(setMessages({ chatId, messages: cached }));
+        }
+
+        // 2) مزامنة الخلفية
+        const res = await dispatch(loadMessages({ chatId, page: 1 })).unwrap();
+
+        if (!isMounted) return;
+
+        const incoming = Array.isArray(res?.messages) ? res.messages : [];
+        const merged = mergeMessages(cached, incoming);
+
+        dispatch(setMessages({ chatId, messages: merged }));
+        await saveMessagesToCache(currentUser._id!, chatId, merged);
+
+        setLoadedPages([1]);
+        setPage(1);
+        setHasMore(incoming.length >= 20);
+
+        const hasIncoming = merged.some(
+          (m: any) =>
+            String(m?.sender?._id || m?.sender) !== String(currentUser._id)
+        );
+
+        if (hasIncoming) {
+          emitMarkAsSeen(chatId);
+        }
+      } catch (e) {
+        console.log("❌ initial loadMessages error:", e);
       }
+    };
 
-      // 2) مزامنة الخلفية
-      const res = await dispatch(loadMessages({ chatId, page: 1 })).unwrap();
+    run();
 
-      if (!isMounted) return;
+    return () => {
+      isMounted = false;
+      leaveChatRoom(chatId);
+      dispatch(setActiveChat(undefined));
+      dispatch(clearSearchResults());
+      setReplyToMessage(null);
 
-      const incoming = Array.isArray(res?.messages) ? res.messages : [];
-      const merged = mergeMessages(cached, incoming);
-
-      dispatch(setMessages({ chatId, messages: merged }));
-      await saveMessagesToCache(currentUser._id!, chatId, merged);
-
-      setLoadedPages([1]);
-      setPage(1);
-      setHasMore(incoming.length >= 20);
-
-      const hasIncoming = merged.some(
-        (m: any) =>
-          String(m?.sender?._id || m?.sender) !== String(currentUser._id)
-      );
-
-      if (hasIncoming) {
-        emitMarkAsSeen(chatId);
-      }
-    } catch (e) {
-      console.log("❌ initial loadMessages error:", e);
-    }
-  };
-
-  run();
-
-  return () => {
-    isMounted = false;
-    leaveChatRoom(chatId);
-    dispatch(setActiveChat(undefined));
-    dispatch(clearSearchResults());
-    setReplyToMessage(null);
-
-    // لا تمسح الرسائل هنا
-    // dispatch(clearChatMessages(chatId));
-  };
-}, [chatId, currentUser?._id, dispatch]);
+      // لا تمسح الرسائل هنا
+      // dispatch(clearChatMessages(chatId));
+    };
+  }, [chatId, currentUser?._id, dispatch]);
   useEffect(() => {
     const requestPermissions = async () => {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -807,7 +809,6 @@ export default function ChatScreen() {
     setText("");
     setReplyToMessage(null);
   };
-
   const sendMediaMessage = async (
     uri: string,
     type: "image" | "video" | "audio"
@@ -829,13 +830,13 @@ export default function ChatScreen() {
     const tempId = `temp-${Date.now()}`;
     console.log("🆔 tempId:", tempId);
 
-    const optimisticMessage = {
+    const optimisticMessage: MessageItem = {
       _id: tempId,
       clientTempId: tempId,
       chat: chatId,
       sender: currentUser._id,
       type,
-      content: "",
+      content: uri, // مهم جدًا لعرض الصورة/الفيديو/الصوت فورًا
       media: { url: uri },
       replyTo: replyToMessage?._id,
       reactions: [],
@@ -845,12 +846,10 @@ export default function ChatScreen() {
       },
       createdAt: new Date().toISOString(),
       optimistic: true,
-    };
+    } as any;
 
-    console.log("📝 optimisticMessage:", optimisticMessage);
-
-    dispatch(addMessage(optimisticMessage as any));
-    console.log("✅ optimistic message dispatched");
+    dispatch(addMessage(optimisticMessage));
+    setMediaSendingState((prev) => ({ ...prev, [tempId]: "uploading" }));
 
     try {
       const cloudType =
@@ -863,6 +862,8 @@ export default function ChatScreen() {
 
       console.log("✅ uploadToCloudinary SUCCESS");
       console.log("🔗 uploaded url:", url);
+
+      setMediaSendingState((prev) => ({ ...prev, [tempId]: "sending" }));
 
       console.log("📤 sendSocketMessage START");
       console.log("📌 chatId:", chatId);
@@ -880,7 +881,6 @@ export default function ChatScreen() {
       );
 
       console.log("✅ sendSocketMessage CALLED");
-
       setReplyToMessage(null);
       console.log("✅ replyToMessage cleared");
     } catch (error: any) {
@@ -888,11 +888,104 @@ export default function ChatScreen() {
       console.log("📛 error message:", error?.message);
       console.log("📛 full error:", error);
       console.log("📛 error response:", error?.response?.data);
+
+      setMediaSendingState((prev) => {
+        const next = { ...prev };
+        delete next[tempId];
+        return next;
+      });
+
+      Alert.alert("خطأ", "فشل رفع أو إرسال الملف");
     } finally {
       console.log("🏁 sendMediaMessage END");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
   };
+  // const sendMediaMessage = async (
+  //   uri: string,
+  //   type: "image" | "video" | "audio"
+  // ) => {
+  //   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  //   console.log("🚀 sendMediaMessage START");
+  //   console.log("📌 chatId:", chatId);
+  //   console.log("📌 type:", type);
+  //   console.log("📌 uri:", uri);
+  //   console.log("📌 currentUser:", currentUser?._id);
+  //   console.log("📌 replyTo:", replyToMessage?._id);
+
+  //   if (!currentUser?._id) {
+  //     console.log("❌ sendMediaMessage STOP: currentUser._id not found");
+  //     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  //     return;
+  //   }
+
+  //   const tempId = `temp-${Date.now()}`;
+  //   console.log("🆔 tempId:", tempId);
+
+  //   const optimisticMessage = {
+  //     _id: tempId,
+  //     clientTempId: tempId,
+  //     chat: chatId,
+  //     sender: currentUser._id,
+  //     type,
+  //     content: "",
+  //     media: { url: uri },
+  //     replyTo: replyToMessage?._id,
+  //     reactions: [],
+  //     deliveryStatus: {
+  //       deliveredTo: [],
+  //       seenBy: [],
+  //     },
+  //     createdAt: new Date().toISOString(),
+  //     optimistic: true,
+  //   };
+
+  //   console.log("📝 optimisticMessage:", optimisticMessage);
+
+  //   dispatch(addMessage(optimisticMessage as any));
+  //   console.log("✅ optimistic message dispatched");
+
+  //   try {
+  //     const cloudType =
+  //       type === "image" ? "image" : type === "video" ? "video" : "raw";
+
+  //     console.log("☁️ uploadToCloudinary START");
+  //     console.log("📌 cloudType:", cloudType);
+
+  //     const url = await uploadToCloudinary(uri, cloudType);
+
+  //     console.log("✅ uploadToCloudinary SUCCESS");
+  //     console.log("🔗 uploaded url:", url);
+
+  //     console.log("📤 sendSocketMessage START");
+  //     console.log("📌 chatId:", chatId);
+  //     console.log("📌 type:", type);
+  //     console.log("📌 tempId:", tempId);
+  //     console.log("📌 replyTo:", replyToMessage?._id);
+
+  //     sendSocketMessage(
+  //       chatId,
+  //       url,
+  //       type,
+  //       tempId,
+  //       undefined,
+  //       replyToMessage?._id
+  //     );
+
+  //     console.log("✅ sendSocketMessage CALLED");
+
+  //     setReplyToMessage(null);
+  //     console.log("✅ replyToMessage cleared");
+  //   } catch (error: any) {
+  //     console.log("❌ sendMediaMessage ERROR");
+  //     console.log("📛 error message:", error?.message);
+  //     console.log("📛 full error:", error);
+  //     console.log("📛 error response:", error?.response?.data);
+  //   } finally {
+  //     console.log("🏁 sendMediaMessage END");
+  //     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  //   }
+  // };
 
   const pickImage = async () => {
     try {
@@ -1189,12 +1282,38 @@ export default function ChatScreen() {
       </TouchableOpacity>
     );
   };
+  useEffect(() => {
+    setMediaSendingState((prev) => {
+      const next = { ...prev };
+      const optimisticIds = new Set(
+        (messages || [])
+          .filter((m: any) => m?.optimistic)
+          .map((m: any) => m?._id)
+      );
 
+      Object.keys(next).forEach((id) => {
+        if (!optimisticIds.has(id)) {
+          delete next[id];
+        }
+      });
+
+      return next;
+    });
+  }, [messages]);
+  const getMessageMediaUri = (item: any) => {
+    return item?.content || item?.media?.url || "";
+  };
   const renderMessage: ListRenderItem<MessageItem> = ({ item }) => {
     const isMe = String(item.sender) === String(currentUser?._id);
     const isMedia = item.type === "image" || item.type === "video";
     const isMatched = highlightedMessageIds.has(item._id);
     const isActiveResult = selectedSearchMessageId === item._id;
+    const mediaUri = getMessageMediaUri(item);
+    const mediaStatus = mediaSendingState[item._id];
+    const showMediaLoading =
+      !!mediaStatus &&
+      item.optimistic &&
+      (item.type === "image" || item.type === "video" || item.type === "audio");
 
     if (item.deletedForEveryone) {
       return (
@@ -1230,8 +1349,89 @@ export default function ChatScreen() {
           ]}
         >
           {renderReplyBlock(item, isMe)}
+{item.type === "image" && mediaUri ? (
+  <View style={{ position: "relative" }}>
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={() => setImagePreview(mediaUri)}
+      disabled={showMediaLoading}
+    >
+      <Image
+        source={{ uri: mediaUri }}
+        style={{ width: 220, height: 220, borderRadius: 14 }}
+        resizeMode="cover"
+      />
+    </TouchableOpacity>
 
-          {item.type === "image" && item.content ? (
+    {showMediaLoading && (
+      <View style={styles.mediaLoadingOverlay}>
+        <ActivityIndicator size="small" color="#FFF" />
+        <Text style={styles.mediaLoadingText}>
+          {mediaStatus === "uploading" ? "جاري رفع الصورة..." : "جاري الإرسال..."}
+        </Text>
+      </View>
+    )}
+  </View>
+) : item.type === "video" && mediaUri ? (
+  <View style={{ position: "relative" }}>
+    <Video
+      source={{ uri: mediaUri }}
+      style={{ width: 240, height: 240, borderRadius: 14 }}
+      useNativeControls={!showMediaLoading}
+      resizeMode={ResizeMode.CONTAIN}
+      isLooping={false}
+      shouldPlay={false}
+    />
+
+    {showMediaLoading && (
+      <View style={styles.mediaLoadingOverlay}>
+        <ActivityIndicator size="small" color="#FFF" />
+        <Text style={styles.mediaLoadingText}>
+          {mediaStatus === "uploading" ? "جاري رفع الفيديو..." : "جاري الإرسال..."}
+        </Text>
+      </View>
+    )}
+  </View>
+) : item.type === "audio" && mediaUri ? (
+  <View style={{ minWidth: 190 }}>
+    <VoiceMessagePlayer uri={mediaUri} isMe={isMe} />
+
+    {showMediaLoading && (
+      <View
+        style={[
+          styles.audioLoadingBox,
+          {
+            backgroundColor: isMe
+              ? "rgba(255,255,255,0.12)"
+              : isDark
+                ? "rgba(255,255,255,0.06)"
+                : "#E5E7EB",
+          },
+        ]}
+      >
+        <ActivityIndicator size="small" color={isMe ? "#FFF" : "#6D5DF6"} />
+        <Text
+          style={{
+            marginTop: 6,
+            fontSize: 12,
+            fontWeight: "700",
+            color: isMe ? "#FFF" : isDark ? "#E5E7EB" : "#111827",
+          }}
+        >
+          {mediaStatus === "uploading" ? "جاري رفع الصوت..." : "جاري الإرسال..."}
+        </Text>
+      </View>
+    )}
+  </View>
+) : (
+  renderHighlightedText(
+    item.content,
+    inputSearchValue,
+    isMe,
+    isActiveResult
+  )
+)}
+          {/* {item.type === "image" && item.content ? (
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={() => setImagePreview(item.content)}
@@ -1259,7 +1459,7 @@ export default function ChatScreen() {
               isMe,
               isActiveResult
             )
-          )}
+          )} */}
         </View>
 
         <View style={[styles.timeWrapper, isMe ? styles.timeRight : styles.timeLeft]}>
@@ -2157,7 +2357,29 @@ const styles = StyleSheet.create({
   messageContainer: {
     marginVertical: 4,
   },
+mediaLoadingOverlay: {
+  ...StyleSheet.absoluteFillObject,
+  borderRadius: 14,
+  backgroundColor: "rgba(0,0,0,0.45)",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+},
 
+mediaLoadingText: {
+  color: "#FFF",
+  fontSize: 12,
+  fontWeight: "700",
+},
+
+audioLoadingBox: {
+  marginTop: 8,
+  borderRadius: 12,
+  paddingVertical: 10,
+  paddingHorizontal: 12,
+  alignItems: "center",
+  justifyContent: "center",
+},
   rowMe: {
     alignItems: "flex-end",
   },

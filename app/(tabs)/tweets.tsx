@@ -785,26 +785,24 @@ export default function TweetsScreen() {
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
       <View key={language} style={s.tabsWrap}>
-        <View style={s.tabsCard}>
-          <TabButton
-            title={t("tweetsScreen.followingTab")}
-            active={activeTab === "following"}
-            onPress={() => {
-              setActiveTab("following");
-              dispatch(getFollowingFeed({ page: 1 }));
-            }}
-            s={s}
-          />
-          <TabButton
-            title={t("tweetsScreen.forYouTab")}
-            active={activeTab === "foryou"}
-            onPress={() => {
-              setActiveTab("foryou");
-              dispatch(getForYouFeed({ page: 1 }));
-            }}
-            s={s}
-          />
-        </View>
+        <TabButton
+          title={t("tweetsScreen.followingTab")}
+          active={activeTab === "following"}
+          onPress={() => {
+            setActiveTab("following");
+            dispatch(getFollowingFeed({ page: 1 }));
+          }}
+          s={s}
+        />
+        <TabButton
+          title={t("tweetsScreen.forYouTab")}
+          active={activeTab === "foryou"}
+          onPress={() => {
+            setActiveTab("foryou");
+            dispatch(getForYouFeed({ page: 1 }));
+          }}
+          s={s}
+        />
       </View>
 
       <FlatList
@@ -898,11 +896,11 @@ export default function TweetsScreen() {
                         <Text style={s.time}>{timeAgo(item.createdAt)}</Text>
                       </View>
 
-                      <Text style={s.handle} numberOfLines={1}>
+                      {/* <Text style={s.handle} numberOfLines={1}>
                         {item.author.atUsername}
-                      </Text>
+                      </Text> */}
                     </View>
- 
+
                     {!isOwnTweet && (
                       <TouchableOpacity
                         style={[
@@ -1308,14 +1306,14 @@ function TabButton({ title, active, onPress, s }: any) {
   return (
     <TouchableOpacity
       onPress={onPress}
-      activeOpacity={0.9}
-      style={[s.tabBtn, active && s.tabBtnActive]}
+      activeOpacity={0.85}
+      style={s.tabBtn}
     >
       <Text style={[s.tabText, active && s.tabTextActive]}>{title}</Text>
+      <View style={[s.tabIndicator, active && s.tabIndicatorActive]} />
     </TouchableOpacity>
   );
 }
-
 /* ================= Styles ================= */
 
 function makeStyles(theme: any, isDark: boolean) {
@@ -1327,21 +1325,14 @@ function makeStyles(theme: any, isDark: boolean) {
     _iconColor: theme.icon,
 
     container: { flex: 1 },
-
     tabsWrap: {
-      paddingHorizontal: 12,
-      paddingTop: 10,
-      paddingBottom: 6,
-    },
-
-    tabsCard: {
       flexDirection: "row",
-      gap: 8,
-      padding: 6,
-      borderRadius: 18,
-      backgroundColor: surface2,
-      borderWidth: 1,
-      borderColor: theme.border,
+      alignItems: "center",
+      justifyContent: "space-around",
+      paddingTop: 6,
+      // borderBottomWidth: 1,
+      // borderBottomColor: theme.separator,
+      // backgroundColor: theme.background,
     },
     reportOverlay: {
       position: "absolute",
@@ -1479,13 +1470,7 @@ function makeStyles(theme: any, isDark: boolean) {
       fontWeight: "900",
       color: "#FFF",
     },
-    tabBtn: {
-      flex: 1,
-      height: 40,
-      borderRadius: 14,
-      alignItems: "center",
-      justifyContent: "center",
-    },
+
     imageModalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0,0,0,0.96)",
@@ -1523,21 +1508,35 @@ function makeStyles(theme: any, isDark: boolean) {
       width: "100%",
       height: "85%",
     },
-    tabBtnActive: {
-      backgroundColor: theme.primary,
-      borderWidth: 1,
-      borderColor: theme.primary,
+    tabBtn: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingTop: 10,
+      paddingBottom: 8,
     },
 
     tabText: {
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: "800",
       color: theme.mutedText,
     },
 
     tabTextActive: {
-      color: theme.primaryText,
+      color: theme.text,
       fontWeight: "900",
+    },
+
+    tabIndicator: {
+      marginTop: 8,
+      width: 32,
+      height: 3,
+      borderRadius: 999,
+      backgroundColor: "transparent",
+    },
+
+    tabIndicatorActive: {
+      backgroundColor: theme.tint,
     },
 
     card: {
@@ -1805,9 +1804,9 @@ function makeStyles(theme: any, isDark: boolean) {
       paddingHorizontal: 10,
       paddingVertical: 8,
       borderRadius: 999,
-      backgroundColor: surface2,
-      borderWidth: 1,
-      borderColor: theme.border,
+      // backgroundColor: surface2,
+      // borderWidth: 1,
+      // borderColor: theme.border,
     },
 
     actionValue: {
@@ -1845,9 +1844,9 @@ function makeStyles(theme: any, isDark: boolean) {
       borderRadius: 12,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: surface2,
-      borderWidth: 1,
-      borderColor: theme.border,
+      // backgroundColor: surface2,
+      // borderWidth: 1,
+      // borderColor: theme.border,
     },
 
     badgesWrap: {

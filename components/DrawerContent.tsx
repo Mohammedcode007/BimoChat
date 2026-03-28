@@ -33,7 +33,8 @@ type ItemProps = {
 };
 
 export default function DrawerContent({ onClose }: DrawerContentProps) {
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();

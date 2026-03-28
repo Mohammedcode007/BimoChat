@@ -7,26 +7,27 @@ import { resetChatState } from '@/redux/slices/chatSlice';
 import { setTabBarHidden } from '@/redux/slices/ui.slice';
 import { AppDispatch, RootState } from '@/redux/store';
 import {
-  getNotificationSoundEnabled,
-  setNotificationSoundEnabled,
+    getNotificationSoundEnabled,
+    setNotificationSoundEnabled,
 } from '@/services/localSettings.service';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  useColorScheme,
-  View,
+    ActivityIndicator,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 
 export default function SettingsScreen() {
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const { user } = useSelector((state: RootState) => state.auth);
   const { onScroll, onScrollBeginDrag, showTabBar } = useHideTabBarOnScroll();
@@ -205,7 +206,8 @@ export default function SettingsScreen() {
 /* ================= COMPONENTS ================= */
 
 function Section({ title, children }: any) {
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
 
   return (
@@ -228,7 +230,8 @@ function Row({
   onChange,
   onPress,
 }: any) {
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
 
   const { isRTL } = useTranslation();

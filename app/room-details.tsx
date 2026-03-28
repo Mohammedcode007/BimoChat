@@ -96,7 +96,8 @@ export default function RoomDetailsScreen() {
   const loading = useAppSelector(selectRoomLoadingDetails);
   const error = useAppSelector(selectRoomError);
 
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
 
   // ✅ UI Toggles (واجهة فقط)
@@ -536,7 +537,8 @@ export default function RoomDetailsScreen() {
 ========================= */
 
 function Section({ title, children }: any) {
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   return (
     <View style={styles.section}>

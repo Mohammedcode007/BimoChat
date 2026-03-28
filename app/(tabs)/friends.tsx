@@ -6,9 +6,9 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { createChat, setActiveChat } from "@/redux/slices/chatSlice";
 import { getFriends, removeFriend } from "@/redux/slices/friendSlice";
 import {
-  fetchMyStories,
-  fetchStoriesFeed,
-  StoryOwnerGroup,
+    fetchMyStories,
+    fetchStoriesFeed,
+    StoryOwnerGroup,
 } from "@/redux/slices/storySlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import { formatLastSeenListFriend } from "@/utils/helpFunctions";
@@ -17,28 +17,29 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Easing,
-  FlatList,
-  I18nManager,
-  Image,
-  Platform,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useColorScheme,
-  View,
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Easing,
+    FlatList,
+    I18nManager,
+    Image,
+    Platform,
+    Pressable,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { useDispatch, useSelector } from "react-redux";
 
 export default function FriendsScreen() {
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const { onScroll, onScrollBeginDrag } = useHideTabBarOnScroll();
   const { language, t } = useTranslation();

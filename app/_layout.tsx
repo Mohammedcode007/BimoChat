@@ -286,7 +286,7 @@ const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
 
 export default function RootLayout() {
 
-  const colorScheme = useColorScheme();
+const { colorScheme } = useColorScheme();
 
   return (
     <KeyboardProvider>
@@ -294,9 +294,12 @@ export default function RootLayout() {
       <Provider store={store}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <LanguageProvider>
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <AppContent />
+<ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                <AppContent />
             </ThemeProvider>
+            {/* <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <AppContent />
+            </ThemeProvider> */}
           </LanguageProvider>
         </GestureHandlerRootView>
       </Provider>

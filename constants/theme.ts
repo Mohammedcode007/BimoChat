@@ -209,6 +209,7 @@ export const Colors: Record<ThemeName, AppTheme> = {
     /* ===== Existing keys (KEEP) ===== */
     text: "#11181C",
     background: "#FFFFFF",
+
     tint: tintColorLight,
     icon: "#687076",
     tabIconDefault: "#687076",

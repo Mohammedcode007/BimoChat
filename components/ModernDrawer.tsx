@@ -28,7 +28,8 @@ type ModernDrawerProps = {
 
 export default function ModernDrawer({ children }: ModernDrawerProps) {
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
 

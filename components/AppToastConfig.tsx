@@ -20,7 +20,8 @@ type NotifyToastProps = {
 };
 
 function NotifyToast({ props }: NotifyToastProps) {
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
 
   const data = props || {};

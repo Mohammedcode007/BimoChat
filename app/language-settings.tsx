@@ -5,12 +5,12 @@ import { useTranslation } from "@/hooks/useTranslation";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useMemo } from "react";
 import {
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useColorScheme,
-  View,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -27,7 +27,8 @@ export default function LanguageSettingsScreen() {
   const { language, changeLanguage } = useLanguage();
   const { t } = useTranslation();
 
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const s = useMemo(() => makeStyles(theme), [theme]);
 

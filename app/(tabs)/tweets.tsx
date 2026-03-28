@@ -6,11 +6,11 @@ import { blockUser, toggleFollow } from "@/redux/slices/followSlice";
 import { unblockUser } from "@/redux/slices/friendSlice";
 import { clearReportError, clearReportSuccess, ReportReason, resetReportForm, selectReportError, selectReportSubmitting, selectReportSuccess, submitReport } from "@/redux/slices/reportSlice";
 import {
-  deleteTweet,
-  getFollowingFeed,
-  getForYouFeed,
-  toggleLike,
-  toggleRetweet,
+    deleteTweet,
+    getFollowingFeed,
+    getForYouFeed,
+    toggleLike,
+    toggleRetweet,
 } from "@/redux/slices/tweetSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import { timeAgo } from "@/utils/helpFunctions";
@@ -19,21 +19,21 @@ import { ResizeMode, Video } from "expo-av";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  Linking,
-  Modal,
-  Platform,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useColorScheme,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    Linking,
+    Modal,
+    Platform,
+    Pressable,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { useDispatch, useSelector } from "react-redux";
@@ -617,7 +617,8 @@ export default function TweetsScreen() {
   const { followingMap } = useSelector((state: RootState) => state.follow);
   const { user } = useSelector((state: RootState) => state.auth);
 
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
   const handleToggleBlock = async () => {

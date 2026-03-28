@@ -3,13 +3,13 @@
 import { AppTheme, Colors } from '@/constants/theme';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
-  addComment,
-  deleteTweet,
-  getComments,
-  getSingleTweet,
-  toggleBookmark,
-  toggleLike,
-  toggleRetweet,
+    addComment,
+    deleteTweet,
+    getComments,
+    getSingleTweet,
+    toggleBookmark,
+    toggleLike,
+    toggleRetweet,
 } from '@/redux/slices/tweetSlice';
 import { AppDispatch, RootState } from '@/redux/store';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,25 +17,25 @@ import { ResizeMode, Video } from 'expo-av';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  I18nManager,
-  Image,
-  Linking,
-  Modal,
-  Pressable,
-  Share,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useColorScheme,
-  View,
+    ActivityIndicator,
+    FlatList,
+    I18nManager,
+    Image,
+    Linking,
+    Modal,
+    Pressable,
+    Share,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from 'react-native';
 import { useKeyboardHandler } from 'react-native-keyboard-controller';
 import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
+    useAnimatedStyle,
+    useSharedValue,
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -59,7 +59,8 @@ export default function TweetDetailsScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const flatListRef = useRef<FlatList<CommentItem>>(null);
 
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const insets = useSafeAreaInsets();
   const { t, language } = useTranslation();

@@ -65,7 +65,8 @@ export default function StoryViewerScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const s = useMemo(() => makeStyles(theme), [theme]);
 

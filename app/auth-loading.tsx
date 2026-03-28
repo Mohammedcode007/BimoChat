@@ -12,7 +12,8 @@ import {
 } from "react-native";
 
 export default function AuthLoadingScreen() {
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
 

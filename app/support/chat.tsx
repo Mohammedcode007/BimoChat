@@ -28,7 +28,8 @@ export default function SupportChatScreen() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
 
-  const colorScheme = useColorScheme();
+  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const s = useMemo(() => makeStyles(theme), [theme]);
 

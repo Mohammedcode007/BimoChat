@@ -6,12 +6,13 @@
 // ✅ يسجل viewStory لكل قصة عند عرضها (ليس للمالك)
 
 import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-    deleteStory,
-    fetchMyStories,
-    fetchStoriesFeed,
-    fetchStoryViewers,
-    viewStory,
+  deleteStory,
+  fetchMyStories,
+  fetchStoriesFeed,
+  fetchStoryViewers,
+  viewStory,
 } from "@/redux/slices/storySlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -19,19 +20,18 @@ import { ResizeMode, Video } from "expo-av";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Dimensions,
-    FlatList,
-    Image,
-    Modal,
-    Platform,
-    Pressable,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 

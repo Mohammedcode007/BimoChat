@@ -1,20 +1,20 @@
 import { Colors } from "@/constants/theme";
 import { DrawerContext } from "@/context/DrawerContext";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import React, { useMemo, useState } from "react";
 import {
-    Dimensions,
-    Platform,
-    Pressable,
-    StyleSheet,
-    useColorScheme,
-    View,
+  Dimensions,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
 } from "react-native";
 import Animated, {
-    interpolate,
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DrawerContent from "./DrawerContent";

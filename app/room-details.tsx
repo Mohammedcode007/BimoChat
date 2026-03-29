@@ -9,22 +9,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    Image,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    useColorScheme,
-    View
+  Image,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
-    fetchRoomDetails,
-    selectRoomDetailsById,
-    selectRoomError,
-    selectRoomLoadingDetails
+  fetchRoomDetails,
+  selectRoomDetailsById,
+  selectRoomError,
+  selectRoomLoadingDetails
 } from "@/redux/slices/room.slice";
 
 /* =========================

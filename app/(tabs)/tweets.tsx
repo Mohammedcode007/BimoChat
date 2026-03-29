@@ -1,16 +1,17 @@
 
 import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
 import { useTranslation } from "@/hooks/useTranslation";
 import { blockUser, toggleFollow } from "@/redux/slices/followSlice";
 import { unblockUser } from "@/redux/slices/friendSlice";
 import { clearReportError, clearReportSuccess, ReportReason, resetReportForm, selectReportError, selectReportSubmitting, selectReportSuccess, submitReport } from "@/redux/slices/reportSlice";
 import {
-    deleteTweet,
-    getFollowingFeed,
-    getForYouFeed,
-    toggleLike,
-    toggleRetweet,
+  deleteTweet,
+  getFollowingFeed,
+  getForYouFeed,
+  toggleLike,
+  toggleRetweet,
 } from "@/redux/slices/tweetSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import { timeAgo } from "@/utils/helpFunctions";
@@ -19,21 +20,20 @@ import { ResizeMode, Video } from "expo-av";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    Linking,
-    Modal,
-    Platform,
-    Pressable,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { useDispatch, useSelector } from "react-redux";

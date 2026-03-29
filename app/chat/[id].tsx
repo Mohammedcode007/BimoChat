@@ -6,26 +6,25 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActionSheetIOS,
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    ListRenderItem,
-    Modal,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  ActionSheetIOS,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  ListRenderItem,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useKeyboardHandler } from "react-native-keyboard-controller";
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
+  useAnimatedStyle,
+  useSharedValue,
 } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
@@ -36,40 +35,41 @@ import VoiceMessagePlayer from "@/components/VoiceMessagePlayer";
 import VoiceRecorderPreview from "@/components/VoiceRecorderPreview";
 
 import {
-    addMessage,
-    loadMessages,
-    MessageItem,
-    setMessages
+  addMessage,
+  loadMessages,
+  MessageItem,
+  setMessages
 } from "@/redux/slices/messageSlice";
 
 import {
-    clearSearchResults,
-    searchMessagesInChat,
-    setActiveChat,
-    setSearchQuery,
+  clearSearchResults,
+  searchMessagesInChat,
+  setActiveChat,
+  setSearchQuery,
 } from "@/redux/slices/chatSlice";
 
 import { blockUser } from "@/redux/slices/followSlice";
 import { unblockUser } from "@/redux/slices/friendSlice";
 import {
-    fetchBlockStatus,
-    fetchUserProfile,
+  fetchBlockStatus,
+  fetchUserProfile,
 } from "@/redux/slices/userSlice";
 
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-    selectChatById,
-    selectCurrentUser,
-    selectMessagesByChatId,
-    selectOtherUser,
-    selectTypingUsersByChatId,
+  selectChatById,
+  selectCurrentUser,
+  selectMessagesByChatId,
+  selectOtherUser,
+  selectTypingUsersByChatId,
 } from "@/redux/selectors";
 import { AppDispatch, RootState } from "@/redux/store";
 import {
-    emitMarkAsSeen,
-    emitTyping,
-    joinChatRoom,
-    leaveChatRoom,
-    sendSocketMessage,
+  emitMarkAsSeen,
+  emitTyping,
+  joinChatRoom,
+  leaveChatRoom,
+  sendSocketMessage,
 } from "@/services/socket";
 import { uploadToCloudinary } from "@/services/upload.service";
 import { loadMessagesFromCache, saveMessagesToCache } from "@/storage/chatCache";

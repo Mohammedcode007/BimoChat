@@ -15,30 +15,29 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    Alert,
-    Animated,
+  Alert,
+  Animated,
 
-    FlatList,
-    Image,
-    ImageSourcePropType,
-    Keyboard,
-    KeyboardAvoidingView,
-    Linking,
-    Modal,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    useWindowDimensions,
-    View
+  FlatList,
+  Image,
+  ImageSourcePropType,
+  Keyboard,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
 } from "react-native";
 import { useKeyboardHandler } from "react-native-keyboard-controller";
 import Reanimated, {
-    useAnimatedStyle,
-    useSharedValue,
+  useAnimatedStyle,
+  useSharedValue,
 } from "react-native-reanimated";
 import RenderHTML from "react-native-render-html";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -46,27 +45,27 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Colors } from "@/constants/theme";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
-    clearBannedFlag,
-    clearKickedFlag,
-    fetchRoomMessages,
-    fetchRoomStats,
-    fetchRoomUsers,
-    leaveAndRefreshRooms,
-    leaveRoomAndExit,
-    optimisticAddRoomMessage,
-    pinRoomMessage,
-    selectBannedFlag,
-    selectKickedFlag,
-    selectRoomActiveCount,
-    selectRoomAvatarById,
-    selectRoomLoadingMessages,
-    selectRoomMessages,
-    selectRoomNameById,
-    selectRoomUsers,
-    sendRoomMessage,
-    socketRoleSetFailed,
-    socketRoleSetRequested,
-    socketRoleSetSucceeded
+  clearBannedFlag,
+  clearKickedFlag,
+  fetchRoomMessages,
+  fetchRoomStats,
+  fetchRoomUsers,
+  leaveAndRefreshRooms,
+  leaveRoomAndExit,
+  optimisticAddRoomMessage,
+  pinRoomMessage,
+  selectBannedFlag,
+  selectKickedFlag,
+  selectRoomActiveCount,
+  selectRoomAvatarById,
+  selectRoomLoadingMessages,
+  selectRoomMessages,
+  selectRoomNameById,
+  selectRoomUsers,
+  sendRoomMessage,
+  socketRoleSetFailed,
+  socketRoleSetRequested,
+  socketRoleSetSucceeded
 } from "@/redux/slices/room.slice";
 
 import { boostRoom } from "@/redux/slices/roomControl.slice";
@@ -76,16 +75,17 @@ import VoiceMessagePlayer from "@/components/VoiceMessagePlayer";
 import VoiceRecorderPreview from "@/components/VoiceRecorderPreview";
 
 import {
-    banRoomUserSocket,
-    deleteRoomSocketMessage,
-    joinRoomSocket,
-    kickRoomUserSocket,
-    leaveRoomSocket,
-    setRoomUserRoleSocket,
-    toggleRoomReaction as toggleRoomReactionSocket
+  banRoomUserSocket,
+  deleteRoomSocketMessage,
+  joinRoomSocket,
+  kickRoomUserSocket,
+  leaveRoomSocket,
+  setRoomUserRoleSocket,
+  toggleRoomReaction as toggleRoomReactionSocket
 } from "@/services/socket";
 
 import BoostLottieOverlay from "@/components/BoostLottieOverlay";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { debitMyCoinz } from "@/redux/slices/userSlice";
 import { RootState } from "@/redux/store";
 import { uploadToCloudinary } from "@/services/upload.service";

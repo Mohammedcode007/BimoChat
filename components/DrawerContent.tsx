@@ -1,4 +1,5 @@
 import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { logout } from "@/redux/slices/authSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import { disconnectSocket } from "@/services/socket";
@@ -6,15 +7,14 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, usePathname } from "expo-router";
 import React from "react";
 import {
-    Alert,
-    Image,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useColorScheme,
-    View,
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";

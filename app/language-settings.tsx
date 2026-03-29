@@ -1,16 +1,16 @@
 
 import { Colors } from "@/constants/theme";
 import { useLanguage, type AppLanguage } from "@/context/LanguageContext";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useMemo } from "react";
 import {
-    Platform,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 

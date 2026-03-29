@@ -388,6 +388,7 @@
 // ✅ تصميم عصري للكفر/الأفاتار/النموذج + مودال تعديل Bio
 // ✅ تحسينات UX: تعطيل الحفظ أثناء التحميل، إشعارات، Borders/Surfaces من الثيم
 import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { updateProfile } from "@/redux/slices/profileSlice";
 import { AppDispatch, RootState } from "@/redux/store";
@@ -396,19 +397,18 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Modal,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 import { RichEditor, RichToolbar } from "react-native-pell-rich-editor";

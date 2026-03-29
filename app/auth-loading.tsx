@@ -1,14 +1,14 @@
 import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useMemo, useRef } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    Easing,
-    StyleSheet,
-    Text,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  Animated,
+  Easing,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 export default function AuthLoadingScreen() {

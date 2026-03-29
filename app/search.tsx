@@ -12,19 +12,19 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View
+  ActivityIndicator,
+  FlatList,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { searchUsers } from "@/redux/slices/friendSlice";
 import { searchRooms } from "@/redux/slices/room.slice";
 import { listStoreItems } from "@/redux/slices/storeControl.slice";

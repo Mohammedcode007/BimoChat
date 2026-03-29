@@ -1,5 +1,6 @@
 
 import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useHideTabBarOnScroll } from '@/hooks/useHideTabBarOnScroll';
 import { useTranslation } from '@/hooks/useTranslation';
 import { logout, toggleInvisible } from '@/redux/slices/authSlice';
@@ -7,21 +8,20 @@ import { resetChatState } from '@/redux/slices/chatSlice';
 import { setTabBarHidden } from '@/redux/slices/ui.slice';
 import { AppDispatch, RootState } from '@/redux/store';
 import {
-    getNotificationSoundEnabled,
-    setNotificationSoundEnabled,
+  getNotificationSoundEnabled,
+  setNotificationSoundEnabled,
 } from '@/services/localSettings.service';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 

@@ -5,34 +5,34 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    Easing,
-    FlatList,
-    Image,
-    Modal,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View
+  ActivityIndicator,
+  Animated,
+  Easing,
+  FlatList,
+  Image,
+  Modal,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
 import {
-    createRoom as createRoomThunk,
-    enterRoomDirect,
-    fetchRoomsByType,
-    joinRoomAndEnter,
-    searchRooms as searchRoomsThunk,
-    selectRoomActiveCount,
-    selectRoomError,
-    selectRoomLoadingRooms,
-    selectRooms
+  createRoom as createRoomThunk,
+  enterRoomDirect,
+  fetchRoomsByType,
+  joinRoomAndEnter,
+  searchRooms as searchRoomsThunk,
+  selectRoomActiveCount,
+  selectRoomError,
+  selectRoomLoadingRooms,
+  selectRooms
 } from "@/redux/slices/room.slice";
 
 type RoomUI = {

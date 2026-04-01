@@ -1,4 +1,6 @@
 
+import BadgeLottiePickerModal from "@/components/store/BadgeLottiePickerModal";
+import StoreBadgePreview from "@/components/store/StoreBadgePreview";
 import { AppTheme, Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -410,7 +412,8 @@ const { t, isRTL } = useTranslation();
   const [copyLoading, setCopyLoading] = useState(false);
   const [activateKeyLoading, setActivateKeyLoading] = useState<string | null>(null);
   const [buySubmitting, setBuySubmitting] = useState(false);
-
+const [badgePickerOpen, setBadgePickerOpen] = useState(false);
+const [badgePickerSubmitting, setBadgePickerSubmitting] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
   const [buyItemId, setBuyItemId] = useState<string>("");
   const [buyQty, setBuyQty] = useState<number>(1);
@@ -809,7 +812,7 @@ const { t, isRTL } = useTranslation();
   }, [customEmojiBadge?.emoji, customEmojiBadge?.isActive, customBadgeExpired, dispatch, t]);
 
   const data = tab === "coinz" ? COINZ_PACKS : filtered;
-  const buyDisabled = globalBusy || buyOpen || createOpen || createdOpen || emojiBadgeOpen;
+  const buyDisabled = globalBusy || buyOpen || createOpen || badgePickerSubmitting || createdOpen || emojiBadgeOpen;
 
   const renderHeader = useCallback(() => {
     return (
@@ -1042,7 +1045,79 @@ const { t, isRTL } = useTranslation();
             />
           </View>
         </View>
+<View style={s.modernCard}>
+  <View style={[s.cardTop, { flexDirection: row }]}>
+    <View style={{ flex: 1 }}>
+      <Text style={[s.cardTitle, { textAlign, writingDirection }]}>
+        {t("storeScreen.badgePicker.cardTitle")}
+      </Text>
 
+      <Text style={[s.cardDesc, { textAlign, writingDirection }]}>
+        {t("storeScreen.badgePicker.cardDesc")}
+      </Text>
+
+      <View style={[s.pillsRow, { justifyContent: isRTL ? "flex-end" : "flex-start" }]}>
+        <Pill
+          theme={theme}
+          text={t("storeScreen.common.animated")}
+          tone="info"
+          isRTL={isRTL}
+        />
+        <Pill
+          theme={theme}
+          text={`2000 ${t("storeScreen.common.coinz")}`}
+          tone="gold"
+          isRTL={isRTL}
+        />
+        <Pill
+          theme={theme}
+          text={`30 ${t("storeScreen.common.daysSuffix")}`}
+          tone="neutral"
+          isRTL={isRTL}
+        />
+      </View>
+
+      <Text style={[s.itemSmall, { textAlign, writingDirection }]}>
+        {t("storeScreen.badgePicker.chooseFromList")}
+      </Text>
+    </View>
+
+    <View style={s.emojiBadgeBox}>
+      {badgeItems?.[0] ? (
+        <StoreBadgePreview
+          item={badgeItems[0]}
+          size={78}
+          borderRadius={22}
+          backgroundColor={theme.surface2}
+          borderColor={theme.border}
+          fallbackText={t("storeScreen.common.img")}
+        />
+      ) : (
+        <Text style={{ color: theme.subtleText, fontWeight: "900" }}>
+          {t("storeScreen.common.img")}
+        </Text>
+      )}
+    </View>
+  </View>
+
+  <View style={s.actionsRow}>
+    <PrimaryButton
+      theme={theme}
+      title={t("storeScreen.badgePicker.openList")}
+      onPress={openBadgePicker}
+      disabled={buyDisabled || !badgeItems.length}
+      loading={badgePickerSubmitting}
+      isRTL={isRTL}
+    />
+    <SecondaryButton
+      theme={theme}
+      title={t("storeScreen.tabs.badge")}
+      onPress={() => setTab("badge")}
+      disabled={buyDisabled}
+      isRTL={isRTL}
+    />
+  </View>
+</View>
         <View style={s.modernCard}>
           <View style={[s.cardTop, { flexDirection: row }]}>
             <View style={{ flex: 1 }}>
@@ -1320,7 +1395,53 @@ const { t, isRTL } = useTranslation();
       isRTL,
     ]
   );
+const badgeItems = useMemo(() => {
+  return (items || []).filter(
+    (x: any) =>
+      String(x.type) === "badge" &&
+      Number(x.priceCoinz || 0) === 2000
+  );
+}, [items]);
 
+const openBadgePicker = useCallback(() => {
+  setBadgePickerOpen(true);
+}, []);
+
+const doBuyBadgeFromPicker = useCallback(
+  async (item: any, setActive: boolean) => {
+    if (!item || badgePickerSubmitting) return;
+
+    setBadgePickerSubmitting(true);
+    try {
+      const ownedSet = ownedKeysByType[String(item.type)] || new Set();
+      const alreadyOwned = ownedSet.has(String(item.key));
+      const nonRepeatable = !item.isStackable && !item.isConsumable;
+
+      if (alreadyOwned && nonRepeatable) {
+        Alert.alert(
+          t("storeScreen.alerts.alreadyOwnedTitle"),
+          t("storeScreen.alerts.alreadyOwnedMessage")
+        );
+        return;
+      }
+
+      const res = await dispatch(
+        purchaseStoreItems({
+          items: [{ itemId: item._id, quantity: 1 }],
+          setActive,
+        }) as any
+      );
+
+      if (purchaseStoreItems.fulfilled.match(res)) {
+        setBadgePickerOpen(false);
+        await dispatch(getMyInventory() as any);
+      }
+    } finally {
+      setBadgePickerSubmitting(false);
+    }
+  },
+  [badgePickerSubmitting, ownedKeysByType, dispatch, t]
+);
   const renderCoinzPack = useCallback(
     ({ item }: any) => {
       const query = q.trim().toLowerCase();
@@ -2041,6 +2162,18 @@ const { t, isRTL } = useTranslation();
           </Pressable>
         </Pressable>
       </Modal>
+      <BadgeLottiePickerModal
+  visible={badgePickerOpen}
+  onClose={() => setBadgePickerOpen(false)}
+  items={badgeItems}
+  selectedKey=""
+  onConfirm={doBuyBadgeFromPicker}
+  theme={theme}
+  isRTL={isRTL}
+  t={t}
+  loading={badgePickerSubmitting}
+  coinz={coinz}
+/>
     </SafeAreaView>
   );
 }

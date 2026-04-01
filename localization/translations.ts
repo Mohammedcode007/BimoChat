@@ -339,6 +339,17 @@ export const translations = {
         bundles: "Bundles",
         limited: "Limited",
       },
+       badgePicker: {
+    title: "Choose Animated Badge",
+    subtitle: "Pick one from the list to buy or activate",
+    cardTitle: "Animated Badges",
+    cardDesc: "A collection of Lottie animated badges in a separate modal like emoji selection",
+    chooseFromList: "Open the list and choose your badge",
+    openList: "Open List",
+    selectOne: "Select a badge from the list",
+    defaultDesc: "Premium animated badge",
+    activateNow: "Activate after purchase",
+  },
 
       prettyType: {
         avatarFrame: "Avatar Frame",
@@ -1900,7 +1911,17 @@ export const translations = {
         bundles: "الباقات",
         limited: "محدود",
       },
-
+ badgePicker: {
+    title: "اختيار بادج متحركة",
+    subtitle: "اختر واحدة من القائمة لشرائها أو تفعيلها",
+    cardTitle: "البادجات المتحركة",
+    cardDesc: "مجموعة بادجات Lottie متحركة داخل مودال مستقل مثل اختيار الإيموشن",
+    chooseFromList: "افتح القائمة واختر البادج المناسبة لك",
+    openList: "فتح القائمة",
+    selectOne: "اختر بادج من القائمة",
+    defaultDesc: "بادج متحركة مميزة",
+    activateNow: "تفعيل بعد الشراء",
+  },
       prettyType: {
         avatarFrame: "إطار الصورة",
         badge: "شارة",

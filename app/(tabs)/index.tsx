@@ -243,6 +243,32 @@ export default function ChatListScreen() {
 
       <FlatList
         data={filteredChats}
+        ListEmptyComponent={
+  <View style={{ marginTop: 80, alignItems: "center" }}>
+    <Ionicons name="chatbubble-ellipses-outline" size={40} color={theme.icon} />
+
+    <Text
+      style={{
+        marginTop: 12,
+        fontSize: 16,
+        fontWeight: "800",
+        color: theme.text,
+      }}
+    >
+      {isRTL ? "لا توجد محادثات" : "No chats yet"}
+    </Text>
+
+    <Text
+      style={{
+        marginTop: 6,
+        fontSize: 13,
+        color: theme.mutedText,
+      }}
+    >
+      {copy.startChatting}
+    </Text>
+  </View>
+}
         keyExtractor={(item: any) => item._id}
         showsVerticalScrollIndicator={false}
         refreshing={refreshing}

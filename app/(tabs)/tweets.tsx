@@ -1954,11 +1954,11 @@ function makeStyles(theme: any, isDark: boolean) {
     fab: {
       position: "absolute",
       right: 18,
-      bottom: 90,
+      bottom: 40,
       width: 58,
       height: 58,
       borderRadius: 18,
-      backgroundColor: theme.tint,
+  backgroundColor: "#4F46E5",
       justifyContent: "center",
       alignItems: "center",
       ...Platform.select({

@@ -161,16 +161,16 @@ const createStyles = (theme: any, isRTL: boolean) =>
       justifyContent: "center",
     },
 
-    tabActive: {
-      backgroundColor: theme.primary + "16",
-    },
+  tabActive: {
+  backgroundColor: theme.primary + "2E",
+},
 
-    tabText: {
-      fontWeight: "800",
-      fontSize: 12,
-      color: theme.textSecondary,
-      textAlign: "center",
-    },
+ tabText: {
+  fontWeight: "800",
+  fontSize: 12,
+  color: theme.mutedText,
+  textAlign: "center",
+},
 
     tabTextActive: {
       color: theme.primary,
@@ -208,9 +208,9 @@ const createStyles = (theme: any, isRTL: boolean) =>
       backgroundColor: theme.background,
     },
 
-    rowUnread: {
-      backgroundColor: theme.primary + "08",
-    },
+   rowUnread: {
+  backgroundColor: theme.primary + "14",
+},
 
     avatarWrap: {
       width: 42,

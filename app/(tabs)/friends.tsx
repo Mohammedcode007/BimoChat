@@ -1236,9 +1236,10 @@ function makeStyles(theme: any, isDark: boolean, isRTL: boolean) {
 
   fabArea: {
   position: "absolute",
-  bottom: 90, // ✅ بدل 24
+  bottom: 40, // ✅ بدل 24
   right: isRTL ? undefined : 18,
   left: isRTL ? 18 : undefined,
+  
   zIndex: 40,
   alignItems: isRTL ? "flex-start" : "flex-end",
 },

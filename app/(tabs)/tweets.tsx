@@ -845,6 +845,7 @@ export default function TweetsScreen() {
           const isBlockedByMe = item?.author?.relationshipStatus === "blocked_by_me";
           const blockedMe = item?.author?.relationshipStatus === "blocked_me";
           const isBlocked = isBlockedByMe || blockedMe;
+
           return (
             <Swipeable
               renderRightActions={() =>

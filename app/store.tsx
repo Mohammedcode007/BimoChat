@@ -1,6 +1,6 @@
 
+import LottieBadge from "@/components/LottieBadge";
 import BadgeLottiePickerModal from "@/components/store/BadgeLottiePickerModal";
-import StoreBadgePreview from "@/components/store/StoreBadgePreview";
 import { AppTheme, Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -323,7 +323,7 @@ export default function StoreScreen() {
   const { colorScheme, themePreference, setThemePreference } = useColorScheme();
 
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
-const { t, isRTL } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const row = isRTL ? "row-reverse" : "row";
   const textAlign = isRTL ? "right" : "left";
   const writingDirection = isRTL ? "rtl" : "ltr";
@@ -387,6 +387,10 @@ const { t, isRTL } = useTranslation();
   const CUSTOM_EMOJI_BADGE_COST = 2500;
 
   const items = useAppSelector(selectStoreItems);
+  const badgeItems = useMemo(() => {
+    return (items || []).filter((x: any) => x.type === "badge");
+  }, [items]);
+
   const itemsLoading = useAppSelector(selectStoreItemsLoading);
 
   const my = useAppSelector(selectMyStore);
@@ -412,8 +416,8 @@ const { t, isRTL } = useTranslation();
   const [copyLoading, setCopyLoading] = useState(false);
   const [activateKeyLoading, setActivateKeyLoading] = useState<string | null>(null);
   const [buySubmitting, setBuySubmitting] = useState(false);
-const [badgePickerOpen, setBadgePickerOpen] = useState(false);
-const [badgePickerSubmitting, setBadgePickerSubmitting] = useState(false);
+  const [badgePickerOpen, setBadgePickerOpen] = useState(false);
+  const [badgePickerSubmitting, setBadgePickerSubmitting] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
   const [buyItemId, setBuyItemId] = useState<string>("");
   const [buyQty, setBuyQty] = useState<number>(1);
@@ -441,7 +445,27 @@ const [badgePickerSubmitting, setBadgePickerSubmitting] = useState(false);
     badges: [],
     verificationType: "none",
   };
+useEffect(() => {
+  console.log("==== USER STORE DATA ====");
+  console.log("my:", my);
 
+  console.log("==== ACTIVE BADGES ====");
+  console.log("active.badges:", active?.badges || []);
+
+  const ownedBadges =
+    (my?.inventory || []).filter((item: any) => item?.itemType === "badge");
+
+  console.log("==== OWNED BADGES FROM INVENTORY ====");
+  console.log("ownedBadges:", ownedBadges);
+
+  console.log(
+    "==== OWNED BADGE KEYS ====",
+    ownedBadges.map((item: any) => item?.itemKey)
+  );
+
+  console.log("==== CUSTOM EMOJI BADGE ====");
+  console.log("customEmojiBadge:", customEmojiBadge);
+}, [my, active, customEmojiBadge]);
   const customBadgeExpired = useMemo(() => {
     return !!customEmojiBadge?.expiresAt && isExpired(customEmojiBadge.expiresAt);
   }, [customEmojiBadge?.expiresAt]);
@@ -528,11 +552,11 @@ const [badgePickerSubmitting, setBadgePickerSubmitting] = useState(false);
 
       const typeParam =
         tab === "avatarFrame" ||
-        tab === "badge" ||
-        tab === "messageEffect" ||
-        tab === "profileEntryAnimation" ||
-        tab === "verification" ||
-        tab === "gift"
+          tab === "badge" ||
+          tab === "messageEffect" ||
+          tab === "profileEntryAnimation" ||
+          tab === "verification" ||
+          tab === "gift"
           ? tab
           : "";
 
@@ -885,11 +909,10 @@ const [badgePickerSubmitting, setBadgePickerSubmitting] = useState(false);
               </Text>
               <Text style={[s.activeValue, { textAlign, writingDirection }]} numberOfLines={1}>
                 {customEmojiBadge?.emoji
-                  ? `${customEmojiBadge.emoji} ${
-                      customEmojiBadge.isActive && !customBadgeExpired
-                        ? t("storeScreen.common.active")
-                        : t("storeScreen.common.owned")
-                    }`
+                  ? `${customEmojiBadge.emoji} ${customEmojiBadge.isActive && !customBadgeExpired
+                    ? t("storeScreen.common.active")
+                    : t("storeScreen.common.owned")
+                  }`
                   : t("storeScreen.common.none")}
               </Text>
             </View>
@@ -1045,79 +1068,72 @@ const [badgePickerSubmitting, setBadgePickerSubmitting] = useState(false);
             />
           </View>
         </View>
-<View style={s.modernCard}>
-  <View style={[s.cardTop, { flexDirection: row }]}>
-    <View style={{ flex: 1 }}>
-      <Text style={[s.cardTitle, { textAlign, writingDirection }]}>
-        {t("storeScreen.badgePicker.cardTitle")}
-      </Text>
+        <View style={s.modernCard}>
+          <View style={[s.cardTop, { flexDirection: row }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.cardTitle, { textAlign, writingDirection }]}>
+                {t("storeScreen.badgePicker.cardTitle")}
+              </Text>
 
-      <Text style={[s.cardDesc, { textAlign, writingDirection }]}>
-        {t("storeScreen.badgePicker.cardDesc")}
-      </Text>
+              <Text style={[s.cardDesc, { textAlign, writingDirection }]}>
+                {t("storeScreen.badgePicker.cardDesc")}
+              </Text>
 
-      <View style={[s.pillsRow, { justifyContent: isRTL ? "flex-end" : "flex-start" }]}>
-        <Pill
-          theme={theme}
-          text={t("storeScreen.common.animated")}
-          tone="info"
-          isRTL={isRTL}
-        />
-        <Pill
-          theme={theme}
-          text={`2000 ${t("storeScreen.common.coinz")}`}
-          tone="gold"
-          isRTL={isRTL}
-        />
-        <Pill
-          theme={theme}
-          text={`30 ${t("storeScreen.common.daysSuffix")}`}
-          tone="neutral"
-          isRTL={isRTL}
-        />
-      </View>
+              <View style={[s.pillsRow, { justifyContent: isRTL ? "flex-end" : "flex-start" }]}>
+                <Pill
+                  theme={theme}
+                  text={t("storeScreen.common.animated")}
+                  tone="info"
+                  isRTL={isRTL}
+                />
+                <Pill
+                  theme={theme}
+                  text={`2000 ${t("storeScreen.common.coinz")}`}
+                  tone="gold"
+                  isRTL={isRTL}
+                />
+                <Pill
+                  theme={theme}
+                  text={`30 ${t("storeScreen.common.daysSuffix")}`}
+                  tone="neutral"
+                  isRTL={isRTL}
+                />
+              </View>
 
-      <Text style={[s.itemSmall, { textAlign, writingDirection }]}>
-        {t("storeScreen.badgePicker.chooseFromList")}
-      </Text>
-    </View>
+              <Text style={[s.itemSmall, { textAlign, writingDirection }]}>
+                {t("storeScreen.badgePicker.chooseFromList")}
+              </Text>
+            </View>
 
-    <View style={s.emojiBadgeBox}>
-      {badgeItems?.[0] ? (
-        <StoreBadgePreview
-          item={badgeItems[0]}
-          size={78}
-          borderRadius={22}
-          backgroundColor={theme.surface2}
-          borderColor={theme.border}
-          fallbackText={t("storeScreen.common.img")}
-        />
-      ) : (
-        <Text style={{ color: theme.subtleText, fontWeight: "900" }}>
-          {t("storeScreen.common.img")}
-        </Text>
-      )}
-    </View>
-  </View>
+            <View style={s.emojiBadgeBox}>
+              {badgeItems?.[0]?.meta?.lottieUrl ? (
+                <LottieBadge url={badgeItems[0].meta.lottieUrl} size={78} />
+              ) : (
+                <Text style={{ color: theme.subtleText, fontWeight: "900" }}>
+                  {t("storeScreen.common.img")}
+                </Text>
+              )}
+            </View>
+          </View>
 
-  <View style={s.actionsRow}>
-    <PrimaryButton
-      theme={theme}
-      title={t("storeScreen.badgePicker.openList")}
-      onPress={openBadgePicker}
-      disabled={buyDisabled || !badgeItems.length}
-      loading={badgePickerSubmitting}
-      isRTL={isRTL}
-    />
-    <SecondaryButton
-      theme={theme}
-      title={t("storeScreen.tabs.badge")}
-      onPress={() => setTab("badge")}
-      disabled={buyDisabled}
-      isRTL={isRTL}
-    />
-  </View>
-</View>
+          <View style={s.actionsRow}>
+            <PrimaryButton
+              theme={theme}
+              title={t("storeScreen.badgePicker.openList")}
+              onPress={openBadgePicker}
+              disabled={buyDisabled || !badgeItems.length}
+              loading={badgePickerSubmitting}
+              isRTL={isRTL}
+            />
+            <SecondaryButton
+              theme={theme}
+              title={t("storeScreen.tabs.badge")}
+              onPress={() => setTab("badge")}
+              disabled={buyDisabled}
+              isRTL={isRTL}
+            />
+          </View>
+        </View>
         <View style={s.modernCard}>
           <View style={[s.cardTop, { flexDirection: row }]}>
             <View style={{ flex: 1 }}>
@@ -1225,7 +1241,7 @@ const [badgePickerSubmitting, setBadgePickerSubmitting] = useState(false);
         (item.type === "badge" && (active.badges || []).includes(String(item.key))) ||
         (item.type === "verification" &&
           String(active.verificationType || "none") ===
-            String(item.meta?.verificationType || item.key));
+          String(item.meta?.verificationType || item.key));
 
       const canActivate =
         isOwned &&
@@ -1248,7 +1264,21 @@ const [badgePickerSubmitting, setBadgePickerSubmitting] = useState(false);
         <View style={s.modernCard}>
           <View style={[s.itemTop, { flexDirection: row }]}>
             <View style={s.thumbWrap}>
-              {imageUrl ? (
+              {item.type === "badge" && item?.meta?.lottieUrl ? (
+                <View
+                  style={[
+                    s.thumb,
+                    {
+                      backgroundColor: theme.surface2,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      overflow: "hidden",
+                    },
+                  ]}
+                >
+                  <LottieBadge url={item.meta.lottieUrl} size={62} />
+                </View>
+              ) : imageUrl ? (
                 <Image source={{ uri: imageUrl }} style={s.thumb} resizeMode="cover" />
               ) : (
                 <View
@@ -1261,7 +1291,9 @@ const [badgePickerSubmitting, setBadgePickerSubmitting] = useState(false);
                     },
                   ]}
                 >
-                  <Text style={{ color: theme.subtleText, fontWeight: "900" }}>{t("storeScreen.common.img")}</Text>
+                  <Text style={{ color: theme.subtleText, fontWeight: "900" }}>
+                    {t("storeScreen.common.img")}
+                  </Text>
                 </View>
               )}
             </View>
@@ -1395,53 +1427,47 @@ const [badgePickerSubmitting, setBadgePickerSubmitting] = useState(false);
       isRTL,
     ]
   );
-const badgeItems = useMemo(() => {
-  return (items || []).filter(
-    (x: any) =>
-      String(x.type) === "badge" &&
-      Number(x.priceCoinz || 0) === 2000
-  );
-}, [items]);
 
-const openBadgePicker = useCallback(() => {
-  setBadgePickerOpen(true);
-}, []);
 
-const doBuyBadgeFromPicker = useCallback(
-  async (item: any, setActive: boolean) => {
-    if (!item || badgePickerSubmitting) return;
+  const openBadgePicker = useCallback(() => {
+    setBadgePickerOpen(true);
+  }, []);
 
-    setBadgePickerSubmitting(true);
-    try {
-      const ownedSet = ownedKeysByType[String(item.type)] || new Set();
-      const alreadyOwned = ownedSet.has(String(item.key));
-      const nonRepeatable = !item.isStackable && !item.isConsumable;
+  const doBuyBadgeFromPicker = useCallback(
+    async (item: any, setActive: boolean) => {
+      if (!item || badgePickerSubmitting) return;
 
-      if (alreadyOwned && nonRepeatable) {
-        Alert.alert(
-          t("storeScreen.alerts.alreadyOwnedTitle"),
-          t("storeScreen.alerts.alreadyOwnedMessage")
+      setBadgePickerSubmitting(true);
+      try {
+        const ownedSet = ownedKeysByType[String(item.type)] || new Set();
+        const alreadyOwned = ownedSet.has(String(item.key));
+        const nonRepeatable = !item.isStackable && !item.isConsumable;
+
+        if (alreadyOwned && nonRepeatable) {
+          Alert.alert(
+            t("storeScreen.alerts.alreadyOwnedTitle"),
+            t("storeScreen.alerts.alreadyOwnedMessage")
+          );
+          return;
+        }
+
+        const res = await dispatch(
+          purchaseStoreItems({
+            items: [{ itemId: item._id, quantity: 1 }],
+            setActive,
+          }) as any
         );
-        return;
-      }
 
-      const res = await dispatch(
-        purchaseStoreItems({
-          items: [{ itemId: item._id, quantity: 1 }],
-          setActive,
-        }) as any
-      );
-
-      if (purchaseStoreItems.fulfilled.match(res)) {
-        setBadgePickerOpen(false);
-        await dispatch(getMyInventory() as any);
+        if (purchaseStoreItems.fulfilled.match(res)) {
+          setBadgePickerOpen(false);
+          await dispatch(getMyInventory() as any);
+        }
+      } finally {
+        setBadgePickerSubmitting(false);
       }
-    } finally {
-      setBadgePickerSubmitting(false);
-    }
-  },
-  [badgePickerSubmitting, ownedKeysByType, dispatch, t]
-);
+    },
+    [badgePickerSubmitting, ownedKeysByType, dispatch, t]
+  );
   const renderCoinzPack = useCallback(
     ({ item }: any) => {
       const query = q.trim().toLowerCase();
@@ -1769,7 +1795,7 @@ const doBuyBadgeFromPicker = useCallback(
 
       <Modal transparent visible={buyOpen} animationType="fade" onRequestClose={() => setBuyOpen(false)}>
         <Pressable style={s.modalOverlay} onPress={() => (buySubmitting ? null : setBuyOpen(false))}>
-          <Pressable style={[s.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => {}}>
+          <Pressable style={[s.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { }}>
             <View style={[s.modalHeader, { flexDirection: row }]}>
               <Text style={[s.modalTitle, { color: theme.text, textAlign, writingDirection }]}>
                 {t("storeScreen.purchase.title")}
@@ -1938,7 +1964,7 @@ const doBuyBadgeFromPicker = useCallback(
 
       <Modal transparent visible={emojiBadgeOpen} animationType="fade" onRequestClose={() => setEmojiBadgeOpen(false)}>
         <Pressable style={s.modalOverlay} onPress={() => (buyingCustomEmojiBadge ? null : setEmojiBadgeOpen(false))}>
-          <Pressable style={[s.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => {}}>
+          <Pressable style={[s.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { }}>
             <View style={[s.modalHeader, { flexDirection: row }]}>
               <Text style={[s.modalTitle, { color: theme.text, textAlign, writingDirection }]}>
                 {t("storeScreen.customEmoji.title")}
@@ -2039,7 +2065,7 @@ const doBuyBadgeFromPicker = useCallback(
 
       <Modal transparent visible={createOpen} animationType="fade" onRequestClose={() => setCreateOpen(false)}>
         <Pressable style={s.modalOverlay} onPress={() => (createSubmitting ? null : setCreateOpen(false))}>
-          <Pressable style={[s.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => {}}>
+          <Pressable style={[s.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { }}>
             <View style={[s.modalHeader, { flexDirection: row }]}>
               <Text style={[s.modalTitle, { color: theme.text, textAlign, writingDirection }]}>
                 {t("storeScreen.createAccount.title")}
@@ -2113,7 +2139,7 @@ const doBuyBadgeFromPicker = useCallback(
 
       <Modal transparent visible={createdOpen} animationType="fade" onRequestClose={() => setCreatedOpen(false)}>
         <Pressable style={s.modalOverlay} onPress={() => (copyLoading ? null : setCreatedOpen(false))}>
-          <Pressable style={[s.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => {}}>
+          <Pressable style={[s.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { }}>
             <View style={[s.modalHeader, { flexDirection: row }]}>
               <Text style={[s.modalTitle, { color: theme.text, textAlign, writingDirection }]}>
                 {t("storeScreen.createdAccount.title")}
@@ -2163,17 +2189,17 @@ const doBuyBadgeFromPicker = useCallback(
         </Pressable>
       </Modal>
       <BadgeLottiePickerModal
-  visible={badgePickerOpen}
-  onClose={() => setBadgePickerOpen(false)}
-  items={badgeItems}
-  selectedKey=""
-  onConfirm={doBuyBadgeFromPicker}
-  theme={theme}
-  isRTL={isRTL}
-  t={t}
-  loading={badgePickerSubmitting}
-  coinz={coinz}
-/>
+        visible={badgePickerOpen}
+        onClose={() => setBadgePickerOpen(false)}
+        items={badgeItems}
+        selectedKey=""
+        onConfirm={doBuyBadgeFromPicker}
+        theme={theme}
+        isRTL={isRTL}
+        t={t}
+        loading={badgePickerSubmitting}
+        coinz={coinz}
+      />
     </SafeAreaView>
   );
 }
@@ -2220,11 +2246,11 @@ function createStyles(theme: AppTheme, isRTL: boolean) {
   const shadow =
     Platform.OS === "ios"
       ? {
-          shadowColor: "#000",
-          shadowOpacity: 0.08,
-          shadowRadius: 18,
-          shadowOffset: { width: 0, height: 10 },
-        }
+        shadowColor: "#000",
+        shadowOpacity: 0.08,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 10 },
+      }
       : { elevation: 3 };
 
   return StyleSheet.create({

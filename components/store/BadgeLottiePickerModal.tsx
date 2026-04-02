@@ -1,14 +1,14 @@
 import React, { useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Modal,
-    Pressable,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  Pressable,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import StoreBadgePreview from "./StoreBadgePreview";
+import LottieBadge from "../LottieBadge";
 
 type Props = {
   visible: boolean;
@@ -139,14 +139,27 @@ export default function BadgeLottiePickerModal({
               </Text>
             ) : (
               <View style={{ flexDirection: row, gap: 12, alignItems: "center" }}>
-                <StoreBadgePreview
-                  item={selectedItem}
-                  size={66}
-                  borderRadius={18}
-                  backgroundColor={theme.surface}
-                  borderColor={theme.border}
-                  fallbackText={t("storeScreen.common.img")}
-                />
+            <View
+  style={{
+    width: 66,
+    height: 66,
+    borderRadius: 18,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+  }}
+>
+  {selectedItem?.meta?.lottieUrl ? (
+    <LottieBadge url={selectedItem.meta.lottieUrl} size={58} />
+  ) : (
+    <Text style={{ color: theme.subtleText, fontWeight: "900" }}>
+      {t("storeScreen.common.img")}
+    </Text>
+  )}
+</View>
 
                 <View style={{ flex: 1 }}>
                   <Text
@@ -214,14 +227,27 @@ export default function BadgeLottiePickerModal({
                   }}
                 >
                   <View style={{ flexDirection: row, gap: 12, alignItems: "center" }}>
-                    <StoreBadgePreview
-                      item={item}
-                      size={54}
-                      borderRadius={16}
-                      backgroundColor={theme.surface}
-                      borderColor={theme.border}
-                      fallbackText={t("storeScreen.common.img")}
-                    />
+              <View
+  style={{
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+  }}
+>
+  {item?.meta?.lottieUrl ? (
+    <LottieBadge url={item.meta.lottieUrl} size={46} />
+  ) : (
+    <Text style={{ color: theme.subtleText, fontWeight: "900" }}>
+      {t("storeScreen.common.img")}
+    </Text>
+  )}
+</View>
 
                     <View style={{ flex: 1 }}>
                       <Text

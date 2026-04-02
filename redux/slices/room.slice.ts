@@ -139,6 +139,7 @@ export type UserPublicSnapshot = {
 export type RoomVipEntry = { user: UserPublicSnapshot; expiresAt: string };
 export type RoomMutedEntry = { user: UserPublicSnapshot; until: string; reason?: string };
 export type RoomUser = {
+  inventory?: any[]; // ✅ أضف هذا
   _id: string;
   username: string;
   avatar?: string;
@@ -329,6 +330,7 @@ const initialState: RoomState = {
 /* =====================================================
    HELPERS
 ===================================================== */
+
 const dedupeMessages = (list: RoomMessage[]) => {
   const byId = new Map<string, number>();
   const byCid = new Map<string, number>();
@@ -600,7 +602,7 @@ export const fetchRoomUsers = createAsyncThunk<
           isMuted: Boolean(u?.isMuted),
           mutedUntil: u?.mutedUntil ? String(u.mutedUntil) : null,
           isActive: Boolean(u?.isActive),
-
+      inventory: Array.isArray(u?.inventory) ? u.inventory : [],
           activeCustomization: u?.activeCustomization
             ? {
                 avatarFrame: u.activeCustomization?.avatarFrame

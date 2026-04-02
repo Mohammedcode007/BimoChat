@@ -1238,7 +1238,7 @@ useEffect(() => {
         (item.type === "messageEffect" && String(active.messageEffect || "") === String(item.key)) ||
         (item.type === "profileEntryAnimation" &&
           String(active.profileEntryAnimation || "") === String(item.key)) ||
-        (item.type === "badge" && (active.badges || []).includes(String(item.key))) ||
+        (item.type === "badge" && String(active.badges?.[0] || "") === String(item.key)) ||
         (item.type === "verification" &&
           String(active.verificationType || "none") ===
           String(item.meta?.verificationType || item.key));
@@ -1392,12 +1392,12 @@ useEffect(() => {
                   return;
                 }
 
-                if (item.type === "badge") {
-                  const has = (active.badges || []).includes(String(item.key));
-                  doActivate("badge", String(item.key), has ? "remove" : "add");
-                } else {
-                  doActivate(item.type, String(item.key), "set");
-                }
+           if (item.type === "badge") {
+  const has = String(active.badges?.[0] || "") === String(item.key);
+  doActivate("badge", String(item.key), has ? "remove" : "set");
+} else {
+  doActivate(item.type, String(item.key), "set");
+}
               }}
               disabled={!canActivate || buyDisabled || expired || isActivateLoading}
               loading={isActivateLoading}
@@ -1637,7 +1637,7 @@ useEffect(() => {
                   (g.type === "messageEffect" && String(active.messageEffect || "") === key) ||
                   (g.type === "profileEntryAnimation" &&
                     String(active.profileEntryAnimation || "") === key) ||
-                  (g.type === "badge" && (active.badges || []).includes(key));
+                  (g.type === "badge" && String(active.badges?.[0] || "") === key);
 
                 const useKey = `${String(g.type)}:${String(key)}:set`;
                 const useLoading = activateKeyLoading === useKey;
@@ -1650,23 +1650,38 @@ useEffect(() => {
 
                 return (
                   <View key={rowItem._id} style={[s.ownedRow, { flexDirection: row }]}>
-                    {imageUrl ? (
-                      <Image source={{ uri: imageUrl }} style={s.ownedThumb} resizeMode="cover" />
-                    ) : (
-                      <View
-                        style={[
-                          s.ownedThumb,
-                          {
-                            backgroundColor: theme.surface2,
-                            alignItems: "center",
-                            justifyContent: "center",
-                          },
-                        ]}
-                      >
-                        <Text style={{ color: theme.subtleText, fontWeight: "900" }}>{t("storeScreen.common.img")}</Text>
-                      </View>
-                    )}
-
+             {g.type === "badge" && item?.meta?.lottieUrl ? (
+  <View
+    style={[
+      s.ownedThumb,
+      {
+        backgroundColor: theme.surface2,
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+      },
+    ]}
+  >
+    <LottieBadge url={item.meta.lottieUrl} size={46} />
+  </View>
+) : imageUrl ? (
+  <Image source={{ uri: imageUrl }} style={s.ownedThumb} resizeMode="cover" />
+) : (
+  <View
+    style={[
+      s.ownedThumb,
+      {
+        backgroundColor: theme.surface2,
+        alignItems: "center",
+        justifyContent: "center",
+      },
+    ]}
+  >
+    <Text style={{ color: theme.subtleText, fontWeight: "900" }}>
+      {t("storeScreen.common.img")}
+    </Text>
+  </View>
+)}
                     <View style={{ flex: 1 }}>
                       <Text style={[s.ownedTitle, { textAlign, writingDirection }]} numberOfLines={1}>
                         {item?.name || key}
@@ -1701,25 +1716,25 @@ useEffect(() => {
                         />
                       ) : null}
 
-                      {g.type === "badge" ? (
-                        <SecondaryButton
-                          theme={theme}
-                          title={
-                            (active.badges || []).includes(key)
-                              ? t("storeScreen.common.remove")
-                              : t("storeScreen.common.add")
-                          }
-                          onPress={() =>
-                            doActivate(
-                              "badge",
-                              key,
-                              (active.badges || []).includes(key) ? "remove" : "add"
-                            )
-                          }
-                          disabled={buyDisabled || expired}
-                          isRTL={isRTL}
-                        />
-                      ) : null}
+                     {g.type === "badge" ? (
+  <SecondaryButton
+    theme={theme}
+    title={
+      String(active.badges?.[0] || "") === key
+        ? t("storeScreen.common.remove")
+        : t("storeScreen.common.activate")
+    }
+    onPress={() =>
+      doActivate(
+        "badge",
+        key,
+        String(active.badges?.[0] || "") === key ? "remove" : "set"
+      )
+    }
+    disabled={buyDisabled || expired}
+    isRTL={isRTL}
+  />
+) : null}
                     </View>
                   </View>
                 );

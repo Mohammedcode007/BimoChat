@@ -11,6 +11,7 @@ import {
   unblockUser,
 } from "@/redux/slices/friendSlice";
 import { setMessages } from "@/redux/slices/messageSlice";
+import { clearProfileTweets, getUserTweets, Tweet } from "@/redux/slices/tweetSlice";
 import { fetchUserProfile } from "@/redux/slices/userSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import api from "@/services/api";
@@ -299,7 +300,90 @@ const makeStyles = (theme: any, isRTL: boolean) =>
       gap: 10,
       alignItems: "flex-start",
     },
+    tweetCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 12,
+      marginBottom: 12,
+    },
 
+    tweetHeader: {
+      flexDirection: isRTL ? "row-reverse" : "row",
+      alignItems: "center",
+      gap: 10,
+    },
+
+    tweetAvatar: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+    },
+
+    tweetUserInfo: {
+      flex: 1,
+    },
+
+    tweetName: {
+      fontSize: 14,
+      fontWeight: "900",
+      textAlign: isRTL ? "right" : "left",
+    },
+
+    tweetMeta: {
+      fontSize: 12,
+      fontWeight: "700",
+      textAlign: isRTL ? "right" : "left",
+      marginTop: 2,
+    },
+
+    tweetContent: {
+      marginTop: 10,
+      fontSize: 14,
+      lineHeight: 21,
+      fontWeight: "700",
+      textAlign: isRTL ? "right" : "left",
+    },
+
+    tweetMediaImage: {
+      width: "100%",
+      height: 220,
+      borderRadius: 14,
+      marginTop: 10,
+    },
+
+    tweetStatsRow: {
+      marginTop: 12,
+      flexDirection: isRTL ? "row-reverse" : "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+
+    tweetStatPill: {
+      flex: 1,
+      borderRadius: 12,
+      borderWidth: 1,
+      paddingVertical: 8,
+      paddingHorizontal: 8,
+      flexDirection: isRTL ? "row-reverse" : "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+    },
+
+    loadMoreBtn: {
+      height: 44,
+      borderRadius: 14,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 4,
+    },
+
+    loadMoreText: {
+      fontSize: 14,
+      fontWeight: "900",
+    },
     footerText: { flex: 1, fontSize: 12.5, lineHeight: 18, fontWeight: "700", textAlign: isRTL ? "right" : "left" },
 
     sheetRoot: { flex: 1, justifyContent: "flex-end" },
@@ -468,9 +552,8 @@ const ActionBtn = ({
   onPress?: () => void;
   isRTL: boolean;
 }) => {
-  const bg = filled ? theme.tint : theme.card;
-  const fg = filled ? (isDark ? "#0B1020" : "#FFFFFF") : theme.text;
-
+  const bg = filled ? (theme.primary ?? theme.tint) : theme.card;
+  const fg = filled ? (theme.primaryText ?? "#FFFFFF") : theme.text;
   return (
     <Pressable
       onPress={onPress}
@@ -488,7 +571,7 @@ const ActionBtn = ({
           justifyContent: "center",
           gap: 8,
           backgroundColor: bg,
-          borderColor: theme.border,
+          borderColor: filled ? (theme.primary ?? theme.tint) : theme.border,
         }}
       >
         <Ionicons name={icon} size={18} color={fg} />
@@ -791,11 +874,15 @@ function PrimaryBtn({
           gap: 8,
           paddingHorizontal: 16,
           flex: 1,
-          backgroundColor: theme.surface,
+          backgroundColor: theme.primary ?? theme.tint,
+          borderWidth: 1,
+          borderColor: theme.primary ?? theme.tint,
         }}
       >
-        {icon ? <Ionicons name={icon} size={18} color="#fff" /> : null}
-        <Text style={{ color: "#fff", fontSize: 14, fontWeight: "900" }}>{label}</Text>
+        {icon ? <Ionicons name={icon} size={18} color={theme.primaryText ?? "#FFFFFF"} /> : null}
+        <Text style={{ color: theme.primaryText ?? "#FFFFFF", fontSize: 14, fontWeight: "900" }}>
+          {label}
+        </Text>
       </View>
     </Pressable>
   );
@@ -855,26 +942,42 @@ export default function ProfileScreen() {
 
   const theme = useMemo(() => {
     const background = themeBase.background;
-    const card = (themeBase as any).card ?? (isDark ? "#111827" : "#FFFFFF");
-    const tint = (themeBase as any).tint ?? (themeBase as any).primary;
+    const card = themeBase.card ?? (isDark ? "#111827" : "#FFFFFF");
+    const tint = themeBase.tint ?? themeBase.primary;
     const text = themeBase.text;
 
     const border =
-      (themeBase as any).border ??
+      themeBase.border ??
       (isDark ? "rgba(255,255,255,0.10)" : "rgba(17,24,39,0.10)");
 
     const textMuted =
-      (themeBase as any).textMuted ??
-      ((themeBase as any).icon
-        ? rgba((themeBase as any).icon, 0.95)
+      themeBase.mutedText ??
+      (themeBase.icon
+        ? rgba(themeBase.icon, 0.95)
         : isDark
           ? "rgba(234,240,255,0.65)"
           : "rgba(18,24,38,0.62)");
 
-    const surface2 = isDark ? "rgba(255,255,255,0.06)" : "rgba(17,24,39,0.06)";
-    return { background, card, tint, text, border, textMuted, surface2 };
-  }, [themeBase, isDark]);
+    const surface = themeBase.surface ?? card;
+    const surface2 = themeBase.surface2 ?? (isDark ? "rgba(255,255,255,0.06)" : "rgba(17,24,39,0.06)");
+    const primary = themeBase.primary ?? tint;
+    const primaryText = themeBase.primaryText ?? "#FFFFFF";
+    const danger = themeBase.danger ?? "#EF4444";
 
+    return {
+      background,
+      card,
+      tint,
+      text,
+      border,
+      textMuted,
+      surface,
+      surface2,
+      primary,
+      primaryText,
+      danger,
+    };
+  }, [themeBase, isDark]);
   const styles = useMemo(() => makeStyles(theme, isRTL), [theme, isRTL]);
 
   const copy = useMemo(
@@ -990,19 +1093,40 @@ export default function ProfileScreen() {
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [creatingChatId, setCreatingChatId] = useState<string | null>(null);
-
+  const [profileTweetsPage, setProfileTweetsPage] = useState(1);
   const profileUser = useSelector((s: RootState) => (s.user as any).profileUser) as ProfileUser | null;
   const loadingProfile = useSelector((s: RootState) => (s.user as any).loadingProfile);
   const errorProfile = useSelector((s: RootState) => (s.user as any).errorProfile);
   const searchResults = useSelector((s: RootState) => (s.friends as any).searchResults) as any[];
-
+  const profileTweets = useSelector((s: RootState) => (s.tweets as any).profileTweets) as Tweet[];
+  const loadingProfileTweets = useSelector((s: RootState) => (s.tweets as any).loadingProfileTweets) as boolean;
+  const profileTweetsError = useSelector((s: RootState) => (s.tweets as any).profileTweetsError) as string | null;
+  const profileTweetsHasMore = useSelector((s: RootState) => (s.tweets as any).profileTweetsHasMore) as boolean;
   const [rel, setRel] = useState<RelationshipStatus>("none");
   const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => {
     if (id) dispatch(fetchUserProfile(String(id)));
   }, [id, dispatch]);
+  useEffect(() => {
+    return () => {
+      dispatch(clearProfileTweets());
+    };
+  }, [dispatch]);
+  useEffect(() => {
+    if (!id) return;
 
+    setProfileTweetsPage(1);
+    dispatch(clearProfileTweets());
+    dispatch(getUserTweets({ userId: String(id), page: 1 }));
+  }, [id, dispatch]);
+  const loadMoreProfileTweets = () => {
+    if (!id || loadingProfileTweets || !profileTweetsHasMore) return;
+
+    const nextPage = profileTweetsPage + 1;
+    setProfileTweetsPage(nextPage);
+    dispatch(getUserTweets({ userId: String(id), page: nextPage }));
+  };
   useEffect(() => {
     if (!profileUser?._id) return;
 
@@ -1052,7 +1176,18 @@ export default function ProfileScreen() {
       setCreatingChatId(null);
     }
   };
-
+  const formatTweetDate = (date?: string) => {
+    if (!date) return "";
+    try {
+      return new Date(date).toLocaleDateString(language === "ar" ? "ar-EG" : "en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return "";
+    }
+  };
   const bioHtml = useMemo(() => {
     const raw = profileUser?.bio?.trim() ?? "";
     const html = raw
@@ -1389,11 +1524,172 @@ export default function ProfileScreen() {
               </View>
             ) : tab === "posts" ? (
               <View style={{ marginTop: 12 }}>
-                <View style={[styles.empty, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                  <Ionicons name="newspaper-outline" size={30} color={theme.textMuted} />
-                  <Text style={[styles.emptyTitle, { color: theme.text }]}>{copy.noPostsYet}</Text>
-                  <Text style={[styles.emptySub, { color: theme.textMuted }]}>{copy.postsApiHint}</Text>
-                </View>
+                {loadingProfileTweets && profileTweets.length === 0 ? (
+                  <View style={[styles.empty, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                    <ActivityIndicator />
+                    <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                      {copy.loadingProfile}
+                    </Text>
+                  </View>
+                ) : profileTweetsError ? (
+                  <View style={[styles.empty, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                    <Ionicons name="alert-circle-outline" size={30} color="#EF4444" />
+                    <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                      {copy.profileLoadFailed}
+                    </Text>
+                    <Text style={[styles.emptySub, { color: theme.textMuted }]}>
+                      {profileTweetsError}
+                    </Text>
+
+                    <Pressable
+                      onPress={() => {
+                        setProfileTweetsPage(1);
+                        dispatch(clearProfileTweets());
+                        dispatch(getUserTweets({ userId: String(id), page: 1 }));
+                      }}
+                      style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1, marginTop: 12 }]}
+                    >
+                      <View
+                        style={[
+                          styles.loadMoreBtn,
+                          {
+                            backgroundColor: theme.primary,
+                            borderColor: theme.primary,
+                            paddingHorizontal: 18,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.loadMoreText, { color: theme.primaryText }]}>
+                          {copy.retry}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  </View>
+                ) : profileTweets.length === 0 ? (
+                  <View style={[styles.empty, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                    <Ionicons name="newspaper-outline" size={30} color={theme.textMuted} />
+                    <Text style={[styles.emptyTitle, { color: theme.text }]}>{copy.noPostsYet}</Text>
+                    <Text style={[styles.emptySub, { color: theme.textMuted }]}>{copy.postsApiHint}</Text>
+                  </View>
+                ) : (
+                  <>
+                    {profileTweets.map((tweet) => {
+                      const firstImage = tweet.media?.find((m) => m.type === "image")?.url;
+
+                      return (
+                        <View
+                          key={tweet._id}
+                          style={[
+                            styles.tweetCard,
+                            { backgroundColor: theme.card, borderColor: theme.border },
+                          ]}
+                        >
+                          <View style={styles.tweetHeader}>
+                            {tweet.author?.avatar ? (
+                              <Image source={{ uri: tweet.author.avatar }} style={styles.tweetAvatar} />
+                            ) : (
+                              <View
+                                style={[
+                                  styles.tweetAvatar,
+                                  {
+                                    backgroundColor: theme.surface2,
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                  },
+                                ]}
+                              >
+                                <Ionicons name="person" size={20} color={theme.textMuted} />
+                              </View>
+                            )}
+
+                            <View style={styles.tweetUserInfo}>
+                              <Text style={[styles.tweetName, { color: theme.text }]} numberOfLines={1}>
+                                {tweet.author?.username || user.username}
+                              </Text>
+                              <Text style={[styles.tweetMeta, { color: theme.textMuted }]} numberOfLines={1}>
+                                {tweet.author?.atUsername || ""} {formatTweetDate(tweet.createdAt)}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {!!tweet.content && (
+                            <Text style={[styles.tweetContent, { color: theme.text }]}>
+                              {tweet.content}
+                            </Text>
+                          )}
+
+                          {!!firstImage && (
+                            <Image source={{ uri: firstImage }} style={styles.tweetMediaImage} resizeMode="cover" />
+                          )}
+
+                          <View style={styles.tweetStatsRow}>
+                            <View
+                              style={[
+                                styles.tweetStatPill,
+                                { backgroundColor: theme.surface2, borderColor: theme.border },
+                              ]}
+                            >
+                              <Ionicons name="heart-outline" size={16} color={theme.textMuted} />
+                              <Text style={{ color: theme.text, fontWeight: "800", fontSize: 12 }}>
+                                {formatNum(tweet.likesCount || 0)}
+                              </Text>
+                            </View>
+
+                            <View
+                              style={[
+                                styles.tweetStatPill,
+                                { backgroundColor: theme.surface2, borderColor: theme.border },
+                              ]}
+                            >
+                              <Ionicons name="repeat-outline" size={16} color={theme.textMuted} />
+                              <Text style={{ color: theme.text, fontWeight: "800", fontSize: 12 }}>
+                                {formatNum(tweet.retweetsCount || 0)}
+                              </Text>
+                            </View>
+
+                            <View
+                              style={[
+                                styles.tweetStatPill,
+                                { backgroundColor: theme.surface2, borderColor: theme.border },
+                              ]}
+                            >
+                              <Ionicons name="chatbubble-outline" size={16} color={theme.textMuted} />
+                              <Text style={{ color: theme.text, fontWeight: "800", fontSize: 12 }}>
+                                {formatNum(tweet.repliesCount || 0)}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })}
+
+                    {profileTweetsHasMore ? (
+                      <Pressable
+                        onPress={loadMoreProfileTweets}
+                        disabled={loadingProfileTweets}
+                        style={({ pressed }) => [{ opacity: loadingProfileTweets ? 0.6 : pressed ? 0.9 : 1 }]}
+                      >
+                        <View
+                          style={[
+                            styles.loadMoreBtn,
+                            {
+                              backgroundColor: theme.surface2,
+                              borderColor: theme.border,
+                            },
+                          ]}
+                        >
+                          {loadingProfileTweets ? (
+                            <ActivityIndicator />
+                          ) : (
+                            <Text style={[styles.loadMoreText, { color: theme.text }]}>
+                              {language === "ar" ? "عرض المزيد" : "Load more"}
+                            </Text>
+                          )}
+                        </View>
+                      </Pressable>
+                    ) : null}
+                  </>
+                )}
               </View>
             ) : (
               <View style={{ marginTop: 12 }}>

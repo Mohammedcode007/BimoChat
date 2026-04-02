@@ -387,15 +387,16 @@
 //   },
 // });
 import { Redirect, Tabs } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 
 import AppHeader from "@/components/AppHeader";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { RootState } from "@/redux/store";
+import { fetchMyFullUser } from "@/redux/slices/userSlice";
+import { AppDispatch, RootState } from "@/redux/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -435,7 +436,15 @@ const TAB_CONFIG = {
 export default function TabLayout() {
   const { colorScheme } = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
+const dispatch = useDispatch<AppDispatch>();
+const token = useSelector((state: RootState) => state.auth.token);
+const me = useSelector((state: RootState) => state.user.me);
 
+useEffect(() => {
+  if (token && !me) {
+    dispatch(fetchMyFullUser());
+  }
+}, [dispatch, token, me]);
   const { isLoggedIn, hydrated, loading } = useSelector(
     (state: RootState) => state.auth
   );

@@ -34,7 +34,12 @@ export default function AppHeader() {
   const unreadCount = useSelector(
     (state: RootState) => state.notification.unreadCount
   );
-  const user = useSelector((state: RootState) => state.auth.user);
+//   const user = useSelector((state: RootState) => state.auth.user);
+// console.log(user,'44444444');
+const authUser = useSelector((state: RootState) => state.auth.user);
+const me = useSelector((state: RootState) => state.user.me);
+
+const user = me || authUser;
 
   if (pathname.includes("chat/room")) return null;
 
@@ -116,12 +121,14 @@ export default function AppHeader() {
           }
         >
           <View style={s.avatarWrap}>
-            <Image
-              source={{
-                uri: user?.avatar || "https://i.pravatar.cc/150?img=3",
-              }}
-              style={s.avatar}
-            />
+     <Image
+  source={
+    user?.avatar
+      ? { uri: user.avatar }
+      : require("@/assets/images/default-avatar.png")
+  }
+  style={s.avatar}
+/>
             <View style={s.onlineDot} />
           </View>
 

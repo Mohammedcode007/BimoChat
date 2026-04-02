@@ -597,8 +597,9 @@ export default function TweetsScreen() {
   const { t, language } = useTranslation();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [showSheet, setShowSheet] = useState(false);
+const [selectedUser, setSelectedUser] = useState<any>(null);
+const [selectedTweet, setSelectedTweet] = useState<any>(null);
+const [showSheet, setShowSheet] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
   const [reportTarget, setReportTarget] = useState<{
@@ -725,16 +726,17 @@ export default function TweetsScreen() {
       return;
     }
   };
-  const openSheet = (author: any) => {
-    setSelectedUser(author);
-    setShowSheet(true);
-  };
+const openSheet = (tweet: any) => {
+  setSelectedTweet(tweet);
+  setSelectedUser(tweet?.author || null);
+  setShowSheet(true);
+};
 
-  const closeSheet = () => {
-    setShowSheet(false);
-    setSelectedUser(null);
-  };
-
+const closeSheet = () => {
+  setShowSheet(false);
+  setSelectedUser(null);
+  setSelectedTweet(null);
+};
   const handleRefresh = async () => {
     setRefreshing(true);
     if (activeTab === "following") {
@@ -955,17 +957,17 @@ export default function TweetsScreen() {
                         ...
                       </TouchableOpacity>
                     )} */}
-                    <TouchableOpacity
-                      onPress={() => openSheet(item.author)}
-                      style={s.moreBtn}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons
-                        name="ellipsis-horizontal"
-                        size={18}
-                        color={theme.icon}
-                      />
-                    </TouchableOpacity>
+                 <TouchableOpacity
+  onPress={() => openSheet(item)}
+  style={s.moreBtn}
+  activeOpacity={0.85}
+>
+  <Ionicons
+    name="ellipsis-horizontal"
+    size={18}
+    color={theme.icon}
+  />
+</TouchableOpacity>
                     <TouchableOpacity
                       onPress={() =>
                         openReportModal({
@@ -1063,6 +1065,7 @@ export default function TweetsScreen() {
 
       {showSheet && (
         <View style={s.overlay}>
+     
           <TouchableOpacity
             style={{ flex: 1 }}
             activeOpacity={1}
@@ -1077,7 +1080,36 @@ export default function TweetsScreen() {
                     ? selectedUser.atUsername
                     : `@${selectedUser.atUsername}`}
                 </Text>
+     <TouchableOpacity
+  style={s.sheetItem}
+  activeOpacity={0.9}
+  onPress={() => {
+    if (selectedTweet?._id) {
+      closeSheet();
+      router.push({
+        pathname: "/tweet/[id]",
+        params: { id: selectedTweet._id },
+      });
+    }
+  }}
+>
+  <View
+    style={[
+      s.sheetIcon,
+      {
+        backgroundColor: isDark
+          ? "rgba(79,70,229,0.14)"
+          : "rgba(79,70,229,0.10)",
+      },
+    ]}
+  >
+    <Ionicons name="eye-outline" size={18} color="#4F46E5" />
+  </View>
 
+  <Text style={s.sheetText}>
+    {t("tweetsScreen.viewPost") || "عرض المنشور"}
+  </Text>
+</TouchableOpacity>
                 <TouchableOpacity
                   style={s.sheetItem}
                   onPress={async () => {

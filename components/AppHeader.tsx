@@ -132,14 +132,14 @@ const user = me || authUser;
             <View style={s.onlineDot} />
           </View>
 
-          <View style={s.textWrap}>
+          {/* <View style={s.textWrap}>
             <Text style={s.username} numberOfLines={1}>
               {user?.username || "User"}
             </Text>
             <Text style={s.subtitle} numberOfLines={1}>
               {title}
             </Text>
-          </View>
+          </View> */}
         </TouchableOpacity>
         {/* Drawer Button */}
         <View style={s.rightActions}>

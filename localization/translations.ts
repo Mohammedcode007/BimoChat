@@ -17,26 +17,26 @@ export const translations = {
 
     },
     tweetDetailsScreen: {
-  title: "Post",
-  notAvailable: "Post not available",
-  user: "User",
-  video: "Video",
-  embeddedVideo: "Embedded video",
-  views: "views",
-  reposts: "Reposts",
-  quotes: "Quotes",
-  likes: "Likes",
-  mostRelevantReplies: "Most relevant replies",
-  noReplies: "No replies yet",
-  beFirstToReply: "Be the first to reply",
-  replyPlaceholder: "Post your reply",
-  deletePost: "Delete Post",
-  report: "Report",
-  share: "Share",
-  removeBookmark: "Remove Bookmark",
-  bookmark: "Bookmark",
-  cancel: "Cancel",
-},
+      title: "Post",
+      notAvailable: "Post not available",
+      user: "User",
+      video: "Video",
+      embeddedVideo: "Embedded video",
+      views: "views",
+      reposts: "Reposts",
+      quotes: "Quotes",
+      likes: "Likes",
+      mostRelevantReplies: "Most relevant replies",
+      noReplies: "No replies yet",
+      beFirstToReply: "Be the first to reply",
+      replyPlaceholder: "Post your reply",
+      deletePost: "Delete Post",
+      report: "Report",
+      share: "Share",
+      removeBookmark: "Remove Bookmark",
+      bookmark: "Bookmark",
+      cancel: "Cancel",
+    },
     friendsScreenLAN: {
       searchPlaceholder: "Search friends",
       suggested: "Suggested",
@@ -339,17 +339,17 @@ export const translations = {
         bundles: "Bundles",
         limited: "Limited",
       },
-       badgePicker: {
-    title: "Choose Animated Badge",
-    subtitle: "Pick one from the list to buy or activate",
-    cardTitle: "Animated Badges",
-    cardDesc: "A collection of Lottie animated badges in a separate modal like emoji selection",
-    chooseFromList: "Open the list and choose your badge",
-    openList: "Open List",
-    selectOne: "Select a badge from the list",
-    defaultDesc: "Premium animated badge",
-    activateNow: "Activate after purchase",
-  },
+      badgePicker: {
+        title: "Choose Animated Badge",
+        subtitle: "Pick one from the list to buy or activate",
+        cardTitle: "Animated Badges",
+        cardDesc: "A collection of Lottie animated badges in a separate modal like emoji selection",
+        chooseFromList: "Open the list and choose your badge",
+        openList: "Open List",
+        selectOne: "Select a badge from the list",
+        defaultDesc: "Premium animated badge",
+        activateNow: "Activate after purchase",
+      },
 
       prettyType: {
         avatarFrame: "Avatar Frame",
@@ -527,6 +527,69 @@ export const translations = {
         credentialsCopied: "Credentials copied to clipboard",
       },
     },
+     drawer: {
+    user: {
+      defaultName: "User",
+      viewProfile: "View Profile",
+    },
+
+    sections: {
+      quickAccess: "Quick Access",
+      navigation: "Navigation",
+      settingsShortcuts: "Settings Shortcuts",
+    },
+
+    quickAccess: {
+      search: "Search",
+      searchSubtitle: "Find users, chats and content",
+
+      notifications: "Notifications",
+      notificationsSubtitle: "See alerts and activity",
+
+      store: "Store",
+      storeSubtitle: "Coins, gifts and premium items",
+
+      settings: "Settings",
+      settingsSubtitle: "Account, privacy and app options",
+    },
+
+    navigation: {
+      home: "Home",
+      homeSubtitle: "Back to main feed",
+
+      tweets: "Tweets",
+      tweetsSubtitle: "Explore posts and updates",
+
+      friends: "Friends",
+      friendsSubtitle: "Manage your connections",
+
+      rooms: "Rooms",
+      roomsSubtitle: "Join voice and live rooms",
+    },
+
+    shortcuts: {
+      editProfile: "Edit Profile",
+      editProfileSubtitle: "Update profile info and photo",
+
+      privacy: "Privacy",
+      privacySubtitle: "Blocked users and visibility",
+
+      help: "Help & Support",
+      helpSubtitle: "Support center and assistance",
+
+      about: "About App",
+      aboutSubtitle: "Learn more about Bimo",
+    },
+
+    logout: {
+      title: "Logout",
+      subtitle: "Sign out from your account safely",
+
+      alertTitle: "Logout",
+      alertMessage: "Are you sure you want to logout?",
+      alertConfirm: "Logout",
+    },
+  },
     editProfile: {
       countries: {
         egypt: "Egypt",
@@ -1370,7 +1433,7 @@ export const translations = {
       noBio: "لا توجد نبذة",
       confirmRemove: "إزالة",
     },
- 
+
     roomsScreenLan: {
       searchPlaceholder: "Search rooms",
       tabs: {
@@ -1702,6 +1765,71 @@ export const translations = {
         hint: "ملاحظة: يمكنك استخدام تنسيقات مثل Bold و Lists.",
       },
     },
+      drawer: {
+    user: {
+      defaultName: "مستخدم",
+      viewProfile: "عرض الملف الشخصي",
+    },
+
+    sections: {
+      quickAccess: "الوصول السريع",
+      navigation: "التنقل",
+      settingsShortcuts: "اختصارات الإعدادات",
+    },
+
+    quickAccess: {
+      search: "بحث",
+      searchSubtitle: "ابحث عن المستخدمين والمحادثات والمحتوى",
+
+      notifications: "الإشعارات",
+      notificationsSubtitle: "عرض التنبيهات والنشاط",
+
+      store: "المتجر",
+      storeSubtitle: "عملات، هدايا وعناصر مميزة",
+
+      settings: "الإعدادات",
+      settingsSubtitle: "الحساب والخصوصية وخيارات التطبيق",
+    },
+
+    navigation: {
+      home: "الرئيسية",
+      homeSubtitle: "العودة إلى الصفحة الرئيسية",
+
+      tweets: "التغريدات",
+      tweetsSubtitle: "استكشاف المنشورات والتحديثات",
+
+      friends: "الأصدقاء",
+      friendsSubtitle: "إدارة علاقاتك",
+
+      rooms: "الغرف",
+      roomsSubtitle: "انضم إلى الغرف الصوتية والبث المباشر",
+    },
+
+    shortcuts: {
+      editProfile: "تعديل الملف الشخصي",
+      editProfileSubtitle: "تحديث بياناتك وصورتك",
+
+      privacy: "الخصوصية",
+      privacySubtitle: "المستخدمون المحظورون وإعدادات الظهور",
+
+      help: "المساعدة والدعم",
+      helpSubtitle: "مركز الدعم والمساعدة",
+
+      about: "حول التطبيق",
+      aboutSubtitle: "تعرف أكثر على بيمو",
+    },
+
+    logout: {
+      title: "تسجيل الخروج",
+      subtitle: "تسجيل الخروج من حسابك بأمان",
+
+      alertTitle: "تسجيل الخروج",
+      alertMessage: "هل أنت متأكد أنك تريد تسجيل الخروج؟",
+      alertConfirm: "تسجيل الخروج",
+    },
+  },
+
+
     terms: {
       headerTitle: "الشروط والأحكام",
       headerSub: "يرجى القراءة بعناية قبل استخدام التطبيق",
@@ -1912,17 +2040,17 @@ export const translations = {
         bundles: "الباقات",
         limited: "محدود",
       },
- badgePicker: {
-    title: "اختيار بادج متحركة",
-    subtitle: "اختر واحدة من القائمة لشرائها أو تفعيلها",
-    cardTitle: "البادجات المتحركة",
-    cardDesc: "مجموعة بادجات Lottie متحركة داخل مودال مستقل مثل اختيار الإيموشن",
-    chooseFromList: "افتح القائمة واختر البادج المناسبة لك",
-    openList: "فتح القائمة",
-    selectOne: "اختر بادج من القائمة",
-    defaultDesc: "بادج متحركة مميزة",
-    activateNow: "تفعيل بعد الشراء",
-  },
+      badgePicker: {
+        title: "اختيار بادج متحركة",
+        subtitle: "اختر واحدة من القائمة لشرائها أو تفعيلها",
+        cardTitle: "البادجات المتحركة",
+        cardDesc: "مجموعة بادجات Lottie متحركة داخل مودال مستقل مثل اختيار الإيموشن",
+        chooseFromList: "افتح القائمة واختر البادج المناسبة لك",
+        openList: "فتح القائمة",
+        selectOne: "اختر بادج من القائمة",
+        defaultDesc: "بادج متحركة مميزة",
+        activateNow: "تفعيل بعد الشراء",
+      },
       prettyType: {
         avatarFrame: "إطار الصورة",
         badge: "شارة",

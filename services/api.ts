@@ -163,14 +163,14 @@ const getBuildNumber = () => {
   return String(b);
 };
 
-const api = axios.create({
-  baseURL: "http://192.168.0.100:5000/api",
-  timeout: 20000,
-});
-//  const api = axios.create({
-//   baseURL: "https://api.te-bot.site/api",
+// const api = axios.create({
+//   baseURL: "http://192.168.0.100:5000/api",
 //   timeout: 20000,
-//  });
+// });
+ const api = axios.create({
+  baseURL: "https://api.te-bot.site/api",
+  timeout: 20000,
+ });
 const clearLocalSession = async () => {
   await AsyncStorage.multiRemove(["token", "user"]);
   appDispatch?.(forceLogout());

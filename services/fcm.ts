@@ -231,3 +231,35 @@ export function cleanupFCMTokenListener() {
     pushTokenSub = null;
   }
 }
+
+export async function removeFCMTokenFromBackend() {
+  try {
+    console.log("🗑️ removeFCMTokenFromBackend started");
+
+    if (isExpoGo) {
+      console.log("🚫 Expo Go -> skip token removal");
+      return;
+    }
+
+    const token = (await Notifications.getDevicePushTokenAsync()).data;
+
+    if (!token) {
+      console.log("⚠️ No device push token found");
+      return;
+    }
+
+    await api.delete("/notifications/device-token", {
+      data: {
+        token,
+        platform: Platform.OS,
+      },
+    });
+
+    console.log("✅ Device token removed from backend");
+  } catch (error: any) {
+    console.log(
+      "❌ Failed to remove device token from backend",
+      error?.response?.data || error?.message
+    );
+  }
+}

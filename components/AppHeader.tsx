@@ -34,12 +34,12 @@ export default function AppHeader() {
   const unreadCount = useSelector(
     (state: RootState) => state.notification.unreadCount
   );
-//   const user = useSelector((state: RootState) => state.auth.user);
-// console.log(user,'44444444');
-const authUser = useSelector((state: RootState) => state.auth.user);
-const me = useSelector((state: RootState) => state.user.me);
+  //   const user = useSelector((state: RootState) => state.auth.user);
+  // console.log(user,'44444444');
+  const authUser = useSelector((state: RootState) => state.auth.user);
+  const me = useSelector((state: RootState) => state.user.me);
 
-const user = me || authUser;
+  const user = me || authUser;
 
   if (pathname.includes("chat/room")) return null;
 
@@ -121,14 +121,14 @@ const user = me || authUser;
           }
         >
           <View style={s.avatarWrap}>
-     <Image
-  source={
-    user?.avatar
-      ? { uri: user.avatar }
-      : require("@/assets/images/default-avatar.png")
-  }
-  style={s.avatar}
-/>
+            <Image
+              source={
+                user?.avatar
+                  ? { uri: user.avatar }
+                  : require("@/assets/images/default-avatar.png")
+              }
+              style={s.avatar}
+            />
             <View style={s.onlineDot} />
           </View>
 
@@ -236,7 +236,29 @@ const user = me || authUser;
               </>
             )}
           </View>
+          {/* Search Button */}
+          <Pressable
+            onPress={() => router.push("/search")}
+            android_ripple={{ color: "rgba(255,255,255,0.12)", radius: 22 }}
+            style={({ pressed }) => [
+              s.menuBtn,
+              pressed && Platform.OS === "ios" ? { opacity: 0.82 } : null,
+            ]}
+          >
+            <Ionicons name="search-outline" size={22} color={theme.icon} />
+          </Pressable>
 
+          {/* Store Button */}
+          <Pressable
+            onPress={() => router.push("/store")}
+            android_ripple={{ color: "rgba(255,255,255,0.12)", radius: 22 }}
+            style={({ pressed }) => [
+              s.menuBtn,
+              pressed && Platform.OS === "ios" ? { opacity: 0.82 } : null,
+            ]}
+          >
+            <Ionicons name="storefront-outline" size={22} color={theme.icon} />
+          </Pressable>
           <Pressable
             onPress={open}
             android_ripple={{ color: "rgba(255,255,255,0.12)", radius: 22 }}
@@ -289,23 +311,22 @@ function makeStyles(theme: any, isDark: boolean) {
       alignItems: "center",
       overflow: "visible",
     },
-    menuBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: 12,
-      position: "relative",
-      overflow: "visible",
-    },
-    rightActions: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      zIndex: 999999,
-      elevation: 999,
-    },
+menuBtn: {
+  width: 36,
+  height: 36,
+  borderRadius: 12,
+  alignItems: "center",
+  justifyContent: "center",
+  position: "relative",
+  overflow: "visible",
+},
+rightActions: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 4,
+  zIndex: 999999,
+  elevation: 999,
+},
 
     themeMenuWrap: {
       position: "relative",

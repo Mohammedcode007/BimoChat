@@ -1,4 +1,5 @@
 
+import LottieBadge from "@/components/LottieBadge";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
@@ -89,7 +90,205 @@ async function openExternalLink(url: string) {
     console.log("openExternalLink error", error);
   }
 }
+type UserBadgeUI = {
+  key: string;
+  name?: string;
+  lottieUrl?: string;
+  iconUrl?: string;
+  emoji?: string;
+};
 
+const getItemImageUrl = (item: any): string => {
+  const direct =
+    String(item?.iconUrl || "") ||
+    String(item?.coverUrl || "") ||
+    String(item?.previewUrl || "");
+
+  if (direct) return direct;
+
+  const meta = item?.meta || {};
+  return (
+    String(meta?.iconUrl || "") ||
+    String(meta?.coverUrl || "") ||
+    String(meta?.previewUrl || "")
+  );
+};
+
+const normalizeBadgeKey = (v: any) => String(v || "").trim().toLowerCase();
+
+const dedupeBadges = (badges?: UserBadgeUI[]) => {
+  const arr = Array.isArray(badges) ? badges : [];
+  const out: UserBadgeUI[] = [];
+  const seen = new Set<string>();
+
+  for (const b of arr) {
+    const key = normalizeBadgeKey(b?.key);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      key,
+      name: b?.name,
+      lottieUrl: b?.lottieUrl,
+      iconUrl: b?.iconUrl,
+      emoji: b?.emoji,
+    });
+  }
+
+  return out;
+};
+
+const isCustomEmojiBadgeActive = (
+  badge?: { emoji?: string; isActive?: boolean; expiresAt?: string | null } | null
+) => {
+  if (!badge?.emoji) return false;
+  if (!badge?.isActive) return false;
+  if (badge?.expiresAt) {
+    const t = new Date(badge.expiresAt).getTime();
+    if (Number.isFinite(t) && t <= Date.now()) return false;
+  }
+  return true;
+};
+
+const buildTweetBadgesFromAuthor = (author: any): UserBadgeUI[] => {
+  const rawBadges =
+    author?.displayBadgesDetailed ||
+    author?.activeBadgesDetailed ||
+    author?.activeCustomization?.badgesDetailed ||
+    author?.badgesDetailed ||
+    [];
+
+  if (Array.isArray(rawBadges) && rawBadges.length) {
+    return dedupeBadges(
+      rawBadges.map((b: any) => ({
+        key: String(b?.key || b?.itemKey || "").trim(),
+        name: b?.name,
+        lottieUrl: String(b?.lottieUrl || b?.meta?.lottieUrl || ""),
+        iconUrl: getItemImageUrl(b),
+        emoji: String(b?.emoji || b?.meta?.emoji || ""),
+      }))
+    );
+  }
+
+  const plainKeys =
+    author?.displayBadges ??
+    author?.activeCustomization?.badges ??
+    author?.badges ??
+    [];
+
+  return dedupeBadges(
+    (Array.isArray(plainKeys) ? plainKeys : []).map((key: string) => ({
+      key: String(key || "").trim(),
+    }))
+  );
+};
+
+const DynamicUserBadge = ({
+  badge,
+  size = 16,
+}: {
+  badge?: UserBadgeUI | null;
+  size?: number;
+}) => {
+  if (!badge?.key) return null;
+
+  if (badge.lottieUrl) {
+    return (
+      <View
+        style={{
+          marginLeft: 6,
+          width: size,
+          height: size,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <LottieBadge url={badge.lottieUrl} size={size} />
+      </View>
+    );
+  }
+
+  if (badge.iconUrl) {
+    return (
+      <Image
+        source={{ uri: badge.iconUrl }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          marginLeft: 6,
+        }}
+        resizeMode="contain"
+      />
+    );
+  }
+
+  if (badge.emoji) {
+    return (
+      <View style={{ marginLeft: 6 }}>
+        <Text style={{ fontSize: size - 1 }}>{badge.emoji}</Text>
+      </View>
+    );
+  }
+
+  const meta = BADGE_META[badge.key];
+  if (!meta) return null;
+
+  if (badge.key === "blue") {
+    return (
+      <Ionicons
+        name="checkmark-circle"
+        size={14}
+        color="#1DA1F2"
+        style={{ marginLeft: 6 }}
+      />
+    );
+  }
+
+  return (
+    <View
+      style={[
+        sStatic.badgePillStatic,
+        {
+          backgroundColor: meta.bg,
+          borderColor: "rgba(0,0,0,0.06)",
+        },
+      ]}
+    >
+      {!!meta.icon && <Text style={{ marginRight: meta.label ? 4 : 0 }}>{meta.icon}</Text>}
+      {!!meta.label && (
+        <Text style={{ fontSize: 10, fontWeight: "900", color: meta.fg }}>
+          {meta.label}
+        </Text>
+      )}
+    </View>
+  );
+};
+
+const CustomEmojiBadgeView = ({
+  badge,
+}: {
+  badge?: { emoji?: string; isActive?: boolean; expiresAt?: string | null } | null;
+}) => {
+  if (!isCustomEmojiBadgeActive(badge)) return null;
+
+  return (
+    <View style={{ marginLeft: 6, alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ fontSize: 22 }}>{badge?.emoji}</Text>
+    </View>
+  );
+};
+
+const sStatic = StyleSheet.create({
+  badgePillStatic: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginLeft: 6,
+  },
+});
 function parseRichText(text: string) {
   const result: Array<{
     type: "text" | "link" | "mention" | "hashtag";
@@ -466,73 +665,109 @@ const BADGE_META: Record<
     fg: "#166534",
   },
 };
-
 function UserBadges({ author, s }: { author: any; s: any }) {
-  const badges: string[] =
-    author?.displayBadges ??
-    author?.activeCustomization?.badges ??
-    author?.badges ??
-    [];
-
   const verificationType: string =
     author?.displayVerificationType ??
     author?.activeCustomization?.verificationType ??
     author?.verificationType ??
     "none";
 
-  const merged: string[] = [
-    ...(verificationType && verificationType !== "none"
-      ? [verificationType]
-      : []),
-    ...badges,
-  ];
+  const dynamicBadges = buildTweetBadgesFromAuthor(author);
 
-  const unique = Array.from(new Set(merged)).filter((k) => BADGE_META[k]);
-  if (!unique.length) return null;
+  const verificationBadge =
+    verificationType && verificationType !== "none"
+      ? [{ key: verificationType }]
+      : [];
+
+  const merged = dedupeBadges([...verificationBadge, ...dynamicBadges]);
+
+  const customEmojiBadge =
+    author?.customEmojiBadge ||
+    author?.displayCustomEmojiBadge ||
+    null;
+
+  if (!merged.length && !isCustomEmojiBadgeActive(customEmojiBadge)) return null;
 
   return (
     <View style={s.badgesWrap}>
-      {unique.map((key) => {
-        const meta = BADGE_META[key];
+      <CustomEmojiBadgeView badge={customEmojiBadge} />
 
-        if (key === "blue") {
-          return (
-            <Ionicons
-              key={key}
-              name={meta.icon as any}
-              size={14}
-              color={meta.fg}
-              style={{ marginLeft: 6 }}
-            />
-          );
-        }
-
-        return (
-          <View key={key} style={[s.badgePill, { backgroundColor: meta.bg }]}>
-            {meta.iconType === "ion" && meta.icon ? (
-              <Ionicons
-                name={meta.icon as any}
-                size={12}
-                color={meta.fg}
-                style={{ marginRight: meta.label ? 4 : 0 }}
-              />
-            ) : meta.icon ? (
-              <Text style={{ marginRight: meta.label ? 4 : 0 }}>
-                {meta.icon}
-              </Text>
-            ) : null}
-
-            {meta.label ? (
-              <Text style={[s.badgeText, { color: meta.fg }]}>
-                {meta.label}
-              </Text>
-            ) : null}
-          </View>
-        );
-      })}
+      {merged.map((badge) => (
+        <DynamicUserBadge
+          key={badge.key}
+          badge={badge}
+          size={25}
+        />
+      ))}
     </View>
   );
 }
+// function UserBadges({ author, s }: { author: any; s: any }) {
+//   const badges: string[] =
+//     author?.displayBadges ??
+//     author?.activeCustomization?.badges ??
+//     author?.badges ??
+//     [];
+
+//   const verificationType: string =
+//     author?.displayVerificationType ??
+//     author?.activeCustomization?.verificationType ??
+//     author?.verificationType ??
+//     "none";
+
+//   const merged: string[] = [
+//     ...(verificationType && verificationType !== "none"
+//       ? [verificationType]
+//       : []),
+//     ...badges,
+//   ];
+
+//   const unique = Array.from(new Set(merged)).filter((k) => BADGE_META[k]);
+//   if (!unique.length) return null;
+
+//   return (
+//     <View style={s.badgesWrap}>
+//       {unique.map((key) => {
+//         const meta = BADGE_META[key];
+
+//         if (key === "blue") {
+//           return (
+//             <Ionicons
+//               key={key}
+//               name={meta.icon as any}
+//               size={14}
+//               color={meta.fg}
+//               style={{ marginLeft: 6 }}
+//             />
+//           );
+//         }
+
+//         return (
+//           <View key={key} style={[s.badgePill, { backgroundColor: meta.bg }]}>
+//             {meta.iconType === "ion" && meta.icon ? (
+//               <Ionicons
+//                 name={meta.icon as any}
+//                 size={12}
+//                 color={meta.fg}
+//                 style={{ marginRight: meta.label ? 4 : 0 }}
+//               />
+//             ) : meta.icon ? (
+//               <Text style={{ marginRight: meta.label ? 4 : 0 }}>
+//                 {meta.icon}
+//               </Text>
+//             ) : null}
+
+//             {meta.label ? (
+//               <Text style={[s.badgeText, { color: meta.fg }]}>
+//                 {meta.label}
+//               </Text>
+//             ) : null}
+//           </View>
+//         );
+//       })}
+//     </View>
+//   );
+// }
 function ImagePreviewModal({
   visible,
   imageUrl,
@@ -597,9 +832,9 @@ export default function TweetsScreen() {
   const { t, language } = useTranslation();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
-const [selectedUser, setSelectedUser] = useState<any>(null);
-const [selectedTweet, setSelectedTweet] = useState<any>(null);
-const [showSheet, setShowSheet] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedTweet, setSelectedTweet] = useState<any>(null);
+  const [showSheet, setShowSheet] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
   const [reportTarget, setReportTarget] = useState<{
@@ -726,17 +961,17 @@ const [showSheet, setShowSheet] = useState(false);
       return;
     }
   };
-const openSheet = (tweet: any) => {
-  setSelectedTweet(tweet);
-  setSelectedUser(tweet?.author || null);
-  setShowSheet(true);
-};
+  const openSheet = (tweet: any) => {
+    setSelectedTweet(tweet);
+    setSelectedUser(tweet?.author || null);
+    setShowSheet(true);
+  };
 
-const closeSheet = () => {
-  setShowSheet(false);
-  setSelectedUser(null);
-  setSelectedTweet(null);
-};
+  const closeSheet = () => {
+    setShowSheet(false);
+    setSelectedUser(null);
+    setSelectedTweet(null);
+  };
   const handleRefresh = async () => {
     setRefreshing(true);
     if (activeTab === "following") {
@@ -784,6 +1019,7 @@ const closeSheet = () => {
       params: { q: cleanHashtag, type: "hashtags" },
     });
   };
+
 
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
@@ -957,17 +1193,17 @@ const closeSheet = () => {
                         ...
                       </TouchableOpacity>
                     )} */}
-                 <TouchableOpacity
-  onPress={() => openSheet(item)}
-  style={s.moreBtn}
-  activeOpacity={0.85}
->
-  <Ionicons
-    name="ellipsis-horizontal"
-    size={18}
-    color={theme.icon}
-  />
-</TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => openSheet(item)}
+                      style={s.moreBtn}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons
+                        name="ellipsis-horizontal"
+                        size={18}
+                        color={theme.icon}
+                      />
+                    </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() =>
                         openReportModal({
@@ -1065,7 +1301,7 @@ const closeSheet = () => {
 
       {showSheet && (
         <View style={s.overlay}>
-     
+
           <TouchableOpacity
             style={{ flex: 1 }}
             activeOpacity={1}
@@ -1080,36 +1316,36 @@ const closeSheet = () => {
                     ? selectedUser.atUsername
                     : `@${selectedUser.atUsername}`}
                 </Text>
-     <TouchableOpacity
-  style={s.sheetItem}
-  activeOpacity={0.9}
-  onPress={() => {
-    if (selectedTweet?._id) {
-      closeSheet();
-      router.push({
-        pathname: "/tweet/[id]",
-        params: { id: selectedTweet._id },
-      });
-    }
-  }}
->
-  <View
-    style={[
-      s.sheetIcon,
-      {
-        backgroundColor: isDark
-          ? "rgba(79,70,229,0.14)"
-          : "rgba(79,70,229,0.10)",
-      },
-    ]}
-  >
-    <Ionicons name="eye-outline" size={18} color="#4F46E5" />
-  </View>
+                <TouchableOpacity
+                  style={s.sheetItem}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    if (selectedTweet?._id) {
+                      closeSheet();
+                      router.push({
+                        pathname: "/tweet/[id]",
+                        params: { id: selectedTweet._id },
+                      });
+                    }
+                  }}
+                >
+                  <View
+                    style={[
+                      s.sheetIcon,
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(79,70,229,0.14)"
+                          : "rgba(79,70,229,0.10)",
+                      },
+                    ]}
+                  >
+                    <Ionicons name="eye-outline" size={18} color="#4F46E5" />
+                  </View>
 
-  <Text style={s.sheetText}>
-    {t("tweetsScreen.viewPost") || "عرض المنشور"}
-  </Text>
-</TouchableOpacity>
+                  <Text style={s.sheetText}>
+                    {t("tweetsScreen.viewPost") || "عرض المنشور"}
+                  </Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={s.sheetItem}
                   onPress={async () => {
@@ -1634,8 +1870,8 @@ function makeStyles(theme: any, isDark: boolean) {
     },
 
     text: {
-      fontSize: 14,
-      lineHeight: 22,
+      fontSize: 13,
+      lineHeight: 20,
       color: theme.text,
       fontWeight: "700",
     },
@@ -1883,12 +2119,17 @@ function makeStyles(theme: any, isDark: boolean) {
       // borderColor: theme.border,
     },
 
-    badgesWrap: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginLeft: 6,
-    },
-
+    // badgesWrap: {
+    //   flexDirection: "row",
+    //   alignItems: "center",
+    //   marginLeft: 6,
+    // },
+badgesWrap: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginLeft: 4,
+  flexWrap: "wrap",
+},
     badgePill: {
       flexDirection: "row",
       alignItems: "center",
@@ -1990,7 +2231,7 @@ function makeStyles(theme: any, isDark: boolean) {
       width: 58,
       height: 58,
       borderRadius: 18,
-  backgroundColor: "#4F46E5",
+      backgroundColor: "#4F46E5",
       justifyContent: "center",
       alignItems: "center",
       ...Platform.select({

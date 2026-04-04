@@ -1,6 +1,7 @@
 
 // redux/slices/authSlice.ts
 
+import { cleanupFCMTokenListener, removeFCMTokenFromBackend } from "@/services/fcm";
 import { isTokenExpired } from "@/utils/token";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
@@ -222,18 +223,38 @@ export const login = createAsyncThunk(
 
 export const logout = createAsyncThunk("auth/logout", async (_, thunkAPI) => {
   try {
+    // ✅ احذف التوكن من المستخدم الحالي قبل مسح auth
+    await removeFCMTokenFromBackend();
+
     try {
       await api.post("/auth/logout");
     } catch {
       // تجاهل فشل logout من السيرفر
     }
 
+    cleanupFCMTokenListener();
+
     await AsyncStorage.multiRemove(["token", "user"]);
+
     return true;
   } catch {
     return thunkAPI.rejectWithValue("Logout failed");
   }
 });
+// export const logout = createAsyncThunk("auth/logout", async (_, thunkAPI) => {
+//   try {
+//     try {
+//       await api.post("/auth/logout");
+//     } catch {
+//       // تجاهل فشل logout من السيرفر
+//     }
+
+//     await AsyncStorage.multiRemove(["token", "user"]);
+//     return true;
+//   } catch {
+//     return thunkAPI.rejectWithValue("Logout failed");
+//   }
+// });
 
 /* =====================================================
    TOGGLE INVISIBLE

@@ -88,7 +88,7 @@ export const translations = {
     welcomeScreen: {
       counterText: "46,023 people found their community",
       googleLogin: "Sign in with Google",
-      phoneLogin: "Sign in with phone",
+      phoneLogin: "Sign in with username",
       or: "Or",
       privacyPrefix: "By tapping to sign in, you confirm that you have read and agree to the",
       userAgreement: "User Agreement",
@@ -1506,7 +1506,7 @@ export const translations = {
     welcomeScreen: {
       counterText: "46,023 شخص وجدوا مجتمعهم",
       googleLogin: "تسجيل الدخول إلى Google",
-      phoneLogin: "تسجيل الدخول باستخدام الهاتف",
+phoneLogin: "تسجيل الدخول باستخدام الاسم",
       or: "Or",
       privacyPrefix: "يعني النقر لتسجيل الدخول أنك قرأت ووافقت",
       userAgreement: "اتفاقية المستخدم",

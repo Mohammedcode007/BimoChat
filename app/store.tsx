@@ -446,25 +446,13 @@ export default function StoreScreen() {
     verificationType: "none",
   };
 useEffect(() => {
-  console.log("==== USER STORE DATA ====");
-  console.log("my:", my);
 
-  console.log("==== ACTIVE BADGES ====");
-  console.log("active.badges:", active?.badges || []);
 
   const ownedBadges =
     (my?.inventory || []).filter((item: any) => item?.itemType === "badge");
 
-  console.log("==== OWNED BADGES FROM INVENTORY ====");
-  console.log("ownedBadges:", ownedBadges);
 
-  console.log(
-    "==== OWNED BADGE KEYS ====",
-    ownedBadges.map((item: any) => item?.itemKey)
-  );
-
-  console.log("==== CUSTOM EMOJI BADGE ====");
-  console.log("customEmojiBadge:", customEmojiBadge);
+    
 }, [my, active, customEmojiBadge]);
   const customBadgeExpired = useMemo(() => {
     return !!customEmojiBadge?.expiresAt && isExpired(customEmojiBadge.expiresAt);
@@ -515,32 +503,59 @@ useEffect(() => {
     ];
     return order.filter((k) => byType[k]?.length).map((k) => ({ type: k, rows: byType[k] }));
   }, [my?.inventory]);
+const filtered = useMemo(() => {
+  if (tab === "coinz") return [];
 
-  const filtered = useMemo(() => {
-    if (tab === "coinz") return [];
+  const query = q.trim().toLowerCase();
 
-    const query = q.trim().toLowerCase();
+  return (items || []).filter((it: any) => {
+    const type = String(it.type || "");
+    const meta = it.meta || {};
 
-    return (items || []).filter((it: any) => {
-      const type = String(it.type || "");
-      const meta = it.meta || {};
+    // اخفاء البادجات من القائمة الرئيسية نهائيا
+    if (type === "badge") return false;
 
-      const okTab =
-        tab === "all"
-          ? true
-          : tab === "bundles"
-            ? String(meta.category || "").toLowerCase() === "bundle"
-            : tab === "limited"
-              ? Boolean(meta.isLimited) === true
-              : type === tab;
+    const okTab =
+      tab === "all"
+        ? true
+        : tab === "bundles"
+          ? String(meta.category || "").toLowerCase() === "bundle"
+          : tab === "limited"
+            ? Boolean(meta.isLimited) === true
+            : type === tab;
 
-      if (!okTab) return false;
+    if (!okTab) return false;
 
-      if (!query) return true;
-      const hay = `${it.name || ""} ${it.key || ""} ${it.description || ""}`.toLowerCase();
-      return hay.includes(query);
-    });
-  }, [items, tab, q]);
+    if (!query) return true;
+    const hay = `${it.name || ""} ${it.key || ""} ${it.description || ""}`.toLowerCase();
+    return hay.includes(query);
+  });
+}, [items, tab, q]);
+  // const filtered = useMemo(() => {
+  //   if (tab === "coinz") return [];
+
+  //   const query = q.trim().toLowerCase();
+
+  //   return (items || []).filter((it: any) => {
+  //     const type = String(it.type || "");
+  //     const meta = it.meta || {};
+
+  //     const okTab =
+  //       tab === "all"
+  //         ? true
+  //         : tab === "bundles"
+  //           ? String(meta.category || "").toLowerCase() === "bundle"
+  //           : tab === "limited"
+  //             ? Boolean(meta.isLimited) === true
+  //             : type === tab;
+
+  //     if (!okTab) return false;
+
+  //     if (!query) return true;
+  //     const hay = `${it.name || ""} ${it.key || ""} ${it.description || ""}`.toLowerCase();
+  //     return hay.includes(query);
+  //   });
+  // }, [items, tab, q]);
 
   const loadAll = useCallback(async () => {
     setTabLoading(true);

@@ -49,7 +49,7 @@ export default function WelcomeScreen() {
   const { colorScheme, themePreference, setThemePreference } = useColorScheme();
 
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
-  const [acceptedPrivacy, setAcceptedPrivacy] = useState(true);
+  const acceptedPrivacy = true;
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const { loading } = useSelector((state: RootState) => state.auth);
@@ -304,25 +304,30 @@ export default function WelcomeScreen() {
               <FontAwesome5 name="tiktok" size={28} color="#fff" />
             </Pressable>
 
-            <Pressable
-              style={styles.privacyRow}
-              onPress={() => setAcceptedPrivacy((prev) => !prev)}
+            <View
+              style={[
+                styles.privacyRow,
+                { flexDirection: language === "ar" ? "row-reverse" : "row" },
+              ]}
             >
-              <View
+           <View
+  style={[
+    styles.checkbox,
+    styles.checkboxDisabled,
+    {
+      backgroundColor: "#fff",
+      borderColor: "#fff",
+    },
+  ]}
+>
+  <Ionicons name="checkmark" size={16} color="#111" />
+</View>
+              <Text
                 style={[
-                  styles.checkbox,
-                  acceptedPrivacy && {
-                    backgroundColor: "#fff",
-                    borderColor: "#fff",
-                  },
+                  styles.privacyText,
+                  { textAlign: language === "ar" ? "right" : "left" },
                 ]}
               >
-                {acceptedPrivacy ? (
-                  <Ionicons name="checkmark" size={16} color="#111" />
-                ) : null}
-              </View>
-
-              <Text style={styles.privacyText}>
                 {t("welcomeScreen.privacyPrefix")}{" "}
                 <Text onPress={openTerms} style={styles.linkText}>
                   {t("welcomeScreen.userAgreement")}
@@ -332,7 +337,7 @@ export default function WelcomeScreen() {
                   {t("welcomeScreen.privacyPolicy")}
                 </Text>
               </Text>
-            </Pressable>
+            </View>
           </View>
         </View>
       </SafeAreaView>
@@ -591,6 +596,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "400",
   },
+  checkboxDisabled: {
+    opacity: 0.95,
+  },
   privacyRow: {
     flexDirection: "row-reverse",
     alignItems: "flex-start",
@@ -613,7 +621,6 @@ const styles = StyleSheet.create({
     color: "#F3F3F3",
     fontSize: 13,
     lineHeight: 20,
-    textAlign: "right",
   },
   linkText: {
     color: "#FFFFFF",
@@ -671,7 +678,7 @@ const styles = StyleSheet.create({
     color: "#111111",
   },
   languageOptionSub: {
-    marginTop: 3,
+    marginTop: 10,
     fontSize: 13,
     fontWeight: "600",
     color: "#6B7280",

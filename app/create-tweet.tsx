@@ -1,5 +1,4 @@
 
-
 // import ProgressRing from "@/components/ProgressRing";
 // import { createTweet } from "@/redux/slices/tweetSlice";
 // import { AppDispatch } from "@/redux/store";
@@ -25,13 +24,19 @@
 // import { useDispatch } from "react-redux";
 
 // const MAX_TWEET_LENGTH = 280;
+// const MAX_IMAGES = 2;
+
+// type MediaItem = {
+//   uri: string;
+//   type: "image" | "video";
+// };
 
 // export default function CreateTweetScreen() {
 //   const dispatch = useDispatch<AppDispatch>();
 //   const router = useRouter();
 
 //   const [content, setContent] = useState("");
-//   const [localMedia, setLocalMedia] = useState<string[]>([]);
+//   const [localMedia, setLocalMedia] = useState<MediaItem[]>([]);
 //   const [loading, setLoading] = useState(false);
 //   const [progress, setProgress] = useState(0);
 
@@ -47,19 +52,102 @@
 //     return Math.min((content.length / MAX_TWEET_LENGTH) * 100, 100);
 //   }, [content.length]);
 
-//   const pickMedia = async () => {
+//   const hasImages = useMemo(
+//     () => localMedia.some((item) => item.type === "image"),
+//     [localMedia]
+//   );
+
+//   const hasVideo = useMemo(
+//     () => localMedia.some((item) => item.type === "video"),
+//     [localMedia]
+//   );
+
+//   const imageCount = useMemo(
+//     () => localMedia.filter((item) => item.type === "image").length,
+//     [localMedia]
+//   );
+
+//   const requestMediaPermission = async () => {
+//     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+//     if (!permission.granted) {
+//       Alert.alert("تنبيه", "يجب السماح بالوصول إلى الصور والفيديو أولاً");
+//       return false;
+//     }
+
+//     return true;
+//   };
+
+//   const pickImages = async () => {
 //     try {
+//       const granted = await requestMediaPermission();
+//       if (!granted) return;
+
+//       if (hasVideo) {
+//         Alert.alert("تنبيه", "لا يمكن إضافة صور مع وجود فيديو. احذف الفيديو أولاً.");
+//         return;
+//       }
+
+//       if (imageCount >= MAX_IMAGES) {
+//         Alert.alert("تنبيه", `الحد الأقصى للصور هو ${MAX_IMAGES}`);
+//         return;
+//       }
+
+//       const remainingSlots = MAX_IMAGES - imageCount;
+
 //       const result = await ImagePicker.launchImageLibraryAsync({
-//         mediaTypes: ImagePicker.MediaTypeOptions.All,
+//         mediaTypes: ImagePicker.MediaTypeOptions.Images,
+//         quality: 0.8,
+//         allowsMultipleSelection: true,
+//         selectionLimit: remainingSlots,
+//       });
+
+//       if (!result.canceled && result.assets?.length > 0) {
+//         const selectedImages: MediaItem[] = result.assets
+//           .slice(0, remainingSlots)
+//           .map((asset) => ({
+//             uri: asset.uri,
+//             type: "image",
+//           }));
+
+//         setLocalMedia((prev) => [...prev, ...selectedImages]);
+//       }
+//     } catch (error) {
+//       Alert.alert("Error", "Failed to pick images");
+//     }
+//   };
+
+//   const pickVideo = async () => {
+//     try {
+//       const granted = await requestMediaPermission();
+//       if (!granted) return;
+
+//       if (hasImages) {
+//         Alert.alert("تنبيه", "لا يمكن إضافة فيديو مع وجود صور. احذف الصور أولاً.");
+//         return;
+//       }
+
+//       if (hasVideo) {
+//         Alert.alert("تنبيه", "يمكن رفع فيديو واحد فقط.");
+//         return;
+//       }
+
+//       const result = await ImagePicker.launchImageLibraryAsync({
+//         mediaTypes: ImagePicker.MediaTypeOptions.Videos,
 //         quality: 0.8,
 //         allowsMultipleSelection: false,
 //       });
 
 //       if (!result.canceled && result.assets?.length > 0) {
-//         setLocalMedia((prev) => [...prev, result.assets[0].uri]);
+//         setLocalMedia([
+//           {
+//             uri: result.assets[0].uri,
+//             type: "video",
+//           },
+//         ]);
 //       }
 //     } catch (error) {
-//       Alert.alert("Error", "Failed to pick media");
+//       Alert.alert("Error", "Failed to pick video");
 //     }
 //   };
 
@@ -67,12 +155,7 @@
 //     setLocalMedia((prev) => prev.filter((_, index) => index !== indexToRemove));
 //   };
 
-//   const isVideo = (url: string) => {
-//     return /\.(mp4|mov|m4v|webm)$/i.test(url);
-//   };
-
 //   const handleContentChange = (text: string) => {
-//     // حماية إضافية بجانب maxLength
 //     if (text.length <= MAX_TWEET_LENGTH) {
 //       setContent(text);
 //     }
@@ -86,19 +169,21 @@
 //       setProgress(0);
 
 //       const total = localMedia.length;
-//       let completed = 0;
 //       let uploadedUrls: string[] = [];
 
 //       if (total > 0) {
-//         const uploadPromises = localMedia.map(async (uri) => {
-//           const type = isVideo(uri) ? "video" : "image";
-//           const url = await uploadToCloudinary(uri, type);
+//         const progresses = new Array(total).fill(0);
 
-//           completed++;
-//           setProgress((completed / total) * 100);
+//  const uploadPromises = localMedia.map((item, index) =>
+//   uploadToCloudinary(item.uri, item.type, (fileProgress) => {
+//     progresses[index] = Math.min(100, Math.max(0, fileProgress));
 
-//           return url;
-//         });
+//     const overallProgress =
+//       progresses.reduce((sum, value) => sum + value, 0) / total;
+
+//     setProgress(Math.min(100, Math.max(0, overallProgress)));
+//   })
+// );
 
 //         uploadedUrls = await Promise.all(uploadPromises);
 //       }
@@ -121,7 +206,6 @@
 
 //   return (
 //     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-//       {/* Header */}
 //       <View style={styles.header}>
 //         <TouchableOpacity
 //           onPress={() => router.back()}
@@ -153,7 +237,6 @@
 //         contentContainerStyle={styles.scrollContent}
 //         showsVerticalScrollIndicator={false}
 //       >
-//         {/* Composer Card */}
 //         <View style={styles.composerCard}>
 //           <View style={styles.composerTop}>
 //             <View style={styles.avatarMock}>
@@ -207,17 +290,17 @@
 
 //           {localMedia.length > 0 && (
 //             <View style={styles.mediaContainer}>
-//               {localMedia.map((url, index) => (
-//                 <View key={`${url}-${index}`} style={styles.mediaWrapper}>
-//                   {isVideo(url) ? (
+//               {localMedia.map((item, index) => (
+//                 <View key={`${item.uri}-${index}`} style={styles.mediaWrapper}>
+//                   {item.type === "video" ? (
 //                     <Video
-//                       source={{ uri: url }}
+//                       source={{ uri: item.uri }}
 //                       style={styles.media}
 //                       resizeMode={ResizeMode.COVER}
 //                       useNativeControls
 //                     />
 //                   ) : (
-//                     <Image source={{ uri: url }} style={styles.media} />
+//                     <Image source={{ uri: item.uri }} style={styles.media} />
 //                   )}
 
 //                   <LinearGradient
@@ -237,19 +320,42 @@
 //             </View>
 //           )}
 
-//           <View style={styles.actionsRow}>
-//             <TouchableOpacity
-//               style={styles.actionBtn}
-//               onPress={pickMedia}
-//               activeOpacity={0.85}
-//             >
-//               <Ionicons name="image-outline" size={20} color="#2563EB" />
-//               <Text style={styles.actionText}>إضافة صورة أو فيديو</Text>
-//             </TouchableOpacity>
+//           <View style={styles.actionsColumn}>
+//             <View style={styles.mediaButtonsRow}>
+//               <TouchableOpacity
+//                 style={[
+//                   styles.actionBtn,
+//                   hasVideo && styles.actionBtnDisabledSoft,
+//                 ]}
+//                 onPress={pickImages}
+//                 activeOpacity={0.85}
+//                 disabled={hasVideo || loading}
+//               >
+//                 <Ionicons name="images-outline" size={20} color="#2563EB" />
+//                 <Text style={styles.actionText}>
+//                   إضافة صور {imageCount > 0 ? `(${imageCount}/${MAX_IMAGES})` : ""}
+//                 </Text>
+//               </TouchableOpacity>
+
+//               <TouchableOpacity
+//                 style={[
+//                   styles.actionBtn,
+//                   hasImages && styles.actionBtnDisabledSoft,
+//                 ]}
+//                 onPress={pickVideo}
+//                 activeOpacity={0.85}
+//                 disabled={hasImages || loading}
+//               >
+//                 <Ionicons name="videocam-outline" size={20} color="#2563EB" />
+//                 <Text style={styles.actionText}>إضافة فيديو</Text>
+//               </TouchableOpacity>
+//             </View>
 
 //             <View style={styles.limitInfo}>
-//               <Ionicons name="create-outline" size={16} color="#6B7280" />
-//               <Text style={styles.limitInfoText}>الحد الأقصى 280 حرفًا</Text>
+//               <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
+//               <Text style={styles.limitInfoText}>
+//                 يمكنك رفع حتي 2  صور أو فيديو واحد فقط
+//               </Text>
 //             </View>
 //           </View>
 //         </View>
@@ -259,7 +365,9 @@
 //         <View style={styles.overlay}>
 //           <View style={styles.loadingCard}>
 //             <ProgressRing progress={progress} />
-//             <Text style={styles.loadingText}>جاري رفع المنشور...</Text>
+//             <Text style={styles.loadingText}>
+//               جاري رفع المنشور... {Math.round(progress)}%
+//             </Text>
 //           </View>
 //         </View>
 //       )}
@@ -466,13 +574,15 @@
 //     justifyContent: "center",
 //   },
 
-//   actionsRow: {
+//   actionsColumn: {
 //     marginTop: 16,
-//     flexDirection: "row",
-//     justifyContent: "space-between",
-//     alignItems: "center",
 //     gap: 12,
+//   },
+
+//   mediaButtonsRow: {
+//     flexDirection: "row",
 //     flexWrap: "wrap",
+//     gap: 10,
 //   },
 
 //   actionBtn: {
@@ -483,6 +593,10 @@
 //     borderRadius: 16,
 //     paddingHorizontal: 14,
 //     paddingVertical: 11,
+//   },
+
+//   actionBtnDisabledSoft: {
+//     opacity: 0.5,
 //   },
 
 //   actionText: {
@@ -537,6 +651,8 @@
 //   },
 // });
 import ProgressRing from "@/components/ProgressRing";
+import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { createTweet } from "@/redux/slices/tweetSlice";
 import { AppDispatch } from "@/redux/store";
 import { uploadToCloudinary } from "@/services/upload.service";
@@ -572,6 +688,10 @@ export default function CreateTweetScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
 
+  const { colorScheme } = useColorScheme();
+  const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
+  const isDark = colorScheme === "dark";
+
   const [content, setContent] = useState("");
   const [localMedia, setLocalMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -603,6 +723,8 @@ export default function CreateTweetScreen() {
     () => localMedia.filter((item) => item.type === "image").length,
     [localMedia]
   );
+
+  const styles = useMemo(() => makeStyles(theme, isDark), [theme, isDark]);
 
   const requestMediaPermission = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -706,18 +828,21 @@ export default function CreateTweetScreen() {
       setProgress(0);
 
       const total = localMedia.length;
-      let completed = 0;
       let uploadedUrls: string[] = [];
 
       if (total > 0) {
-        const uploadPromises = localMedia.map(async (item) => {
-          const url = await uploadToCloudinary(item.uri, item.type);
+        const progresses = new Array(total).fill(0);
 
-          completed++;
-          setProgress((completed / total) * 100);
+        const uploadPromises = localMedia.map((item, index) =>
+          uploadToCloudinary(item.uri, item.type, (fileProgress: number) => {
+            progresses[index] = Math.min(100, Math.max(0, fileProgress));
 
-          return url;
-        });
+            const overallProgress =
+              progresses.reduce((sum, value) => sum + value, 0) / total;
+
+            setProgress(Math.min(100, Math.max(0, overallProgress)));
+          })
+        );
 
         uploadedUrls = await Promise.all(uploadPromises);
       }
@@ -739,28 +864,56 @@ export default function CreateTweetScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      <View style={styles.header}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      edges={["top", "bottom"]}
+    >
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: theme.background,
+            borderBottomColor: theme.separator,
+          },
+        ]}
+      >
         <TouchableOpacity
           onPress={() => router.back()}
-          style={styles.headerIconBtn}
+          style={[
+            styles.headerIconBtn,
+            {
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+            },
+          ]}
           activeOpacity={0.85}
         >
-          <Ionicons name="close" size={22} color="#111827" />
+          <Ionicons name="close" size={22} color={theme.text} />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>إنشاء منشور</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>
+          إنشاء منشور
+        </Text>
 
         <TouchableOpacity
-          style={[styles.postBtn, !canPost && styles.postBtnDisabled]}
+          style={[
+            styles.postBtn,
+            { backgroundColor: theme.primary },
+            !canPost && [
+              styles.postBtnDisabled,
+              { backgroundColor: theme.disabledBg },
+            ],
+          ]}
           onPress={handleCreate}
           disabled={!canPost}
           activeOpacity={0.9}
         >
           {loading ? (
-            <ActivityIndicator color="#FFF" size="small" />
+            <ActivityIndicator color={theme.primaryText} size="small" />
           ) : (
-            <Text style={styles.postText}>نشر</Text>
+            <Text style={[styles.postText, { color: theme.primaryText }]}>
+              نشر
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -771,33 +924,54 @@ export default function CreateTweetScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.composerCard}>
+        <View
+          style={[
+            styles.composerCard,
+            {
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+            },
+          ]}
+        >
           <View style={styles.composerTop}>
-            <View style={styles.avatarMock}>
-              <Ionicons name="person" size={22} color="#fff" />
+            <View
+              style={[
+                styles.avatarMock,
+                { backgroundColor: theme.primary },
+              ]}
+            >
+              <Ionicons name="person" size={22} color={theme.primaryText} />
             </View>
 
             <View style={styles.inputArea}>
               <TextInput
                 placeholder="ماذا يحدث الآن؟"
                 multiline
-                style={styles.input}
+                style={[styles.input, { color: theme.text }]}
                 value={content}
                 onChangeText={handleContentChange}
                 maxLength={MAX_TWEET_LENGTH}
                 textAlignVertical="top"
-                placeholderTextColor="#9CA3AF"
-                selectionColor="#2563EB"
+                placeholderTextColor={theme.mutedText}
+                selectionColor={theme.primary}
               />
 
               <View style={styles.counterRow}>
                 <View style={styles.counterLeft}>
-                  <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressTrack,
+                      { backgroundColor: theme.surface2 },
+                    ]}
+                  >
                     <View
                       style={[
                         styles.progressFill,
-                        { width: `${progressPercent}%` },
-                        content.length >= 240 && styles.progressFillWarning,
+                        { width: `${progressPercent}%`, backgroundColor: theme.primary },
+                        content.length >= 240 && [
+                          styles.progressFillWarning,
+                          { backgroundColor: theme.warning },
+                        ],
                       ]}
                     />
                   </View>
@@ -806,13 +980,25 @@ export default function CreateTweetScreen() {
                 <View
                   style={[
                     styles.counterBadge,
-                    content.length >= 240 && styles.counterBadgeWarning,
+                    { backgroundColor: theme.primarySoft },
+                    content.length >= 240 && [
+                      styles.counterBadgeWarning,
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(245, 158, 11, 0.18)"
+                          : "#FFF7ED",
+                      },
+                    ],
                   ]}
                 >
                   <Text
                     style={[
                       styles.counterText,
-                      content.length >= 240 && styles.counterTextWarning,
+                      { color: theme.primary },
+                      content.length >= 240 && [
+                        styles.counterTextWarning,
+                        { color: theme.warning },
+                      ],
                     ]}
                   >
                     {remainingChars}
@@ -825,7 +1011,13 @@ export default function CreateTweetScreen() {
           {localMedia.length > 0 && (
             <View style={styles.mediaContainer}>
               {localMedia.map((item, index) => (
-                <View key={`${item.uri}-${index}`} style={styles.mediaWrapper}>
+                <View
+                  key={`${item.uri}-${index}`}
+                  style={[
+                    styles.mediaWrapper,
+                    { backgroundColor: theme.surface2 },
+                  ]}
+                >
                   {item.type === "video" ? (
                     <Video
                       source={{ uri: item.uri }}
@@ -843,7 +1035,14 @@ export default function CreateTweetScreen() {
                   />
 
                   <TouchableOpacity
-                    style={styles.removeMediaBtn}
+                    style={[
+                      styles.removeMediaBtn,
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(15,23,42,0.82)"
+                          : "rgba(17,24,39,0.75)",
+                      },
+                    ]}
                     onPress={() => removeMedia(index)}
                     activeOpacity={0.85}
                   >
@@ -859,14 +1058,18 @@ export default function CreateTweetScreen() {
               <TouchableOpacity
                 style={[
                   styles.actionBtn,
+                  {
+                    backgroundColor: theme.primarySoft,
+                    borderColor: theme.border,
+                  },
                   hasVideo && styles.actionBtnDisabledSoft,
                 ]}
                 onPress={pickImages}
                 activeOpacity={0.85}
                 disabled={hasVideo || loading}
               >
-                <Ionicons name="images-outline" size={20} color="#2563EB" />
-                <Text style={styles.actionText}>
+                <Ionicons name="images-outline" size={20} color={theme.primary} />
+                <Text style={[styles.actionText, { color: theme.primary }]}>
                   إضافة صور {imageCount > 0 ? `(${imageCount}/${MAX_IMAGES})` : ""}
                 </Text>
               </TouchableOpacity>
@@ -874,21 +1077,35 @@ export default function CreateTweetScreen() {
               <TouchableOpacity
                 style={[
                   styles.actionBtn,
+                  {
+                    backgroundColor: theme.primarySoft,
+                    borderColor: theme.border,
+                  },
                   hasImages && styles.actionBtnDisabledSoft,
                 ]}
                 onPress={pickVideo}
                 activeOpacity={0.85}
                 disabled={hasImages || loading}
               >
-                <Ionicons name="videocam-outline" size={20} color="#2563EB" />
-                <Text style={styles.actionText}>إضافة فيديو</Text>
+                <Ionicons
+                  name="videocam-outline"
+                  size={20}
+                  color={theme.primary}
+                />
+                <Text style={[styles.actionText, { color: theme.primary }]}>
+                  إضافة فيديو
+                </Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.limitInfo}>
-              <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
-              <Text style={styles.limitInfoText}>
-                يمكنك رفع حتى 4 صور أو فيديو واحد فقط
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color={theme.mutedText}
+              />
+              <Text style={[styles.limitInfoText, { color: theme.mutedText }]}>
+                يمكنك رفع حتى 2 صور أو فيديو واحد فقط
               </Text>
             </View>
           </View>
@@ -896,10 +1113,29 @@ export default function CreateTweetScreen() {
       </ScrollView>
 
       {loading && (
-        <View style={styles.overlay}>
-          <View style={styles.loadingCard}>
+        <View
+          style={[
+            styles.overlay,
+            {
+              backgroundColor: isDark
+                ? "rgba(11,18,32,0.82)"
+                : "rgba(255,255,255,0.8)",
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.loadingCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+              },
+            ]}
+          >
             <ProgressRing progress={progress} />
-            <Text style={styles.loadingText}>جاري رفع المنشور...</Text>
+            <Text style={[styles.loadingText, { color: theme.text }]}>
+              جاري رفع المنشور... {Math.round(progress)}%
+            </Text>
           </View>
         </View>
       )}
@@ -907,278 +1143,257 @@ export default function CreateTweetScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-  },
+function makeStyles(theme: any, isDark: boolean) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
 
-  scroll: {
-    flex: 1,
-  },
+    scroll: {
+      flex: 1,
+    },
 
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-  },
+    scrollContent: {
+      paddingHorizontal: 16,
+      paddingBottom: 24,
+    },
 
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#F8FAFC",
-  },
+    header: {
+      paddingHorizontal: 16,
+      paddingTop: 6,
+      paddingBottom: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      borderBottomWidth: 1,
+    },
 
-  headerIconBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
+    headerIconBtn: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      shadowColor: "#000",
+      shadowOpacity: isDark ? 0.22 : 0.06,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
+    },
 
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+    },
 
-  postBtn: {
-    minWidth: 84,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#2563EB",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 18,
-    shadowColor: "#2563EB",
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
+    postBtn: {
+      minWidth: 84,
+      height: 42,
+      borderRadius: 21,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 18,
+      shadowColor: theme.primary,
+      shadowOpacity: isDark ? 0.18 : 0.22,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
+    },
 
-  postBtnDisabled: {
-    backgroundColor: "#93C5FD",
-    shadowOpacity: 0,
-    elevation: 0,
-  },
+    postBtnDisabled: {
+      shadowOpacity: 0,
+      elevation: 0,
+    },
 
-  postText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-  },
+    postText: {
+      fontSize: 15,
+      fontWeight: "700",
+    },
 
-  composerCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-    marginTop: 8,
-  },
+    composerCard: {
+      borderRadius: 24,
+      padding: 16,
+      borderWidth: 1,
+      shadowColor: "#000",
+      shadowOpacity: isDark ? 0.16 : 0.06,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
+      marginTop: 8,
+    },
 
-  composerTop: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
+    composerTop: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+    },
 
-  avatarMock: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#3B82F6",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 4,
-  },
+    avatarMock: {
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 4,
+    },
 
-  inputArea: {
-    flex: 1,
-  },
+    inputArea: {
+      flex: 1,
+    },
 
-  input: {
-    fontSize: 18,
-    minHeight: 150,
-    color: "#111827",
-    paddingTop: 6,
-    lineHeight: 28,
-  },
+    input: {
+      fontSize: 18,
+      minHeight: 150,
+      paddingTop: 6,
+      lineHeight: 28,
+    },
 
-  counterRow: {
-    marginTop: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
+    counterRow: {
+      marginTop: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+    },
 
-  counterLeft: {
-    flex: 1,
-  },
+    counterLeft: {
+      flex: 1,
+    },
 
-  progressTrack: {
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: "#E5E7EB",
-    overflow: "hidden",
-  },
+    progressTrack: {
+      height: 8,
+      borderRadius: 999,
+      overflow: "hidden",
+    },
 
-  progressFill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: "#2563EB",
-  },
+    progressFill: {
+      height: "100%",
+      borderRadius: 999,
+    },
 
-  progressFillWarning: {
-    backgroundColor: "#F59E0B",
-  },
+    progressFillWarning: {},
 
-  counterBadge: {
-    minWidth: 52,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: "#EFF6FF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    counterBadge: {
+      minWidth: 52,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 999,
+      alignItems: "center",
+      justifyContent: "center",
+    },
 
-  counterBadgeWarning: {
-    backgroundColor: "#FFF7ED",
-  },
+    counterBadgeWarning: {},
 
-  counterText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#2563EB",
-  },
+    counterText: {
+      fontSize: 13,
+      fontWeight: "700",
+    },
 
-  counterTextWarning: {
-    color: "#D97706",
-  },
+    counterTextWarning: {},
 
-  mediaContainer: {
-    marginTop: 16,
-    gap: 12,
-  },
+    mediaContainer: {
+      marginTop: 16,
+      gap: 12,
+    },
 
-  mediaWrapper: {
-    position: "relative",
-    borderRadius: 20,
-    overflow: "hidden",
-    backgroundColor: "#F3F4F6",
-  },
+    mediaWrapper: {
+      position: "relative",
+      borderRadius: 20,
+      overflow: "hidden",
+    },
 
-  media: {
-    width: "100%",
-    height: 260,
-    backgroundColor: "#E5E7EB",
-  },
+    media: {
+      width: "100%",
+      height: 260,
+    },
 
-  mediaOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
+    mediaOverlay: {
+      ...StyleSheet.absoluteFillObject,
+    },
 
-  removeMediaBtn: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(17,24,39,0.75)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    removeMediaBtn: {
+      position: "absolute",
+      top: 12,
+      right: 12,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
+    },
 
-  actionsColumn: {
-    marginTop: 16,
-    gap: 12,
-  },
+    actionsColumn: {
+      marginTop: 16,
+      gap: 12,
+    },
 
-  mediaButtonsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
+    mediaButtonsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 10,
+    },
 
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#EFF6FF",
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
+    actionBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      borderRadius: 16,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      borderWidth: 1,
+    },
 
-  actionBtnDisabledSoft: {
-    opacity: 0.5,
-  },
+    actionBtnDisabledSoft: {
+      opacity: 0.5,
+    },
 
-  actionText: {
-    color: "#2563EB",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+    actionText: {
+      fontSize: 14,
+      fontWeight: "600",
+    },
 
-  limitInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
+    limitInfo: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
 
-  limitInfoText: {
-    fontSize: 13,
-    color: "#6B7280",
-  },
+    limitInfoText: {
+      fontSize: 13,
+    },
 
-  overlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(255,255,255,0.8)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
+    overlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 24,
+    },
 
-  loadingCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    paddingHorizontal: 28,
-    paddingVertical: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 210,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
+    loadingCard: {
+      borderRadius: 24,
+      paddingHorizontal: 28,
+      paddingVertical: 24,
+      alignItems: "center",
+      justifyContent: "center",
+      minWidth: 210,
+      borderWidth: 1,
+      shadowColor: "#000",
+      shadowOpacity: isDark ? 0.18 : 0.08,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
+    },
 
-  loadingText: {
-    marginTop: 14,
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
-  },
-});
+    loadingText: {
+      marginTop: 14,
+      fontSize: 15,
+      fontWeight: "600",
+    },
+  });
+}

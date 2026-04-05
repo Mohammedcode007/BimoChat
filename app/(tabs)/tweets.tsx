@@ -836,7 +836,10 @@ export default function TweetsScreen() {
   const [selectedTweet, setSelectedTweet] = useState<any>(null);
   const [showSheet, setShowSheet] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-
+const [followingPage, setFollowingPage] = useState(1);
+const [forYouPage, setForYouPage] = useState(1);
+const [loadingMore, setLoadingMore] = useState(false);
+const [onEndReachedCalledDuringMomentum, setOnEndReachedCalledDuringMomentum] = useState(false);
   const [reportTarget, setReportTarget] = useState<{
     targetType: "user" | "tweet";
     targetId: string;
@@ -899,10 +902,12 @@ export default function TweetsScreen() {
     [rawFeed]
   );
 
-  useEffect(() => {
-    dispatch(getFollowingFeed({ page: 1 }));
-    dispatch(getForYouFeed({ page: 1 }));
-  }, [dispatch]);
+useEffect(() => {
+  setFollowingPage(1);
+  setForYouPage(1);
+  dispatch(getFollowingFeed({ page: 1 }));
+  dispatch(getForYouFeed({ page: 1 }));
+}, [dispatch]);
   useEffect(() => {
     if (reportSuccess) {
       Alert.alert("تم", "تم إرسال البلاغ بنجاح");
@@ -972,15 +977,19 @@ export default function TweetsScreen() {
     setSelectedUser(null);
     setSelectedTweet(null);
   };
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    if (activeTab === "following") {
-      await dispatch(getFollowingFeed({ page: 1 }));
-    } else {
-      await dispatch(getForYouFeed({ page: 1 }));
-    }
-    setRefreshing(false);
-  };
+const handleRefresh = async () => {
+  setRefreshing(true);
+
+  if (activeTab === "following") {
+    setFollowingPage(1);
+    await dispatch(getFollowingFeed({ page: 1 }));
+  } else {
+    setForYouPage(1);
+    await dispatch(getForYouFeed({ page: 1 }));
+  }
+
+  setRefreshing(false);
+};
   const openImagePreview = (url: string) => {
     setPreviewImage(url);
     setShowImageModal(true);
@@ -990,15 +999,47 @@ export default function TweetsScreen() {
     setShowImageModal(false);
     setPreviewImage(null);
   };
-  const handleLoadMore = () => {
-    if (loading) return;
+const PAGE_SIZE = 10; // أو نفس limit الموجود في الباك
+
+const handleLoadMore = async () => {
+  if (loading || loadingMore) return;
+
+  // لو البيانات الحالية أقل من حجم الصفحة، غالبًا لا يوجد المزيد
+  if ((uniqueFeed?.length || 0) < PAGE_SIZE) return;
+
+  try {
+    setLoadingMore(true);
 
     if (activeTab === "following") {
-      dispatch(getFollowingFeed({ page: 2 }));
+      const nextPage = followingPage + 1;
+      const resultAction = await dispatch(getFollowingFeed({ page: nextPage }));
+
+      if (getFollowingFeed.fulfilled.match(resultAction)) {
+        const newItems = resultAction.payload || [];
+
+        // لو رجع بيانات فعلًا زوّد الصفحة
+        if (Array.isArray(newItems) && newItems.length > 0) {
+          setFollowingPage(nextPage);
+        }
+      }
     } else {
-      dispatch(getForYouFeed({ page: 2 }));
+      const nextPage = forYouPage + 1;
+      const resultAction = await dispatch(getForYouFeed({ page: nextPage }));
+
+      if (getForYouFeed.fulfilled.match(resultAction)) {
+        const newItems = resultAction.payload || [];
+
+        if (Array.isArray(newItems) && newItems.length > 0) {
+          setForYouPage(nextPage);
+        }
+      }
     }
-  };
+  } catch (error) {
+    console.log("handleLoadMore error", error);
+  } finally {
+    setLoadingMore(false);
+  }
+};
 
   const openTweet = (tweet: any) => {
     router.push({ pathname: "/tweet/[id]", params: { id: tweet._id } });
@@ -1027,44 +1068,52 @@ export default function TweetsScreen() {
         <TabButton
           title={t("tweetsScreen.followingTab")}
           active={activeTab === "following"}
-          onPress={() => {
-            setActiveTab("following");
-            dispatch(getFollowingFeed({ page: 1 }));
-          }}
+     onPress={() => {
+  setActiveTab("following");
+  setFollowingPage(1);
+  dispatch(getFollowingFeed({ page: 1 }));
+}}
           s={s}
         />
         <TabButton
           title={t("tweetsScreen.forYouTab")}
           active={activeTab === "foryou"}
-          onPress={() => {
-            setActiveTab("foryou");
-            dispatch(getForYouFeed({ page: 1 }));
-          }}
+     onPress={() => {
+  setActiveTab("foryou");
+  setForYouPage(1);
+  dispatch(getForYouFeed({ page: 1 }));
+}}
           s={s}
         />
       </View>
 
       <FlatList
-        data={uniqueFeed}
-        extraData={language}
-        keyExtractor={(item: any, index: number) => {
-          const id = item?._id ?? item?.id ?? "item";
-          return `${String(id)}-${index}`;
-        }}
-        showsVerticalScrollIndicator={false}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        onScrollBeginDrag={onScrollBeginDrag}
-        onScroll={onScroll}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        ListFooterComponent={
-          loading ? (
-            <ActivityIndicator style={{ margin: 16 }} color={theme.tint} />
-          ) : null
-        }
-        contentContainerStyle={{ paddingBottom: 120 }}
+       data={uniqueFeed}
+  extraData={language}
+  keyExtractor={(item: any, index: number) => {
+    const id = item?._id ?? item?.id ?? "item";
+    return `${String(id)}-${index}`;
+  }}
+  showsVerticalScrollIndicator={false}
+  onEndReachedThreshold={0.2}
+  onMomentumScrollBegin={() => setOnEndReachedCalledDuringMomentum(false)}
+  onEndReached={() => {
+    if (!onEndReachedCalledDuringMomentum) {
+      handleLoadMore();
+      setOnEndReachedCalledDuringMomentum(true);
+    }
+  }}
+  onScrollBeginDrag={onScrollBeginDrag}
+  onScroll={onScroll}
+  refreshControl={
+    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+  }
+  ListFooterComponent={
+    loadingMore ? (
+      <ActivityIndicator style={{ margin: 16 }} color={theme.tint} />
+    ) : null
+  }
+  contentContainerStyle={{ paddingBottom: 120 }}
         renderItem={({ item }: any) => {
           const isOwnTweet = item?.author?._id === user?._id;
 

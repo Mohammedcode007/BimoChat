@@ -835,11 +835,11 @@ export default function TweetsScreen() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [selectedTweet, setSelectedTweet] = useState<any>(null);
   const [showSheet, setShowSheet] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
-const [followingPage, setFollowingPage] = useState(1);
-const [forYouPage, setForYouPage] = useState(1);
-const [loadingMore, setLoadingMore] = useState(false);
-const [onEndReachedCalledDuringMomentum, setOnEndReachedCalledDuringMomentum] = useState(false);
+  const [sheetMode, setSheetMode] = useState<"menu" | "report">("menu");
+  const [followingPage, setFollowingPage] = useState(1);
+  const [forYouPage, setForYouPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [onEndReachedCalledDuringMomentum, setOnEndReachedCalledDuringMomentum] = useState(false);
   const [reportTarget, setReportTarget] = useState<{
     targetType: "user" | "tweet";
     targetId: string;
@@ -902,19 +902,16 @@ const [onEndReachedCalledDuringMomentum, setOnEndReachedCalledDuringMomentum] = 
     [rawFeed]
   );
 
-useEffect(() => {
-  setFollowingPage(1);
-  setForYouPage(1);
-  dispatch(getFollowingFeed({ page: 1 }));
-  dispatch(getForYouFeed({ page: 1 }));
-}, [dispatch]);
+  useEffect(() => {
+    setFollowingPage(1);
+    setForYouPage(1);
+    dispatch(getFollowingFeed({ page: 1 }));
+    dispatch(getForYouFeed({ page: 1 }));
+  }, [dispatch]);
   useEffect(() => {
     if (reportSuccess) {
       Alert.alert("تم", "تم إرسال البلاغ بنجاح");
-      setShowReportModal(false);
-      setReportTarget(null);
-      setSelectedReasonLocal(null);
-      setReportDetailsLocal("");
+      closeSheet();
       dispatch(clearReportSuccess());
       dispatch(resetReportForm());
     }
@@ -926,7 +923,7 @@ useEffect(() => {
       dispatch(clearReportError());
     }
   }, [reportError, dispatch]);
-  const openReportModal = (target: {
+  const openReportInSheet = (target: {
     targetType: "user" | "tweet";
     targetId: string;
     label?: string;
@@ -934,12 +931,11 @@ useEffect(() => {
     setReportTarget(target);
     setSelectedReasonLocal(null);
     setReportDetailsLocal("");
-    setShowReportModal(true);
-    closeSheet();
+    setSheetMode("report");
   };
 
-  const closeReportModal = () => {
-    setShowReportModal(false);
+  const backToMenu = () => {
+    setSheetMode("menu");
     setReportTarget(null);
     setSelectedReasonLocal(null);
     setReportDetailsLocal("");
@@ -969,27 +965,32 @@ useEffect(() => {
   const openSheet = (tweet: any) => {
     setSelectedTweet(tweet);
     setSelectedUser(tweet?.author || null);
+    setSheetMode("menu");
     setShowSheet(true);
   };
 
   const closeSheet = () => {
     setShowSheet(false);
+    setSheetMode("menu");
     setSelectedUser(null);
     setSelectedTweet(null);
+    setReportTarget(null);
+    setSelectedReasonLocal(null);
+    setReportDetailsLocal("");
   };
-const handleRefresh = async () => {
-  setRefreshing(true);
+  const handleRefresh = async () => {
+    setRefreshing(true);
 
-  if (activeTab === "following") {
-    setFollowingPage(1);
-    await dispatch(getFollowingFeed({ page: 1 }));
-  } else {
-    setForYouPage(1);
-    await dispatch(getForYouFeed({ page: 1 }));
-  }
+    if (activeTab === "following") {
+      setFollowingPage(1);
+      await dispatch(getFollowingFeed({ page: 1 }));
+    } else {
+      setForYouPage(1);
+      await dispatch(getForYouFeed({ page: 1 }));
+    }
 
-  setRefreshing(false);
-};
+    setRefreshing(false);
+  };
   const openImagePreview = (url: string) => {
     setPreviewImage(url);
     setShowImageModal(true);
@@ -999,47 +1000,47 @@ const handleRefresh = async () => {
     setShowImageModal(false);
     setPreviewImage(null);
   };
-const PAGE_SIZE = 10; // أو نفس limit الموجود في الباك
+  const PAGE_SIZE = 10; // أو نفس limit الموجود في الباك
 
-const handleLoadMore = async () => {
-  if (loading || loadingMore) return;
+  const handleLoadMore = async () => {
+    if (loading || loadingMore) return;
 
-  // لو البيانات الحالية أقل من حجم الصفحة، غالبًا لا يوجد المزيد
-  if ((uniqueFeed?.length || 0) < PAGE_SIZE) return;
+    // لو البيانات الحالية أقل من حجم الصفحة، غالبًا لا يوجد المزيد
+    if ((uniqueFeed?.length || 0) < PAGE_SIZE) return;
 
-  try {
-    setLoadingMore(true);
+    try {
+      setLoadingMore(true);
 
-    if (activeTab === "following") {
-      const nextPage = followingPage + 1;
-      const resultAction = await dispatch(getFollowingFeed({ page: nextPage }));
+      if (activeTab === "following") {
+        const nextPage = followingPage + 1;
+        const resultAction = await dispatch(getFollowingFeed({ page: nextPage }));
 
-      if (getFollowingFeed.fulfilled.match(resultAction)) {
-        const newItems = resultAction.payload || [];
+        if (getFollowingFeed.fulfilled.match(resultAction)) {
+          const newItems = resultAction.payload || [];
 
-        // لو رجع بيانات فعلًا زوّد الصفحة
-        if (Array.isArray(newItems) && newItems.length > 0) {
-          setFollowingPage(nextPage);
+          // لو رجع بيانات فعلًا زوّد الصفحة
+          if (Array.isArray(newItems) && newItems.length > 0) {
+            setFollowingPage(nextPage);
+          }
+        }
+      } else {
+        const nextPage = forYouPage + 1;
+        const resultAction = await dispatch(getForYouFeed({ page: nextPage }));
+
+        if (getForYouFeed.fulfilled.match(resultAction)) {
+          const newItems = resultAction.payload || [];
+
+          if (Array.isArray(newItems) && newItems.length > 0) {
+            setForYouPage(nextPage);
+          }
         }
       }
-    } else {
-      const nextPage = forYouPage + 1;
-      const resultAction = await dispatch(getForYouFeed({ page: nextPage }));
-
-      if (getForYouFeed.fulfilled.match(resultAction)) {
-        const newItems = resultAction.payload || [];
-
-        if (Array.isArray(newItems) && newItems.length > 0) {
-          setForYouPage(nextPage);
-        }
-      }
+    } catch (error) {
+      console.log("handleLoadMore error", error);
+    } finally {
+      setLoadingMore(false);
     }
-  } catch (error) {
-    console.log("handleLoadMore error", error);
-  } finally {
-    setLoadingMore(false);
-  }
-};
+  };
 
   const openTweet = (tweet: any) => {
     router.push({ pathname: "/tweet/[id]", params: { id: tweet._id } });
@@ -1068,52 +1069,52 @@ const handleLoadMore = async () => {
         <TabButton
           title={t("tweetsScreen.followingTab")}
           active={activeTab === "following"}
-     onPress={() => {
-  setActiveTab("following");
-  setFollowingPage(1);
-  dispatch(getFollowingFeed({ page: 1 }));
-}}
+          onPress={() => {
+            setActiveTab("following");
+            setFollowingPage(1);
+            dispatch(getFollowingFeed({ page: 1 }));
+          }}
           s={s}
         />
         <TabButton
           title={t("tweetsScreen.forYouTab")}
           active={activeTab === "foryou"}
-     onPress={() => {
-  setActiveTab("foryou");
-  setForYouPage(1);
-  dispatch(getForYouFeed({ page: 1 }));
-}}
+          onPress={() => {
+            setActiveTab("foryou");
+            setForYouPage(1);
+            dispatch(getForYouFeed({ page: 1 }));
+          }}
           s={s}
         />
       </View>
 
       <FlatList
-       data={uniqueFeed}
-  extraData={language}
-  keyExtractor={(item: any, index: number) => {
-    const id = item?._id ?? item?.id ?? "item";
-    return `${String(id)}-${index}`;
-  }}
-  showsVerticalScrollIndicator={false}
-  onEndReachedThreshold={0.2}
-  onMomentumScrollBegin={() => setOnEndReachedCalledDuringMomentum(false)}
-  onEndReached={() => {
-    if (!onEndReachedCalledDuringMomentum) {
-      handleLoadMore();
-      setOnEndReachedCalledDuringMomentum(true);
-    }
-  }}
-  onScrollBeginDrag={onScrollBeginDrag}
-  onScroll={onScroll}
-  refreshControl={
-    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-  }
-  ListFooterComponent={
-    loadingMore ? (
-      <ActivityIndicator style={{ margin: 16 }} color={theme.tint} />
-    ) : null
-  }
-  contentContainerStyle={{ paddingBottom: 120 }}
+        data={uniqueFeed}
+        extraData={language}
+        keyExtractor={(item: any, index: number) => {
+          const id = item?._id ?? item?.id ?? "item";
+          return `${String(id)}-${index}`;
+        }}
+        showsVerticalScrollIndicator={false}
+        onEndReachedThreshold={0.2}
+        onMomentumScrollBegin={() => setOnEndReachedCalledDuringMomentum(false)}
+        onEndReached={() => {
+          if (!onEndReachedCalledDuringMomentum) {
+            handleLoadMore();
+            setOnEndReachedCalledDuringMomentum(true);
+          }
+        }}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScroll={onScroll}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <ActivityIndicator style={{ margin: 16 }} color={theme.tint} />
+          ) : null
+        }
+        contentContainerStyle={{ paddingBottom: 120 }}
         renderItem={({ item }: any) => {
           const isOwnTweet = item?.author?._id === user?._id;
 
@@ -1248,24 +1249,12 @@ const handleLoadMore = async () => {
                       activeOpacity={0.85}
                     >
                       <Ionicons
-                        name="ellipsis-horizontal"
+                        name="ellipsis-vertical"
                         size={18}
                         color={theme.icon}
                       />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() =>
-                        openReportModal({
-                          targetType: "tweet",
-                          targetId: item._id,
-                          label: "تويت",
-                        })
-                      }
-                      style={s.moreBtn}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons name="flag-outline" size={18} color={theme.icon} />
-                    </TouchableOpacity>
+
                   </View>
 
                   <TouchableOpacity
@@ -1350,7 +1339,6 @@ const handleLoadMore = async () => {
 
       {showSheet && (
         <View style={s.overlay}>
-
           <TouchableOpacity
             style={{ flex: 1 }}
             activeOpacity={1}
@@ -1358,133 +1346,256 @@ const handleLoadMore = async () => {
           />
 
           <View style={s.sheet}>
-            {selectedUser && (
+            {sheetMode === "menu" ? (
               <>
-                <Text style={s.sheetTitle}>
-                  {selectedUser.atUsername?.startsWith("@")
-                    ? selectedUser.atUsername
-                    : `@${selectedUser.atUsername}`}
-                </Text>
-                <TouchableOpacity
-                  style={s.sheetItem}
-                  activeOpacity={0.9}
-                  onPress={() => {
-                    if (selectedTweet?._id) {
-                      closeSheet();
-                      router.push({
-                        pathname: "/tweet/[id]",
-                        params: { id: selectedTweet._id },
-                      });
-                    }
-                  }}
-                >
-                  <View
-                    style={[
-                      s.sheetIcon,
-                      {
-                        backgroundColor: isDark
-                          ? "rgba(79,70,229,0.14)"
-                          : "rgba(79,70,229,0.10)",
-                      },
-                    ]}
-                  >
-                    <Ionicons name="eye-outline" size={18} color="#4F46E5" />
-                  </View>
+                {selectedUser && (
+                  <>
+                    <Text style={s.sheetTitle}>
+                      {selectedUser.atUsername?.startsWith("@")
+                        ? selectedUser.atUsername
+                        : `@${selectedUser.atUsername}`}
+                    </Text>
 
-                  <Text style={s.sheetText}>
-                    {t("tweetsScreen.viewPost") || "عرض المنشور"}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={s.sheetItem}
-                  onPress={async () => {
-                    await dispatch(toggleFollow(selectedUser._id));
-                    closeSheet();
-                  }}
-                  activeOpacity={0.9}
-                >
-                  <View
-                    style={[
-                      s.sheetIcon,
-                      {
-                        backgroundColor: isDark
-                          ? "rgba(239,68,68,0.12)"
-                          : "rgba(239,68,68,0.10)",
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name="person-remove-outline"
-                      size={18}
-                      color="#EF4444"
-                    />
-                  </View>
-                  <Text style={s.sheetText}>
-                    {t("tweetsScreen.unfollow")}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={s.sheetItem}
-                  activeOpacity={0.9}
-                  onPress={handleToggleBlock}
-                >
-                  <View
-                    style={[
-                      s.sheetIcon,
-                      {
-                        backgroundColor: isDark
-                          ? "rgba(239,68,68,0.12)"
-                          : "rgba(239,68,68,0.10)",
-                      },
-                    ]}
-                  >
-                    {actionLoading === `block-${selectedUser?._id}` ? (
-                      <ActivityIndicator size="small" color="#EF4444" />
-                    ) : (
-                      <Ionicons
-                        name={
-                          selectedUser?.relationshipStatus === "blocked_by_me"
-                            ? "lock-open-outline"
-                            : "ban-outline"
+                    <TouchableOpacity
+                      style={s.sheetItem}
+                      activeOpacity={0.9}
+                      onPress={() => {
+                        if (selectedTweet?._id) {
+                          closeSheet();
+                          router.push({
+                            pathname: "/tweet/[id]",
+                            params: { id: selectedTweet._id },
+                          });
                         }
-                        size={18}
-                        color="#EF4444"
-                      />
-                    )}
-                  </View>
+                      }}
+                    >
+                      <View
+                        style={[
+                          s.sheetIcon,
+                          {
+                            backgroundColor: isDark
+                              ? "rgba(79,70,229,0.14)"
+                              : "rgba(79,70,229,0.10)",
+                          },
+                        ]}
+                      >
+                        <Ionicons name="eye-outline" size={18} color="#4F46E5" />
+                      </View>
 
-                  <Text style={s.sheetText}>
-                    {selectedUser?.relationshipStatus === "blocked_by_me"
-                      ? "إلغاء الحظر"
-                      : t("tweetsScreen.block")}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={s.sheetItem}
-                  activeOpacity={0.9}
-                  onPress={() =>
-                    openReportModal({
-                      targetType: "user",
-                      targetId: selectedUser._id,
-                      label: selectedUser.atUsername,
-                    })
-                  }
-                >
-                  <View
-                    style={[
-                      s.sheetIcon,
-                      {
-                        backgroundColor: isDark
-                          ? "rgba(245,158,11,0.14)"
-                          : "rgba(245,158,11,0.10)",
-                      },
-                    ]}
+                      <Text style={s.sheetText}>
+                        {t("tweetsScreen.viewPost") || "عرض المنشور"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={s.sheetItem}
+                      onPress={async () => {
+                        await dispatch(toggleFollow(selectedUser._id));
+                        closeSheet();
+                      }}
+                      activeOpacity={0.9}
+                    >
+                      <View
+                        style={[
+                          s.sheetIcon,
+                          {
+                            backgroundColor: isDark
+                              ? "rgba(239,68,68,0.12)"
+                              : "rgba(239,68,68,0.10)",
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name="person-remove-outline"
+                          size={18}
+                          color="#EF4444"
+                        />
+                      </View>
+                      <Text style={s.sheetText}>
+                        {t("tweetsScreen.unfollow")}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={s.sheetItem}
+                      activeOpacity={0.9}
+                      onPress={handleToggleBlock}
+                    >
+                      <View
+                        style={[
+                          s.sheetIcon,
+                          {
+                            backgroundColor: isDark
+                              ? "rgba(239,68,68,0.12)"
+                              : "rgba(239,68,68,0.10)",
+                          },
+                        ]}
+                      >
+                        {actionLoading === `block-${selectedUser?._id}` ? (
+                          <ActivityIndicator size="small" color="#EF4444" />
+                        ) : (
+                          <Ionicons
+                            name={
+                              selectedUser?.relationshipStatus === "blocked_by_me"
+                                ? "lock-open-outline"
+                                : "ban-outline"
+                            }
+                            size={18}
+                            color="#EF4444"
+                          />
+                        )}
+                      </View>
+
+                      <Text style={s.sheetText}>
+                        {selectedUser?.relationshipStatus === "blocked_by_me"
+                          ? "إلغاء الحظر"
+                          : t("tweetsScreen.block")}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {!!selectedTweet?._id && (
+                      <TouchableOpacity
+                        style={s.sheetItem}
+                        activeOpacity={0.9}
+                        onPress={() =>
+                          openReportInSheet({
+                            targetType: "tweet",
+                            targetId: selectedTweet._id,
+                            label: "تويت",
+                          })
+                        }
+                      >
+                        <View
+                          style={[
+                            s.sheetIcon,
+                            {
+                              backgroundColor: isDark
+                                ? "rgba(245,158,11,0.14)"
+                                : "rgba(245,158,11,0.10)",
+                            },
+                          ]}
+                        >
+                          <Ionicons name="flag-outline" size={18} color="#F59E0B" />
+                        </View>
+                        <Text style={s.sheetText}>بلاغ عن التويتة</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      style={s.sheetItem}
+                      activeOpacity={0.9}
+                      onPress={() =>
+                        openReportInSheet({
+                          targetType: "user",
+                          targetId: selectedUser._id,
+                          label: selectedUser.atUsername,
+                        })
+                      }
+                    >
+                      <View
+                        style={[
+                          s.sheetIcon,
+                          {
+                            backgroundColor: isDark
+                              ? "rgba(245,158,11,0.14)"
+                              : "rgba(245,158,11,0.10)",
+                          },
+                        ]}
+                      >
+                        <Ionicons name="flag-outline" size={18} color="#F59E0B" />
+                      </View>
+                      <Text style={s.sheetText}>بلاغ عن المستخدم</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <View style={s.reportHeaderRow}>
+                  <TouchableOpacity
+                    onPress={backToMenu}
+                    activeOpacity={0.85}
+                    style={s.reportBackBtn}
                   >
-                    <Ionicons name="flag-outline" size={18} color="#F59E0B" />
-                  </View>
-                  <Text style={s.sheetText}>{t("tweetsScreen.report")}</Text>
-                </TouchableOpacity>
+                    <Ionicons name="chevron-back" size={20} color={theme.text} />
+                  </TouchableOpacity>
+
+                  <Text style={s.reportTitle}>إرسال بلاغ</Text>
+
+                  <View style={{ width: 36 }} />
+                </View>
+
+                {!!reportTarget?.label && (
+                  <Text style={s.reportSubtitle}>
+                    الهدف: {reportTarget.label}
+                  </Text>
+                )}
+
+                <Text style={s.reportSectionTitle}>اختر السبب</Text>
+
+                <View style={s.reportReasonsWrap}>
+                  {REPORT_REASON_OPTIONS.map((reasonItem) => {
+                    const active = selectedReason === reasonItem.value;
+
+                    return (
+                      <TouchableOpacity
+                        key={reasonItem.value}
+                        activeOpacity={0.9}
+                        onPress={() => setSelectedReasonLocal(reasonItem.value)}
+                        style={[
+                          s.reportReasonChip,
+                          active && s.reportReasonChipActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            s.reportReasonText,
+                            active && s.reportReasonTextActive,
+                          ]}
+                        >
+                          {reasonItem.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <Text style={s.reportSectionTitle}>تفاصيل إضافية</Text>
+
+                <TextInput
+                  value={reportDetails}
+                  onChangeText={setReportDetailsLocal}
+                  placeholder="اكتب تفاصيل البلاغ هنا"
+                  placeholderTextColor={theme.mutedText}
+                  multiline
+                  style={s.reportInput}
+                  textAlignVertical="top"
+                  maxLength={1000}
+                />
+
+                <View style={s.reportActionsRow}>
+                  <TouchableOpacity
+                    style={s.reportCancelBtn}
+                    onPress={backToMenu}
+                    activeOpacity={0.9}
+                    disabled={reportSubmitting}
+                  >
+                    <Text style={s.reportCancelText}>رجوع</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={s.reportSubmitBtn}
+                    onPress={handleSubmitReport}
+                    activeOpacity={0.9}
+                    disabled={reportSubmitting}
+                  >
+                    {reportSubmitting ? (
+                      <ActivityIndicator color="#FFF" size="small" />
+                    ) : (
+                      <Text style={s.reportSubmitText}>إرسال البلاغ</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </>
             )}
           </View>
@@ -1497,96 +1608,7 @@ const handleLoadMore = async () => {
         onClose={closeImagePreview}
         s={s}
       />
-      <Modal
-        visible={showReportModal}
-        transparent
-        animationType="slide"
-        onRequestClose={closeReportModal}
-      >
-        <View style={s.reportOverlay}>
-          <TouchableOpacity
-            style={{ flex: 1 }}
-            activeOpacity={1}
-            onPress={closeReportModal}
-          />
 
-          <View style={s.reportSheet}>
-            <Text style={s.reportTitle}>إرسال بلاغ</Text>
-
-            {!!reportTarget?.label && (
-              <Text style={s.reportSubtitle}>
-                الهدف: {reportTarget.label}
-              </Text>
-            )}
-
-            <Text style={s.reportSectionTitle}>اختر السبب</Text>
-
-            <View style={s.reportReasonsWrap}>
-              {REPORT_REASON_OPTIONS.map((reasonItem) => {
-                const active = selectedReason === reasonItem.value;
-
-                return (
-                  <TouchableOpacity
-                    key={reasonItem.value}
-                    activeOpacity={0.9}
-                    onPress={() => setSelectedReasonLocal(reasonItem.value)}
-                    style={[
-                      s.reportReasonChip,
-                      active && s.reportReasonChipActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        s.reportReasonText,
-                        active && s.reportReasonTextActive,
-                      ]}
-                    >
-                      {reasonItem.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text style={s.reportSectionTitle}>تفاصيل إضافية</Text>
-
-            <TextInput
-              value={reportDetails}
-              onChangeText={setReportDetailsLocal}
-              placeholder="اكتب تفاصيل البلاغ هنا"
-              placeholderTextColor={theme.mutedText}
-              multiline
-              style={s.reportInput}
-              textAlignVertical="top"
-              maxLength={1000}
-            />
-
-            <View style={s.reportActionsRow}>
-              <TouchableOpacity
-                style={s.reportCancelBtn}
-                onPress={closeReportModal}
-                activeOpacity={0.9}
-                disabled={reportSubmitting}
-              >
-                <Text style={s.reportCancelText}>إلغاء</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={s.reportSubmitBtn}
-                onPress={handleSubmitReport}
-                activeOpacity={0.9}
-                disabled={reportSubmitting}
-              >
-                {reportSubmitting ? (
-                  <ActivityIndicator color="#FFF" size="small" />
-                ) : (
-                  <Text style={s.reportSubmitText}>إرسال البلاغ</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
       <TouchableOpacity
         style={s.fab}
         activeOpacity={0.85}
@@ -1662,7 +1684,23 @@ function makeStyles(theme: any, isDark: boolean) {
       backgroundColor: "rgba(0,0,0,0.45)",
       justifyContent: "flex-end",
     },
+    reportHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 10,
+    },
 
+    reportBackBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: surface2,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
     reportSheet: {
       backgroundColor: cardBg,
       borderTopLeftRadius: 22,
@@ -2173,12 +2211,12 @@ function makeStyles(theme: any, isDark: boolean) {
     //   alignItems: "center",
     //   marginLeft: 6,
     // },
-badgesWrap: {
-  flexDirection: "row",
-  alignItems: "center",
-  marginLeft: 4,
-  flexWrap: "wrap",
-},
+    badgesWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginLeft: 4,
+      flexWrap: "wrap",
+    },
     badgePill: {
       flexDirection: "row",
       alignItems: "center",

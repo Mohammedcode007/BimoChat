@@ -38,6 +38,8 @@ function RootStack() {
       <Stack.Screen name="room" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="edit-profile" />
+      <Stack.Screen name="background-activity" />
+
 
       <Stack.Screen name="create-tweet" />
       <Stack.Screen name="biometric-lock" />

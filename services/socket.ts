@@ -76,7 +76,7 @@ export const connectSocket = (token: string): Socket => {
  
   // });
 
-    socket = io("https://api.te-bot.site", {
+    socket = io("https://te-bot.site", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true,

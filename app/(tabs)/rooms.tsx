@@ -520,70 +520,122 @@ useEffect(() => {
    */
   // ✅ rooms.tsx
   // 2) استبدل enterActiveRoomDirect بالكامل بهذا (استخدم enterRoomDirect)
+// const enterActiveRoomDirect = useCallback(
+//   async (roomId: string) => {
+//     // ✅ منع تكرار الضغط أثناء الدخول
+//     if (joining) return;
+
+//     try {
+//       setJoining(true);
+//       setError("");
+
+//       // ✅ 1) انتقل فورًا (إحساس سريع)
+//       router.push({ pathname: "/room/[id]", params: { id: roomId } });
+
+//       // ✅ 2) حمّل في الخلفية (لا تنتظر)
+//       dispatch(enterRoomDirect({ roomId, preload: true }))
+//         .unwrap()
+//         .catch((e: any) => {
+//           // اختياري: لو فشل التحميل، سجل فقط أو اعرض Toast داخل شاشة الغرفة
+//           console.log("[enterRoomDirect bg] failed:", e);
+//         });
+//     } catch (e: any) {
+//       const msgStr = String(e?.message || e || "Enter room failed");
+//       setError(msgStr);
+//     } finally {
+//       setJoining(false);
+//     }
+//   },
+//   [dispatch, router, joining]
+// );
+
+// const doJoin = useCallback(
+//   async (roomId: string, password?: string) => {
+//     // ✅ منع تكرار الضغط
+//     if (joining) return;
+
+//     setJoining(true);
+//     setError("");
+
+//     // ✅ 1) ادخل الشاشة فوراً (سريع)
+//     router.push({ pathname: "/room/[id]", params: { id: roomId } });
+
+//     // ✅ 2) نفّذ join + preload بالخلفية
+//     dispatch(joinRoomAndEnter({ roomId, preload: true, password }))
+//       .unwrap()
+//       .catch((e: any) => {
+//         const msgStr = String(e?.message || e || "Join failed");
+
+//         if (isBanMessage(msgStr)) {
+//           markRoomBanned(roomId, msgStr);
+//           setError("أنت محظور من هذه الغرفة.");
+//         } else {
+//           setError(msgStr);
+//         }
+
+//         // ✅ لو فشل الـ join نرجع المستخدم من شاشة الغرفة
+//         // (بدل ما يظل داخل شاشة فاضية)
+//         try {
+//           router.back();
+//         } catch {
+//           // ignore
+//         }
+//       })
+//       .finally(() => {
+//         setJoining(false);
+//       });
+//   },
+//   [dispatch, router, joining, isBanMessage, markRoomBanned]
+// );
 const enterActiveRoomDirect = useCallback(
   async (roomId: string) => {
-    // ✅ منع تكرار الضغط أثناء الدخول
+    try {
+      setError("");
+
+      // ✅ دخول مباشر بدون لودينج
+      router.push({ pathname: "/room/[id]", params: { id: roomId } });
+
+      // ✅ اختياري: تحديث البيانات في الخلفية بدون انتظار
+      dispatch(enterRoomDirect({ roomId, preload: true }))
+        .unwrap()
+        .catch((e: any) => {
+          console.log("[enterRoomDirect bg] failed:", e);
+        });
+    } catch (e: any) {
+      const msgStr = String(e?.message || e || "Enter room failed");
+      setError(msgStr);
+    }
+  },
+  [dispatch, router]
+);
+
+const doJoin = useCallback(
+  async (roomId: string, password?: string) => {
     if (joining) return;
 
     try {
       setJoining(true);
       setError("");
 
-      // ✅ 1) انتقل فورًا (إحساس سريع)
-      router.push({ pathname: "/room/[id]", params: { id: roomId } });
+      // انضم + حمّل أولًا
+      await dispatch(
+        joinRoomAndEnter({ roomId, preload: true, password })
+      ).unwrap();
 
-      // ✅ 2) حمّل في الخلفية (لا تنتظر)
-      dispatch(enterRoomDirect({ roomId, preload: true }))
-        .unwrap()
-        .catch((e: any) => {
-          // اختياري: لو فشل التحميل، سجل فقط أو اعرض Toast داخل شاشة الغرفة
-          console.log("[enterRoomDirect bg] failed:", e);
-        });
+      // بعد النجاح فقط ادخل الشاشة
+      router.push({ pathname: "/room/[id]", params: { id: roomId } });
     } catch (e: any) {
-      const msgStr = String(e?.message || e || "Enter room failed");
-      setError(msgStr);
+      const msgStr = String(e?.message || e || "Join failed");
+
+      if (isBanMessage(msgStr)) {
+        markRoomBanned(roomId, msgStr);
+        setError("أنت محظور من هذه الغرفة.");
+      } else {
+        setError(msgStr);
+      }
     } finally {
       setJoining(false);
     }
-  },
-  [dispatch, router, joining]
-);
-
-const doJoin = useCallback(
-  async (roomId: string, password?: string) => {
-    // ✅ منع تكرار الضغط
-    if (joining) return;
-
-    setJoining(true);
-    setError("");
-
-    // ✅ 1) ادخل الشاشة فوراً (سريع)
-    router.push({ pathname: "/room/[id]", params: { id: roomId } });
-
-    // ✅ 2) نفّذ join + preload بالخلفية
-    dispatch(joinRoomAndEnter({ roomId, preload: true, password }))
-      .unwrap()
-      .catch((e: any) => {
-        const msgStr = String(e?.message || e || "Join failed");
-
-        if (isBanMessage(msgStr)) {
-          markRoomBanned(roomId, msgStr);
-          setError("أنت محظور من هذه الغرفة.");
-        } else {
-          setError(msgStr);
-        }
-
-        // ✅ لو فشل الـ join نرجع المستخدم من شاشة الغرفة
-        // (بدل ما يظل داخل شاشة فاضية)
-        try {
-          router.back();
-        } catch {
-          // ignore
-        }
-      })
-      .finally(() => {
-        setJoining(false);
-      });
   },
   [dispatch, router, joining, isBanMessage, markRoomBanned]
 );
@@ -846,7 +898,11 @@ const doJoin = useCallback(
       </Modal>
 
       {/* ✅ Global overlay loaders */}
-      {/* <LoadingOverlay visible={joining} title="جاري الدخول..." subtitle="يتم التحقق من الصلاحيات والبيانات" /> */}
+<LoadingOverlay
+  visible={joining}
+  title="Entering room..."
+  subtitle="Verifying access and loading room data"
+/>
       <LoadingOverlay visible={creating} title="جاري إنشاء الغرفة..." subtitle="لحظات من فضلك" />
     </View>
   );

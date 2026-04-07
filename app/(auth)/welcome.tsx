@@ -199,7 +199,7 @@ export default function WelcomeScreen() {
   };
 
   const openPrivacy = async () => {
-    const url = "https://api.te-bot.site/privacy";
+    const url = "https://te-bot.site/privacy";
     const supported = await Linking.canOpenURL(url);
 
     if (!supported) {
@@ -214,7 +214,7 @@ export default function WelcomeScreen() {
   };
 
   const openTerms = async () => {
-    const url = "https://api.te-bot.site/terms";
+    const url = "https://te-bot.site/terms";
     const supported = await Linking.canOpenURL(url);
 
     if (!supported) {

@@ -1413,21 +1413,58 @@ if (myUserId) {
   //   return () => { };
   //   // eslint-disable-next-line react-hooks/exhaustive-deps
   // }, [roomId]);
+  // useEffect(() => {
+  //   if (!roomId) return;
+
+  //   dispatch(fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false }));
+  //   dispatch(fetchRoomUsers(roomId));
+  //   dispatch(fetchRoomStats(roomId));
+  //   dispatch(getMyInventory() as any);
+
+  //   joinRoomSocket(roomId);
+  //   ensureMicPermission();
+
+  //   return () => {
+  //     // leaveRoomSocket(roomId);
+  //   };
+  // }, [roomId]);
   useEffect(() => {
-    if (!roomId) return;
+  if (!roomId) return;
 
-    dispatch(fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false }));
-    dispatch(fetchRoomUsers(roomId));
-    dispatch(fetchRoomStats(roomId));
-    dispatch(getMyInventory() as any);
+  const hasMessages = Array.isArray(reduxMessages) && reduxMessages.length > 0;
+  const hasUsers = Array.isArray(roomUsers) && roomUsers.length > 0;
+  const hasStats = typeof activeCount === "number";
 
-    joinRoomSocket(roomId);
-    ensureMicPermission();
+  const loadRoom = async () => {
+    try {
+      if (!hasMessages) {
+        await dispatch(
+          fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false })
+        ).unwrap();
+      }
 
-    return () => {
-      // leaveRoomSocket(roomId);
-    };
-  }, [roomId]);
+      if (!hasUsers) {
+        await dispatch(fetchRoomUsers(roomId)).unwrap();
+      }
+
+      if (!hasStats) {
+        await dispatch(fetchRoomStats(roomId)).unwrap();
+      }
+
+      await dispatch(getMyInventory() as any);
+      joinRoomSocket(roomId);
+      ensureMicPermission();
+    } catch (e) {
+      console.log("[room load] failed:", e);
+    }
+  };
+
+  loadRoom();
+
+  return () => {
+    // leaveRoomSocket(roomId);
+  };
+}, [roomId]);
   /* ================= KICK/BAN HANDLERS ================= */
   useEffect(() => {
     if (!roomId || !kicked) return;

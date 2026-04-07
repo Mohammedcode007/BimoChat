@@ -168,7 +168,7 @@ const getBuildNumber = () => {
 //   timeout: 20000,
 // });
  const api = axios.create({
-  baseURL: "https://api.te-bot.site/api",
+  baseURL: "https://te-bot.site/api",
   timeout: 20000,
  });
 const clearLocalSession = async () => {

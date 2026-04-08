@@ -63,11 +63,9 @@ let isListenersAttached = false;
 
 export const connectSocket = (token: string): Socket => {
   if (socket) {
-    console.log("⚠️ Socket already exists");
     return socket;
   }
 
-  console.log("🔌 Creating new socket connection...");
 
   socket = io("http://192.168.0.100:5000", {
     auth: { token },
@@ -84,15 +82,12 @@ export const connectSocket = (token: string): Socket => {
   // });
 
   socket.on("connect", () => {
-    console.log("🟢 Socket CONNECTED:", socket?.id);
   });
 
   socket.on("disconnect", (reason) => {
-    console.log("🔴 Socket DISCONNECTED:", reason);
   });
 
   socket.on("connect_error", (err) => {
-    console.log("⚠️ Socket ERROR:", err.message);
   });
 
   return socket;
@@ -104,16 +99,13 @@ export const connectSocket = (token: string): Socket => {
 
 export const attachSocketListeners = (dispatch: any, getState: any) => {
   if (!socket) {
-    console.log("❌ No socket instance");
     return;
   }
 
   if (isListenersAttached) {
-    console.log("⚠️ Listeners already attached");
     return;
   }
 
-  console.log("📡 Attaching ALL socket listeners...");
   isListenersAttached = true;
 
   // ✅ helper: find roomId by messageId if backend doesn't send roomId
@@ -174,7 +166,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   /* ================= CHAT NEW MESSAGE ================= */
 
   socket.on("chat:new", (message) => {
-    console.log("📥 chat:new RECEIVED:", message._id);
 
     dispatch(addMessage(message));
 
@@ -189,42 +180,36 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   /* ================= DELIVERY ================= */
 
   socket.on("chat:delivery:update", (data) => {
-    console.log("📬 DELIVERY UPDATE:", data);
     dispatch(markDeliveredFromSocket(data));
   });
 
   /* ================= SEEN ================= */
 
   socket.on("chat:seen:update", (data) => {
-    console.log("👁 SEEN UPDATE FULL:", JSON.stringify(data));
     dispatch(markSeenFromSocket(data));
   });
 
   /* ================= UNREAD ================= */
 
   socket.on("chat:unread:update", (data) => {
-    console.log("🔢 UNREAD UPDATE:", data);
     dispatch(setUnreadFromServer(data));
   });
 
   /* ================= REACTION ================= */
 
   socket.on("chat:reaction:update", (data) => {
-    console.log("❤️ REACTION UPDATE:", data.messageId);
     dispatch(updateReaction(data));
   });
 
   /* ================= DELETE ================= */
 
   socket.on("chat:message:deleted", (data) => {
-    console.log("🗑 MESSAGE DELETED:", data.messageId);
     dispatch(deleteMessageFromSocket(data));
   });
 
   /* ================= TYPING ================= */
 
   socket.on("chat:typing", (data) => {
-    console.log("⌨️ TYPING RECEIVED:", data);
 
     dispatch(
       setTyping({
@@ -238,17 +223,14 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   /* ================= NOTIFICATIONS ================= */
 
   socket.on("notification:new", (notification) => {
-    console.log("🔔 NEW NOTIFICATION:", notification._id);
     dispatch(addNotificationFromSocket(notification));
   });
 
   socket.on("notification:sync", (data) => {
-    console.log("🔄 NOTIFICATION SYNC");
     dispatch(syncNotificationsFromSocket(data));
   });
 
   socket.on("notification:unreadTotal", (total) => {
-    console.log("🔢 TOTAL UNREAD:", total);
     dispatch(setUnreadCount(total));
   });
   socket.on("chat:inbox:update", (payload) => {
@@ -294,7 +276,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   /* ================= PRESENCE ================= */
 
   socket.on("presence:update", (data) => {
-    console.log("🟢 PRESENCE UPDATE:", data);
 
     const currentUserId = getState().auth.user?._id;
     if (data.userId === currentUserId) return;
@@ -319,7 +300,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   /* ================= ROOMS (CORE) ================= */
 
   socket.on("room:activeCount:update", (data) => {
-    console.log("🟢 room:activeCount:update:", data);
     if (!data?.roomId) return;
 
     dispatch(
@@ -331,7 +311,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   });
 
   socket.on("room:user:joined", (data) => {
-    console.log("🏠 room:user:joined:", data);
     if (!data?.roomId || !data?.userId) return;
     dispatch(socketUserJoined({ roomId: data.roomId, userId: data.userId }));
   });
@@ -350,7 +329,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
 
   // ✅ FIX: normalize roomId (edited)
   socket.on("room:message:edited", (message) => {
-    console.log("✏️ room:message:edited:", message?._id);
     if (!message?.room) return;
 
     const roomId = typeof message.room === "string" ? message.room : String(message.room);
@@ -359,7 +337,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
 
   // ✅ FIX: normalize roomId (pinned)
   socket.on("room:message:pinned", (message) => {
-    console.log("📌 room:message:pinned:", message?._id);
     if (!message?.room) return;
 
     const roomId = typeof message.room === "string" ? message.room : String(message.room);
@@ -368,7 +345,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
 
   // ✅ FIX: normalize roomId (highlighted)
   socket.on("room:message:highlighted", (message) => {
-    console.log("✨ room:message:highlighted:", message?._id);
     if (!message?.room) return;
 
     const roomId = typeof message.room === "string" ? message.room : String(message.room);
@@ -377,7 +353,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
 
   // ✅ FIX: do NOT rely only on activeRoomId; fallback to lookup
   socket.on("room:message:deleted", (data) => {
-    console.log("🗑 room:message:deleted:", data);
 
     const messageId = data?.messageId;
     if (!messageId) return;
@@ -392,7 +367,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
 
   // ✅ FIX: do NOT rely only on activeRoomId; fallback to lookup
   socket.on("room:reaction:update", (data) => {
-    console.log("❤️ room:reaction:update:", data?.messageId);
 
     const messageId = data?.messageId;
     if (!messageId) return;
@@ -412,20 +386,17 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   });
 
   socket.on("room:error", (err) => {
-    console.log("⚠️ room:error:", err);
   });
 
   /* ================= ROOMS (NEW BACKEND EVENTS) ================= */
 
   socket.on("room:users:update", (data) => {
-    console.log("👥 room:users:update:", data);
     if (!data?.roomId) return;
     dispatch(socketRoomUsersUpdate({ roomId: data.roomId }));
     dispatch(fetchRoomUsers(data.roomId));
   });
 
   socket.on("room:roles:update", (data) => {
-    console.log("🧩 room:roles:update:", data);
     if (!data?.roomId) return;
 
     dispatch(
@@ -439,13 +410,11 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   });
 
   socket.on("room:update", (room) => {
-    console.log("🛠 room:update:", room?._id);
     if (!room?._id) return;
     dispatch(socketRoomUpdated(room));
   });
 
   socket.on("room:type:update", (payload) => {
-    console.log("🔁 room:type:update:", payload);
     const activeRoomId = getState().room?.activeRoomId;
 
     if (payload && typeof payload === "object" && payload.roomId && payload.type) {
@@ -459,7 +428,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   });
 
   socket.on("room:premium:update", (payload) => {
-    console.log("💎 room:premium:update:", payload);
     const activeRoomId = getState().room?.activeRoomId;
 
     if (payload && typeof payload === "object" && payload.roomId) {
@@ -483,7 +451,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   });
 
   socket.on("room:antispam:update", (payload) => {
-    console.log("🛡 room:antispam:update:", payload);
     const activeRoomId = getState().room?.activeRoomId;
 
     if (payload?.roomId) {
@@ -509,7 +476,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   });
 
   socket.on("room:lock:update", (payload) => {
-    console.log("🔒 room:lock:update:", payload);
     const activeRoomId = getState().room?.activeRoomId;
 
     if (payload && typeof payload === "object" && payload.roomId) {
@@ -523,7 +489,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   });
 
   socket.on("room:slowmode:update", (payload) => {
-    console.log("🐢 room:slowmode:update:", payload);
     const activeRoomId = getState().room?.activeRoomId;
 
     if (payload && typeof payload === "object" && payload.roomId) {
@@ -542,7 +507,6 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   });
 
   socket.on("room:boost:update", (payload) => {
-    console.log("🚀 room:boost:update:", payload);
     const activeRoomId = getState().room?.activeRoomId;
 
     if (payload?.roomId) {
@@ -568,24 +532,20 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   });
 
   socket.on("room:deleted", (data) => {
-    console.log("🧨 room:deleted:", data);
     if (!data?.roomId) return;
     dispatch(socketRoomDeleted({ roomId: data.roomId }));
   });
 
   socket.on("room:kicked", (data) => {
-    console.log("🥾 room:kicked:", data);
     if (!data?.roomId) return;
     dispatch(socketRoomKicked({ roomId: data.roomId }));
   });
 
   socket.on("room:banned", (data) => {
-    console.log("⛔ room:banned:", data);
     if (!data?.roomId) return;
     dispatch(socketRoomBanned({ roomId: data.roomId, reason: data.reason }));
   });
 
-  console.log("✅ All socket listeners attached successfully");
 };
 
 /* =====================================================
@@ -594,11 +554,9 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
 
 export const joinChatRoom = (chatId: string) => {
   if (!socket) {
-    console.log("❌ Cannot join — socket not ready");
     return;
   }
 
-  console.log("🏠 Joining chat room:", chatId);
   socket.emit("chat:join", { chatId });
 };
 
@@ -608,7 +566,6 @@ export const joinChatRoom = (chatId: string) => {
 
 export const leaveChatRoom = (chatId: string) => {
   if (!socket) return;
-  console.log("🚪 Leaving chat room:", chatId);
   socket.emit("chat:leave", { chatId });
 };
 
@@ -625,15 +582,10 @@ export const sendSocketMessage = (
   replyTo?: any
 ) => {
   if (!socket) {
-    console.log("❌ Cannot send — socket not connected");
     return;
   }
 
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("📤 EMIT chat:send");
-  console.log("Chat:", chatId);
-  console.log("Content:", content);
-  console.log("ClientTempId:", clientTempId);
+
 
   socket.emit("chat:send", {
     chatId,
@@ -644,8 +596,7 @@ export const sendSocketMessage = (
     clientTempId
   });
 
-  console.log("✅ chat:send emitted");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  
 };
 
 /* =====================================================
@@ -707,7 +658,6 @@ export const emitTyping = (chatId: string, isTyping: boolean) => {
 export const emitMarkAsSeen = (chatId: string) => {
   if (!socket) return;
 
-  console.log("👁 EMIT chat:seen:", chatId);
   socket.emit("chat:seen", { chatId });
 };
 
@@ -717,17 +667,14 @@ export const emitMarkAsSeen = (chatId: string) => {
 
 export const joinRoomSocket = (roomId: string) => {
   if (!socket) {
-    console.log("❌ Cannot join room — socket not ready");
     return;
   }
 
-  console.log("🏠 Joining ROOM:", roomId);
   socket.emit("room:join", roomId);
 };
 
 export const leaveRoomSocket = (roomId: string) => {
   if (!socket) return;
-  console.log("🚪 Leaving ROOM:", roomId);
   socket.emit("room:leave", roomId);
 };
 
@@ -741,11 +688,9 @@ export const sendRoomSocketMessage = (payload: {
   gift?: any;
 }) => {
   if (!socket) {
-    console.log("❌ Cannot send room message — socket not connected");
     return;
   }
 
-  console.log("📤 EMIT room:message:send:", payload.roomId);
   socket.emit("room:message:send", payload);
 };
 export const kickRoomUserSocket = (payload: {
@@ -870,7 +815,6 @@ export const syncRoomMessages = (payload: {
 export const disconnectSocket = () => {
   if (!socket) return;
 
-  console.log("🔌 Disconnecting socket...");
 
   socket.removeAllListeners();
   socket.disconnect();

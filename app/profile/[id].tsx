@@ -1171,7 +1171,6 @@ export default function ProfileScreen() {
 
       router.push(`/chat/${chat._id}`);
     } catch (e: any) {
-      console.log("[openChat] Error:", e);
     } finally {
       setCreatingChatId(null);
     }

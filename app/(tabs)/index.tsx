@@ -101,7 +101,6 @@ export default function ChatListScreen() {
         dispatch(fetchChats());
         dispatch(fetchTotalUnread());
       } catch (error) {
-        console.log("initChats error:", error);
       }
     };
 
@@ -114,7 +113,6 @@ export default function ChatListScreen() {
       await dispatch(fetchChats()).unwrap();
       await dispatch(fetchTotalUnread()).unwrap();
     } catch (error) {
-      console.log("refresh chats error:", error);
     } finally {
       setRefreshing(false);
     }
@@ -177,7 +175,6 @@ export default function ChatListScreen() {
     try {
       await dispatch(deleteChat(chatId)).unwrap();
     } catch (err) {
-      console.log("deleteChat error:", err);
     }
   };
 

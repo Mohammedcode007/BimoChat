@@ -34,8 +34,7 @@ export default function AppHeader() {
   const unreadCount = useSelector(
     (state: RootState) => state.notification.unreadCount
   );
-  //   const user = useSelector((state: RootState) => state.auth.user);
-  // console.log(user,'44444444');
+ 
   const authUser = useSelector((state: RootState) => state.auth.user);
   const me = useSelector((state: RootState) => state.user.me);
 

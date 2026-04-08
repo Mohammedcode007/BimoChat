@@ -70,7 +70,6 @@ xhr.onload = () => {
     const json = JSON.parse(xhr.responseText);
 
     if (!json.secure_url) {
-      console.log("Cloudinary error:", json);
       reject(new Error("Upload failed"));
       return;
     }

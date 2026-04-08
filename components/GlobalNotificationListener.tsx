@@ -1,107 +1,4 @@
-// import { RootState } from "@/redux/store";
-// import { showNotificationToast } from "@/utils/notificationToast";
-// import { Audio } from "expo-av";
-// import { useEffect, useRef } from "react";
-// import { useSelector } from "react-redux";
 
-// type NotificationItem = {
-//   _id: string;
-//   type: string;
-//   body: string;
-//   isRead: boolean;
-//   createdAt: string;
-//   relatedTweet?: string;
-//   relatedChat?: string;
-//   relatedRoom?: string;
-//   sender?: {
-//     _id: string;
-//     username: string;
-//     avatar?: string;
-//   };
-// };
-
-// export default function GlobalNotificationListener() {
-//   const notifications = useSelector(
-//     (state: RootState) => state.notification.notifications
-//   );
-
-//   const didInitRef = useRef(false);
-//   const prevIdsRef = useRef<string[]>([]);
-//   const soundRef = useRef<Audio.Sound | null>(null);
-
-//   const playNotificationSound = async () => {
-//     try {
-//       if (soundRef.current) {
-//         try {
-//           await soundRef.current.unloadAsync();
-//         } catch {}
-//         soundRef.current = null;
-//       }
-
-//       await Audio.setAudioModeAsync({
-//         playsInSilentModeIOS: true,
-//         staysActiveInBackground: false,
-//         shouldDuckAndroid: true,
-//         playThroughEarpieceAndroid: false,
-//       });
-
-//       const { sound } = await Audio.Sound.createAsync(
-//         require("@/assets/sounds/notification.mp3"),
-//         { shouldPlay: true }
-//       );
-
-//       soundRef.current = sound;
-
-//       sound.setOnPlaybackStatusUpdate((status) => {
-//         if (!status.isLoaded) return;
-//         if (status.didJustFinish) {
-//           sound.unloadAsync().catch(() => {});
-//           if (soundRef.current === sound) {
-//             soundRef.current = null;
-//           }
-//         }
-//       });
-//     } catch (e) {
-//       console.log("Notification sound failed:", e);
-//     }
-//   };
-
-//   useEffect(() => {
-//     const list = Array.isArray(notifications) ? notifications : [];
-//     const currentIds = list.map((n: NotificationItem) => n._id);
-
-//     if (!didInitRef.current) {
-//       didInitRef.current = true;
-//       prevIdsRef.current = currentIds;
-//       return;
-//     }
-
-//     const prevSet = new Set(prevIdsRef.current);
-//     const newItems = list.filter((n: NotificationItem) => !prevSet.has(n._id));
-
-//     if (newItems.length > 0) {
-//       const latest = [...newItems].sort(
-//         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-//       )[0];
-
-//       playNotificationSound();
-//       showNotificationToast(latest);
-//     }
-
-//     prevIdsRef.current = currentIds;
-//   }, [notifications]);
-
-//   useEffect(() => {
-//     return () => {
-//       if (soundRef.current) {
-//         soundRef.current.unloadAsync().catch(() => {});
-//         soundRef.current = null;
-//       }
-//     };
-//   }, []);
-
-//   return null;
-// }
 import { RootState } from "@/redux/store";
 import { getNotificationSoundEnabled } from "@/services/localSettings.service";
 import { showNotificationToast } from "@/utils/notificationToast";
@@ -235,7 +132,6 @@ export default function GlobalNotificationListener() {
       });
     } catch (e) {
       isPlayingSoundRef.current = false;
-      console.log("Notification sound failed:", e);
     }
   };
 
@@ -340,7 +236,6 @@ export default function GlobalNotificationListener() {
     };
 
     run().catch((error) => {
-      console.log("GlobalNotificationListener error:", error);
     });
   }, [notifications, activeChatId]);
 

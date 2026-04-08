@@ -154,33 +154,24 @@ export const fetchSuggestedFriends = createAsyncThunk<UserItem[], number | undef
   "friends/suggested",
   async (limit = 12, thunkAPI) => {
     try {
-      console.log("🚀 fetchSuggestedFriends started");
-      console.log("📦 Limit:", limit);
-
+     
       const url = `/friends/suggested?limit=${limit}`;
-      console.log("🌐 Request URL:", url);
 
       const res = await api.get(url);
 
-      console.log("✅ Response received:", res.status);
-      console.log("📄 Full response:", res.data);
+    
 
       const data = res.data?.data || [];
 
-      console.log("👥 Suggested friends count:", data.length);
-      console.log("👥 Suggested friends:", data);
+ 
 
       return data;
     } catch (err: any) {
-      console.log("❌ fetchSuggestedFriends error");
 
       if (err.response) {
-        console.log("📡 Server response error:", err.response.data);
-        console.log("📡 Status:", err.response.status);
+       
       } else if (err.request) {
-        console.log("📡 No response received:", err.request);
       } else {
-        console.log("📡 Error message:", err.message);
       }
 
       return thunkAPI.rejectWithValue("Fetch suggested friends failed");

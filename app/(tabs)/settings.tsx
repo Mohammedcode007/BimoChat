@@ -50,7 +50,6 @@ export default function SettingsScreen() {
       const savedSound = await getNotificationSoundEnabled();
       setSounds(savedSound);
     } catch (error) {
-      console.log('loadLocalSettings error:', error);
     } finally {
       setLoadingSoundSetting(false);
     }

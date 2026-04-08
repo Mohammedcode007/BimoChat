@@ -102,7 +102,6 @@ export default function SuggestedFriendsScreen() {
 
       router.push(`/chat/${chat._id}`);
     } catch (e) {
-      console.log("openChat error:", e);
     } finally {
       setCreatingChatId(null);
     }

@@ -445,7 +445,6 @@ const debugMsg = (tag: string, roomId: string, msg?: Partial<RoomMessage>) => {
   const opt = (msg as any)?.optimistic ? "opt" : "";
   const failed = (msg as any)?.failed ? "failed" : "";
 
-  console.log(`[DUP][${tag}] room=${roomId} id=${id} cid=${cid} type=${typ} ${opt} ${failed} createdAt=${created}`);
 };
 
 const debugList = (tag: string, roomId: string, list: RoomMessage[]) => {
@@ -458,9 +457,7 @@ const debugList = (tag: string, roomId: string, list: RoomMessage[]) => {
     type: m?.type,
   }));
 
-  console.log(`[DUP][${tag}] room=${roomId} len=${list?.length || 0} top=`, top);
 };
-/* ================= BANNED (Control) ================= */
 
 export const fetchBannedUsers = createAsyncThunk<
   { roomId: string; list: RoomBannedEntry[] },
@@ -468,17 +465,13 @@ export const fetchBannedUsers = createAsyncThunk<
   { state: RootState }
 >("room/fetchBannedUsers", async ({ roomId }, thunkAPI) => {
   const startedAt = Date.now();
-  const log = (...args: any[]) => console.log("[fetchBannedUsers]", ...args);
 
   try {
-    log("=====================================");
-    log("START roomId:", roomId);
+   
 
     const res = await api.get(`/rooms/${roomId}/control/banned`);
-    log("Raw response.data:", res?.data);
 
     const data = dataOf(res);
-    log("After dataOf(res):", data);
 
     // ✅ هنا التحويل المهم
     const users = Array.isArray(data?.users) ? data.users : [];
@@ -489,17 +482,11 @@ export const fetchBannedUsers = createAsyncThunk<
       until: null
     }));
 
-    log("users length:", users.length);
-    log("list length:", list.length);
-    log("First list item:", list?.[0]);
-    log("END (success) in ms:", Date.now() - startedAt);
-    log("=====================================");
+    
 
     return { roomId: String(data?.roomId || roomId), list };
   } catch (e: any) {
-    log("ERROR:", e?.message, "resp:", e?.response?.data);
-    log("END (failed) in ms:", Date.now() - startedAt);
-    log("=====================================");
+  
     return thunkAPI.rejectWithValue(errMsg(e, "Failed to fetch banned users"));
   }
 });
@@ -754,19 +741,15 @@ export const enterRoomDirect = createAsyncThunk<
   { state: RootState }
 >("room/enterRoomDirect", async ({ roomId, preload = true }, thunkAPI) => {
   const startedAt = Date.now();
-  const log = (...args: any[]) => console.log("[enterRoomDirect]", ...args);
 
   try {
-    log("=====================================");
-    log("START roomId:", roomId, "preload:", preload);
+  
 
     // ✅ 1) اضبط الغرفة النشطة
     thunkAPI.dispatch(setActiveRoom(roomId));
-    log("setActiveRoom done:", roomId);
 
     // ✅ 2) preload (نفس joinRoomAndEnter)
     if (preload) {
-      log("preload begin...");
       await Promise.all([
         thunkAPI.dispatch(fetchRoomDetails(roomId)).unwrap(),
         thunkAPI.dispatch(fetchRoomUsers(roomId)).unwrap(),
@@ -781,7 +764,6 @@ export const enterRoomDirect = createAsyncThunk<
           .unwrap(),
         thunkAPI.dispatch(fetchRoomStats(roomId)).unwrap()
       ]);
-      log("preload done ✅");
     }
 
     /**
@@ -795,14 +777,11 @@ export const enterRoomDirect = createAsyncThunk<
      * تعمل join للسوكت اعتمادًا على activeRoomId أو params.id
      */
 
-    log("END success in ms:", Date.now() - startedAt);
-    log("=====================================");
+  
 
     return { roomId };
   } catch (e: any) {
-    log("ERROR:", e?.message, "resp:", e?.response?.data);
-    log("END failed in ms:", Date.now() - startedAt);
-    log("=====================================");
+   
     return thunkAPI.rejectWithValue(errMsg(e, "Enter room failed"));
   }
 });
@@ -1695,23 +1674,12 @@ const roomSlice = createSlice({
       const raw = action?.payload as any;
 
       // ✅ طباعات تشخيصية
-      console.log("======================================");
-      console.log("[socketRoomBanned] FIRED ✅");
-      console.log("Payload raw:", raw);
-      console.log("roomId:", raw?.roomId, "type:", typeof raw?.roomId);
-      console.log("reason:", raw?.reason, "type:", typeof raw?.reason);
-      console.log("activeRoomId(before):", state.activeRoomId);
-      console.log("bannedByRoom(before):", state.bannedByRoom);
-      console.log("usersByRoom has room?:", !!state.usersByRoom?.[String(raw?.roomId || "")]);
-      console.log("messagesByRoom has room?:", !!state.messagesByRoom?.[String(raw?.roomId || "")]);
-      console.log("detailsByRoom has room?:", !!state.detailsByRoom?.[String(raw?.roomId || "")]);
-
+   
       const roomId = String(raw?.roomId || "");
       const reason = raw?.reason ? String(raw.reason) : undefined;
 
       if (!roomId) {
-        console.log("[socketRoomBanned] ❌ Missing roomId -> ABORT");
-        console.log("======================================");
+      
         return;
       }
 
@@ -1725,11 +1693,7 @@ const roomSlice = createSlice({
       delete state.activeCountByRoom[roomId];
       delete state.detailsByRoom[roomId];
 
-      // ✅ طباعات بعد التنفيذ
-      console.log("bannedByRoom(after):", state.bannedByRoom?.[roomId]);
-      console.log("activeRoomId(after):", state.activeRoomId);
-      console.log("[socketRoomBanned] DONE ✅");
-      console.log("======================================");
+   
     },
   },
 
@@ -1956,14 +1920,12 @@ const roomSlice = createSlice({
             const dupByClient = cid && existingClientIds.has(cid);
 
             if (dupById || dupByClient) {
-              console.log("[DUP BLOCKED]", { id, cid, dupById, dupByClient });
               return false;
             }
 
             return true;
           });
 
-          console.log("filtered length (after dedupe):", filtered.length);
 
           list.push(...filtered);
         } else {
@@ -1976,12 +1938,10 @@ const roomSlice = createSlice({
             const key = cid ? `c:${cid}` : `i:${id}`;
 
             if (!id && !cid) {
-              console.log("[SKIP no id & no clientId]", m);
               continue;
             }
 
             if (seen.has(key)) {
-              console.log("[DUP IN PAYLOAD]", key);
               continue;
             }
 
@@ -1989,19 +1949,10 @@ const roomSlice = createSlice({
             out.push(m);
           }
 
-          console.log("deduped payload length:", out.length);
 
           state.messagesByRoom[roomId] = out;
         }
 
-        console.log("after length:", state.messagesByRoom[roomId].length);
-        console.log("after top 5:", state.messagesByRoom[roomId].slice(0, 5).map(m => ({
-          id: m?._id,
-          cid: m?.clientId,
-          opt: m?.optimistic,
-          type: m?.type
-        })));
-        console.log("======================================");
       })
       .addCase(fetchRoomMessages.rejected, (state, action) => {
         state.loadingMessages = false;

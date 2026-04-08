@@ -28,7 +28,6 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
         i18n.locale = lang;
         setLanguage(lang);
       } catch (error) {
-        console.log("loadLanguage error:", error);
       } finally {
         setReady(true);
       }
@@ -43,7 +42,6 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
       setLanguage(lang);
       await AsyncStorage.setItem(STORAGE_KEY, lang);
     } catch (error) {
-      console.log("changeLanguage error:", error);
     }
   };
 

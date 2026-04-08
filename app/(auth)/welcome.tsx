@@ -138,7 +138,6 @@ export default function WelcomeScreen() {
 
       Alert.alert(t("common.error"), message);
     } catch (error: any) {
-      console.log("❌ Google login error:", error);
 
       const errorCode = error?.code || "";
 
@@ -233,7 +232,6 @@ export default function WelcomeScreen() {
       await changeLanguage(lang);
       setLanguageModalVisible(false);
     } catch (e) {
-      console.log("changeLanguage error:", e);
       setLanguageModalVisible(false);
     }
   };

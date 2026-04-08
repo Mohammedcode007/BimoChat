@@ -19,7 +19,7 @@ import { timeAgo } from "@/utils/helpFunctions";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ResizeMode, Video } from "expo-av";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -87,7 +87,6 @@ async function openExternalLink(url: string) {
       await Linking.openURL(safeUrl);
     }
   } catch (error) {
-    console.log("openExternalLink error", error);
   }
 }
 type UserBadgeUI = {
@@ -814,7 +813,6 @@ export default function TweetsScreen() {
       await dispatch(getFollowingFeed({ page: 1 }));
       await dispatch(getForYouFeed({ page: 1 }));
     } catch (error) {
-      console.log("handleToggleBlock error", error);
     } finally {
       setActionLoading(null);
     }
@@ -971,7 +969,6 @@ export default function TweetsScreen() {
         }
       }
     } catch (error) {
-      console.log("handleLoadMore error", error);
     } finally {
       setLoadingMore(false);
     }
@@ -997,6 +994,9 @@ export default function TweetsScreen() {
     });
   };
 
+const renderCount = useRef(0);
+renderCount.current += 1;
+console.log("🔥 Screen render:", renderCount.current);
 
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>

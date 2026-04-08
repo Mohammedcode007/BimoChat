@@ -141,7 +141,6 @@ const chats = useSelector((state: RootState) => state.chat?.chats || []);
           dispatch(fetchStoriesFeed({ page: 1, limit: 30 })).unwrap(),
         ]);
       } catch (e) {
-        console.log("Failed to load friends/stories:", e);
       }
     };
 
@@ -213,7 +212,6 @@ const chats = useSelector((state: RootState) => state.chat?.chats || []);
         dispatch(fetchStoriesFeed({ page: 1, limit: 30 })).unwrap(),
       ]);
     } catch (e) {
-      console.log("Refresh failed:", e);
     } finally {
       setRefreshing(false);
     }
@@ -276,7 +274,6 @@ const openChat = async (targetUserId: string) => {
     dispatch(setActiveChat(chat._id));
     router.push(`/chat/${chat._id}`);
   } catch (e) {
-    console.log("openChat error:", e);
   } finally {
     setCreatingChatId(null);
   }

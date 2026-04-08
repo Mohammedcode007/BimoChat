@@ -32,7 +32,6 @@ export async function isBackgroundActivityEnabled(): Promise<boolean> {
      */
     return false;
   } catch (error) {
-    console.log("[backgroundReminder] isBackgroundActivityEnabled error:", error);
     return false;
   }
 }
@@ -45,7 +44,6 @@ async function getNumber(key: string, fallback = 0): Promise<number> {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
   } catch (error) {
-    console.log(`[backgroundReminder] getNumber(${key}) error:`, error);
     return fallback;
   }
 }
@@ -54,7 +52,6 @@ async function setNumber(key: string, value: number): Promise<void> {
   try {
     await AsyncStorage.setItem(key, String(value));
   } catch (error) {
-    console.log(`[backgroundReminder] setNumber(${key}) error:`, error);
   }
 }
 
@@ -64,7 +61,6 @@ async function getBoolean(key: string, fallback = false): Promise<boolean> {
     if (value == null) return fallback;
     return value === "true";
   } catch (error) {
-    console.log(`[backgroundReminder] getBoolean(${key}) error:`, error);
     return fallback;
   }
 }
@@ -73,7 +69,6 @@ async function setBoolean(key: string, value: boolean): Promise<void> {
   try {
     await AsyncStorage.setItem(key, value ? "true" : "false");
   } catch (error) {
-    console.log(`[backgroundReminder] setBoolean(${key}) error:`, error);
   }
 }
 
@@ -121,7 +116,6 @@ export async function resetBackgroundReminderState(): Promise<void> {
       STORAGE_KEYS.LAST_SETTINGS_OPEN_AT,
     ]);
   } catch (error) {
-    console.log("[backgroundReminder] resetBackgroundReminderState error:", error);
   }
 }
 

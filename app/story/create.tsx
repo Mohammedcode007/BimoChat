@@ -104,7 +104,6 @@ async function compressVideoIfPossible(
   }
 
   if (!FFmpegKit) {
-    console.log("[compressVideoIfPossible] ffmpeg-kit not available. Uploading original video.");
     return { uri: inputUri, didCompress: false };
   }
 
@@ -125,19 +124,16 @@ async function compressVideoIfPossible(
     const ok = returnCode?.isValueSuccess?.() || returnCode?.isSuccess?.() || false;
 
     if (!ok) {
-      console.log("[compressVideoIfPossible] Compression failed. Uploading original.");
       return { uri: inputUri, didCompress: false };
     }
 
     const info = await FileSystem.getInfoAsync(outUri);
     if (!info.exists) {
-      console.log("[compressVideoIfPossible] Output missing. Uploading original.");
       return { uri: inputUri, didCompress: false };
     }
 
     return { uri: outUri, didCompress: true };
   } catch (e) {
-    console.log("[compressVideoIfPossible] Error:", e);
     return { uri: inputUri, didCompress: false };
   }
 }
@@ -151,7 +147,6 @@ async function generateVideoThumbnail(videoUri: string): Promise<string> {
 
     return uri || "";
   } catch (e) {
-    console.log("[generateVideoThumbnail] Error:", e);
     return "";
   }
 }
@@ -375,7 +370,6 @@ export default function CreateStoryScreen() {
         thumbUrl: uploadedThumbUrl,
       };
     } catch (e: any) {
-      console.log(e);
       setUploadLabel("");
       setUploadPct(0);
       setMediaUrl("");

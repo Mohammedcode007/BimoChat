@@ -18,7 +18,6 @@ export default function BackgroundActivityScreen() {
       await handleBackgroundReminderOpenedSettings();
       await Linking.openSettings();
     } catch (error) {
-      console.log("Failed to open settings:", error);
     }
   };
 
@@ -27,7 +26,6 @@ export default function BackgroundActivityScreen() {
       await handleBackgroundReminderMaybeLater();
       router.back();
     } catch (error) {
-      console.log("Failed to dismiss background reminder:", error);
       router.back();
     }
   };

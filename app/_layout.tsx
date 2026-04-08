@@ -111,7 +111,6 @@ const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
     let cleanup: (() => void) | undefined;
 
     const handleNotificationOpen = (data: any) => {
-      console.log("🚀 Notification open data:", data);
 
       if (data?.type === "chat" && data?.chatId) {
         router.push(`/chat/${data.chatId}` as any);
@@ -135,7 +134,6 @@ const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
         await initFCMAndSyncToken();
         cleanup = await registerFCMListeners(handleNotificationOpen);
       } catch (error) {
-        console.log("❌ Notifications bootstrap failed:", error);
       }
     })();
 
@@ -156,13 +154,11 @@ const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
     const connectIfNeeded = () => {
       if (!token) return;
 
-      console.log("🔌 Ensuring socket is connected...");
       connectSocket(token);
       attachSocketListeners(store.dispatch, store.getState);
     };
 
     if (!token) {
-      console.log("🔴 No token -> disconnect socket");
       disconnectSocket();
       return;
     }
@@ -183,14 +179,12 @@ const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
     return () => {
       sub.remove();
 
-      console.log("🧹 AppContent cleanup -> disconnect socket");
       disconnectSocket();
     };
   }, [hydrated, token]);
 
   useEffect(() => {
     if (forceUpdateRequired) {
-      console.log("🚨 Force update required -> navigating");
       router.replace("/force-update" as any);
     }
   }, [forceUpdateRequired, router]);

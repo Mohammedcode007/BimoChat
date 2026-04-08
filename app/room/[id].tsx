@@ -1466,7 +1466,6 @@ const handleInviteUser = async () => {
         joinRoomSocket(roomId);
         ensureMicPermission();
       } catch (e) {
-        console.log("[room load] failed:", e);
       }
     };
 
@@ -1605,9 +1604,7 @@ const handleInviteUser = async () => {
           }
           : null
       };
-      console.log(`[${tag}]`, dump);
     } catch (e) {
-      console.log(`[${tag}] FAILED`, e);
     }
   };
 
@@ -2016,21 +2013,6 @@ const handleInviteUser = async () => {
     const meInRoom = (roomUsers || []).find(
       (u: any) => String(u?._id) === String(currentUserId)
     );
-
-    console.log("==== AUTH USER BEFORE OPTIMISTIC ====");
-    console.log("me:", me);
-    console.log("me.activeCustomization:", me?.activeCustomization);
-    console.log("me.activeCustomization.badges:", me?.activeCustomization?.badges);
-    console.log("me.customEmojiBadge:", me?.customEmojiBadge);
-
-    console.log("==== ROOM USER BEFORE OPTIMISTIC ====");
-    console.log("meInRoom:", meInRoom);
-    console.log("meInRoom.activeCustomization:", meInRoom?.activeCustomization);
-    console.log(
-      "meInRoom.activeCustomization.badges:",
-      meInRoom?.activeCustomization?.badges
-    );
-    console.log("meInRoom.customEmojiBadge:", meInRoom?.customEmojiBadge);
 
     dispatch(
       optimisticAddRoomMessage({

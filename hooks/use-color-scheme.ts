@@ -28,7 +28,6 @@ export function useColorScheme() {
           setThemePreferenceState(saved);
         }
       } catch (error) {
-        console.log("❌ Failed to load theme preference:", error);
       } finally {
         if (mounted) {
           setHasHydrated(true);
@@ -48,7 +47,6 @@ export function useColorScheme() {
       setThemePreferenceState(value);
       await AsyncStorage.setItem(STORAGE_KEY, value);
     } catch (error) {
-      console.log("❌ Failed to save theme preference:", error);
     }
   }, []);
 

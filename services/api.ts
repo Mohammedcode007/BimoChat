@@ -15,7 +15,6 @@ let appDispatch: AppDispatch | null = null;
 let isHandlingAuthError = false;
 
 export const injectDispatch = (dispatch: AppDispatch) => {
-  console.log("🟢 injectDispatch called");
   appDispatch = dispatch;
 };
 
@@ -84,7 +83,6 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.log("❌ REQUEST ERROR:", error);
     return Promise.reject(error);
   }
 );

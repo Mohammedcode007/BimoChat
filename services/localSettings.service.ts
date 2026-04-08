@@ -16,7 +16,6 @@ export const setNotificationSoundEnabled = async (value: boolean) => {
     );
     return true;
   } catch (error) {
-    console.log('setNotificationSoundEnabled error:', error);
     return false;
   }
 };
@@ -32,7 +31,6 @@ export const getNotificationSoundEnabled = async (): Promise<boolean> => {
 
     return JSON.parse(value);
   } catch (error) {
-    console.log('getNotificationSoundEnabled error:', error);
     return true;
   }
 };
@@ -44,7 +42,6 @@ export const toggleNotificationSoundEnabled = async (): Promise<boolean> => {
     await setNotificationSoundEnabled(next);
     return next;
   } catch (error) {
-    console.log('toggleNotificationSoundEnabled error:', error);
     return true;
   }
 };
@@ -54,7 +51,6 @@ export const removeNotificationSoundEnabled = async () => {
     await AsyncStorage.removeItem(KEYS.notificationSoundEnabled);
     return true;
   } catch (error) {
-    console.log('removeNotificationSoundEnabled error:', error);
     return false;
   }
 };

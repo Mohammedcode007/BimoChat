@@ -88,7 +88,6 @@ const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
 
       router.push(`/chat/${chat._id}`);
     } catch (e: any) {
-      console.log("[openChat] Error:", e);
     } finally {
       setCreatingChatId(null);
     }

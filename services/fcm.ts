@@ -19,10 +19,8 @@ Notifications.setNotificationHandler({
 });
 
 export async function initFCMAndSyncToken() {
-  console.log("🔔 initFCMAndSyncToken started");
 
   if (isExpoGo) {
-    console.log("🚫 Remote push غير مدعوم في Expo Go على Android SDK 53+");
     return null;
   }
 
@@ -43,43 +41,32 @@ export async function initFCMAndSyncToken() {
   }
 
   if (finalStatus !== "granted") {
-    console.log("❌ Notification permission not granted");
     return null;
   }
 
   const token = (await Notifications.getDevicePushTokenAsync()).data;
-  console.log("✅ Device push token:", token);
 
   try {
     await api.post("/notifications/device-token", {
       token,
       platform: Platform.OS,
     });
-    console.log("✅ Token synced to backend");
   } catch (error: any) {
-    console.log(
-      "❌ Failed to send token to backend",
-      error?.response?.data || error?.message
-    );
+  
   }
 
   // منع تكرار listener
   if (!pushTokenSub) {
     pushTokenSub = Notifications.addPushTokenListener(async (event) => {
       try {
-        console.log("🔁 Push token refreshed:", event.data);
 
         await api.post("/notifications/device-token", {
           token: event.data,
           platform: Platform.OS,
         });
 
-        console.log("✅ Refreshed token synced");
       } catch (error: any) {
-        console.log(
-          "❌ Failed to sync refreshed token",
-          error?.response?.data || error?.message
-        );
+     
       }
     });
   }
@@ -88,20 +75,14 @@ export async function initFCMAndSyncToken() {
 }
 
 export async function registerFCMListeners(onOpen?: (data: any) => void) {
-  console.log("📡 registerFCMListeners called");
 
   const sub1 = Notifications.addNotificationReceivedListener((notification) => {
-    console.log("📩 Foreground notification received");
-    console.log("title:", notification.request.content.title);
-    console.log("body:", notification.request.content.body);
-    console.log("data:", notification.request.content.data);
+   
   });
 
   const sub2 = Notifications.addNotificationResponseReceivedListener((response) => {
-    console.log("📌 User opened notification");
 
     const data = response.notification.request.content.data || {};
-    console.log("notification open data:", data);
 
     onOpen?.(data);
   });
@@ -109,7 +90,6 @@ export async function registerFCMListeners(onOpen?: (data: any) => void) {
   const lastResponse = await Notifications.getLastNotificationResponseAsync();
   if (lastResponse) {
     const data = lastResponse.notification.request.content.data || {};
-    console.log("📦 Last notification response data:", data);
 
     onOpen?.(data);
     await Notifications.clearLastNotificationResponseAsync();
@@ -130,17 +110,14 @@ export function cleanupFCMTokenListener() {
 
 export async function removeFCMTokenFromBackend() {
   try {
-    console.log("🗑️ removeFCMTokenFromBackend started");
 
     if (isExpoGo) {
-      console.log("🚫 Expo Go -> skip token removal");
       return;
     }
 
     const token = (await Notifications.getDevicePushTokenAsync()).data;
 
     if (!token) {
-      console.log("⚠️ No device push token found");
       return;
     }
 
@@ -151,11 +128,7 @@ export async function removeFCMTokenFromBackend() {
       },
     });
 
-    console.log("✅ Device token removed from backend");
   } catch (error: any) {
-    console.log(
-      "❌ Failed to remove device token from backend",
-      error?.response?.data || error?.message
-    );
+
   }
 }

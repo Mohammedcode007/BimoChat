@@ -524,7 +524,6 @@ useEffect(() => {
       dispatch(enterRoomDirect({ roomId, preload: true }))
         .unwrap()
         .catch((e: any) => {
-          console.log("[enterRoomDirect bg] failed:", e);
         });
     } catch (e: any) {
       const msgStr = String(e?.message || e || "Enter room failed");

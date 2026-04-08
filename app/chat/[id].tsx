@@ -362,7 +362,6 @@ export default function ChatScreen() {
       await dispatch(fetchBlockStatus({ targetUserId: String(targetId) }) as any);
       await dispatch(fetchUserProfile(String(targetId)) as any).unwrap?.();
     } catch (e) {
-      console.log("❌ doToggleBlock error:", e);
     } finally {
       setMenuOpen(false);
     }
@@ -418,7 +417,6 @@ export default function ChatScreen() {
         emitMarkAsSeen(chatId);
       }
     } catch (e) {
-      console.log("❌ refreshMessages error:", e);
     }
   };
   useEffect(() => {
@@ -465,7 +463,6 @@ export default function ChatScreen() {
           emitMarkAsSeen(chatId);
         }
       } catch (e) {
-        console.log("❌ initial loadMessages error:", e);
       }
     };
 
@@ -547,7 +544,6 @@ export default function ChatScreen() {
         prev.includes(nextPage) ? prev : [...prev, nextPage]
       );
     } catch (e) {
-      console.log("❌ loadMore error:", e);
     }
   };
   const ensureMessageLoaded = async (messageId: string) => {
@@ -728,22 +724,14 @@ export default function ChatScreen() {
     uri: string,
     type: "image" | "video" | "audio"
   ) => {
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("🚀 sendMediaMessage START");
-    console.log("📌 chatId:", chatId);
-    console.log("📌 type:", type);
-    console.log("📌 uri:", uri);
-    console.log("📌 currentUser:", currentUser?._id);
-    console.log("📌 replyTo:", replyToMessage?._id);
+
 
     if (!currentUser?._id) {
-      console.log("❌ sendMediaMessage STOP: currentUser._id not found");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+   
       return;
     }
 
     const tempId = `temp-${Date.now()}`;
-    console.log("🆔 tempId:", tempId);
 
     const optimisticMessage: MessageItem = {
       _id: tempId,
@@ -770,21 +758,15 @@ export default function ChatScreen() {
       const cloudType =
         type === "image" ? "image" : type === "video" ? "video" : "raw";
 
-      console.log("☁️ uploadToCloudinary START");
-      console.log("📌 cloudType:", cloudType);
+  
 
       const url = await uploadToCloudinary(uri, cloudType);
 
-      console.log("✅ uploadToCloudinary SUCCESS");
-      console.log("🔗 uploaded url:", url);
+   
 
       setMediaSendingState((prev) => ({ ...prev, [tempId]: "sending" }));
 
-      console.log("📤 sendSocketMessage START");
-      console.log("📌 chatId:", chatId);
-      console.log("📌 type:", type);
-      console.log("📌 tempId:", tempId);
-      console.log("📌 replyTo:", replyToMessage?._id);
+  
 
       sendSocketMessage(
         chatId,
@@ -795,14 +777,9 @@ export default function ChatScreen() {
         replyToMessage?._id
       );
 
-      console.log("✅ sendSocketMessage CALLED");
       setReplyToMessage(null);
-      console.log("✅ replyToMessage cleared");
     } catch (error: any) {
-      console.log("❌ sendMediaMessage ERROR");
-      console.log("📛 error message:", error?.message);
-      console.log("📛 full error:", error);
-      console.log("📛 error response:", error?.response?.data);
+  
 
       setMediaSendingState((prev) => {
         const next = { ...prev };
@@ -812,8 +789,7 @@ export default function ChatScreen() {
 
       Alert.alert("خطأ", "فشل رفع أو إرسال الملف");
     } finally {
-      console.log("🏁 sendMediaMessage END");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    
     }
   };
 

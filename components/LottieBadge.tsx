@@ -35,13 +35,10 @@ export default function LottieBadge({
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    console.log("🎬 [LottieBadge] INIT");
-    console.log("➡️ url:", url);
-    console.log("➡️ fallbackImage:", fallbackImage);
+
   }, [url, fallbackImage]);
 
   if (!url && !fallbackImage) {
-    console.log("⚠️ [LottieBadge] لا يوجد url ولا fallback");
     return null;
   }
 
@@ -54,18 +51,14 @@ export default function LottieBadge({
           loop
           style={{ width: "100%", height: "100%" }}
           onAnimationFinish={() => {
-            console.log("✅ [LottieBadge] animation finished:", url);
           }}
           onAnimationFailure={(err) => {
-            console.log("❌ [LottieBadge] animation FAILED");
-            console.log("➡️ url:", url);
-            console.log("➡️ error:", err);
+           
             setFailed(true);
           }}
         />
       ) : fallbackImage ? (
         (() => {
-          console.log("🖼️ [LottieBadge] استخدام fallback image:", fallbackImage);
           return (
             <Image
               source={{ uri: fallbackImage }}
@@ -75,17 +68,14 @@ export default function LottieBadge({
                 borderRadius: size / 2,
               }}
               onError={(e) => {
-                console.log("❌ [LottieBadge] fallback image failed:", e.nativeEvent);
               }}
               onLoad={() => {
-                console.log("✅ [LottieBadge] fallback image loaded");
               }}
             />
           );
         })()
       ) : (
         (() => {
-          console.log("🚫 [LottieBadge] لا يوجد شيء للعرض");
           return null;
         })()
       )}

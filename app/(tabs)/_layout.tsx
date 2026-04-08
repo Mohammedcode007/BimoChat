@@ -89,14 +89,12 @@ export default function TabLayout() {
 
         const result = await shouldShowBackgroundReminder();
 
-        console.log("[backgroundReminder] decision:", result);
 
         if (result.shouldShow) {
           await consumeBackgroundReminderTrigger();
           router.push("/background-activity" as any);
         }
       } catch (error) {
-        console.log("[backgroundReminder] check error:", error);
       }
     };
 

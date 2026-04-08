@@ -126,7 +126,94 @@ type ReplyState = {
   sender?: string;
   media?: any;
 } | null;
+function RoomInviteCard({
+  item,
+  isMe,
+  isDark,
+  onJoin,
+}: {
+  item: MessageItem;
+  isMe: boolean;
+  isDark: boolean;
+  onJoin: (roomId: string) => void;
+}) {
+  const invite = item.roomInvite;
+  if (!invite?.roomId) return null;
 
+  return (
+    <View
+      style={[
+        styles.inviteCard,
+        {
+          backgroundColor: isMe
+            ? "rgba(255,255,255,0.12)"
+            : isDark
+              ? "#0F172A"
+              : "#EEF2FF",
+          borderColor: isMe
+            ? "rgba(255,255,255,0.18)"
+            : isDark
+              ? "#1F2937"
+              : "#C7D2FE",
+        },
+      ]}
+    >
+      <View style={styles.inviteTopRow}>
+        {!!invite.roomAvatar ? (
+          <Image source={{ uri: invite.roomAvatar }} style={styles.inviteAvatar} />
+        ) : (
+          <View style={styles.inviteAvatarPlaceholder}>
+            <Ionicons name="people-outline" size={18} color="#FFF" />
+          </View>
+        )}
+
+        <View style={{ flex: 1 }}>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.inviteRoomName,
+              { color: isMe ? "#FFF" : isDark ? "#E5E7EB" : "#111827" },
+            ]}
+          >
+            {invite.roomName || "غرفة"}
+          </Text>
+
+          {!!invite.invitedByName && (
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.inviteMetaText,
+                { color: isMe ? "rgba(255,255,255,0.85)" : isDark ? "#CBD5E1" : "#4B5563" },
+              ]}
+            >
+              دعوة من {invite.invitedByName}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {!!(invite.message || item.content) && (
+        <Text
+          style={[
+            styles.inviteMessageText,
+            { color: isMe ? "#FFF" : isDark ? "#E5E7EB" : "#111827" },
+          ]}
+        >
+          {invite.message || item.content}
+        </Text>
+      )}
+
+      <TouchableOpacity
+        activeOpacity={0.9}
+        style={styles.joinRoomBtn}
+        onPress={() => onJoin(invite.roomId)}
+      >
+        <Ionicons name="enter-outline" size={16} color="#FFF" />
+        <Text style={styles.joinRoomBtnText}>انضمام للغرفة</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 export default function ChatScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -280,7 +367,14 @@ export default function ChatScreen() {
       setMenuOpen(false);
     }
   };
+  const handleJoinRoomFromInvite = (roomId: string) => {
+    if (!roomId) return;
 
+    router.push({
+      pathname: "/room/[id]",
+      params: { id: roomId },
+    });
+  };
   useEffect(() => {
     const targetId = otherUser?._id;
     if (!targetId) return;
@@ -1351,88 +1445,96 @@ export default function ChatScreen() {
           ]}
         >
           {renderReplyBlock(item, isMe)}
-{item.type === "image" && mediaUri ? (
-  <View style={{ position: "relative" }}>
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={() => setImagePreview(mediaUri)}
-      disabled={showMediaLoading}
-    >
-      <Image
-        source={{ uri: mediaUri }}
-        style={{ width: 220, height: 220, borderRadius: 14 }}
-        resizeMode="cover"
-      />
-    </TouchableOpacity>
 
-    {showMediaLoading && (
-      <View style={styles.mediaLoadingOverlay}>
-        <ActivityIndicator size="small" color="#FFF" />
-        <Text style={styles.mediaLoadingText}>
-          {mediaStatus === "uploading" ? "جاري رفع الصورة..." : "جاري الإرسال..."}
-        </Text>
-      </View>
-    )}
-  </View>
-) : item.type === "video" && mediaUri ? (
-  <View style={{ position: "relative" }}>
-    <Video
-      source={{ uri: mediaUri }}
-      style={{ width: 240, height: 240, borderRadius: 14 }}
-      useNativeControls={!showMediaLoading}
-      resizeMode={ResizeMode.CONTAIN}
-      isLooping={false}
-      shouldPlay={false}
-    />
+          {item.type === "room_invite" && item.roomInvite ? (
+            <RoomInviteCard
+              item={item}
+              isMe={isMe}
+              isDark={isDark}
+              onJoin={handleJoinRoomFromInvite}
+            />
+          ) : item.type === "image" && mediaUri ? (
+            <View style={{ position: "relative" }}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => setImagePreview(mediaUri)}
+                disabled={showMediaLoading}
+              >
+                <Image
+                  source={{ uri: mediaUri }}
+                  style={{ width: 220, height: 220, borderRadius: 14 }}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
 
-    {showMediaLoading && (
-      <View style={styles.mediaLoadingOverlay}>
-        <ActivityIndicator size="small" color="#FFF" />
-        <Text style={styles.mediaLoadingText}>
-          {mediaStatus === "uploading" ? "جاري رفع الفيديو..." : "جاري الإرسال..."}
-        </Text>
-      </View>
-    )}
-  </View>
-) : item.type === "audio" && mediaUri ? (
-  <View style={{ minWidth: 190 }}>
-    <VoiceMessagePlayer uri={mediaUri} isMe={isMe} />
+              {showMediaLoading && (
+                <View style={styles.mediaLoadingOverlay}>
+                  <ActivityIndicator size="small" color="#FFF" />
+                  <Text style={styles.mediaLoadingText}>
+                    {mediaStatus === "uploading" ? "جاري رفع الصورة..." : "جاري الإرسال..."}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : item.type === "video" && mediaUri ? (
+            <View style={{ position: "relative" }}>
+              <Video
+                source={{ uri: mediaUri }}
+                style={{ width: 240, height: 240, borderRadius: 14 }}
+                useNativeControls={!showMediaLoading}
+                resizeMode={ResizeMode.CONTAIN}
+                isLooping={false}
+                shouldPlay={false}
+              />
 
-    {showMediaLoading && (
-      <View
-        style={[
-          styles.audioLoadingBox,
-          {
-            backgroundColor: isMe
-              ? "rgba(255,255,255,0.12)"
-              : isDark
-                ? "rgba(255,255,255,0.06)"
-                : "#E5E7EB",
-          },
-        ]}
-      >
-        <ActivityIndicator size="small" color={isMe ? "#FFF" : "#6D5DF6"} />
-        <Text
-          style={{
-            marginTop: 6,
-            fontSize: 12,
-            fontWeight: "700",
-            color: isMe ? "#FFF" : isDark ? "#E5E7EB" : "#111827",
-          }}
-        >
-          {mediaStatus === "uploading" ? "جاري رفع الصوت..." : "جاري الإرسال..."}
-        </Text>
-      </View>
-    )}
-  </View>
-) : (
-  renderHighlightedText(
-    item.content,
-    inputSearchValue,
-    isMe,
-    isActiveResult
-  )
-)}
+              {showMediaLoading && (
+                <View style={styles.mediaLoadingOverlay}>
+                  <ActivityIndicator size="small" color="#FFF" />
+                  <Text style={styles.mediaLoadingText}>
+                    {mediaStatus === "uploading" ? "جاري رفع الفيديو..." : "جاري الإرسال..."}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : item.type === "audio" && mediaUri ? (
+            <View style={{ minWidth: 190 }}>
+              <VoiceMessagePlayer uri={mediaUri} isMe={isMe} />
+
+              {showMediaLoading && (
+                <View
+                  style={[
+                    styles.audioLoadingBox,
+                    {
+                      backgroundColor: isMe
+                        ? "rgba(255,255,255,0.12)"
+                        : isDark
+                          ? "rgba(255,255,255,0.06)"
+                          : "#E5E7EB",
+                    },
+                  ]}
+                >
+                  <ActivityIndicator size="small" color={isMe ? "#FFF" : "#6D5DF6"} />
+                  <Text
+                    style={{
+                      marginTop: 6,
+                      fontSize: 12,
+                      fontWeight: "700",
+                      color: isMe ? "#FFF" : isDark ? "#E5E7EB" : "#111827",
+                    }}
+                  >
+                    {mediaStatus === "uploading" ? "جاري رفع الصوت..." : "جاري الإرسال..."}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            renderHighlightedText(
+              item.content,
+              inputSearchValue,
+              isMe,
+              isActiveResult
+            )
+          )}
           {/* {item.type === "image" && item.content ? (
             <TouchableOpacity
               activeOpacity={0.9}
@@ -2359,29 +2461,29 @@ const styles = StyleSheet.create({
   messageContainer: {
     marginVertical: 4,
   },
-mediaLoadingOverlay: {
-  ...StyleSheet.absoluteFillObject,
-  borderRadius: 14,
-  backgroundColor: "rgba(0,0,0,0.45)",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-},
+  mediaLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
 
-mediaLoadingText: {
-  color: "#FFF",
-  fontSize: 12,
-  fontWeight: "700",
-},
+  mediaLoadingText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
 
-audioLoadingBox: {
-  marginTop: 8,
-  borderRadius: 12,
-  paddingVertical: 10,
-  paddingHorizontal: 12,
-  alignItems: "center",
-  justifyContent: "center",
-},
+  audioLoadingBox: {
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   rowMe: {
     alignItems: "flex-end",
   },
@@ -2401,7 +2503,68 @@ audioLoadingBox: {
     backgroundColor: "#80c080",
     borderBottomRightRadius: 4,
   },
+inviteCard: {
+  minWidth: 220,
+  borderWidth: 1,
+  borderRadius: 16,
+  padding: 12,
+},
 
+inviteTopRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 10,
+},
+
+inviteAvatar: {
+  width: 42,
+  height: 42,
+  borderRadius: 14,
+},
+
+inviteAvatarPlaceholder: {
+  width: 42,
+  height: 42,
+  borderRadius: 14,
+  backgroundColor: "#6D5DF6",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+inviteRoomName: {
+  fontSize: 14,
+  fontWeight: "800",
+},
+
+inviteMetaText: {
+  marginTop: 3,
+  fontSize: 12,
+  fontWeight: "600",
+},
+
+inviteMessageText: {
+  marginTop: 10,
+  fontSize: 13,
+  lineHeight: 20,
+  fontWeight: "600",
+},
+
+joinRoomBtn: {
+  marginTop: 12,
+  height: 38,
+  borderRadius: 12,
+  backgroundColor: "#6D5DF6",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+},
+
+joinRoomBtnText: {
+  color: "#FFF",
+  fontSize: 13,
+  fontWeight: "800",
+},
   other: {
     backgroundColor: "#f5f5f5",
     borderBottomLeftRadius: 4,

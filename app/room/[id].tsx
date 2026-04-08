@@ -50,6 +50,7 @@ import {
   fetchRoomMessages,
   fetchRoomStats,
   fetchRoomUsers,
+  inviteToRoom,
   leaveAndRefreshRooms,
   leaveRoomAndExit,
   optimisticAddRoomMessage,
@@ -87,6 +88,7 @@ import {
 import BoostLottieOverlay from "@/components/BoostLottieOverlay";
 import LottieBadge from "@/components/LottieBadge";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { searchUsers } from "@/redux/slices/friendSlice";
 import { debitMyCoinz } from "@/redux/slices/userSlice";
 import { RootState } from "@/redux/store";
 import { uploadToCloudinary } from "@/services/upload.service";
@@ -1219,13 +1221,19 @@ export default function ChatScreen() {
     title: "Uploading…",
     sub: undefined
   });
-
+const [selectedInviteUser, setSelectedInviteUser] = useState<any>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [playbackDuration, setPlaybackDuration] = useState(1);
   const [activeAudio, setActiveAudio] = useState<MessageUI | null>(null);
-
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteUsername, setInviteUsername] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteSearch, setInviteSearch] = useState("");
+  const [inviteSendingId, setInviteSendingId] = useState<string | null>(null);
+  const { searchResults: inviteSearchResults, loading: inviteSearchLoading } =
+    useAppSelector((state) => state.friends);
   const [previewImage, setPreviewImage] = useState<string | ImageSourcePropType | null>(null);
 
   const [showRoomMenu, setShowRoomMenu] = useState(false);
@@ -1263,7 +1271,23 @@ export default function ChatScreen() {
     fromName: undefined,
     toName: undefined
   });
+const handleInviteSearch = async () => {
+  const q = String(inviteUsername || "").trim();
+  if (!q) {
+    Alert.alert("Notice", "Please enter a username");
+    return;
+  }
 
+  try {
+    setInviteLoading(true);
+    setSelectedInviteUser(null);
+    await dispatch(searchUsers(q)).unwrap();
+  } catch (e: any) {
+    Alert.alert("Error", e?.message || "Search failed");
+  } finally {
+    setInviteLoading(false);
+  }
+};
   // ✅ لمنع leave مرتين
   const didLeaveRef = useRef(false);
   const kicked = useAppSelector((state) => selectKickedFlag(state, roomId));
@@ -1316,29 +1340,29 @@ export default function ChatScreen() {
       }
     }
 
-if (myUserId) {
-  const meInRoom = (roomUsers || []).find((u: any) => String(u?._id) === String(myUserId));
+    if (myUserId) {
+      const meInRoom = (roomUsers || []).find((u: any) => String(u?._id) === String(myUserId));
 
-  map.set(myUserId, {
-    username: myName,
-    avatar: myAvatar,
-    role: myRole,
-    activeBadges: meInRoom ? buildActiveBadgesFromUser(meInRoom, myInventory) : [],
-    customEmojiBadge:
-      (authUser as any)?.customEmojiBadge && typeof (authUser as any).customEmojiBadge === "object"
-        ? {
-            emoji: String((authUser as any).customEmojiBadge.emoji || ""),
-            isActive: Boolean((authUser as any).customEmojiBadge.isActive),
-            expiresAt: (authUser as any).customEmojiBadge.expiresAt
-              ? String((authUser as any).customEmojiBadge.expiresAt)
-              : null
-          }
-        : null
-  });
-}
+      map.set(myUserId, {
+        username: myName,
+        avatar: myAvatar,
+        role: myRole,
+        activeBadges: meInRoom ? buildActiveBadgesFromUser(meInRoom, myInventory) : [],
+        customEmojiBadge:
+          (authUser as any)?.customEmojiBadge && typeof (authUser as any).customEmojiBadge === "object"
+            ? {
+              emoji: String((authUser as any).customEmojiBadge.emoji || ""),
+              isActive: Boolean((authUser as any).customEmojiBadge.isActive),
+              expiresAt: (authUser as any).customEmojiBadge.expiresAt
+                ? String((authUser as any).customEmojiBadge.expiresAt)
+                : null
+            }
+            : null
+      });
+    }
 
     return map;
-}, [roomUsers, myUserId, myName, myAvatar, myRole, authUser, myInventory]);
+  }, [roomUsers, myUserId, myName, myAvatar, myRole, authUser, myInventory]);
   const resolveUserNameById = (id?: string) => {
     if (!id) return "";
     const v = usersMap.get(String(id));
@@ -1397,7 +1421,51 @@ if (myUserId) {
       return false;
     }
   };
+const handleInviteUser = async () => {
+  const user = selectedInviteUser;
+  const targetId = String(user?._id || user?.id || "").trim();
 
+  if (!targetId) {
+    Alert.alert("Notice", "Please select a user first");
+    return;
+  }
+
+  if (targetId === myUserId) {
+    Alert.alert("Notice", "You cannot invite yourself");
+    return;
+  }
+
+  try {
+    setInviteLoading(true);
+    setInviteSendingId(targetId);
+
+    await dispatch(
+      inviteToRoom({
+        roomId,
+        targetId,
+        message: `Join the room "${roomName}" 🔥`,
+      })
+    ).unwrap();
+
+    Alert.alert(
+      "Success",
+      `Invitation sent to ${user?.username || user?.name || "user"}`
+    );
+
+    setShowInviteModal(false);
+    setInviteUsername("");
+    setInviteSearch("");
+    setSelectedInviteUser(null);
+  } catch (e: any) {
+    Alert.alert(
+      "Error",
+      e?.message || "Failed to send invitation"
+    );
+  } finally {
+    setInviteLoading(false);
+    setInviteSendingId(null);
+  }
+};
   /* ================= FETCH + SOCKET (مرة واحدة فقط) ================= */
   // useEffect(() => {
   //   if (!roomId) return;
@@ -1429,42 +1497,42 @@ if (myUserId) {
   //   };
   // }, [roomId]);
   useEffect(() => {
-  if (!roomId) return;
+    if (!roomId) return;
 
-  const hasMessages = Array.isArray(reduxMessages) && reduxMessages.length > 0;
-  const hasUsers = Array.isArray(roomUsers) && roomUsers.length > 0;
-  const hasStats = typeof activeCount === "number";
+    const hasMessages = Array.isArray(reduxMessages) && reduxMessages.length > 0;
+    const hasUsers = Array.isArray(roomUsers) && roomUsers.length > 0;
+    const hasStats = typeof activeCount === "number";
 
-  const loadRoom = async () => {
-    try {
-      if (!hasMessages) {
-        await dispatch(
-          fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false })
-        ).unwrap();
+    const loadRoom = async () => {
+      try {
+        if (!hasMessages) {
+          await dispatch(
+            fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false })
+          ).unwrap();
+        }
+
+        if (!hasUsers) {
+          await dispatch(fetchRoomUsers(roomId)).unwrap();
+        }
+
+        if (!hasStats) {
+          await dispatch(fetchRoomStats(roomId)).unwrap();
+        }
+
+        await dispatch(getMyInventory() as any);
+        joinRoomSocket(roomId);
+        ensureMicPermission();
+      } catch (e) {
+        console.log("[room load] failed:", e);
       }
+    };
 
-      if (!hasUsers) {
-        await dispatch(fetchRoomUsers(roomId)).unwrap();
-      }
+    loadRoom();
 
-      if (!hasStats) {
-        await dispatch(fetchRoomStats(roomId)).unwrap();
-      }
-
-      await dispatch(getMyInventory() as any);
-      joinRoomSocket(roomId);
-      ensureMicPermission();
-    } catch (e) {
-      console.log("[room load] failed:", e);
-    }
-  };
-
-  loadRoom();
-
-  return () => {
-    // leaveRoomSocket(roomId);
-  };
-}, [roomId]);
+    return () => {
+      // leaveRoomSocket(roomId);
+    };
+  }, [roomId]);
   /* ================= KICK/BAN HANDLERS ================= */
   useEffect(() => {
     if (!roomId || !kicked) return;
@@ -1578,7 +1646,7 @@ if (myUserId) {
           : null,
       isOnline: Boolean(u?.isOnline)
     }));
-}, [roomUsers, myUserId, myInventory]);
+  }, [roomUsers, myUserId, myInventory]);
   /* ================= messagesById (for reply preview) ================= */
   const messagesById = useMemo(() => {
     const mp = new Map<string, any>();
@@ -2555,7 +2623,18 @@ if (myUserId) {
               <Ionicons name="refresh" size={18} color={theme.text} />
               <Text style={styles.menuText}>Refresh</Text>
             </TouchableOpacity>
-
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowRoomMenu(false);
+                setInviteUsername("");
+                setShowInviteModal(true);
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="person-add-outline" size={18} color={theme.text} />
+<Text style={styles.menuText}>Invite a Friend</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={onOpenUsers} activeOpacity={0.85}>
               <Ionicons name="people" size={18} color={theme.text} />
               <Text style={styles.menuText}>Users</Text>
@@ -2823,7 +2902,149 @@ if (myUserId) {
           )}
         </View>
       </Reanimated.View>
+     <Modal
+  transparent
+  visible={showInviteModal}
+  animationType="fade"
+  onRequestClose={() => setShowInviteModal(false)}
+>
+  <TouchableOpacity
+    activeOpacity={1}
+    style={styles.menuOverlay}
+    onPress={() => setShowInviteModal(false)}
+  >
+    <TouchableOpacity
+      activeOpacity={1}
+      style={styles.inviteModalBox}
+      onPress={() => {}}
+    >
+      <View style={styles.inviteModalHeader}>
+        <Text style={styles.inviteModalTitle}>Invite a Friend</Text>
 
+        <TouchableOpacity
+          onPress={() => setShowInviteModal(false)}
+          activeOpacity={0.85}
+          style={styles.inviteModalCloseBtn}
+        >
+          <Ionicons name="close" size={20} color={theme.text} />
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.inviteModalHint}>
+        Enter the username exactly as it appears in the app
+      </Text>
+
+      <View style={styles.inviteInputWrap}>
+        <Ionicons name="person-outline" size={18} color={theme.icon} />
+        <TextInput
+          style={styles.inviteInput}
+          placeholder="Username"
+          placeholderTextColor={theme.subtleText}
+          value={inviteUsername}
+          onChangeText={(val) => {
+            setInviteUsername(val);
+            setSelectedInviteUser(null);
+          }}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          onSubmitEditing={handleInviteSearch}
+        />
+      </View>
+
+      <TouchableOpacity
+        style={[
+          styles.inviteSendBtn,
+          { marginTop: 10, opacity: inviteLoading ? 0.7 : 1 }
+        ]}
+        onPress={handleInviteSearch}
+        activeOpacity={0.85}
+        disabled={inviteLoading}
+      >
+        <Text style={styles.inviteSendText}>
+          {inviteLoading ? "Searching..." : "Search User"}
+        </Text>
+      </TouchableOpacity>
+
+      {!!inviteSearchResults?.length && (
+        <View style={{ marginTop: 12, gap: 8 }}>
+          {inviteSearchResults.map((user: any) => {
+            const userId = String(user?._id || user?.id || "");
+            const isSelected =
+              String(selectedInviteUser?._id || selectedInviteUser?.id || "") === userId;
+            const isSending = inviteSendingId === userId;
+
+            return (
+              <TouchableOpacity
+                key={userId}
+                activeOpacity={0.85}
+                onPress={() => setSelectedInviteUser(user)}
+                style={{
+                  borderWidth: 1,
+                  borderColor: isSelected ? theme.primary : theme.border,
+                  backgroundColor: isSelected ? theme.surface2 : theme.card,
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.text, fontWeight: "700" }}>
+                    {user?.username || user?.name || "User"}
+                  </Text>
+                  {!!user?.atUsername && (
+                    <Text style={{ color: theme.mutedText, marginTop: 2 }}>
+                      @{user.atUsername}
+                    </Text>
+                  )}
+                </View>
+
+                {isSelected && (
+                  <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      <View style={styles.inviteActionsRow}>
+        <TouchableOpacity
+          style={styles.inviteCancelBtn}
+          onPress={() => {
+            setShowInviteModal(false);
+            setInviteUsername("");
+            setSelectedInviteUser(null);
+          }}
+          activeOpacity={0.85}
+          disabled={inviteLoading || !!inviteSendingId}
+        >
+          <Text style={styles.inviteCancelText}>Cancel</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.inviteSendBtn,
+            {
+              opacity:
+                inviteLoading || !!inviteSendingId || !selectedInviteUser ? 0.6 : 1,
+            },
+          ]}
+          onPress={handleInviteUser}
+          activeOpacity={0.85}
+          disabled={inviteLoading || !!inviteSendingId || !selectedInviteUser}
+        >
+          <Text style={styles.inviteSendText}>
+            {inviteSendingId ? "Sending..." : "Send Invite"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  </TouchableOpacity>
+</Modal>
       {/* ================= ACTIONS MODAL ================= */}
       <Modal transparent visible={showActions} animationType="fade" onRequestClose={() => setShowActions(false)}>
         <View style={styles.actionsOverlay}>
@@ -3500,6 +3721,104 @@ function makeScreenStyles(theme: typeof Colors.light, bottomInset: number) {
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface2
+    },
+    inviteModalBox: {
+      marginHorizontal: 20,
+      marginTop: "45%",
+      backgroundColor: theme.card,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: 16,
+    },
+
+    inviteModalHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 8,
+    },
+
+    inviteModalTitle: {
+      fontSize: 16,
+      fontWeight: "900",
+      color: theme.text,
+    },
+
+    inviteModalCloseBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.surface2,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+
+    inviteModalHint: {
+      fontSize: 13,
+      color: theme.mutedText,
+      marginBottom: 12,
+      lineHeight: 20,
+    },
+
+    inviteInputWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface2,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      minHeight: 48,
+    },
+
+    inviteInput: {
+      flex: 1,
+      color: theme.text,
+      fontSize: 14,
+      fontWeight: "600",
+      paddingVertical: 10,
+    },
+
+    inviteActionsRow: {
+      flexDirection: "row",
+      gap: 10,
+      marginTop: 14,
+    },
+
+    inviteCancelBtn: {
+      flex: 1,
+      height: 44,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface2,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    inviteCancelText: {
+      color: theme.text,
+      fontSize: 14,
+      fontWeight: "800",
+    },
+
+    inviteSendBtn: {
+      flex: 1,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: theme.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    inviteSendText: {
+      color: theme.primaryText,
+      fontSize: 14,
+      fontWeight: "800",
     },
     pinInput: { flex: 1, minHeight: 110, maxHeight: 180, fontSize: 13, color: theme.text, lineHeight: 18 },
 

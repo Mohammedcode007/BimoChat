@@ -184,7 +184,7 @@ export type RoomMessageType =
   | "sticker"
   | "promotion"
   | "role"
-    | "invitation"
+  | "invitation"
 
   | "ban"
   | "gift";
@@ -196,7 +196,7 @@ export type RoomMessage = {
   room: string;
   gift?: GiftPayload;
   clientId?: string;
-    invitation?: InvitationPayload;
+  invitation?: InvitationPayload;
 
   optimistic?: boolean; // اختياري
   failed?: boolean;     // اختياري
@@ -591,54 +591,54 @@ export const fetchRoomUsers = createAsyncThunk<
 
     const users: RoomUser[] = Array.isArray(rawUsers)
       ? rawUsers.map((u: any) => ({
-          _id: String(u?._id || ""),
-          username: String(u?.username || "User"),
-          avatar: u?.avatar ? String(u.avatar) : "",
-          isOnline: Boolean(u?.isOnline),
-          lastSeen: u?.lastSeen ? String(u.lastSeen) : undefined,
-          role: u?.role,
-          isVip: Boolean(u?.isVip),
-          vipExpiresAt: u?.vipExpiresAt ? String(u.vipExpiresAt) : null,
-          isMuted: Boolean(u?.isMuted),
-          mutedUntil: u?.mutedUntil ? String(u.mutedUntil) : null,
-          isActive: Boolean(u?.isActive),
-      inventory: Array.isArray(u?.inventory) ? u.inventory : [],
-          activeCustomization: u?.activeCustomization
+        _id: String(u?._id || ""),
+        username: String(u?.username || "User"),
+        avatar: u?.avatar ? String(u.avatar) : "",
+        isOnline: Boolean(u?.isOnline),
+        lastSeen: u?.lastSeen ? String(u.lastSeen) : undefined,
+        role: u?.role,
+        isVip: Boolean(u?.isVip),
+        vipExpiresAt: u?.vipExpiresAt ? String(u.vipExpiresAt) : null,
+        isMuted: Boolean(u?.isMuted),
+        mutedUntil: u?.mutedUntil ? String(u.mutedUntil) : null,
+        isActive: Boolean(u?.isActive),
+        inventory: Array.isArray(u?.inventory) ? u.inventory : [],
+        activeCustomization: u?.activeCustomization
+          ? {
+            avatarFrame: u.activeCustomization?.avatarFrame
+              ? String(u.activeCustomization.avatarFrame)
+              : "",
+            messageEffect: u.activeCustomization?.messageEffect
+              ? String(u.activeCustomization.messageEffect)
+              : "",
+            profileEntryAnimation: u.activeCustomization?.profileEntryAnimation
+              ? String(u.activeCustomization.profileEntryAnimation)
+              : "",
+            badges: Array.isArray(u?.activeCustomization?.badges)
+              ? u.activeCustomization.badges.map((x: any) => String(x))
+              : [],
+            verificationType: u?.activeCustomization?.verificationType || "none"
+          }
+          : undefined,
+
+        verificationType: u?.verificationType || "none",
+
+        customEmojiBadge:
+          u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
             ? {
-                avatarFrame: u.activeCustomization?.avatarFrame
-                  ? String(u.activeCustomization.avatarFrame)
-                  : "",
-                messageEffect: u.activeCustomization?.messageEffect
-                  ? String(u.activeCustomization.messageEffect)
-                  : "",
-                profileEntryAnimation: u.activeCustomization?.profileEntryAnimation
-                  ? String(u.activeCustomization.profileEntryAnimation)
-                  : "",
-                badges: Array.isArray(u?.activeCustomization?.badges)
-                  ? u.activeCustomization.badges.map((x: any) => String(x))
-                  : [],
-                verificationType: u?.activeCustomization?.verificationType || "none"
-              }
-            : undefined,
-
-          verificationType: u?.verificationType || "none",
-
-          customEmojiBadge:
-            u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
-              ? {
-                  emoji: u.customEmojiBadge?.emoji
-                    ? String(u.customEmojiBadge.emoji)
-                    : "",
-                  isActive: Boolean(u.customEmojiBadge?.isActive),
-                  purchasedAt: u.customEmojiBadge?.purchasedAt
-                    ? String(u.customEmojiBadge.purchasedAt)
-                    : null,
-                  expiresAt: u.customEmojiBadge?.expiresAt
-                    ? String(u.customEmojiBadge.expiresAt)
-                    : null
-                }
-              : null
-        }))
+              emoji: u.customEmojiBadge?.emoji
+                ? String(u.customEmojiBadge.emoji)
+                : "",
+              isActive: Boolean(u.customEmojiBadge?.isActive),
+              purchasedAt: u.customEmojiBadge?.purchasedAt
+                ? String(u.customEmojiBadge.purchasedAt)
+                : null,
+              expiresAt: u.customEmojiBadge?.expiresAt
+                ? String(u.customEmojiBadge.expiresAt)
+                : null
+            }
+            : null
+      }))
       : [];
 
     return { roomId, users };
@@ -688,7 +688,41 @@ export const leaveRoom = createAsyncThunk<{ roomId: string }, string, { state: R
     }
   }
 );
+export const inviteToRoom = createAsyncThunk<
+  {
+    roomId: string;
+    targetId: string;
+    message?: string;
+    data: any;
+  },
+  {
+    roomId: string;
+    targetId: string;
+    message?: string;
+  },
+  { state: RootState }
+>(
+  "room/inviteToRoom",
+  async ({ roomId, targetId, message }, thunkAPI) => {
+    try {
+      const res = await api.post(`/rooms/${roomId}/invite`, {
+        targetId,
+        message,
+      });
 
+      const data = dataOf(res);
+
+      return {
+        roomId,
+        targetId,
+        message,
+        data,
+      };
+    } catch (e: any) {
+      return thunkAPI.rejectWithValue(errMsg(e, "Invitation failed"));
+    }
+  }
+);
 export const autoRejoin = createAsyncThunk<string[], void, { state: RootState }>(
   "room/autoRejoin",
   async (_, thunkAPI) => {
@@ -1278,30 +1312,30 @@ const roomSlice = createSlice({
   initialState,
   reducers: {
     resetRoomState: () => initialState,
-   optimisticAddRoomMessage: (state, action) => {
-  const { roomId, message } = action.payload;
+    optimisticAddRoomMessage: (state, action) => {
+      const { roomId, message } = action.payload;
 
-  if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
-  const list = state.messagesByRoom[roomId];
+      if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+      const list = state.messagesByRoom[roomId];
 
-  const nowIso = new Date().toISOString();
+      const nowIso = new Date().toISOString();
 
-  const optimistic: RoomMessage = {
-    ...message,
-    _id: message._id || `optimistic:${message.clientId || nowIso}`,
-    room: roomId,
-    createdAt: message.createdAt || nowIso,
-    updatedAt: message.updatedAt || nowIso,
-    optimistic: true,
-  } as RoomMessage;
+      const optimistic: RoomMessage = {
+        ...message,
+        _id: message._id || `optimistic:${message.clientId || nowIso}`,
+        room: roomId,
+        createdAt: message.createdAt || nowIso,
+        updatedAt: message.updatedAt || nowIso,
+        optimistic: true,
+      } as RoomMessage;
 
-  debugMsg("optimistic:add:IN", roomId, optimistic);
-  debugList("optimistic:add:BEFORE", roomId, list);
+      debugMsg("optimistic:add:IN", roomId, optimistic);
+      debugList("optimistic:add:BEFORE", roomId, list);
 
-  upsertMessageByClientIdOrId(list, optimistic);
+      upsertMessageByClientIdOrId(list, optimistic);
 
-  debugList("optimistic:add:AFTER", roomId, list);
-},
+      debugList("optimistic:add:AFTER", roomId, list);
+    },
     clearKickedFlag: (state, action: PayloadAction<{ roomId: string }>) => {
       delete state.kickedByRoom[action.payload.roomId];
     },
@@ -1516,30 +1550,30 @@ const roomSlice = createSlice({
      * room:message:new
      */
 
-   socketNewRoomMessage: (state, action) => {
-  const { roomId, message } = action.payload;
-  if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
-  const list = state.messagesByRoom[roomId];
+    socketNewRoomMessage: (state, action) => {
+      const { roomId, message } = action.payload;
+      if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+      const list = state.messagesByRoom[roomId];
 
-  // ✅ محاولة ربط رسالة سوكت برسالة optimistic عند غياب clientId
-  if (!message?.clientId && message?._id) {
-    const idxOpt = list.findIndex((m) =>
-      m.optimistic &&
-      m.type === message.type &&
-      m.content === message.content &&
-      // (اختياري) نفس المرسل إن توفر
-      (toStr((m.senderSnapshot as any)?._id) === toStr((message.senderSnapshot as any)?._id) || true)
-    );
+      // ✅ محاولة ربط رسالة سوكت برسالة optimistic عند غياب clientId
+      if (!message?.clientId && message?._id) {
+        const idxOpt = list.findIndex((m) =>
+          m.optimistic &&
+          m.type === message.type &&
+          m.content === message.content &&
+          // (اختياري) نفس المرسل إن توفر
+          (toStr((m.senderSnapshot as any)?._id) === toStr((message.senderSnapshot as any)?._id) || true)
+        );
 
-    if (idxOpt >= 0) {
-      list[idxOpt] = { ...list[idxOpt], ...message, optimistic: false, failed: false };
-      dedupeMessages(list);
-      return;
-    }
-  }
+        if (idxOpt >= 0) {
+          list[idxOpt] = { ...list[idxOpt], ...message, optimistic: false, failed: false };
+          dedupeMessages(list);
+          return;
+        }
+      }
 
-  upsertMessageByClientIdOrId(list, message);
-},
+      upsertMessageByClientIdOrId(list, message);
+    },
     // socketNewRoomMessage: (state, action: PayloadAction<{ roomId: string; message: RoomMessage }>) => {
     //   const { roomId, message } = action.payload;
 
@@ -1868,7 +1902,7 @@ const roomSlice = createSlice({
       })
       .addCase(sendRoomMessage.fulfilled, (state, action) => {
         state.sending = false;
-        
+
 
         const { roomId } = action.payload;
         let { message } = action.payload;
@@ -1884,11 +1918,11 @@ const roomSlice = createSlice({
 
         // ✅ الآن سيتم الاستبدال وليس الإضافة
         debugMsg("send:fulfilled:IN", roomId, message);
-debugList("send:fulfilled:BEFORE", roomId, list);
+        debugList("send:fulfilled:BEFORE", roomId, list);
 
-upsertMessageByClientIdOrId(list, message);
+        upsertMessageByClientIdOrId(list, message);
 
-debugList("send:fulfilled:AFTER", roomId, list);
+        debugList("send:fulfilled:AFTER", roomId, list);
       })
       .addCase(sendRoomMessage.rejected, (state, action) => {
         state.sending = false;
@@ -1899,76 +1933,76 @@ debugList("send:fulfilled:AFTER", roomId, list);
         state.loadingMessages = true;
         state.error = undefined;
       })
-     .addCase(fetchRoomMessages.fulfilled, (state, action) => {
-  state.loadingMessages = false;
-  const { roomId, messages, append } = action.payload;
+      .addCase(fetchRoomMessages.fulfilled, (state, action) => {
+        state.loadingMessages = false;
+        const { roomId, messages, append } = action.payload;
 
-  if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
-  const list = state.messagesByRoom[roomId];
+        if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+        const list = state.messagesByRoom[roomId];
 
 
 
-  if (append) {
-    const existingIds = new Set(list.map((m) => String(m?._id || "")));
-    const existingClientIds = new Set(
-      list.map((m) => String(m?.clientId || "")).filter(Boolean)
-    );
+        if (append) {
+          const existingIds = new Set(list.map((m) => String(m?._id || "")));
+          const existingClientIds = new Set(
+            list.map((m) => String(m?.clientId || "")).filter(Boolean)
+          );
 
-    const filtered = (messages || []).filter((m) => {
-      const id = String(m?._id || "");
-      const cid = String(m?.clientId || "");
+          const filtered = (messages || []).filter((m) => {
+            const id = String(m?._id || "");
+            const cid = String(m?.clientId || "");
 
-      const dupById = id && existingIds.has(id);
-      const dupByClient = cid && existingClientIds.has(cid);
+            const dupById = id && existingIds.has(id);
+            const dupByClient = cid && existingClientIds.has(cid);
 
-      if (dupById || dupByClient) {
-        console.log("[DUP BLOCKED]", { id, cid, dupById, dupByClient });
-        return false;
-      }
+            if (dupById || dupByClient) {
+              console.log("[DUP BLOCKED]", { id, cid, dupById, dupByClient });
+              return false;
+            }
 
-      return true;
-    });
+            return true;
+          });
 
-    console.log("filtered length (after dedupe):", filtered.length);
+          console.log("filtered length (after dedupe):", filtered.length);
 
-    list.push(...filtered);
-  } else {
-    const seen = new Set<string>();
-    const out: typeof messages = [];
+          list.push(...filtered);
+        } else {
+          const seen = new Set<string>();
+          const out: typeof messages = [];
 
-    for (const m of (messages || [])) {
-      const id = String(m?._id || "");
-      const cid = String(m?.clientId || "");
-      const key = cid ? `c:${cid}` : `i:${id}`;
+          for (const m of (messages || [])) {
+            const id = String(m?._id || "");
+            const cid = String(m?.clientId || "");
+            const key = cid ? `c:${cid}` : `i:${id}`;
 
-      if (!id && !cid) {
-        console.log("[SKIP no id & no clientId]", m);
-        continue;
-      }
+            if (!id && !cid) {
+              console.log("[SKIP no id & no clientId]", m);
+              continue;
+            }
 
-      if (seen.has(key)) {
-        console.log("[DUP IN PAYLOAD]", key);
-        continue;
-      }
+            if (seen.has(key)) {
+              console.log("[DUP IN PAYLOAD]", key);
+              continue;
+            }
 
-      seen.add(key);
-      out.push(m);
-    }
+            seen.add(key);
+            out.push(m);
+          }
 
-    console.log("deduped payload length:", out.length);
+          console.log("deduped payload length:", out.length);
 
-    state.messagesByRoom[roomId] = out;
-  }
+          state.messagesByRoom[roomId] = out;
+        }
 
-  console.log("after length:", state.messagesByRoom[roomId].length);
-  console.log("after top 5:", state.messagesByRoom[roomId].slice(0, 5).map(m => ({
-    id: m?._id,
-    cid: m?.clientId,
-    opt: m?.optimistic,
-    type: m?.type
-  })));
-  console.log("======================================");
-})
+        console.log("after length:", state.messagesByRoom[roomId].length);
+        console.log("after top 5:", state.messagesByRoom[roomId].slice(0, 5).map(m => ({
+          id: m?._id,
+          cid: m?.clientId,
+          opt: m?.optimistic,
+          type: m?.type
+        })));
+        console.log("======================================");
+      })
       .addCase(fetchRoomMessages.rejected, (state, action) => {
         state.loadingMessages = false;
         state.error = (action.payload as any) || "Failed to fetch messages";
@@ -2047,7 +2081,9 @@ debugList("send:fulfilled:AFTER", roomId, list);
             kickUser.typePrefix,
             deleteRoom.typePrefix,
             pinRoomMessage.typePrefix,
-            toggleRoomReaction.typePrefix
+            toggleRoomReaction.typePrefix,
+              inviteToRoom.typePrefix,
+
           ].some((p) => action.type.startsWith(p)),
         (state) => {
           state.mutatingRoom = true;
@@ -2131,6 +2167,8 @@ debugList("send:fulfilled:AFTER", roomId, list);
             deleteRoom.typePrefix,
             pinRoomMessage.typePrefix,
             toggleRoomReaction.typePrefix,
+              inviteToRoom.typePrefix
+
           ].some((p) => action.type.startsWith(p)),
         (state) => {
           state.mutatingRoom = false;

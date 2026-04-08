@@ -214,18 +214,51 @@ export default function TabLayout() {
   const segments = useSegments();
   const token = useSelector((state: RootState) => state.auth.token);
   const me = useSelector((state: RootState) => state.user.me);
-const hasCheckedBackgroundReminderRef = useRef(false);
-  useEffect(() => {
-    if (token && !me) {
-      dispatch(fetchMyFullUser());
-    }
-  }, [dispatch, token, me]);
+  const hasCheckedBackgroundReminderRef = useRef(false);
 
   const { isLoggedIn, hydrated, loading } = useSelector(
     (state: RootState) => state.auth
   );
 
   const s = useMemo(() => makeStyles(theme), [theme]);
+
+  useEffect(() => {
+    if (token && !me) {
+      dispatch(fetchMyFullUser());
+    }
+  }, [dispatch, token, me]);
+
+  useEffect(() => {
+    const checkBackgroundReminder = async () => {
+      try {
+        if (!hydrated || loading || !isLoggedIn) return;
+        if (hasCheckedBackgroundReminderRef.current) return;
+
+        const isOnBackgroundActivityScreen = Array.isArray(segments)
+          ? segments.some((segment) => String(segment) === "background-activity")
+          : false;
+
+        if (isOnBackgroundActivityScreen) return;
+
+        hasCheckedBackgroundReminderRef.current = true;
+
+        await incrementBackgroundReminderOpenCount();
+
+        const result = await shouldShowBackgroundReminder();
+
+        console.log("[backgroundReminder] decision:", result);
+
+        if (result.shouldShow) {
+          await consumeBackgroundReminderTrigger();
+          router.push("/background-activity" as any);
+        }
+      } catch (error) {
+        console.log("[backgroundReminder] check error:", error);
+      }
+    };
+
+    checkBackgroundReminder();
+  }, [hydrated, loading, isLoggedIn, segments, router]);
 
   if (!hydrated || loading) {
     return (
@@ -234,50 +267,22 @@ const hasCheckedBackgroundReminderRef = useRef(false);
       </View>
     );
   }
-useEffect(() => {
-  const checkBackgroundReminder = async () => {
-    try {
-      if (!hydrated || loading || !isLoggedIn) return;
-      if (hasCheckedBackgroundReminderRef.current) return;
 
-      const isOnBackgroundActivityScreen = Array.isArray(segments)
-        ? segments.some((segment) => String(segment) === "background-activity")
-        : false;
-
-      if (isOnBackgroundActivityScreen) return;
-
-      hasCheckedBackgroundReminderRef.current = true;
-
-      await incrementBackgroundReminderOpenCount();
-
-      const result = await shouldShowBackgroundReminder();
-
-      console.log("[backgroundReminder] decision:", result);
-
-      if (result.shouldShow) {
-        await consumeBackgroundReminderTrigger();
-        router.push("/background-activity" as any);
-      }
-    } catch (error) {
-      console.log("[backgroundReminder] check error:", error);
-    }
-  };
-
-  checkBackgroundReminder();
-}, [hydrated, loading, isLoggedIn]);
   if (!isLoggedIn) {
     return <Redirect href="/(auth)/welcome" />;
   }
 
-  const androidBottomInset = Platform.OS === "android" ? Math.max(insets.bottom, 8) : 0;
-  const iosBottomInset = Platform.OS === "ios" ? Math.max(insets.bottom, 20) : 0;
-  const bottomPadding = Platform.OS === "ios" ? iosBottomInset : androidBottomInset;
+  const androidBottomInset =
+    Platform.OS === "android" ? Math.max(insets.bottom, 8) : 0;
+  const iosBottomInset =
+    Platform.OS === "ios" ? Math.max(insets.bottom, 20) : 0;
+  const bottomPadding =
+    Platform.OS === "ios" ? iosBottomInset : androidBottomInset;
   const tabBarHeight = 56 + bottomPadding;
 
   return (
     <View style={s.full}>
       <AppHeader />
-
       <View style={{ flex: 1 }}>
         <Tabs
           initialRouteName="rooms"

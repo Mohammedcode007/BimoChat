@@ -887,7 +887,7 @@ export default function TweetsScreen() {
   const s = useMemo(() => makeStyles(theme, isDark), [theme, isDark]);
 
   const [activeTab, setActiveTab] = useState<"following" | "foryou">(
-    "following"
+    "foryou"
   );
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);

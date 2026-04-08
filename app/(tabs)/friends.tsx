@@ -281,31 +281,7 @@ const openChat = async (targetUserId: string) => {
     setCreatingChatId(null);
   }
 };
-  // const openChat = async (targetUserId: string) => {
-  //   if (creatingChatId) return;
-
-  //   try {
-  //     setCreatingChatId(targetUserId);
-
-  //     const chat = await dispatch(createChat(targetUserId)).unwrap();
-  //     dispatch(setActiveChat(chat._id));
-
-  //     const messagesRes = await api.get(`/messages/${chat._id}?page=1`);
-  //     dispatch(
-  //       setMessages({
-  //         chatId: chat._id,
-  //         messages: messagesRes.data,
-  //       })
-  //     );
-
-  //     router.push(`/chat/${chat._id}`);
-  //   } catch (e) {
-  //     console.log("openChat error:", e);
-  //   } finally {
-  //     setCreatingChatId(null);
-  //   }
-  // };
-
+ 
   const isSeen = useCallback(
     (storyId?: string) => {
       if (!storyId) return false;

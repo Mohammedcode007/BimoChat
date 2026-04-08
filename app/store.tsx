@@ -531,31 +531,6 @@ const filtered = useMemo(() => {
     return hay.includes(query);
   });
 }, [items, tab, q]);
-  // const filtered = useMemo(() => {
-  //   if (tab === "coinz") return [];
-
-  //   const query = q.trim().toLowerCase();
-
-  //   return (items || []).filter((it: any) => {
-  //     const type = String(it.type || "");
-  //     const meta = it.meta || {};
-
-  //     const okTab =
-  //       tab === "all"
-  //         ? true
-  //         : tab === "bundles"
-  //           ? String(meta.category || "").toLowerCase() === "bundle"
-  //           : tab === "limited"
-  //             ? Boolean(meta.isLimited) === true
-  //             : type === tab;
-
-  //     if (!okTab) return false;
-
-  //     if (!query) return true;
-  //     const hay = `${it.name || ""} ${it.key || ""} ${it.description || ""}`.toLowerCase();
-  //     return hay.includes(query);
-  //   });
-  // }, [items, tab, q]);
 
   const loadAll = useCallback(async () => {
     setTabLoading(true);

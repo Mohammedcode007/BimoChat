@@ -1,6 +1,5 @@
 
 
-// import { useLanguage } from '@/context/LanguageContext';
 import { toastConfig } from '@/components/AppToastConfig';
 import GlobalNotificationListener from '@/components/GlobalNotificationListener';
 import ModernDrawer from '@/components/ModernDrawer';
@@ -26,7 +25,6 @@ import { Provider, useDispatch, useSelector } from 'react-redux';
 import AuthLoadingScreen from './auth-loading';
 
 function RootStack() {
-  // const { language } = useLanguage();
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -108,16 +106,13 @@ const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
     dispatch(checkAuth() as any);
   }, [dispatch]);
 
-  /* =========================
-     3) Notifications + FCM
-  ========================= */
+ 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
 
     const handleNotificationOpen = (data: any) => {
       console.log("🚀 Notification open data:", data);
 
-      // عدّل هذه المسارات حسب ملفات app عندك لو كانت مختلفة
       if (data?.type === "chat" && data?.chatId) {
         router.push(`/chat/${data.chatId}` as any);
         return;
@@ -172,19 +167,15 @@ const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
       return;
     }
 
-    // ✅ اتصل مرة واحدة طالما يوجد token
     connectIfNeeded();
 
     const sub = AppState.addEventListener("change", (nextState) => {
       const prevState = appStateRef.current;
       appStateRef.current = nextState;
 
-      console.log("📱 AppState changed:", prevState, "->", nextState);
 
-      // ✅ لا تفصل في الخلفية نهائيًا
-      // فقط لو رجع active وتأكدنا أن السوكيت انقطع لأي سبب، نعيد الاتصال
+  
       if (nextState === "active") {
-        console.log("🟢 App active -> ensure socket connected");
         connectIfNeeded();
       }
     });
@@ -192,75 +183,11 @@ const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
     return () => {
       sub.remove();
 
-      // ✅ لا تفصل هنا إلا لو token اختفى أو المكون اتفك فعليًا
-      // وهذا طبيعي عند logout / reload
       console.log("🧹 AppContent cleanup -> disconnect socket");
       disconnectSocket();
     };
   }, [hydrated, token]);
-  // useEffect(() => {
-  //   if (!hydrated) return;
 
-  //   const connectIfNeeded = () => {
-  //     if (!token) return;
-
-  //     console.log("🔌 Connecting socket because app is active");
-  //     connectSocket(token);
-  //     attachSocketListeners(store.dispatch, store.getState);
-  //   };
-
-  //   const disconnectIfNeeded = () => {
-  //     console.log("🔌 Disconnecting socket");
-  //     disconnectSocket();
-  //   };
-
-  //   if (!token) {
-  //     disconnectIfNeeded();
-  //     return;
-  //   }
-
-  //   // أول تشغيل
-  //   if (appStateRef.current === "active") {
-  //     connectIfNeeded();
-  //   } else {
-  //     disconnectIfNeeded();
-  //   }
-
-  //   const sub = AppState.addEventListener("change", (nextState) => {
-  //     const prevState = appStateRef.current;
-  //     appStateRef.current = nextState;
-
-  //     console.log("📱 AppState changed:", prevState, "->", nextState);
-
-  //     // رجع للتطبيق
-  //     if (
-  //       (prevState === "background" || prevState === "inactive") &&
-  //       nextState === "active"
-  //     ) {
-  //       console.log("🟢 App returned to foreground -> reconnect socket");
-  //       connectIfNeeded();
-
-  //       // اختياري: أضف مزامنة هنا لو عندك thunks
-  //       // dispatch(fetchNotifications() as any);
-  //       // dispatch(fetchChats() as any);
-  //     }
-
-  //     // دخل الخلفية
-  //     if (nextState === "background" || nextState === "inactive") {
-  //       console.log("🌙 App moved to background -> disconnect socket");
-  //       disconnectIfNeeded();
-  //     }
-  //   });
-
-  //   return () => {
-  //     sub.remove();
-  //     disconnectIfNeeded();
-  //   };
-  // }, [hydrated, token]);
-
-  /* =========================
-     5) Force update navigation
-  ========================= */
   useEffect(() => {
     if (forceUpdateRequired) {
       console.log("🚨 Force update required -> navigating");

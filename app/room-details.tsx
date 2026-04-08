@@ -1,8 +1,3 @@
-// app/(tabs)/room-details.tsx
-// ✅ صفحة تفاصيل الغرفة (مرتبطـة بـ Redux + API)
-// ✅ تعتمد على room.slice.ts (detailsByRoom + fetchRoomDetails + selectors)
-// ✅ تدعم Loading/Error + عرض بيانات فعلية
-// ملاحظة: تأكد أن api service يرسل التوكن في Authorization Header (Bearer)
 
 import { Colors } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
@@ -100,7 +95,6 @@ export default function RoomDetailsScreen() {
 
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
 
-  // ✅ UI Toggles (واجهة فقط)
   const [showAdvanced, setShowAdvanced] = useState(true);
   const [notify, setNotify] = useState(true);
 
@@ -110,7 +104,6 @@ export default function RoomDetailsScreen() {
     dispatch(fetchRoomDetails(rid));
   }, [dispatch, roomId]);
 
-  // ✅ حماية: لو لم تصل details بعد
   const room = details?.room;
 
   const type = room?.type ?? "public";

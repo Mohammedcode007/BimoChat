@@ -1,14 +1,4 @@
 
-// app/(auth)/register.tsx
-// ✅ Register Screen (Expo + RN + Reanimated)
-// ✅ نفس أفكار Login:
-//   - Colors theme (Light/Dark)
-//   - Validation: عربي/إنجليزي فقط + رموز محددة
-//   - Username حتى 64
-//   - أخطاء لكل حقل + خطأ عام
-//   - Loading حقيقي (من Redux) + تعطيل الأزرار
-//   - CAPTCHA مع Refresh + إعادة توليد عند الخطأ
-
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTranslation } from "@/hooks/useTranslation";

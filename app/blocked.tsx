@@ -237,11 +237,9 @@ export default function BlockedScreen() {
                 ref={() => {}}
                 renderRightActions={() => renderRightActions(item._id)}
                 onSwipeableOpen={(direction, swipeable) => {
-                  // @ts-ignore
                   if (openSwipeRef.current && openSwipeRef.current !== swipeable) {
                     openSwipeRef.current.close();
                   }
-                  // @ts-ignore
                   openSwipeRef.current = swipeable;
                 }}
               >

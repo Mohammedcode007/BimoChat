@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 
-/* ================= SCREEN ================= */
 
 export default function DataUsageScreen() {
   const [dataSaver, setDataSaver] = useState(false);
@@ -19,7 +18,6 @@ export default function DataUsageScreen() {
   const [wifiOnlyVideos, setWifiOnlyVideos] = useState(true);
   const [backgroundData, setBackgroundData] = useState(true);
 
-  // Data usage (MB)
   const [imageData, setImageData] = useState(120);
   const [videoData, setVideoData] = useState(180);
   const [messageData, setMessageData] = useState(20);

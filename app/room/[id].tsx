@@ -1,11 +1,5 @@
 
 
-// app/(tabs)/room/[id].tsx
-// ✅ نسخة مُنقّحة كاملة + داعمة Light/Dark عبر Colors + إزالة الألوان الصلبة قدر الإمكان
-// ✅ دمج الستايلات إلى factories تعتمد على theme
-// ✅ إصلاح تكرار useEffect الخاص بـ roomId (كان مكرر) + إزالة تكرار مودال pinPreviewFull
-// ✅ الإبقاء على كل المنطق الذي وضعته (UsersModal / Gifts / Boost / Pin / Voice / Reactions ...)
-
 import { getMyInventory, selectMyStore } from "@/redux/slices/storeControl.slice";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Audio, ResizeMode, Video } from "expo-av";
@@ -122,20 +116,7 @@ type UserUI = {
   snapshotRole?: SnapshotRole;
   isOnline?: boolean;
 };
-// type UserUI = {
-//   id: string;
-//   name: string;
-//   avatar?: string;
-//   role?: RoomRole;
-//   activeBadges?: string[];
-//   customEmojiBadge?: {
-//     emoji: string;
-//     isActive: boolean;
-//     expiresAt?: string | null;
-//   } | null;
-//   snapshotRole?: SnapshotRole;
-//   isOnline?: boolean;
-// };
+
 type MessageUI = {
   id: string;
   type: "text" | "image" | "file" | "audio" | "video" | "system" | "gift";
@@ -175,7 +156,6 @@ const getGiftPrice = (giftKey: string) => {
   const tempGift = TEMP_GIFTS.find((g) => g.key === giftKey);
   if (typeof tempGift?.price === "number") return tempGift.price;
 
-  // fallback لو حبيت تضيف أسعار مستقبلاً داخل meta
   const meta = GIFT_META[giftKey] as any;
   if (typeof meta?.price === "number") return meta.price;
 
@@ -321,14 +301,7 @@ const buildActiveBadgesFromUser = (
   return dedupeBadges(out);
 };
 
-// const pickPrimaryBadge = (badges?: string[]) => {
-//   const list = normalizeBadges(badges);
-//   if (!list.length) return null;
-//   for (const key of BADGE_ORDER) {
-//     if (list.includes(key)) return key;
-//   }
-//   return list[0];
-// };
+
 const isCustomEmojiBadgeActive = (
   badge?: { emoji?: string; isActive?: boolean; expiresAt?: string | null } | null
 ) => {
@@ -1466,36 +1439,6 @@ const handleInviteUser = async () => {
     setInviteSendingId(null);
   }
 };
-  /* ================= FETCH + SOCKET (مرة واحدة فقط) ================= */
-  // useEffect(() => {
-  //   if (!roomId) return;
-
-  //   dispatch(fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false }));
-  //   dispatch(fetchRoomUsers(roomId));
-  //   dispatch(fetchRoomStats(roomId));
-  //   dispatch(getMyInventory() as any);
-
-  //   joinRoomSocket(roomId);
-  //   ensureMicPermission();
-
-  //   return () => { };
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [roomId]);
-  // useEffect(() => {
-  //   if (!roomId) return;
-
-  //   dispatch(fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false }));
-  //   dispatch(fetchRoomUsers(roomId));
-  //   dispatch(fetchRoomStats(roomId));
-  //   dispatch(getMyInventory() as any);
-
-  //   joinRoomSocket(roomId);
-  //   ensureMicPermission();
-
-  //   return () => {
-  //     // leaveRoomSocket(roomId);
-  //   };
-  // }, [roomId]);
   useEffect(() => {
     if (!roomId) return;
 
@@ -1601,29 +1544,6 @@ const handleInviteUser = async () => {
     return () => sub.remove();
   }, []);
 
-  /* ================= USERS UI ================= */
-  // const usersUI: UserUI[] = useMemo(() => {
-  //   return (roomUsers || []).map((u: any) => ({
-  //     id: String(u?._id),
-  //     name: String(u?.username || "User"),
-  //     avatar: String(u?.avatar || ""),
-  //     role: u?.role,
-  //     activeBadges: Array.isArray(u?.activeCustomization?.badges)
-  //       ? u.activeCustomization.badges
-  //       : [],
-  //     customEmojiBadge:
-  //       u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
-  //         ? {
-  //           emoji: String(u.customEmojiBadge.emoji || ""),
-  //           isActive: Boolean(u.customEmojiBadge.isActive),
-  //           expiresAt: u.customEmojiBadge.expiresAt
-  //             ? String(u.customEmojiBadge.expiresAt)
-  //             : null
-  //         }
-  //         : null,
-  //     isOnline: Boolean(u?.isOnline)
-  //   }));
-  // }, [roomUsers]);
   const usersUI: UserUI[] = useMemo(() => {
     return (roomUsers || []).map((u: any) => ({
       id: String(u?._id),
@@ -1754,74 +1674,6 @@ const handleInviteUser = async () => {
       customEmojiBadge
     };
   };
-  // const pickSenderFromMessage = (m: any) => {
-  //   const senderObj =
-  //     typeof m?.sender === "object" && m?.sender
-  //       ? m.sender
-  //       : m?.sender
-  //         ? { _id: String(m.sender), username: "", avatar: "" }
-  //         : null;
-
-  //   const snap = m?.senderSnapshot || null;
-
-  //   const senderId = String(snap?._id || senderObj?._id || m?.senderId || "").trim();
-
-  //   const username = String(
-  //     snap?.username ||
-  //     senderObj?.username ||
-  //     m?.senderUsername ||
-  //     m?.actorName ||
-  //     m?.username ||
-  //     ""
-  //   ).trim();
-
-  //   const avatar = String(snap?.avatar || senderObj?.avatar || "").trim();
-
-  //   const snapshotRole = String(snap?.role || senderObj?.role || "").trim();
-  //   const verificationType = String(snap?.verificationType || senderObj?.verificationType || "").trim();
-
-  //   const activeBadges: string[] =
-  //     Array.isArray(snap?.activeCustomization?.badges) && snap.activeCustomization.badges.length
-  //       ? snap.activeCustomization.badges
-  //       : Array.isArray(snap?.badges) && snap.badges.length
-  //         ? snap.badges
-  //         : [];
-
-  //   const customEmojiBadge =
-  //     snap?.customEmojiBadge && typeof snap.customEmojiBadge === "object"
-  //       ? {
-  //         emoji: String(snap.customEmojiBadge.emoji || ""),
-  //         isActive: Boolean(snap.customEmojiBadge.isActive),
-  //         expiresAt: snap.customEmojiBadge.expiresAt
-  //           ? String(snap.customEmojiBadge.expiresAt)
-  //           : null
-  //       }
-  //       : senderObj?.customEmojiBadge && typeof senderObj.customEmojiBadge === "object"
-  //         ? {
-  //           emoji: String(senderObj.customEmojiBadge.emoji || ""),
-  //           isActive: Boolean(senderObj.customEmojiBadge.isActive),
-  //           expiresAt: senderObj.customEmojiBadge.expiresAt
-  //             ? String(senderObj.customEmojiBadge.expiresAt)
-  //             : null
-  //         }
-  //         : null;
-
-  //   return {
-  //     senderId,
-  //     username,
-  //     avatar,
-  //     snapshotRole: snapshotRole || undefined,
-  //     activeBadges,
-  //     verificationType,
-  //     customEmojiBadge
-  //   };
-  // };
-
-  /* ================= mapReduxToUIMessage ================= */
-  // ✅ mapReduxToUIMessage كاملة (مُهيّأة للـ Optimistic بدون “فلاش”)
-  // - تعتمد على clientId كـ key ثابت للـ FlatList
-  // - تملأ serverId عند وجود _id
-  // - لا تستخدم m?._id كـ id للواجهة حتى لا يتغير المفتاح عند وصول السيرفر
 
   const mapReduxToUIMessage = (m: any): MessageUI => {
     logSenderFromMessage(m, "MAP_MESSAGE_USER_DUMP");
@@ -2241,22 +2093,7 @@ const handleInviteUser = async () => {
       Alert.alert("Error", e?.message || "Send failed");
     }
   };
-  /* ================= SEND TEXT ================= */
-  // const sendText = async () => {
-  //   const content = text.trim();
-  //   if (!content || !roomId) return;
 
-  //   try {
-  //     await dispatch(sendRoomMessage({ roomId, content, type: "text", replyTo: replyTo?.id })).unwrap();
-  //     setText("");
-  //     setReplyTo(null);
-  //     scrollToBottom();
-  //   } catch (e: any) {
-  //     Alert.alert("Error", e?.message || "Send failed");
-  //   }
-  // };
-
-  /* ================= MEDIA UPLOAD ================= */
   const sendImage = async () => {
     if (!roomId) return;
 
@@ -2419,26 +2256,7 @@ const handleInviteUser = async () => {
     }, 0);
   };
 
-  // const onLeaveRoom = async () => {
-  //   if (!roomId) return;
-  //   if (didLeaveRef.current) return;
-
-  //   try {
-  //     setShowRoomMenu(false);
-  //     didLeaveRef.current = true;
-
-  //     leaveRoomSocket(roomId);
-  //     await dispatch(leaveRoomAndExit({ roomId, cleanup: true })).unwrap();
-  //     await dispatch(leaveAndRefreshRooms({ roomId, type: "public" })).unwrap();
-
-  //     router.back();
-  //   } catch (e: any) {
-  //     didLeaveRef.current = false;
-  //     Alert.alert("Error", e?.message || "Failed to leave room");
-  //   }
-  // };
-
-  /* ================= USERS: COPY/ROLE/KICK/BAN ================= */
+ /* ================= USERS: COPY/ROLE/KICK/BAN ================= */
   const onCopyUser = async (u: UserUI) => {
     await Clipboard.setStringAsync(`${u.name} (${u.id})`);
     Alert.alert("Copied", `Copied: ${u.name}`);

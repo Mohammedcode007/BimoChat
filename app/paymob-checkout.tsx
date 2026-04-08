@@ -13,9 +13,7 @@ export default function PaymobCheckout() {
   const [loading, setLoading] = useState(true);
   const [handledResult, setHandledResult] = useState(false);
 
-  // ✅ عدّل هذه الروابط لتطابق Redirect URLs عندك في الباك
-  // مثال: https://api.te-bot.site/payments/paymob/success
-  // مثال: https://api.te-bot.site/payments/paymob/fail
+
   const SUCCESS_URL_PART = "/payments/paymob/success";
   const FAIL_URL_PART = "/payments/paymob/fail";
 
@@ -95,14 +93,12 @@ export default function PaymobCheckout() {
 
           if (handledResult) return;
 
-          // ✅ نجاح
           if (currentUrl.includes(SUCCESS_URL_PART)) {
             setHandledResult(true);
             Alert.alert("تم الدفع", "تمت عملية الدفع بنجاح.", [
               {
                 text: "حسناً",
                 onPress: () => {
-                  // رجوع للمتجر
                   router.back();
                 },
               },
@@ -110,7 +106,6 @@ export default function PaymobCheckout() {
             return;
           }
 
-          // ✅ فشل/إلغاء
           if (currentUrl.includes(FAIL_URL_PART)) {
             setHandledResult(true);
             Alert.alert("لم يكتمل الدفع", "تم إلغاء العملية أو فشلت.", [

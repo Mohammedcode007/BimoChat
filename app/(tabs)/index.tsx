@@ -108,20 +108,6 @@ export default function ChatListScreen() {
     initChats();
   }, [dispatch, currentUser?._id]);
 
-  // useEffect(() => {
-  //   if (!currentUser?._id) return;
-
-  //   // 1) عرض الكاش فورًا
-  //   const cachedChats = loadChatsFromCache(currentUser._id);
-  //   if (cachedChats.length) {
-  //     dispatch(hydrateChatsFromCache(cachedChats));
-  //   }
-
-  //   // 2) مزامنة الخلفية من السيرفر
-  //   dispatch(fetchChats());
-  //   dispatch(fetchTotalUnread());
-  // }, [dispatch, currentUser?._id]);
-
   const onRefresh = async () => {
     setRefreshing(true);
     try {

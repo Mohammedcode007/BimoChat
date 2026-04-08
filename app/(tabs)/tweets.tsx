@@ -702,72 +702,7 @@ function UserBadges({ author, s }: { author: any; s: any }) {
     </View>
   );
 }
-// function UserBadges({ author, s }: { author: any; s: any }) {
-//   const badges: string[] =
-//     author?.displayBadges ??
-//     author?.activeCustomization?.badges ??
-//     author?.badges ??
-//     [];
 
-//   const verificationType: string =
-//     author?.displayVerificationType ??
-//     author?.activeCustomization?.verificationType ??
-//     author?.verificationType ??
-//     "none";
-
-//   const merged: string[] = [
-//     ...(verificationType && verificationType !== "none"
-//       ? [verificationType]
-//       : []),
-//     ...badges,
-//   ];
-
-//   const unique = Array.from(new Set(merged)).filter((k) => BADGE_META[k]);
-//   if (!unique.length) return null;
-
-//   return (
-//     <View style={s.badgesWrap}>
-//       {unique.map((key) => {
-//         const meta = BADGE_META[key];
-
-//         if (key === "blue") {
-//           return (
-//             <Ionicons
-//               key={key}
-//               name={meta.icon as any}
-//               size={14}
-//               color={meta.fg}
-//               style={{ marginLeft: 6 }}
-//             />
-//           );
-//         }
-
-//         return (
-//           <View key={key} style={[s.badgePill, { backgroundColor: meta.bg }]}>
-//             {meta.iconType === "ion" && meta.icon ? (
-//               <Ionicons
-//                 name={meta.icon as any}
-//                 size={12}
-//                 color={meta.fg}
-//                 style={{ marginRight: meta.label ? 4 : 0 }}
-//               />
-//             ) : meta.icon ? (
-//               <Text style={{ marginRight: meta.label ? 4 : 0 }}>
-//                 {meta.icon}
-//               </Text>
-//             ) : null}
-
-//             {meta.label ? (
-//               <Text style={[s.badgeText, { color: meta.fg }]}>
-//                 {meta.label}
-//               </Text>
-//             ) : null}
-//           </View>
-//         );
-//       })}
-//     </View>
-//   );
-// }
 function ImagePreviewModal({
   visible,
   imageUrl,

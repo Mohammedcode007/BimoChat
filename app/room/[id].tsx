@@ -342,7 +342,7 @@ const CustomEmojiBadgeView = ({
       style={{
         marginLeft: 6,
         alignItems: "center",
-        justifyContent: "center"
+        justifyContent: "center",
       }}
     >
       <Text style={{ fontSize: 15 }}>{badge?.emoji}</Text>
@@ -993,7 +993,7 @@ function MessageItem({
       >
         {showName && !!item.sender?.name && (
           <View style={bubble.nameWrap}>
-            <View style={bubble.nameRow}>
+            {/* <View style={bubble.nameRow}>
               <Text style={bubble.senderName} numberOfLines={1}>
                 {item.sender.name}
               </Text>
@@ -1001,6 +1001,20 @@ function MessageItem({
               <CustomEmojiBadgeView badge={item.sender?.customEmojiBadge} />
 
               <DynamicUserBadge badge={pickPrimaryBadge(item.sender?.activeBadges)} />
+            </View> */}
+            <View style={bubble.nameRow}>
+
+
+              <DynamicUserBadge badge={pickPrimaryBadge(item.sender?.activeBadges)} />
+              <CustomEmojiBadgeView badge={item.sender?.customEmojiBadge} />
+
+              <Text
+                style={bubble.senderName}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {item.sender.name}
+              </Text>
             </View>
             <View style={bubble.nameUnderline} />
           </View>
@@ -1194,7 +1208,7 @@ export default function ChatScreen() {
     title: "Uploading…",
     sub: undefined
   });
-const [selectedInviteUser, setSelectedInviteUser] = useState<any>(null);
+  const [selectedInviteUser, setSelectedInviteUser] = useState<any>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(0);
@@ -1244,23 +1258,23 @@ const [selectedInviteUser, setSelectedInviteUser] = useState<any>(null);
     fromName: undefined,
     toName: undefined
   });
-const handleInviteSearch = async () => {
-  const q = String(inviteUsername || "").trim();
-  if (!q) {
-    Alert.alert("Notice", "Please enter a username");
-    return;
-  }
+  const handleInviteSearch = async () => {
+    const q = String(inviteUsername || "").trim();
+    if (!q) {
+      Alert.alert("Notice", "Please enter a username");
+      return;
+    }
 
-  try {
-    setInviteLoading(true);
-    setSelectedInviteUser(null);
-    await dispatch(searchUsers(q)).unwrap();
-  } catch (e: any) {
-    Alert.alert("Error", e?.message || "Search failed");
-  } finally {
-    setInviteLoading(false);
-  }
-};
+    try {
+      setInviteLoading(true);
+      setSelectedInviteUser(null);
+      await dispatch(searchUsers(q)).unwrap();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Search failed");
+    } finally {
+      setInviteLoading(false);
+    }
+  };
   // ✅ لمنع leave مرتين
   const didLeaveRef = useRef(false);
   const kicked = useAppSelector((state) => selectKickedFlag(state, roomId));
@@ -1394,51 +1408,51 @@ const handleInviteSearch = async () => {
       return false;
     }
   };
-const handleInviteUser = async () => {
-  const user = selectedInviteUser;
-  const targetId = String(user?._id || user?.id || "").trim();
+  const handleInviteUser = async () => {
+    const user = selectedInviteUser;
+    const targetId = String(user?._id || user?.id || "").trim();
 
-  if (!targetId) {
-    Alert.alert("Notice", "Please select a user first");
-    return;
-  }
+    if (!targetId) {
+      Alert.alert("Notice", "Please select a user first");
+      return;
+    }
 
-  if (targetId === myUserId) {
-    Alert.alert("Notice", "You cannot invite yourself");
-    return;
-  }
+    if (targetId === myUserId) {
+      Alert.alert("Notice", "You cannot invite yourself");
+      return;
+    }
 
-  try {
-    setInviteLoading(true);
-    setInviteSendingId(targetId);
+    try {
+      setInviteLoading(true);
+      setInviteSendingId(targetId);
 
-    await dispatch(
-      inviteToRoom({
-        roomId,
-        targetId,
-        message: `Join the room "${roomName}" 🔥`,
-      })
-    ).unwrap();
+      await dispatch(
+        inviteToRoom({
+          roomId,
+          targetId,
+          message: `Join the room "${roomName}" 🔥`,
+        })
+      ).unwrap();
 
-    Alert.alert(
-      "Success",
-      `Invitation sent to ${user?.username || user?.name || "user"}`
-    );
+      Alert.alert(
+        "Success",
+        `Invitation sent to ${user?.username || user?.name || "user"}`
+      );
 
-    setShowInviteModal(false);
-    setInviteUsername("");
-    setInviteSearch("");
-    setSelectedInviteUser(null);
-  } catch (e: any) {
-    Alert.alert(
-      "Error",
-      e?.message || "Failed to send invitation"
-    );
-  } finally {
-    setInviteLoading(false);
-    setInviteSendingId(null);
-  }
-};
+      setShowInviteModal(false);
+      setInviteUsername("");
+      setInviteSearch("");
+      setSelectedInviteUser(null);
+    } catch (e: any) {
+      Alert.alert(
+        "Error",
+        e?.message || "Failed to send invitation"
+      );
+    } finally {
+      setInviteLoading(false);
+      setInviteSendingId(null);
+    }
+  };
   useEffect(() => {
     if (!roomId) return;
 
@@ -2238,7 +2252,7 @@ const handleInviteUser = async () => {
     }, 0);
   };
 
- /* ================= USERS: COPY/ROLE/KICK/BAN ================= */
+  /* ================= USERS: COPY/ROLE/KICK/BAN ================= */
   const onCopyUser = async (u: UserUI) => {
     await Clipboard.setStringAsync(`${u.name} (${u.id})`);
     Alert.alert("Copied", `Copied: ${u.name}`);
@@ -2433,7 +2447,7 @@ const handleInviteUser = async () => {
               activeOpacity={0.85}
             >
               <Ionicons name="person-add-outline" size={18} color={theme.text} />
-<Text style={styles.menuText}>Invite a Friend</Text>
+              <Text style={styles.menuText}>Invite a Friend</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={onOpenUsers} activeOpacity={0.85}>
               <Ionicons name="people" size={18} color={theme.text} />
@@ -2702,149 +2716,149 @@ const handleInviteUser = async () => {
           )}
         </View>
       </Reanimated.View>
-     <Modal
-  transparent
-  visible={showInviteModal}
-  animationType="fade"
-  onRequestClose={() => setShowInviteModal(false)}
->
-  <TouchableOpacity
-    activeOpacity={1}
-    style={styles.menuOverlay}
-    onPress={() => setShowInviteModal(false)}
-  >
-    <TouchableOpacity
-      activeOpacity={1}
-      style={styles.inviteModalBox}
-      onPress={() => {}}
-    >
-      <View style={styles.inviteModalHeader}>
-        <Text style={styles.inviteModalTitle}>Invite a Friend</Text>
-
-        <TouchableOpacity
-          onPress={() => setShowInviteModal(false)}
-          activeOpacity={0.85}
-          style={styles.inviteModalCloseBtn}
-        >
-          <Ionicons name="close" size={20} color={theme.text} />
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.inviteModalHint}>
-        Enter the username exactly as it appears in the app
-      </Text>
-
-      <View style={styles.inviteInputWrap}>
-        <Ionicons name="person-outline" size={18} color={theme.icon} />
-        <TextInput
-          style={styles.inviteInput}
-          placeholder="Username"
-          placeholderTextColor={theme.subtleText}
-          value={inviteUsername}
-          onChangeText={(val) => {
-            setInviteUsername(val);
-            setSelectedInviteUser(null);
-          }}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          onSubmitEditing={handleInviteSearch}
-        />
-      </View>
-
-      <TouchableOpacity
-        style={[
-          styles.inviteSendBtn,
-          { marginTop: 10, opacity: inviteLoading ? 0.7 : 1 }
-        ]}
-        onPress={handleInviteSearch}
-        activeOpacity={0.85}
-        disabled={inviteLoading}
+      <Modal
+        transparent
+        visible={showInviteModal}
+        animationType="fade"
+        onRequestClose={() => setShowInviteModal(false)}
       >
-        <Text style={styles.inviteSendText}>
-          {inviteLoading ? "Searching..." : "Search User"}
-        </Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.menuOverlay}
+          onPress={() => setShowInviteModal(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.inviteModalBox}
+            onPress={() => { }}
+          >
+            <View style={styles.inviteModalHeader}>
+              <Text style={styles.inviteModalTitle}>Invite a Friend</Text>
 
-      {!!inviteSearchResults?.length && (
-        <View style={{ marginTop: 12, gap: 8 }}>
-          {inviteSearchResults.map((user: any) => {
-            const userId = String(user?._id || user?.id || "");
-            const isSelected =
-              String(selectedInviteUser?._id || selectedInviteUser?.id || "") === userId;
-            const isSending = inviteSendingId === userId;
-
-            return (
               <TouchableOpacity
-                key={userId}
+                onPress={() => setShowInviteModal(false)}
                 activeOpacity={0.85}
-                onPress={() => setSelectedInviteUser(user)}
-                style={{
-                  borderWidth: 1,
-                  borderColor: isSelected ? theme.primary : theme.border,
-                  backgroundColor: isSelected ? theme.surface2 : theme.card,
-                  borderRadius: 12,
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
+                style={styles.inviteModalCloseBtn}
               >
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.text, fontWeight: "700" }}>
-                    {user?.username || user?.name || "User"}
-                  </Text>
-                  {!!user?.atUsername && (
-                    <Text style={{ color: theme.mutedText, marginTop: 2 }}>
-                      @{user.atUsername}
-                    </Text>
-                  )}
-                </View>
-
-                {isSelected && (
-                  <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
-                )}
+                <Ionicons name="close" size={20} color={theme.text} />
               </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
+            </View>
 
-      <View style={styles.inviteActionsRow}>
-        <TouchableOpacity
-          style={styles.inviteCancelBtn}
-          onPress={() => {
-            setShowInviteModal(false);
-            setInviteUsername("");
-            setSelectedInviteUser(null);
-          }}
-          activeOpacity={0.85}
-          disabled={inviteLoading || !!inviteSendingId}
-        >
-          <Text style={styles.inviteCancelText}>Cancel</Text>
-        </TouchableOpacity>
+            <Text style={styles.inviteModalHint}>
+              Enter the username exactly as it appears in the app
+            </Text>
 
-        <TouchableOpacity
-          style={[
-            styles.inviteSendBtn,
-            {
-              opacity:
-                inviteLoading || !!inviteSendingId || !selectedInviteUser ? 0.6 : 1,
-            },
-          ]}
-          onPress={handleInviteUser}
-          activeOpacity={0.85}
-          disabled={inviteLoading || !!inviteSendingId || !selectedInviteUser}
-        >
-          <Text style={styles.inviteSendText}>
-            {inviteSendingId ? "Sending..." : "Send Invite"}
-          </Text>
+            <View style={styles.inviteInputWrap}>
+              <Ionicons name="person-outline" size={18} color={theme.icon} />
+              <TextInput
+                style={styles.inviteInput}
+                placeholder="Username"
+                placeholderTextColor={theme.subtleText}
+                value={inviteUsername}
+                onChangeText={(val) => {
+                  setInviteUsername(val);
+                  setSelectedInviteUser(null);
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+                onSubmitEditing={handleInviteSearch}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.inviteSendBtn,
+                { marginTop: 10, opacity: inviteLoading ? 0.7 : 1 }
+              ]}
+              onPress={handleInviteSearch}
+              activeOpacity={0.85}
+              disabled={inviteLoading}
+            >
+              <Text style={styles.inviteSendText}>
+                {inviteLoading ? "Searching..." : "Search User"}
+              </Text>
+            </TouchableOpacity>
+
+            {!!inviteSearchResults?.length && (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                {inviteSearchResults.map((user: any) => {
+                  const userId = String(user?._id || user?.id || "");
+                  const isSelected =
+                    String(selectedInviteUser?._id || selectedInviteUser?.id || "") === userId;
+                  const isSending = inviteSendingId === userId;
+
+                  return (
+                    <TouchableOpacity
+                      key={userId}
+                      activeOpacity={0.85}
+                      onPress={() => setSelectedInviteUser(user)}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: isSelected ? theme.primary : theme.border,
+                        backgroundColor: isSelected ? theme.surface2 : theme.card,
+                        borderRadius: 12,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.text, fontWeight: "700" }}>
+                          {user?.username || user?.name || "User"}
+                        </Text>
+                        {!!user?.atUsername && (
+                          <Text style={{ color: theme.mutedText, marginTop: 2 }}>
+                            @{user.atUsername}
+                          </Text>
+                        )}
+                      </View>
+
+                      {isSelected && (
+                        <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            <View style={styles.inviteActionsRow}>
+              <TouchableOpacity
+                style={styles.inviteCancelBtn}
+                onPress={() => {
+                  setShowInviteModal(false);
+                  setInviteUsername("");
+                  setSelectedInviteUser(null);
+                }}
+                activeOpacity={0.85}
+                disabled={inviteLoading || !!inviteSendingId}
+              >
+                <Text style={styles.inviteCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.inviteSendBtn,
+                  {
+                    opacity:
+                      inviteLoading || !!inviteSendingId || !selectedInviteUser ? 0.6 : 1,
+                  },
+                ]}
+                onPress={handleInviteUser}
+                activeOpacity={0.85}
+                disabled={inviteLoading || !!inviteSendingId || !selectedInviteUser}
+              >
+                <Text style={styles.inviteSendText}>
+                  {inviteSendingId ? "Sending..." : "Send Invite"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  </TouchableOpacity>
-</Modal>
+      </Modal>
       {/* ================= ACTIONS MODAL ================= */}
       <Modal transparent visible={showActions} animationType="fade" onRequestClose={() => setShowActions(false)}>
         <View style={styles.actionsOverlay}>
@@ -3255,12 +3269,24 @@ function makeBubbleStyles(theme: typeof Colors.light) {
     bubbleOther: { borderTopLeftRadius: 6 },
     bubbleMe: { borderTopRightRadius: 6 },
 
-    senderName: { fontSize: 12, fontWeight: "900", color: theme.primary, marginBottom: 4 },
     msgText: { fontSize: 15, color: theme.text, lineHeight: 20 },
     msgTextMuted: { fontSize: 14, color: theme.mutedText },
 
     nameWrap: { marginBottom: 6 },
-    nameRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6, flexWrap: "wrap" },
+    nameRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      maxWidth: "100%",
+    },
+
+    senderName: {
+      fontWeight: "bold",
+      fontSize: 13,
+      maxWidth: "85%",
+      marginRight: 4,
+      marginLeft: 4
+    },
     nameUnderline: { marginTop: 4, height: 1, backgroundColor: theme.separator, width: "100%" },
 
     media: { width: 220, height: 220, borderRadius: 12, marginTop: 4 },

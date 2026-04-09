@@ -784,9 +784,9 @@ export default function TweetsScreen() {
   const reportSubmitting = useSelector(selectReportSubmitting);
   const reportSuccess = useSelector(selectReportSuccess);
   const reportError = useSelector(selectReportError);
-  const { following, forYou, loading } = useSelector(
-    (state: RootState) => state.tweets
-  );
+  const following = useSelector((state: RootState) => state.tweets.following);
+  const forYou = useSelector((state: RootState) => state.tweets.forYou);
+  const loading = useSelector((state: RootState) => state.tweets.loading);
   const { followingMap } = useSelector((state: RootState) => state.follow);
   const { user } = useSelector((state: RootState) => state.auth);
 
@@ -836,11 +836,14 @@ export default function TweetsScreen() {
   );
 
   useEffect(() => {
-    setFollowingPage(1);
-    setForYouPage(1);
-    dispatch(getFollowingFeed({ page: 1 }));
-    dispatch(getForYouFeed({ page: 1 }));
-  }, [dispatch]);
+    if (activeTab === "following") {
+      setFollowingPage(1);
+      dispatch(getFollowingFeed({ page: 1 }));
+    } else {
+      setForYouPage(1);
+      dispatch(getForYouFeed({ page: 1 }));
+    }
+  }, [dispatch, activeTab]);
   useEffect(() => {
     if (reportSuccess) {
       Alert.alert("تم", "تم إرسال البلاغ بنجاح");
@@ -994,31 +997,22 @@ export default function TweetsScreen() {
     });
   };
 
-const renderCount = useRef(0);
-renderCount.current += 1;
-console.log("🔥 Screen render:", renderCount.current);
-
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+ 
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
       <View key={language} style={s.tabsWrap}>
         <TabButton
           title={t("tweetsScreen.followingTab")}
           active={activeTab === "following"}
-          onPress={() => {
-            setActiveTab("following");
-            setFollowingPage(1);
-            dispatch(getFollowingFeed({ page: 1 }));
-          }}
+          onPress={() => setActiveTab("following")}
           s={s}
         />
         <TabButton
           title={t("tweetsScreen.forYouTab")}
           active={activeTab === "foryou"}
-          onPress={() => {
-            setActiveTab("foryou");
-            setForYouPage(1);
-            dispatch(getForYouFeed({ page: 1 }));
-          }}
+          onPress={() => setActiveTab("foryou")}
           s={s}
         />
       </View>
@@ -1026,10 +1020,11 @@ console.log("🔥 Screen render:", renderCount.current);
       <FlatList
         data={uniqueFeed}
         extraData={language}
-        keyExtractor={(item: any, index: number) => {
-          const id = item?._id ?? item?.id ?? "item";
-          return `${String(id)}-${index}`;
-        }}
+        keyExtractor={(item: any) => String(item?._id ?? item?.id)}
+        initialNumToRender={6}
+        maxToRenderPerBatch={4}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === "android"}
         showsVerticalScrollIndicator={false}
         onEndReachedThreshold={0.2}
         onMomentumScrollBegin={() => setOnEndReachedCalledDuringMomentum(false)}
@@ -1052,7 +1047,7 @@ console.log("🔥 Screen render:", renderCount.current);
         contentContainerStyle={{ paddingBottom: 120 }}
         renderItem={({ item }: any) => {
           const isOwnTweet = item?.author?._id === user?._id;
-
+          console.log("📦 Tweet item render:", item._id);
           const isFollowing =
             followingMap?.[item?.author?._id] ??
             item?.author?.isFollowing ??

@@ -58,6 +58,9 @@ type UiTab =
   | "all"
   | "coinz"
   | "avatarFrame"
+  | "avatarGif"
+  | "usernameColor"
+  | "messageTextColor"
   | "badge"
   | "messageEffect"
   | "profileEntryAnimation"
@@ -65,7 +68,6 @@ type UiTab =
   | "gift"
   | "bundles"
   | "limited";
-
 /* =========================================================
    HELPERS
 ========================================================= */
@@ -74,6 +76,12 @@ function prettyType(t: string, tr: (key: string) => string) {
   switch (t) {
     case "avatarFrame":
       return tr("storeScreen.prettyType.avatarFrame");
+    case "avatarGif":
+      return tr("storeScreen.prettyType.avatarGif");
+    case "usernameColor":
+      return tr("storeScreen.prettyType.usernameColor");
+    case "messageTextColor":
+      return tr("storeScreen.prettyType.messageTextColor");
     case "badge":
       return tr("storeScreen.prettyType.badge");
     case "messageEffect":
@@ -335,21 +343,24 @@ export default function StoreScreen() {
   const dispatch = useAppDispatch();
   const router = useRouter();
 
-  const TYPE_TABS: { key: UiTab; label: string }[] = useMemo(
-    () => [
-      { key: "all", label: t("storeScreen.tabs.all") },
-      { key: "coinz", label: t("storeScreen.tabs.coinz") },
-      { key: "avatarFrame", label: t("storeScreen.tabs.avatarFrame") },
-      { key: "badge", label: t("storeScreen.tabs.badge") },
-      { key: "messageEffect", label: t("storeScreen.tabs.messageEffect") },
-      { key: "profileEntryAnimation", label: t("storeScreen.tabs.profileEntryAnimation") },
-      { key: "gift", label: t("storeScreen.tabs.gift") },
-      { key: "bundles", label: t("storeScreen.tabs.bundles") },
-      { key: "limited", label: t("storeScreen.tabs.limited") },
-    ],
-    [t]
-  );
-
+const TYPE_TABS: { key: UiTab; label: string }[] = useMemo(
+  () => [
+    { key: "all", label: t("storeScreen.tabs.all") },
+    { key: "coinz", label: t("storeScreen.tabs.coinz") },
+    { key: "avatarFrame", label: t("storeScreen.tabs.avatarFrame") },
+    { key: "avatarGif", label: t("storeScreen.tabs.avatarGif") },
+    { key: "usernameColor", label: t("storeScreen.tabs.usernameColor") },
+    { key: "messageTextColor", label: t("storeScreen.tabs.messageTextColor") },
+    { key: "badge", label: t("storeScreen.tabs.badge") },
+    { key: "messageEffect", label: t("storeScreen.tabs.messageEffect") },
+    { key: "profileEntryAnimation", label: t("storeScreen.tabs.profileEntryAnimation") },
+    { key: "verification", label: t("storeScreen.tabs.verification") },
+    { key: "gift", label: t("storeScreen.tabs.gift") },
+    { key: "bundles", label: t("storeScreen.tabs.bundles") },
+    { key: "limited", label: t("storeScreen.tabs.limited") },
+  ],
+  [t]
+);
   const COINZ_PACKS: {
     packageId: "p1" | "p2" | "p3";
     title: string;
@@ -438,13 +449,16 @@ export default function StoreScreen() {
 
   const coinz = my?.coinzBalance ?? 0;
 
-  const active = my?.activeCustomization || {
-    avatarFrame: "",
-    messageEffect: "",
-    profileEntryAnimation: "",
-    badges: [],
-    verificationType: "none",
-  };
+const active = my?.activeCustomization || {
+  avatarFrame: "",
+  avatarGif: "",
+  usernameColor: "",
+  messageTextColor: "",
+  messageEffect: "",
+  profileEntryAnimation: "",
+  badges: [],
+  verificationType: "none",
+};
 useEffect(() => {
 
 
@@ -493,14 +507,17 @@ useEffect(() => {
       if (!byType[t]) byType[t] = [];
       byType[t].push(row);
     }
-    const order = [
-      "avatarFrame",
-      "badge",
-      "messageEffect",
-      "profileEntryAnimation",
-      "verification",
-      "gift",
-    ];
+const order = [
+  "avatarFrame",
+  "avatarGif",
+  "usernameColor",
+  "messageTextColor",
+  "badge",
+  "messageEffect",
+  "profileEntryAnimation",
+  "verification",
+  "gift",
+];
     return order.filter((k) => byType[k]?.length).map((k) => ({ type: k, rows: byType[k] }));
   }, [my?.inventory]);
 const filtered = useMemo(() => {
@@ -540,16 +557,18 @@ const filtered = useMemo(() => {
         return;
       }
 
-      const typeParam =
-        tab === "avatarFrame" ||
-          tab === "badge" ||
-          tab === "messageEffect" ||
-          tab === "profileEntryAnimation" ||
-          tab === "verification" ||
-          tab === "gift"
-          ? tab
-          : "";
-
+  const typeParam =
+  tab === "avatarFrame" ||
+  tab === "avatarGif" ||
+  tab === "usernameColor" ||
+  tab === "messageTextColor" ||
+  tab === "badge" ||
+  tab === "messageEffect" ||
+  tab === "profileEntryAnimation" ||
+  tab === "verification" ||
+  tab === "gift"
+    ? tab
+    : "";
       await Promise.all([
         dispatch(listStoreItems({ type: typeParam as any, active: true }) as any),
         dispatch(getMyInventory() as any),
@@ -863,7 +882,32 @@ const filtered = useMemo(() => {
           <Spacer h={12} />
           <Hairline theme={theme} />
           <Spacer h={12} />
+<View style={s.activeChip}>
+  <Text style={[s.activeLabel, { textAlign, writingDirection }]}>
+    {t("storeScreen.active.avatarGif")}
+  </Text>
+  <Text style={[s.activeValue, { textAlign, writingDirection }]} numberOfLines={1}>
+    {active.avatarGif || t("storeScreen.common.none")}
+  </Text>
+</View>
 
+<View style={s.activeChip}>
+  <Text style={[s.activeLabel, { textAlign, writingDirection }]}>
+    {t("storeScreen.active.usernameColor")}
+  </Text>
+  <Text style={[s.activeValue, { textAlign, writingDirection }]} numberOfLines={1}>
+    {active.usernameColor || t("storeScreen.common.none")}
+  </Text>
+</View>
+
+<View style={s.activeChip}>
+  <Text style={[s.activeLabel, { textAlign, writingDirection }]}>
+    {t("storeScreen.active.messageTextColor")}
+  </Text>
+  <Text style={[s.activeValue, { textAlign, writingDirection }]} numberOfLines={1}>
+    {active.messageTextColor || t("storeScreen.common.none")}
+  </Text>
+</View>
           <View style={s.activeGrid}>
             <View style={s.activeChip}>
               <Text style={[s.activeLabel, { textAlign, writingDirection }]}>{t("storeScreen.active.frame")}</Text>
@@ -1223,23 +1267,29 @@ const filtered = useMemo(() => {
       const durationLabel =
         days > 0 ? `${days} ${t("storeScreen.common.daysSuffix")}` : t("storeScreen.common.permanent");
 
-      const isActiveNow =
-        (item.type === "avatarFrame" && String(active.avatarFrame || "") === String(item.key)) ||
-        (item.type === "messageEffect" && String(active.messageEffect || "") === String(item.key)) ||
-        (item.type === "profileEntryAnimation" &&
-          String(active.profileEntryAnimation || "") === String(item.key)) ||
-        (item.type === "badge" && String(active.badges?.[0] || "") === String(item.key)) ||
-        (item.type === "verification" &&
-          String(active.verificationType || "none") ===
-          String(item.meta?.verificationType || item.key));
+    const isActiveNow =
+  (item.type === "avatarFrame" && String(active.avatarFrame || "") === String(item.key)) ||
+  (item.type === "avatarGif" && String(active.avatarGif || "") === String(item.key)) ||
+  (item.type === "usernameColor" && String(active.usernameColor || "") === String(item.key)) ||
+  (item.type === "messageTextColor" && String(active.messageTextColor || "") === String(item.key)) ||
+  (item.type === "messageEffect" && String(active.messageEffect || "") === String(item.key)) ||
+  (item.type === "profileEntryAnimation" &&
+    String(active.profileEntryAnimation || "") === String(item.key)) ||
+  (item.type === "badge" && String(active.badges?.[0] || "") === String(item.key)) ||
+  (item.type === "verification" &&
+    String(active.verificationType || "none") ===
+    String(item.meta?.verificationType || item.key));
 
-      const canActivate =
-        isOwned &&
-        (item.type === "avatarFrame" ||
-          item.type === "messageEffect" ||
-          item.type === "profileEntryAnimation" ||
-          item.type === "badge" ||
-          item.type === "verification");
+const canActivate =
+  isOwned &&
+  (item.type === "avatarFrame" ||
+    item.type === "avatarGif" ||
+    item.type === "usernameColor" ||
+    item.type === "messageTextColor" ||
+    item.type === "messageEffect" ||
+    item.type === "profileEntryAnimation" ||
+    item.type === "badge" ||
+    item.type === "verification");
 
       const imageUrl = getItemImageUrl(item);
 
@@ -1369,26 +1419,53 @@ const filtered = useMemo(() => {
                     : t("storeScreen.common.activate")
               }
               onPress={() => {
-                if (item.type === "verification") {
-                  const vt = String(item.meta?.verificationType || "").trim();
-                  if (!vt) {
-                    Alert.alert(
-                      t("storeScreen.alerts.invalidItemTitle"),
-                      t("storeScreen.alerts.verificationTypeMissing")
-                    );
-                    return;
-                  }
-                  doActivate("verification", vt, "set");
-                  return;
-                }
+  if (item.type === "verification") {
+    const vt = String(item.meta?.verificationType || "").trim();
+    if (!vt) {
+      Alert.alert(
+        t("storeScreen.alerts.invalidItemTitle"),
+        t("storeScreen.alerts.verificationTypeMissing")
+      );
+      return;
+    }
 
-           if (item.type === "badge") {
-  const has = String(active.badges?.[0] || "") === String(item.key);
-  doActivate("badge", String(item.key), has ? "remove" : "set");
-} else {
-  doActivate(item.type, String(item.key), "set");
-}
-              }}
+    const has = String(active.verificationType || "none") === vt;
+    doActivate("verification", vt, has ? "remove" : "set");
+    return;
+  }
+
+  if (item.type === "badge") {
+    const has = String(active.badges?.[0] || "") === String(item.key);
+    doActivate("badge", String(item.key), has ? "remove" : "set");
+    return;
+  }
+
+  if (
+    item.type === "avatarFrame" ||
+    item.type === "avatarGif" ||
+    item.type === "usernameColor" ||
+    item.type === "messageTextColor" ||
+    item.type === "messageEffect" ||
+    item.type === "profileEntryAnimation"
+  ) {
+    const currentValue =
+      item.type === "avatarFrame"
+        ? String(active.avatarFrame || "")
+        : item.type === "avatarGif"
+        ? String(active.avatarGif || "")
+        : item.type === "usernameColor"
+        ? String(active.usernameColor || "")
+        : item.type === "messageTextColor"
+        ? String(active.messageTextColor || "")
+        : item.type === "messageEffect"
+        ? String(active.messageEffect || "")
+        : String(active.profileEntryAnimation || "");
+
+    const has = currentValue === String(item.key);
+    doActivate(item.type, String(item.key), has ? "remove" : "set");
+    return;
+  }
+}}
               disabled={!canActivate || buyDisabled || expired || isActivateLoading}
               loading={isActivateLoading}
               isRTL={isRTL}
@@ -1622,22 +1699,26 @@ const filtered = useMemo(() => {
                 const expired = rowItem?.expiresAt ? isExpired(rowItem.expiresAt) : false;
                 const imageUrl = getItemImageUrl(item);
 
-                const isActiveNow =
-                  (g.type === "avatarFrame" && String(active.avatarFrame || "") === key) ||
-                  (g.type === "messageEffect" && String(active.messageEffect || "") === key) ||
-                  (g.type === "profileEntryAnimation" &&
-                    String(active.profileEntryAnimation || "") === key) ||
-                  (g.type === "badge" && String(active.badges?.[0] || "") === key);
-
+            const isActiveNow =
+  (g.type === "avatarFrame" && String(active.avatarFrame || "") === key) ||
+  (g.type === "avatarGif" && String(active.avatarGif || "") === key) ||
+  (g.type === "usernameColor" && String(active.usernameColor || "") === key) ||
+  (g.type === "messageTextColor" && String(active.messageTextColor || "") === key) ||
+  (g.type === "messageEffect" && String(active.messageEffect || "") === key) ||
+  (g.type === "profileEntryAnimation" &&
+    String(active.profileEntryAnimation || "") === key) ||
+  (g.type === "badge" && String(active.badges?.[0] || "") === key);
                 const useKey = `${String(g.type)}:${String(key)}:set`;
                 const useLoading = activateKeyLoading === useKey;
 
-                const canQuickUse =
-                  !expired &&
-                  (g.type === "avatarFrame" ||
-                    g.type === "messageEffect" ||
-                    g.type === "profileEntryAnimation");
-
+             const canQuickUse =
+  !expired &&
+  (g.type === "avatarFrame" ||
+    g.type === "avatarGif" ||
+    g.type === "usernameColor" ||
+    g.type === "messageTextColor" ||
+    g.type === "messageEffect" ||
+    g.type === "profileEntryAnimation");
                 return (
                   <View key={rowItem._id} style={[s.ownedRow, { flexDirection: row }]}>
              {g.type === "badge" && item?.meta?.lottieUrl ? (
@@ -1695,16 +1776,28 @@ const filtered = useMemo(() => {
                     </View>
 
                     <View style={{ alignItems: alignEnd, gap: 8 }}>
-                      {canQuickUse ? (
-                        <SecondaryButton
-                          theme={theme}
-                          title={useLoading ? t("storeScreen.common.applying") : t("storeScreen.common.use")}
-                          onPress={() => doActivate(g.type, key, "set")}
-                          disabled={buyDisabled || useLoading}
-                          loading={useLoading}
-                          isRTL={isRTL}
-                        />
-                      ) : null}
+                  {canQuickUse ? (
+  <SecondaryButton
+    theme={theme}
+    title={
+      isActiveNow
+        ? t("storeScreen.common.remove")
+        : useLoading
+        ? t("storeScreen.common.applying")
+        : t("storeScreen.common.use")
+    }
+    onPress={() =>
+      doActivate(
+        g.type,
+        key,
+        isActiveNow ? "remove" : "set"
+      )
+    }
+    disabled={buyDisabled || useLoading}
+    loading={useLoading}
+    isRTL={isRTL}
+  />
+) : null}
 
                      {g.type === "badge" ? (
   <SecondaryButton

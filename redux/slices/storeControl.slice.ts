@@ -11,12 +11,14 @@ export type VerificationType = "none" | "blue" | "gold" | "business";
 
 export type StoreItemType =
   | "avatarFrame"
+  | "avatarGif"
+  | "usernameColor"
+  | "messageTextColor"
   | "badge"
   | "messageEffect"
   | "gift"
   | "profileEntryAnimation"
   | "verification";
-
 export type StoreItem = {
   _id: string;
   type: StoreItemType;
@@ -44,6 +46,9 @@ export type InventoryEntry = {
 
 export type ActiveCustomization = {
   avatarFrame?: string;
+  avatarGif?: string;
+  usernameColor?: string;
+  messageTextColor?: string;
   messageEffect?: string;
   profileEntryAnimation?: string;
   badges: string[];
@@ -85,7 +90,15 @@ export type PurchaseInput = {
 };
 
 export type ActivateInput = {
-  type: "avatarFrame" | "messageEffect" | "profileEntryAnimation" | "badge" | "verification";
+  type:
+    | "avatarFrame"
+    | "avatarGif"
+    | "usernameColor"
+    | "messageTextColor"
+    | "messageEffect"
+    | "profileEntryAnimation"
+    | "badge"
+    | "verification";
   key: string;
   mode?: "set" | "add" | "remove";
 };
@@ -125,12 +138,14 @@ const BASE = "/store";
 
 const defaultActiveCustomization: ActiveCustomization = {
   avatarFrame: "",
+  avatarGif: "",
+  usernameColor: "",
+  messageTextColor: "",
   messageEffect: "",
   profileEntryAnimation: "",
   badges: [],
   verificationType: "none"
 };
-
 const defaultCustomEmojiBadge: CustomEmojiBadge = {
   emoji: "",
   isActive: false,

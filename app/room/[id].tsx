@@ -862,15 +862,15 @@ function UsersModal({
                   <View style={{ flex: 1 }}>
                     <View style={s.rowTop}>
                       <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
-                 <Text
-  style={[
-    s.name,
-    u.usernameColor ? { color: u.usernameColor } : null,
-    { flexShrink: 1, flexWrap: "wrap" }
-  ]}
->
-  {u.name} {isMe ? "(You)" : ""}
-</Text>
+                        <Text
+                          style={[
+                            s.name,
+                            u.usernameColor ? { color: u.usernameColor } : null,
+                            { flexShrink: 1, flexWrap: "wrap" }
+                          ]}
+                        >
+                          {u.name} {isMe ? "(You)" : ""}
+                        </Text>
 
                         <CustomEmojiBadgeView badge={u.customEmojiBadge} />
 
@@ -1059,17 +1059,17 @@ function MessageItem({
               <DynamicUserBadge badge={pickPrimaryBadge(item.sender?.activeBadges)} />
               <CustomEmojiBadgeView badge={item.sender?.customEmojiBadge} />
 
-            <Text
-  style={[
-    bubble.senderName,
-    resolveUsernameColor(item.sender)
-      ? { color: resolveUsernameColor(item.sender) }
-      : null,
-    { flexShrink: 1, flexWrap: "wrap" }
-  ]}
->
-  {item.sender.name}
-</Text>
+              <Text
+                style={[
+                  bubble.senderName,
+                  resolveUsernameColor(item.sender)
+                    ? { color: resolveUsernameColor(item.sender) }
+                    : null,
+                  { flexShrink: 1, flexWrap: "wrap" }
+                ]}
+              >
+                {item.sender.name}
+              </Text>
             </View>
             <View style={bubble.nameUnderline} />
           </View>
@@ -1165,9 +1165,12 @@ function MessageItem({
               </View>
             ) : null}
 
-            {item.type === "audio" && item.uri ? (
-              <VoiceMessagePlayer uri={item.uri} isMe={isMe} />
-            ) : null}
+{item.type === "audio" && item.uri ? (
+  <>
+    {console.log("AUDIO URL:", item.uri)}
+    <VoiceMessagePlayer uri={item.uri} isMe={isMe} />
+  </>
+) : null}
           </>
         )}
 
@@ -1893,7 +1896,9 @@ export default function ChatScreen() {
                 : rType === "file"
                   ? "file"
                   : "text";
-
+if (uiType === "audio") {
+  console.log("SERVER AUDIO URL:", m?.media?.url);
+}
         return {
           id: rid,
           clientId: raw?.clientId ? String(raw.clientId) : undefined,
@@ -1960,14 +1965,34 @@ export default function ChatScreen() {
     const uiReplyTo = buildReplyPreview(replyRaw);
 
     // ✅ uiType
+    const mediaUrl = String(m?.media?.url || "").trim();
+    const mediaMime = String(m?.media?.mimeType || "").trim().toLowerCase();
+    const systemTypeRaw = String(m?.systemType || "").trim();
+
+    const isAudioMedia =
+      !!mediaUrl &&
+      (mediaMime.startsWith("audio/") || systemTypeRaw === "room_music_audio");
+
     let uiType: MessageUI["type"] = "text";
-    if (isSystem) uiType = "system";
-    else if (backendType === "gift") uiType = "gift";
+
+    if (backendType === "gift") uiType = "gift";
     else if (backendType === "image") uiType = "image";
     else if (backendType === "video") uiType = "video";
     else if (backendType === "audio") uiType = "audio";
     else if (backendType === "file") uiType = "file";
+    else if (isSystem && isAudioMedia) uiType = "audio";
+    else if (isSystem) uiType = "system";
+    if (backendType === "system") {
+  console.log("🟡 SYSTEM MESSAGE RECEIVED =>");
+  console.log("FULL MESSAGE:", m);
 
+  console.log("📌 content:", m?.content);
+  console.log("📌 systemType:", m?.systemType);
+  console.log("📌 music:", m?.music);
+  console.log("📌 media:", m?.media);
+  console.log("📌 media.url:", m?.media?.url);
+  console.log("📌 media.mimeType:", m?.media?.mimeType);
+}
     // ✅ time (يفضل تثبيت createdAt في optimistic لتقليل الحركة)
     const time = new Date(m?.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -1991,8 +2016,12 @@ export default function ChatScreen() {
       activeBadges: picked.activeBadges || [],
       customEmojiBadge: (picked as any).customEmojiBadge || null
     };
-    const messageText = isSystem ? systemText : String(m?.content || "");
-
+    const messageText =
+      uiType === "audio"
+        ? String(m?.content || m?.music?.title || "Voice")
+        : isSystem
+          ? systemText
+          : String(m?.content || "");
     // ✅ gift payload
     const giftPayload = m?.gift || m?.meta?.gift || null;
     const giftKey = backendType === "gift" ? String(giftPayload?.key || m?.content || "") : "";
@@ -2017,7 +2046,14 @@ export default function ChatScreen() {
       uri: m?.media?.url,
 
       // في announcement كنت تخفي sender عندك — نفس السلوك
-      sender: backendType === "announcement" ? senderUI : isSystem ? undefined : senderUI,
+      sender:
+        uiType === "audio"
+          ? senderUI
+          : backendType === "announcement"
+            ? senderUI
+            : isSystem
+              ? undefined
+              : senderUI,
 
       gift:
         uiType === "gift"
@@ -3413,11 +3449,11 @@ function makeBubbleStyles(theme: typeof Colors.light) {
       alignSelf: "flex-start",
       maxWidth: "100%",
     },
-senderName: {
-  fontWeight: "800",
-  flexShrink: 1,
-  flexWrap: "wrap",
-},
+    senderName: {
+      fontWeight: "800",
+      flexShrink: 1,
+      flexWrap: "wrap",
+    },
     // senderName: {  
     //   fontWeight: "bold",
     //   fontSize: 13,

@@ -15,7 +15,14 @@ export type ActivePoll = {
   options: { text: string; votes: number }[];
   expiresAt?: string;
 };
+export type RoomBotLanguage = "ar" | "en";
 
+export type RoomBotConfig = {
+  enabled: boolean;
+  welcomeEnabled: boolean;
+  language: RoomBotLanguage;
+  welcomeMessage?: string | null;
+};
 export type RoomControl = {
   _id: string;
   name: string;
@@ -45,7 +52,7 @@ export type RoomControl = {
 
   activePoll?: ActivePoll | null;
 
-  // لو عندك حقول إضافية في موديل Room أضفها هنا حسب الحاجة
+  roomBot?: RoomBotConfig;
 };
 
 /* =====================================================
@@ -154,7 +161,28 @@ export const setRoomLock = createAsyncThunk<
     return thunkAPI.rejectWithValue(errMsg(e, "Failed to update lock state"));
   }
 });
-
+/** PATCH /rooms/:id/control/welcome */
+export const updateRoomWelcome = createAsyncThunk<
+  { roomId: string; roomBot: RoomBotConfig },
+  {
+    roomId: string;
+    enabled?: boolean;
+    welcomeEnabled?: boolean;
+    language?: RoomBotLanguage;
+    welcomeMessage?: string;
+  },
+  { rejectValue: string }
+>("roomControl/updateWelcome", async ({ roomId, ...body }, thunkAPI) => {
+  try {
+    const res = await api.patch(`${BASE}/${roomId}/control/welcome`, body);
+    return {
+      roomId,
+      roomBot: res.data.roomBot,
+    };
+  } catch (e: any) {
+    return thunkAPI.rejectWithValue(errMsg(e, "Failed to update welcome settings"));
+  }
+});
 /** PATCH /rooms/:id/control/antispam */
 export const setRoomAntiSpam = createAsyncThunk<
   { roomId: string; antiSpamEnabled: boolean; maxMessagesPerMinute?: number },
@@ -342,7 +370,20 @@ const roomControlSlice = createSlice({
         state.loading = false;
         state.error = action.payload || "Failed to load room control";
       })
-
+.addCase(updateRoomWelcome.pending, (state) => {
+  state.saving = true;
+  state.error = null;
+})
+.addCase(updateRoomWelcome.fulfilled, (state, action) => {
+  state.saving = false;
+  if (state.room && state.room._id === action.payload.roomId) {
+    state.room.roomBot = action.payload.roomBot;
+  }
+})
+.addCase(updateRoomWelcome.rejected, (state, action) => {
+  state.saving = false;
+  state.error = action.payload || "Failed to update welcome settings";
+})
       /* ========== updateInfo / changeType / changePremium ========== */
       .addCase(updateRoomInfo.pending, (state) => {
         state.saving = true;

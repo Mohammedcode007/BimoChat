@@ -4,6 +4,7 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
 import { useTranslation } from "@/hooks/useTranslation";
+import { selectAccountType } from "@/redux/slices/authSlice";
 import { blockUser, toggleFollow } from "@/redux/slices/followSlice";
 import { unblockUser } from "@/redux/slices/friendSlice";
 import { clearReportError, clearReportSuccess, ReportReason, resetReportForm, selectReportError, selectReportSubmitting, selectReportSuccess, submitReport } from "@/redux/slices/reportSlice";
@@ -789,7 +790,8 @@ export default function TweetsScreen() {
   const loading = useSelector((state: RootState) => state.tweets.loading);
   const { followingMap } = useSelector((state: RootState) => state.follow);
   const { user } = useSelector((state: RootState) => state.auth);
-
+  const accountType = useSelector(selectAccountType);
+  const isAdmin = accountType === "admin";
   const { colorScheme, themePreference, setThemePreference } = useColorScheme();
 
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
@@ -999,7 +1001,7 @@ export default function TweetsScreen() {
 
   const renderCount = useRef(0);
   renderCount.current += 1;
- 
+
   return (
     <View style={[s.container, { backgroundColor: theme.background }]}>
       <View key={language} style={s.tabsWrap}>
@@ -1047,7 +1049,7 @@ export default function TweetsScreen() {
         contentContainerStyle={{ paddingBottom: 120 }}
         renderItem={({ item }: any) => {
           const isOwnTweet = item?.author?._id === user?._id;
-          console.log("📦 Tweet item render:", item._id);
+          const canDeleteTweet = isOwnTweet || isAdmin;
           const isFollowing =
             followingMap?.[item?.author?._id] ??
             item?.author?.isFollowing ??
@@ -1067,13 +1069,16 @@ export default function TweetsScreen() {
           return (
             <Swipeable
               renderRightActions={() =>
-                isOwnTweet ? (
+                canDeleteTweet ? (
                   <TouchableOpacity
                     style={s.deleteBtn}
                     onPress={async () => {
-                      setActionLoading(`delete-${item._id}`);
-                      await dispatch(deleteTweet(item._id));
-                      setActionLoading(null);
+                      try {
+                        setActionLoading(`delete-${item._id}`);
+                        await dispatch(deleteTweet(item._id));
+                      } finally {
+                        setActionLoading(null);
+                      }
                     }}
                     activeOpacity={0.9}
                   >
@@ -1278,6 +1283,7 @@ export default function TweetsScreen() {
           <View style={s.sheet}>
             {sheetMode === "menu" ? (
               <>
+               
                 {selectedUser && (
                   <>
                     <Text style={s.sheetTitle}>
@@ -1436,6 +1442,40 @@ export default function TweetsScreen() {
                       </View>
                       <Text style={s.sheetText}>بلاغ عن المستخدم</Text>
                     </TouchableOpacity>
+                     {(isAdmin || selectedTweet?.author?._id === user?._id) && !!selectedTweet?._id && (
+                  <TouchableOpacity
+                    style={s.sheetItem}
+                    activeOpacity={0.9}
+                    onPress={async () => {
+                      try {
+                        setActionLoading(`delete-${selectedTweet._id}`);
+                        await dispatch(deleteTweet(selectedTweet._id));
+                        closeSheet();
+                      } finally {
+                        setActionLoading(null);
+                      }
+                    }}
+                  >
+                    <View
+                      style={[
+                        s.sheetIcon,
+                        {
+                          backgroundColor: isDark
+                            ? "rgba(239,68,68,0.12)"
+                            : "rgba(239,68,68,0.10)",
+                        },
+                      ]}
+                    >
+                      {actionLoading === `delete-${selectedTweet?._id}` ? (
+                        <ActivityIndicator size="small" color="#EF4444" />
+                      ) : (
+                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      )}
+                    </View>
+
+                    <Text style={s.sheetText}>حذف التويتة</Text>
+                  </TouchableOpacity>
+                )}
                   </>
                 )}
               </>

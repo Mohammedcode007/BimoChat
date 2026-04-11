@@ -102,14 +102,19 @@ export type UserPublicSnapshot = {
   username: string;
   atUsername?: string;
   avatar?: string;
+  avatarGif?: string;
   coverImage?: string;
+  usernameColor?: string;
+  messageTextColor?: string;
   isOnline?: boolean;
   lastSeen?: string | null;
   role?: string;
 
-  // customization
   activeCustomization?: {
     avatarFrame?: string;
+    avatarGif?: string;
+    usernameColor?: string;
+    messageTextColor?: string;
     messageEffect?: string;
     profileEntryAnimation?: string;
     badges?: string[];
@@ -139,10 +144,13 @@ export type UserPublicSnapshot = {
 export type RoomVipEntry = { user: UserPublicSnapshot; expiresAt: string };
 export type RoomMutedEntry = { user: UserPublicSnapshot; until: string; reason?: string };
 export type RoomUser = {
-  inventory?: any[]; // ✅ أضف هذا
+  inventory?: any[];
   _id: string;
   username: string;
   avatar?: string;
+  avatarGif?: string;
+  usernameColor?: string;
+  messageTextColor?: string;
   isOnline?: boolean;
   lastSeen?: string;
   role?: "creator" | "owner" | "admin" | "member";
@@ -154,6 +162,9 @@ export type RoomUser = {
 
   activeCustomization?: {
     avatarFrame?: string;
+    avatarGif?: string;
+    usernameColor?: string;
+    messageTextColor?: string;
     messageEffect?: string;
     profileEntryAnimation?: string;
     badges?: string[];
@@ -576,24 +587,37 @@ export const fetchRoomUsers = createAsyncThunk<
     const payload = dataOf(res);
     const rawUsers = payload?.users ?? payload ?? [];
 
-    const users: RoomUser[] = Array.isArray(rawUsers)
-      ? rawUsers.map((u: any) => ({
-        _id: String(u?._id || ""),
-        username: String(u?.username || "User"),
-        avatar: u?.avatar ? String(u.avatar) : "",
-        isOnline: Boolean(u?.isOnline),
-        lastSeen: u?.lastSeen ? String(u.lastSeen) : undefined,
-        role: u?.role,
-        isVip: Boolean(u?.isVip),
-        vipExpiresAt: u?.vipExpiresAt ? String(u.vipExpiresAt) : null,
-        isMuted: Boolean(u?.isMuted),
-        mutedUntil: u?.mutedUntil ? String(u.mutedUntil) : null,
-        isActive: Boolean(u?.isActive),
-        inventory: Array.isArray(u?.inventory) ? u.inventory : [],
-        activeCustomization: u?.activeCustomization
-          ? {
+const users: RoomUser[] = Array.isArray(rawUsers)
+  ? rawUsers.map((u: any) => ({
+      _id: String(u?._id || ""),
+      username: String(u?.username || "User"),
+      avatar: u?.avatar ? String(u.avatar) : "",
+      avatarGif: u?.avatarGif ? String(u.avatarGif) : "",
+      usernameColor: u?.usernameColor ? String(u.usernameColor) : "",
+      messageTextColor: u?.messageTextColor ? String(u.messageTextColor) : "",
+      isOnline: Boolean(u?.isOnline),
+      lastSeen: u?.lastSeen ? String(u.lastSeen) : undefined,
+      role: u?.role,
+      isVip: Boolean(u?.isVip),
+      vipExpiresAt: u?.vipExpiresAt ? String(u.vipExpiresAt) : null,
+      isMuted: Boolean(u?.isMuted),
+      mutedUntil: u?.mutedUntil ? String(u.mutedUntil) : null,
+      isActive: Boolean(u?.isActive),
+      inventory: Array.isArray(u?.inventory) ? u.inventory : [],
+
+      activeCustomization: u?.activeCustomization
+        ? {
             avatarFrame: u.activeCustomization?.avatarFrame
               ? String(u.activeCustomization.avatarFrame)
+              : "",
+            avatarGif: u.activeCustomization?.avatarGif
+              ? String(u.activeCustomization.avatarGif)
+              : "",
+            usernameColor: u.activeCustomization?.usernameColor
+              ? String(u.activeCustomization.usernameColor)
+              : "",
+            messageTextColor: u.activeCustomization?.messageTextColor
+              ? String(u.activeCustomization.messageTextColor)
               : "",
             messageEffect: u.activeCustomization?.messageEffect
               ? String(u.activeCustomization.messageEffect)
@@ -606,13 +630,13 @@ export const fetchRoomUsers = createAsyncThunk<
               : [],
             verificationType: u?.activeCustomization?.verificationType || "none"
           }
-          : undefined,
+        : undefined,
 
-        verificationType: u?.verificationType || "none",
+      verificationType: u?.verificationType || "none",
 
-        customEmojiBadge:
-          u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
-            ? {
+      customEmojiBadge:
+        u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
+          ? {
               emoji: u.customEmojiBadge?.emoji
                 ? String(u.customEmojiBadge.emoji)
                 : "",
@@ -624,9 +648,9 @@ export const fetchRoomUsers = createAsyncThunk<
                 ? String(u.customEmojiBadge.expiresAt)
                 : null
             }
-            : null
-      }))
-      : [];
+          : null
+    }))
+  : [];
 
     return { roomId, users };
   } catch (e: any) {

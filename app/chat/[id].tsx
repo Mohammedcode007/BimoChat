@@ -231,7 +231,7 @@ export default function ChatScreen() {
   const recordingRef = useRef<Audio.Recording | null>(null);
   const typingTimeout = useRef<any>(null);
   const searchTimeout = useRef<any>(null);
-
+  const messagesRef = useRef<MessageItem[]>([]);
   const [page, setPage] = useState(1);
   const [loadedPages, setLoadedPages] = useState<number[]>([1]);
   const [hasMore, setHasMore] = useState(true);
@@ -286,6 +286,18 @@ export default function ChatScreen() {
     useMemo(() => selectMessagesByChatId(chatId), [chatId])
   );
 
+
+  useEffect(() => {
+    messagesRef.current = Array.isArray(messages) ? messages : [];
+  }, [messages]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    if (!currentUser?._id) return;
+    if (!Array.isArray(messages)) return;
+
+    saveMessagesToCache(currentUser._id, chatId, messages).catch(() => { });
+  }, [messages, chatId, currentUser?._id]);
   const loading = useSelector((state: RootState) => state.message.loading);
 
   const typingUsers = useSelector(
@@ -430,7 +442,6 @@ export default function ChatScreen() {
         dispatch(setActiveChat(chatId));
         joinChatRoom(chatId);
 
-        // 1) عرض الكاش فورًا
         const cached = await loadMessagesFromCache(currentUser._id!, chatId);
 
         if (!isMounted) return;
@@ -439,13 +450,14 @@ export default function ChatScreen() {
           dispatch(setMessages({ chatId, messages: cached }));
         }
 
-        // 2) مزامنة الخلفية
         const res = await dispatch(loadMessages({ chatId, page: 1 })).unwrap();
 
         if (!isMounted) return;
 
         const incoming = Array.isArray(res?.messages) ? res.messages : [];
-        const merged = mergeMessages(cached, incoming);
+        const currentStateMessages = messagesRef.current || [];
+        const baseMessages = currentStateMessages.length ? currentStateMessages : cached;
+        const merged = mergeMessages(baseMessages, incoming);
 
         dispatch(setMessages({ chatId, messages: merged }));
         await saveMessagesToCache(currentUser._id!, chatId, merged);
@@ -474,11 +486,9 @@ export default function ChatScreen() {
       dispatch(setActiveChat(undefined));
       dispatch(clearSearchResults());
       setReplyToMessage(null);
-
-      // لا تمسح الرسائل هنا
-      // dispatch(clearChatMessages(chatId));
     };
   }, [chatId, currentUser?._id, dispatch]);
+
   useEffect(() => {
     const requestPermissions = async () => {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -526,30 +536,38 @@ export default function ChatScreen() {
 
     const nextPage = page + 1;
 
-    try {
-      const res = await dispatch(loadMessages({ chatId, page: nextPage })).unwrap();
+    const loadMore = async () => {
+      if (!hasMore || loading) return;
+      if (!currentUser?._id) return;
 
-      const currentStateMessages = (messages || []) as MessageItem[];
-      const merged = mergeMessages(currentStateMessages, res.messages || []);
+      const nextPage = page + 1;
 
-      dispatch(setMessages({ chatId, messages: merged }));
-      saveMessagesToCache(currentUser._id, chatId, merged);
+      try {
+        const res = await dispatch(loadMessages({ chatId, page: nextPage })).unwrap();
 
-      if ((res.messages || []).length < 20) {
-        setHasMore(false);
+        const currentStateMessages = messagesRef.current || [];
+        const merged = mergeMessages(currentStateMessages, res.messages || []);
+
+        dispatch(setMessages({ chatId, messages: merged }));
+        await saveMessagesToCache(currentUser._id, chatId, merged);
+
+        if ((res.messages || []).length < 20) {
+          setHasMore(false);
+        }
+
+        setPage(nextPage);
+        setLoadedPages((prev) =>
+          prev.includes(nextPage) ? prev : [...prev, nextPage]
+        );
+      } catch (e) {
       }
-
-      setPage(nextPage);
-      setLoadedPages((prev) =>
-        prev.includes(nextPage) ? prev : [...prev, nextPage]
-      );
-    } catch (e) {
-    }
+    };
   };
   const ensureMessageLoaded = async (messageId: string) => {
     if (!currentUser?._id) return false;
 
-    let currentMessages = messages as MessageItem[];
+    let currentMessages = messagesRef.current || [];
+
     let found = currentMessages.some((m) => m._id === messageId);
     if (found) return true;
 
@@ -568,7 +586,7 @@ export default function ChatScreen() {
         currentMessages = mergeMessages(currentMessages, res.messages || []);
 
         dispatch(setMessages({ chatId, messages: currentMessages }));
-        saveMessagesToCache(currentUser._id, chatId, currentMessages);
+        await saveMessagesToCache(currentUser._id, chatId, currentMessages);
 
         if ((res.messages || []).length < 20) {
           localHasMore = false;
@@ -727,7 +745,7 @@ export default function ChatScreen() {
 
 
     if (!currentUser?._id) {
-   
+
       return;
     }
 
@@ -758,15 +776,15 @@ export default function ChatScreen() {
       const cloudType =
         type === "image" ? "image" : type === "video" ? "video" : "raw";
 
-  
+
 
       const url = await uploadToCloudinary(uri, cloudType);
 
-   
+
 
       setMediaSendingState((prev) => ({ ...prev, [tempId]: "sending" }));
 
-  
+
 
       sendSocketMessage(
         chatId,
@@ -779,7 +797,7 @@ export default function ChatScreen() {
 
       setReplyToMessage(null);
     } catch (error: any) {
-  
+
 
       setMediaSendingState((prev) => {
         const next = { ...prev };
@@ -789,7 +807,7 @@ export default function ChatScreen() {
 
       Alert.alert("خطأ", "فشل رفع أو إرسال الملف");
     } finally {
-    
+
     }
   };
 
@@ -2213,68 +2231,68 @@ const styles = StyleSheet.create({
     backgroundColor: "#80c080",
     borderBottomRightRadius: 4,
   },
-inviteCard: {
-  minWidth: 220,
-  borderWidth: 1,
-  borderRadius: 16,
-  padding: 12,
-},
+  inviteCard: {
+    minWidth: 220,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 12,
+  },
 
-inviteTopRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 10,
-},
+  inviteTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
 
-inviteAvatar: {
-  width: 42,
-  height: 42,
-  borderRadius: 14,
-},
+  inviteAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+  },
 
-inviteAvatarPlaceholder: {
-  width: 42,
-  height: 42,
-  borderRadius: 14,
-  backgroundColor: "#6D5DF6",
-  alignItems: "center",
-  justifyContent: "center",
-},
+  inviteAvatarPlaceholder: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "#6D5DF6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-inviteRoomName: {
-  fontSize: 14,
-  fontWeight: "800",
-},
+  inviteRoomName: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
 
-inviteMetaText: {
-  marginTop: 3,
-  fontSize: 12,
-  fontWeight: "600",
-},
+  inviteMetaText: {
+    marginTop: 3,
+    fontSize: 12,
+    fontWeight: "600",
+  },
 
-inviteMessageText: {
-  marginTop: 10,
-  fontSize: 13,
-  lineHeight: 20,
-  fontWeight: "600",
-},
+  inviteMessageText: {
+    marginTop: 10,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "600",
+  },
 
-joinRoomBtn: {
-  marginTop: 12,
-  height: 38,
-  borderRadius: 12,
-  backgroundColor: "#6D5DF6",
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 6,
-},
+  joinRoomBtn: {
+    marginTop: 12,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#6D5DF6",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
 
-joinRoomBtnText: {
-  color: "#FFF",
-  fontSize: 13,
-  fontWeight: "800",
-},
+  joinRoomBtnText: {
+    color: "#FFF",
+    fontSize: 13,
+    fontWeight: "800",
+  },
   other: {
     backgroundColor: "#f5f5f5",
     borderBottomLeftRadius: 4,

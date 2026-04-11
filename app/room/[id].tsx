@@ -106,6 +106,9 @@ type UserUI = {
   id: string;
   name: string;
   avatar?: string;
+  avatarGif?: string;
+  usernameColor?: string;
+  messageTextColor?: string;
   role?: RoomRole;
   activeBadges?: UserBadgeUI[];
   customEmojiBadge?: {
@@ -852,14 +855,22 @@ function UsersModal({
               const isMe = u.id === myUserId;
               return (
                 <TouchableOpacity key={u.id} style={s.row} onPress={() => onCopyUser(u)} activeOpacity={0.88}>
-                  <Image source={{ uri: u.avatar || "https://i.pravatar.cc/150?img=12" }} style={s.avatar} />
-
+                  <Image
+                    source={{ uri: u.avatarGif || u.avatar || "https://i.pravatar.cc/150?img=12" }}
+                    style={s.avatar}
+                  />
                   <View style={{ flex: 1 }}>
                     <View style={s.rowTop}>
                       <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
-                        <Text style={s.name} numberOfLines={1}>
-                          {u.name} {isMe ? "(You)" : ""}
-                        </Text>
+                 <Text
+  style={[
+    s.name,
+    u.usernameColor ? { color: u.usernameColor } : null,
+    { flexShrink: 1, flexWrap: "wrap" }
+  ]}
+>
+  {u.name} {isMe ? "(You)" : ""}
+</Text>
 
                         <CustomEmojiBadgeView badge={u.customEmojiBadge} />
 
@@ -904,6 +915,43 @@ function UsersModal({
     </Modal>
   );
 }
+const resolveUsernameColor = (u?: Partial<UserUI> & { activeCustomization?: any } | null) => {
+  const color =
+    String(
+      (u as any)?.usernameColor ||
+      (u as any)?.activeCustomization?.usernameColor ||
+      ""
+    ).trim();
+
+  return color || undefined;
+};
+
+const resolveMessageTextColor = (u?: Partial<UserUI> & { activeCustomization?: any } | null) => {
+  const color =
+    String(
+      (u as any)?.messageTextColor ||
+      (u as any)?.activeCustomization?.messageTextColor ||
+      ""
+    ).trim();
+
+  return color || undefined;
+};
+const resolveAvatarSource = (u?: Partial<UserUI> & { activeCustomization?: any } | null) => {
+  const gif =
+    String(
+      (u as any)?.avatarGif ||
+      (u as any)?.activeCustomization?.avatarGif ||
+      ""
+    ).trim();
+
+  const avatar =
+    String(
+      (u as any)?.avatar ||
+      ""
+    ).trim();
+
+  return gif || avatar || "https://i.pravatar.cc/150?img=12";
+};
 
 /* ================= MESSAGE ITEM (Themed) ================= */
 function MessageItem({
@@ -978,7 +1026,10 @@ function MessageItem({
     <View style={[bubble.row, isMe ? bubble.rowMe : bubble.rowOther]}>
       {!isMe && (
         <Pressable style={bubble.avatarWrapLeft} onLongPress={() => onAvatarLongPress(item.sender)} delayLongPress={350}>
-          <Image source={{ uri: item.sender?.avatar || "https://i.pravatar.cc/150?img=12" }} style={bubble.avatar} />
+          <Image
+            source={{ uri: resolveAvatarSource(item.sender) }}
+            style={bubble.avatar}
+          />
           {shouldShowStar(senderRole) && <Text style={[bubble.avatarStarLeft, { color: starColor }]}>★</Text>}
         </Pressable>
       )}
@@ -1008,13 +1059,17 @@ function MessageItem({
               <DynamicUserBadge badge={pickPrimaryBadge(item.sender?.activeBadges)} />
               <CustomEmojiBadgeView badge={item.sender?.customEmojiBadge} />
 
-              <Text
-                style={bubble.senderName}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {item.sender.name}
-              </Text>
+            <Text
+  style={[
+    bubble.senderName,
+    resolveUsernameColor(item.sender)
+      ? { color: resolveUsernameColor(item.sender) }
+      : null,
+    { flexShrink: 1, flexWrap: "wrap" }
+  ]}
+>
+  {item.sender.name}
+</Text>
             </View>
             <View style={bubble.nameUnderline} />
           </View>
@@ -1057,6 +1112,9 @@ function MessageItem({
               <Text
                 style={[
                   bubble.msgText,
+                  resolveMessageTextColor(item.sender)
+                    ? { color: resolveMessageTextColor(item.sender) }
+                    : null,
                   isMe && {
                     textAlign: "right",
                     writingDirection: "rtl"
@@ -1122,7 +1180,10 @@ function MessageItem({
 
       {isMe && (
         <Pressable style={bubble.avatarWrapRight} onLongPress={() => onAvatarLongPress(item.sender)} delayLongPress={350}>
-          <Image source={{ uri: item.sender?.avatar || "https://i.pravatar.cc/150?img=12" }} style={bubble.avatar} />
+          <Image
+            source={{ uri: resolveAvatarSource(item.sender) }}
+            style={bubble.avatar}
+          />
           {shouldShowStar(senderRole) && <Text style={[bubble.avatarStarRight, { color: starColor }]}>★</Text>}
         </Pressable>
       )}
@@ -1286,28 +1347,31 @@ export default function ChatScreen() {
   }, [roomUsers, myUserId]);
 
   const canModerate = useMemo(() => myRole === "creator" || myRole === "owner" || myRole === "admin", [myRole]);
-
+  type UsersMapValue = {
+    username?: string;
+    avatar?: string;
+    avatarGif?: string;
+    usernameColor?: string;
+    messageTextColor?: string;
+    role?: any;
+    activeBadges?: UserBadgeUI[];
+    customEmojiBadge?: {
+      emoji?: string;
+      isActive?: boolean;
+      expiresAt?: string | null;
+    } | null;
+  };
   const usersMap = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        username?: string;
-        avatar?: string;
-        role?: any;
-        activeBadges?: UserBadgeUI[];
-        customEmojiBadge?: {
-          emoji?: string;
-          isActive?: boolean;
-          expiresAt?: string | null;
-        } | null;
-      }
-    >();
+    const map = new Map<string, UsersMapValue>();
 
     for (const u of roomUsers || []) {
       if (u?._id) {
         map.set(String(u._id), {
           username: u.username,
           avatar: u.avatar,
+          avatarGif: u?.activeCustomization?.avatarGif || u?.avatarGif || "",
+          usernameColor: u?.activeCustomization?.usernameColor || u?.usernameColor || "",
+          messageTextColor: u?.activeCustomization?.messageTextColor || u?.messageTextColor || "",
           role: u.role,
           activeBadges:
             String(u?._id) === String(myUserId)
@@ -1333,6 +1397,21 @@ export default function ChatScreen() {
       map.set(myUserId, {
         username: myName,
         avatar: myAvatar,
+        avatarGif:
+          meInRoom?.activeCustomization?.avatarGif ||
+          (authUser as any)?.activeCustomization?.avatarGif ||
+          (authUser as any)?.avatarGif ||
+          "",
+        usernameColor:
+          meInRoom?.activeCustomization?.usernameColor ||
+          (authUser as any)?.activeCustomization?.usernameColor ||
+          (authUser as any)?.usernameColor ||
+          "",
+        messageTextColor:
+          meInRoom?.activeCustomization?.messageTextColor ||
+          (authUser as any)?.activeCustomization?.messageTextColor ||
+          (authUser as any)?.messageTextColor ||
+          "",
         role: myRole,
         activeBadges: meInRoom ? buildActiveBadgesFromUser(meInRoom, myInventory) : [],
         customEmojiBadge:
@@ -1562,6 +1641,10 @@ export default function ChatScreen() {
       id: String(u?._id),
       name: String(u?.username || "User"),
       avatar: String(u?.avatar || ""),
+      avatarGif: String(u?.activeCustomization?.avatarGif || u?.avatarGif || ""),
+      usernameColor: String(u?.activeCustomization?.usernameColor || u?.usernameColor || ""),
+      messageTextColor: String(u?.activeCustomization?.messageTextColor || u?.messageTextColor || ""),
+
       role: u?.role,
       activeBadges:
         String(u?._id) === String(myUserId)
@@ -1633,7 +1716,6 @@ export default function ChatScreen() {
     const snap = m?.senderSnapshot || null;
 
     const senderId = String(snap?._id || senderObj?._id || m?.senderId || "").trim();
-
     const username = String(
       snap?.username ||
       senderObj?.username ||
@@ -1643,7 +1725,41 @@ export default function ChatScreen() {
       ""
     ).trim();
 
-    const avatar = String(snap?.avatar || senderObj?.avatar || "").trim();
+    const avatar = String(
+      snap?.avatar ||
+      senderObj?.avatar ||
+      usersMap.get(senderId)?.avatar ||
+      ""
+    ).trim();
+
+    const avatarGif = String(
+      snap?.activeCustomization?.avatarGif ||
+      snap?.avatarGif ||
+      senderObj?.activeCustomization?.avatarGif ||
+      senderObj?.avatarGif ||
+      usersMap.get(senderId)?.avatarGif ||
+      ""
+    ).trim();
+
+    const usernameColor =
+      String(
+        snap?.activeCustomization?.usernameColor ||
+        snap?.usernameColor ||
+        senderObj?.activeCustomization?.usernameColor ||
+        senderObj?.usernameColor ||
+        usersMap.get(senderId)?.usernameColor ||
+        ""
+      ).trim();
+
+    const messageTextColor =
+      String(
+        snap?.activeCustomization?.messageTextColor ||
+        snap?.messageTextColor ||
+        senderObj?.activeCustomization?.messageTextColor ||
+        senderObj?.messageTextColor ||
+        usersMap.get(senderId)?.messageTextColor ||
+        ""
+      ).trim();
 
     const snapshotRole = String(snap?.role || senderObj?.role || "").trim();
 
@@ -1651,6 +1767,7 @@ export default function ChatScreen() {
       senderId === myUserId
         ? buildActiveBadgesFromUser(snap, myInventory)
         : buildActiveBadgesFromUser(snap);
+
     const activeBadgesFromUsersMap = usersMap.get(senderId)?.activeBadges || [];
     const activeBadges =
       activeBadgesFromSnapshot.length > 0
@@ -1680,6 +1797,9 @@ export default function ChatScreen() {
       senderId,
       username,
       avatar,
+      avatarGif,
+      usernameColor,
+      messageTextColor,
       snapshotRole: snapshotRole || undefined,
       activeBadges,
       customEmojiBadge
@@ -1863,12 +1983,14 @@ export default function ChatScreen() {
       id: String(senderId || "unknown"),
       name: picked.username || (senderId && senderId === myUserId ? myName : "User"),
       avatar: picked.avatar || (senderId && senderId === myUserId ? myAvatar : ""),
+      avatarGif: picked.avatarGif || "",
+      usernameColor: picked.usernameColor || "",
+      messageTextColor: picked.messageTextColor || "",
       role: roomRole,
       snapshotRole: picked.snapshotRole,
       activeBadges: picked.activeBadges || [],
       customEmojiBadge: (picked as any).customEmojiBadge || null
     };
-
     const messageText = isSystem ? systemText : String(m?.content || "");
 
     // ✅ gift payload
@@ -2044,7 +2166,13 @@ export default function ChatScreen() {
               username: meInRoom.username,
               atUsername: me?.atUsername || "",
               avatar: meInRoom.avatar,
+              avatarGif:
+                meInRoom?.activeCustomization?.avatarGif || meInRoom?.avatarGif || "",
               coverImage: me?.coverImage || "",
+              usernameColor:
+                meInRoom?.activeCustomization?.usernameColor || meInRoom?.usernameColor || "",
+              messageTextColor:
+                meInRoom?.activeCustomization?.messageTextColor || meInRoom?.messageTextColor || "",
               isOnline: true,
               verificationType:
                 meInRoom?.verificationType || me?.verificationType || "none",
@@ -2060,7 +2188,13 @@ export default function ChatScreen() {
                 username: me.username,
                 atUsername: me.atUsername,
                 avatar: me.avatar,
+                avatarGif:
+                  me?.activeCustomization?.avatarGif || me?.avatarGif || "",
                 coverImage: me.coverImage,
+                usernameColor:
+                  me?.activeCustomization?.usernameColor || me?.usernameColor || "",
+                messageTextColor:
+                  me?.activeCustomization?.messageTextColor || me?.messageTextColor || "",
                 isOnline: true,
                 verificationType: me.verificationType,
                 activeCustomization: me.activeCustomization,
@@ -3279,14 +3413,18 @@ function makeBubbleStyles(theme: typeof Colors.light) {
       alignSelf: "flex-start",
       maxWidth: "100%",
     },
-
-    senderName: {
-      fontWeight: "bold",
-      fontSize: 13,
-      maxWidth: "85%",
-      marginRight: 4,
-      marginLeft: 4
-    },
+senderName: {
+  fontWeight: "800",
+  flexShrink: 1,
+  flexWrap: "wrap",
+},
+    // senderName: {  
+    //   fontWeight: "bold",
+    //   fontSize: 13,
+    //   maxWidth: "85%",
+    //   marginRight: 4,
+    //   marginLeft: 4
+    // },
     nameUnderline: { marginTop: 4, height: 1, backgroundColor: theme.separator, width: "100%" },
 
     media: { width: 220, height: 220, borderRadius: 12, marginTop: 4 },

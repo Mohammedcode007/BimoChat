@@ -123,7 +123,13 @@ type UserUI = {
 type MessageUI = {
   id: string;
   type: "text" | "image" | "file" | "audio" | "video" | "system" | "gift";
-  systemType?: "join" | "leave" | "announcement" | "promotion" | "ban" | "role";
+  systemType?: "join" | "leave" | "announcement" | "promotion" | "ban" | "role" | "music";
+  music?: {
+    title?: string;
+    channel?: string;
+    audioUrl?: string;
+    thumbnail?: string;
+  };
   text?: string;
   uri?: string;
   clientId?: string;       // ✅ للـ optimistic
@@ -982,7 +988,13 @@ function MessageItem({
   bubble: ReturnType<typeof makeBubbleStyles>;
 }) {
   const { width } = useWindowDimensions();
+const copyUserNameOnly = async (user?: UserUI) => {
+  const name = String(user?.name || "").trim();
+  if (!name) return;
 
+  await Clipboard.setStringAsync(name);
+    Alert.alert("Copied", "Name copied");
+};
   const copyMessageContent = async () => {
     if (item.type === "system") return;
     if (item.deletedForEveryone) return;
@@ -1003,22 +1015,99 @@ function MessageItem({
     Alert.alert("Copied", "تم نسخ محتوى الرسالة");
   };
 
-  if (item.type === "system") {
-    return (
-      <View style={bubble.sysWrap}>
-        <View style={bubble.sysBubble}>
-          <RenderHTML
-            contentWidth={width - 40}
-            source={{ html: String(item.text || "") }}
-            enableCSSInlineProcessing={true}
+  // if (item.type === "system") {
+  //   return (
+  //     <View style={bubble.sysWrap}>
+  //       <View style={bubble.sysBubble}>
+  //         <RenderHTML
+  //           contentWidth={width - 40}
+  //           source={{ html: String(item.text || "") }}
+  //           enableCSSInlineProcessing={true}
 
+  //         />
+  //         <Text style={bubble.sysTime}>{item.time}</Text>
+  //       </View>
+  //     </View>
+  //   );
+  // }
+if (item.type === "system" && item.systemType === "music") {
+  return (
+    <View style={bubble.sysWrap}>
+      <View
+        style={[
+          bubble.sysBubble,
+          {
+            width: Math.min(width - 36, 340),
+            padding: 12,
+            alignItems: "stretch",
+          },
+        ]}
+      >
+        {item.music?.thumbnail ? (
+          <Image
+            source={{ uri: item.music.thumbnail }}
+            style={{
+              width: "100%",
+              height: 170,
+              borderRadius: 14,
+              marginBottom: 10,
+            }}
+            resizeMode="cover"
           />
-          <Text style={bubble.sysTime}>{item.time}</Text>
-        </View>
-      </View>
-    );
-  }
+        ) : null}
 
+        <Text
+          style={{
+            color: theme.text,
+            fontWeight: "900",
+            fontSize: 14,
+            textAlign: "center",
+          }}
+          numberOfLines={2}
+        >
+          {item.music?.title || "Audio Track"}
+        </Text>
+
+        {!!item.music?.channel && (
+          <Text
+            style={{
+              color: theme.mutedText,
+              fontSize: 12,
+              marginTop: 4,
+              textAlign: "center",
+            }}
+            numberOfLines={1}
+          >
+            {item.music.channel}
+          </Text>
+        )}
+
+        {!!item.music?.audioUrl && (
+          <View style={{ marginTop: 10 }}>
+            <VoiceMessagePlayer uri={item.music.audioUrl} isMe={false} />
+          </View>
+        )}
+
+        <Text style={[bubble.sysTime, { marginTop: 8 }]}>{item.time}</Text>
+      </View>
+    </View>
+  );
+}
+
+if (item.type === "system") {
+  return (
+    <View style={bubble.sysWrap}>
+      <View style={bubble.sysBubble}>
+        <RenderHTML
+          contentWidth={width - 40}
+          source={{ html: String(item.text || "") }}
+          enableCSSInlineProcessing={true}
+        />
+        <Text style={bubble.sysTime}>{item.time}</Text>
+      </View>
+    </View>
+  );
+}
   const senderRole = item.sender?.role;
   const starColor = getStarColor(senderRole);
 
@@ -1067,6 +1156,8 @@ function MessageItem({
                     : null,
                   { flexShrink: 1, flexWrap: "wrap" }
                 ]}
+                  onLongPress={() => copyUserNameOnly(item.sender)}
+
               >
                 {item.sender.name}
               </Text>
@@ -1165,12 +1256,12 @@ function MessageItem({
               </View>
             ) : null}
 
-{item.type === "audio" && item.uri ? (
-  <>
-    {console.log("AUDIO URL:", item.uri)}
-    <VoiceMessagePlayer uri={item.uri} isMe={isMe} />
-  </>
-) : null}
+            {item.type === "audio" && item.uri ? (
+              <>
+                {console.log("AUDIO URL:", item.uri)}
+                <VoiceMessagePlayer uri={item.uri} isMe={isMe} />
+              </>
+            ) : null}
           </>
         )}
 
@@ -1808,12 +1899,53 @@ export default function ChatScreen() {
       customEmojiBadge
     };
   };
+  function parseSystemMusicMessage(content?: string, media?: any) {
+    const text = String(content || "").trim();
+    if (!text) return null;
 
+    const lines = text
+      .split("\n")
+      .map((x) => String(x || "").trim())
+      .filter(Boolean);
+
+    const titleLine = lines.find((l) => l.startsWith("🎵"));
+    const channelLine = lines.find((l) => l.startsWith("🎤"));
+    const linkLine = lines.find((l) => l.startsWith("🔗"));
+
+    const audioUrl = linkLine
+      ? linkLine.replace(/^🔗\s*/, "").trim()
+      : "";
+
+    const title = titleLine
+      ? titleLine.replace(/^🎵\s*/, "").trim()
+      : "";
+
+    const channel = channelLine
+      ? channelLine.replace(/^🎤\s*/, "").trim()
+      : "";
+
+    const thumbnail =
+      String(media?.mimeType || "").toLowerCase().startsWith("image/")
+        ? String(media?.url || "").trim()
+        : "";
+
+    if (!audioUrl || !title) return null;
+
+    return {
+      title,
+      channel,
+      audioUrl,
+      thumbnail,
+    };
+  }
   const mapReduxToUIMessage = (m: any): MessageUI => {
     logSenderFromMessage(m, "MAP_MESSAGE_USER_DUMP");
 
     const backendType = String(m?.type || "text");
-
+    const parsedSystemMusic =
+      backendType === "system"
+        ? parseSystemMusicMessage(m?.content, m?.media)
+        : null;
     const isSystem =
       backendType === "system" ||
       backendType === "announcement" ||
@@ -1896,9 +2028,9 @@ export default function ChatScreen() {
                 : rType === "file"
                   ? "file"
                   : "text";
-if (uiType === "audio") {
-  console.log("SERVER AUDIO URL:", m?.media?.url);
-}
+        if (uiType === "audio") {
+          console.log("SERVER AUDIO URL:", m?.media?.url);
+        }
         return {
           id: rid,
           clientId: raw?.clientId ? String(raw.clientId) : undefined,
@@ -1974,25 +2106,30 @@ if (uiType === "audio") {
       (mediaMime.startsWith("audio/") || systemTypeRaw === "room_music_audio");
 
     let uiType: MessageUI["type"] = "text";
+    let resolvedSystemType: MessageUI["systemType"] | undefined = undefined;
 
     if (backendType === "gift") uiType = "gift";
     else if (backendType === "image") uiType = "image";
     else if (backendType === "video") uiType = "video";
     else if (backendType === "audio") uiType = "audio";
     else if (backendType === "file") uiType = "file";
+    else if (parsedSystemMusic) {
+      uiType = "system";
+      resolvedSystemType = "music";
+    }
     else if (isSystem && isAudioMedia) uiType = "audio";
     else if (isSystem) uiType = "system";
     if (backendType === "system") {
-  console.log("🟡 SYSTEM MESSAGE RECEIVED =>");
-  console.log("FULL MESSAGE:", m);
+      console.log("🟡 SYSTEM MESSAGE RECEIVED =>");
+      console.log("FULL MESSAGE:", m);
 
-  console.log("📌 content:", m?.content);
-  console.log("📌 systemType:", m?.systemType);
-  console.log("📌 music:", m?.music);
-  console.log("📌 media:", m?.media);
-  console.log("📌 media.url:", m?.media?.url);
-  console.log("📌 media.mimeType:", m?.media?.mimeType);
-}
+      console.log("📌 content:", m?.content);
+      console.log("📌 systemType:", m?.systemType);
+      console.log("📌 music:", m?.music);
+      console.log("📌 media:", m?.media);
+      console.log("📌 media.url:", m?.media?.url);
+      console.log("📌 media.mimeType:", m?.media?.mimeType);
+    }
     // ✅ time (يفضل تثبيت createdAt في optimistic لتقليل الحركة)
     const time = new Date(m?.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -2016,12 +2153,14 @@ if (uiType === "audio") {
       activeBadges: picked.activeBadges || [],
       customEmojiBadge: (picked as any).customEmojiBadge || null
     };
-    const messageText =
-      uiType === "audio"
-        ? String(m?.content || m?.music?.title || "Voice")
-        : isSystem
-          ? systemText
-          : String(m?.content || "");
+   const messageText =
+  parsedSystemMusic
+    ? parsedSystemMusic.title
+    : uiType === "audio"
+      ? String(m?.content || m?.music?.title || "Voice")
+      : isSystem
+        ? systemText
+        : String(m?.content || "");
     // ✅ gift payload
     const giftPayload = m?.gift || m?.meta?.gift || null;
     const giftKey = backendType === "gift" ? String(giftPayload?.key || m?.content || "") : "";
@@ -2041,7 +2180,14 @@ if (uiType === "audio") {
 
       type: uiType,
       systemType: isSystem ? (backendType as any) : undefined,
-
+      music: parsedSystemMusic
+        ? {
+          title: parsedSystemMusic.title,
+          channel: parsedSystemMusic.channel,
+          audioUrl: parsedSystemMusic.audioUrl,
+          thumbnail: parsedSystemMusic.thumbnail,
+        }
+        : undefined,
       text: messageText,
       uri: m?.media?.url,
 
@@ -3401,7 +3547,7 @@ function makeBubbleStyles(theme: typeof Colors.light) {
     rowOther: { justifyContent: "flex-start" },
     rowMe: { justifyContent: "flex-end" },
 
-    avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.surface2 },
+    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.surface2 },
 
     avatarWrapLeft: { width: 40, height: 40, marginRight: 8, position: "relative" },
     avatarWrapRight: { width: 40, height: 40, marginLeft: 8, position: "relative" },
@@ -3550,7 +3696,7 @@ function makeUsersStyles(theme: typeof Colors.light) {
       borderWidth: 1,
       borderColor: theme.border
     },
-    avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.surface2 },
+    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.surface2 },
     rowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
     name: { flex: 1, fontSize: 14, fontWeight: "900", color: theme.text },
     sub: { fontSize: 12, color: theme.mutedText, marginTop: 2 },

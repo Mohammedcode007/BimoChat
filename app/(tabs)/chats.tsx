@@ -5,12 +5,12 @@ import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
 import { useTranslation } from "@/hooks/useTranslation";
 import { selectSortedChats } from "@/redux/selectors";
 import {
-    deleteChat,
-    fetchChats,
-    fetchTotalUnread,
-    hydrateChatsFromCache,
-    setActiveChat,
-    setUnreadFromServer,
+  deleteChat,
+  fetchChats,
+  fetchTotalUnread,
+  hydrateChatsFromCache,
+  setActiveChat,
+  setUnreadFromServer,
 } from "@/redux/slices/chatSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import { loadChatsFromCache } from "@/storage/chatCache";
@@ -19,17 +19,17 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-    FlatList,
-    I18nManager,
-    Image,
-    Modal,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  I18nManager,
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -87,27 +87,27 @@ export default function ChatListScreen() {
     [t, isRTL]
   );
   
-  useEffect(() => {
-    if (!currentUser?._id) return;
+useEffect(() => {
+  if (!currentUser?._id) return;
 
-    const initChats = async () => {
-      try {
-        // 1) عرض الكاش فورًا
-        const cachedChats = await loadChatsFromCache(currentUser._id);
-        if (cachedChats.length) {
-          dispatch(hydrateChatsFromCache(cachedChats));
-        }
-
-        // 2) مزامنة الخلفية من السيرفر
-        dispatch(fetchChats());
-        dispatch(fetchTotalUnread());
-      } catch (error) {
+  const initChats = () => {
+    try {
+      // 1) عرض الكاش فورًا
+      const cachedChats = loadChatsFromCache(currentUser._id);
+      if (cachedChats.length) {
+        dispatch(hydrateChatsFromCache(cachedChats));
       }
-    };
 
-    initChats();
-  }, [dispatch, currentUser?._id]);
+      // 2) مزامنة الخلفية من السيرفر
+      dispatch(fetchChats());
+      dispatch(fetchTotalUnread());
+    } catch (error) {
+      console.log("initChats error:", error);
+    }
+  };
 
+  initChats();
+}, [dispatch, currentUser?._id]);
   const onRefresh = async () => {
     setRefreshing(true);
     try {

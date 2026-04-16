@@ -40,8 +40,7 @@ export default function RegisterScreen() {
   const router = useRouter();
   const { t } = useTranslation();
 
-  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
-
+  const { colorScheme } = useColorScheme();
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
   const s = useMemo(() => makeStyles(theme, isDark), [theme, isDark]);
@@ -225,10 +224,21 @@ export default function RegisterScreen() {
   };
 
   /* ================= Animated Styles ================= */
-  const slideX = (x: any) =>
-    useAnimatedStyle(() => ({
-      transform: [{ translateX: x.value }],
-    }));
+  const userStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: userX.value }],
+  }));
+
+  const passStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: passX.value }],
+  }));
+
+  const confirmStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: confirmX.value }],
+  }));
+
+  const captchaStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: captchaX.value }],
+  }));
 
   const buttonStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: buttonY.value }],
@@ -240,13 +250,24 @@ export default function RegisterScreen() {
     transform: [{ translateX: shakeX.value }],
   }));
 
-  const floating = (v: any, r = false) =>
-    useAnimatedStyle(() => ({
-      transform: [
-        { translateY: v.value },
-        ...(r ? [{ rotate: `${rotate.value}deg` }] : []),
-      ],
-    }));
+  const floating1Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: float1.value }],
+  }));
+
+  const floating2RotateStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: float2.value },
+      { rotate: `${rotate.value}deg` },
+    ],
+  }));
+
+  const floating3Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: float3.value }],
+  }));
+
+  const floating2Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: float2.value }],
+  }));
 
   const onChangeUsername = (value: string) => {
     setUsername(value);
@@ -287,17 +308,17 @@ export default function RegisterScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={s.container}>
-        <Animated.View style={[s.circle, s.blue, floating(float1)]} />
-        <Animated.View style={[s.square, s.purple, floating(float2, true)]} />
-        <Animated.View style={[s.triangle, s.green, floating(float3)]} />
-        <Animated.View style={[s.line, s.gray, floating(float1)]} />
-        <Animated.View style={[s.circle, s.light, floating(float2)]} />
+        <Animated.View style={[s.circle, s.blue, floating1Style]} />
+        <Animated.View style={[s.square, s.purple, floating2RotateStyle]} />
+        <Animated.View style={[s.triangle, s.green, floating3Style]} />
+        <Animated.View style={[s.line, s.gray, floating1Style]} />
+        <Animated.View style={[s.circle, s.light, floating2Style]} />
 
         <View style={s.content}>
           <Text style={s.title}>{t("registerScreen.title")}</Text>
           <Text style={s.subtitle}>{t("registerScreen.subtitle")}</Text>
 
-          <Animated.View style={slideX(userX)}>
+          <Animated.View style={userStyle}>
             <TextInput
               placeholder={t("registerScreen.usernamePH")}
               placeholderTextColor={theme.subtleText as any}
@@ -316,7 +337,7 @@ export default function RegisterScreen() {
             )}
           </Animated.View>
 
-          <Animated.View style={slideX(passX)}>
+          <Animated.View style={passStyle}>
             <TextInput
               placeholder={t("registerScreen.passwordPH")}
               placeholderTextColor={theme.subtleText as any}
@@ -334,7 +355,7 @@ export default function RegisterScreen() {
             )}
           </Animated.View>
 
-          <Animated.View style={slideX(confirmX)}>
+          <Animated.View style={confirmStyle}>
             <TextInput
               placeholder={t("registerScreen.confirmPH")}
               placeholderTextColor={theme.subtleText as any}
@@ -352,7 +373,7 @@ export default function RegisterScreen() {
             )}
           </Animated.View>
 
-          <Animated.View style={slideX(captchaX)}>
+          <Animated.View style={captchaStyle}>
             <TextInput
               placeholder={t("registerScreen.captchaPH", {
                 a: captcha.a,

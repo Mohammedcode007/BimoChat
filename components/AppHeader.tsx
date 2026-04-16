@@ -40,7 +40,7 @@ export default function AppHeader() {
 
   const user = me || authUser;
 
-  if (pathname.includes("chat/room")) return null;
+  // if (pathname.includes("chat/room")) return null;
 
   const title = useMemo(() => {
     if (pathname === "/") return "Bimo";
@@ -72,24 +72,26 @@ export default function AppHeader() {
     });
   }, [showThemeMenu, dropdownProgress]);
 
-  const dropdownAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: dropdownProgress.value,
-      transform: [
-        {
-          translateY: interpolate(dropdownProgress.value, [0, 1], [-8, 0]),
-        },
-        {
-          scale: interpolate(dropdownProgress.value, [0, 1], [0.96, 1]),
-        },
-      ],
-      pointerEvents: dropdownProgress.value === 0 ? "none" : "auto",
-    } as any;
-  });
-  const toggleThemeMenu = () => {
-    setShowThemeMenu((prev) => !prev);
-  };
+const dropdownAnimatedStyle = useAnimatedStyle(() => {
+  return {
+    opacity: dropdownProgress.value,
+    transform: [
+      {
+        translateY: interpolate(dropdownProgress.value, [0, 1], [-8, 0]),
+      },
+      {
+        scale: interpolate(dropdownProgress.value, [0, 1], [0.96, 1]),
+      },
+    ],
+    pointerEvents: dropdownProgress.value === 0 ? "none" : "auto",
+  } as any;
+});
 
+if (pathname.includes("chat/room")) return null;
+
+const toggleThemeMenu = () => {
+  setShowThemeMenu((prev) => !prev);
+};
   const closeThemeMenu = () => {
     setShowThemeMenu(false);
   };

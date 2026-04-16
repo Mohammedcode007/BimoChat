@@ -1,7 +1,4 @@
-
-
 // src/storage/chatCache.ts
-
 import type { ChatItem } from "@/redux/slices/chatSlice";
 import type { MessageItem } from "@/redux/slices/messageSlice";
 import { userStorage } from "./mmkv";
@@ -18,7 +15,7 @@ export type ChatMeta = {
 
 // ================== Chats ==================
 
-export function saveChatsToCache(userId: string, chats: ChatItem[]): void {
+export function saveChatsToCache(userId: string, chats: ChatItem[]) {
   const storage = userStorage(userId);
   storage.set(CHAT_LIST_KEY, JSON.stringify(chats));
 }
@@ -42,7 +39,7 @@ export function saveMessagesToCache(
   userId: string,
   chatId: string,
   messages: MessageItem[]
-): void {
+) {
   const storage = userStorage(userId);
   storage.set(chatMessagesKey(chatId), JSON.stringify(messages));
 }
@@ -69,7 +66,7 @@ export function saveChatMeta(
   userId: string,
   chatId: string,
   meta: ChatMeta
-): void {
+) {
   const storage = userStorage(userId);
   storage.set(chatMetaKey(chatId), JSON.stringify(meta));
 }
@@ -89,20 +86,20 @@ export function loadChatMeta(userId: string, chatId: string): ChatMeta {
 
 // ================== Remove helpers ==================
 
-export function clearChatMessagesCache(userId: string, chatId: string): void {
+export function clearChatMessagesCache(userId: string, chatId: string) {
   const storage = userStorage(userId);
   storage.remove(chatMessagesKey(chatId));
   storage.remove(chatMetaKey(chatId));
 }
 
-export function clearChatsListCache(userId: string): void {
+export function clearChatsListCache(userId: string) {
   const storage = userStorage(userId);
   storage.remove(CHAT_LIST_KEY);
 }
 
 // ================== Clear all chat cache for user ==================
 
-export function clearUserChatCache(userId: string): void {
+export function clearUserChatCache(userId: string) {
   const storage = userStorage(userId);
   const keys = storage.getAllKeys();
 
@@ -112,6 +109,7 @@ export function clearUserChatCache(userId: string): void {
     }
   }
 }
+
 // // src/storage/chatCache.ts
 
 // import type { ChatItem } from "@/redux/slices/chatSlice";

@@ -51,7 +51,7 @@ export default function ResetPasswordScreen() {
     (state: RootState) => state.auth
   );
 
-  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
+  const { colorScheme } = useColorScheme();
 
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
@@ -222,13 +222,24 @@ export default function ResetPasswordScreen() {
     transform: [{ translateX: shakeX.value }],
   }));
 
-  const floating = (v: any, r = false) =>
-    useAnimatedStyle(() => ({
-      transform: [
-        { translateY: v.value },
-        ...(r ? [{ rotate: `${rotate.value}deg` }] : []),
-      ],
-    }));
+  const floating1Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: float1.value }],
+  }));
+
+  const floating2RotateStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: float2.value },
+      { rotate: `${rotate.value}deg` },
+    ],
+  }));
+
+  const floating3Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: float3.value }],
+  }));
+
+  const floating2Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: float2.value }],
+  }));
 
   return (
     <KeyboardAvoidingView
@@ -236,11 +247,11 @@ export default function ResetPasswordScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={s.container}>
-        <Animated.View style={[s.circle, s.blue, floating(float1)]} />
-        <Animated.View style={[s.square, s.purple, floating(float2, true)]} />
-        <Animated.View style={[s.triangle, s.green, floating(float3)]} />
-        <Animated.View style={[s.line, s.gray, floating(float1)]} />
-        <Animated.View style={[s.circle, s.light, floating(float2)]} />
+           <Animated.View style={[s.circle, s.blue, floating1Style]} />
+        <Animated.View style={[s.square, s.purple, floating2RotateStyle]} />
+        <Animated.View style={[s.triangle, s.green, floating3Style]} />
+        <Animated.View style={[s.line, s.gray, floating1Style]} />
+        <Animated.View style={[s.circle, s.light, floating2Style]} />
 
         <View style={s.content}>
           <Text style={s.title}>{t("resetPasswordScreen.title")}</Text>

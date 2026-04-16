@@ -291,13 +291,15 @@ export default function ChatScreen() {
     messagesRef.current = Array.isArray(messages) ? messages : [];
   }, [messages]);
 
-  useEffect(() => {
-    if (!chatId) return;
-    if (!currentUser?._id) return;
-    if (!Array.isArray(messages)) return;
+useEffect(() => {
+  if (!chatId) return;
+  if (!currentUser?._id) return;
+  if (!Array.isArray(messages)) return;
 
-    saveMessagesToCache(currentUser._id, chatId, messages).catch(() => { });
-  }, [messages, chatId, currentUser?._id]);
+  try {
+    saveMessagesToCache(currentUser._id, chatId, messages);
+  } catch {}
+}, [messages, chatId, currentUser?._id]);
   const loading = useSelector((state: RootState) => state.message.loading);
 
   const typingUsers = useSelector(

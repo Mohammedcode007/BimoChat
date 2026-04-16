@@ -1,14 +1,14 @@
-// src/storage/mmkv.ts
-import { createMMKV } from "react-native-mmkv";
+// // src/storage/mmkv.ts
+// import { createMMKV } from "react-native-mmkv";
 
-export const appStorage = createMMKV({
-  id: "bimo-app-storage",
-});
+// export const appStorage = createMMKV({
+//   id: "bimo-app-storage",
+// });
 
-export const userStorage = (userId: string) =>
-  createMMKV({
-    id: `bimo-user-${userId}`,
-  });
+// export const userStorage = (userId: string) =>
+//   createMMKV({
+//     id: `bimo-user-${userId}`,
+//   });
 
 // // src/storage/mmkv.ts
 
@@ -69,3 +69,23 @@ export const userStorage = (userId: string) =>
 //     },
 //   };
 // };
+
+// src/storage/mmkv.ts
+import { createMMKV, type MMKV } from "react-native-mmkv";
+
+export const appStorage = createMMKV({
+  id: "bimo-app-storage",
+});
+
+const userStorageMap = new Map<string, MMKV>();
+
+export const userStorage = (userId: string): MMKV => {
+  const key = `bimo-user-${userId}`;
+
+  const existing = userStorageMap.get(key);
+  if (existing) return existing;
+
+  const storage = createMMKV({ id: key });
+  userStorageMap.set(key, storage);
+  return storage;
+};

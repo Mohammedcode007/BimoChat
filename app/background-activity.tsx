@@ -1,11 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { handleBackgroundReminderMaybeLater, handleBackgroundReminderOpenedSettings } from "@/components/backgroundReminder";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+
+import * as Application from "expo-application";
+import * as Battery from "expo-battery";
+import * as IntentLauncher from "expo-intent-launcher";
+import { Platform } from "react-native";
 
 
 export default function BackgroundActivityScreen() {
@@ -13,14 +18,54 @@ export default function BackgroundActivityScreen() {
   const { colorScheme } = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
 
-  const openSettings = async () => {
-    try {
-      await handleBackgroundReminderOpenedSettings();
-      await Linking.openSettings();
-    } catch (error) {
-    }
-  };
 
+const openBatterySettings = async () => {
+  try {
+    await handleBackgroundReminderOpenedSettings();
+
+    if (Platform.OS !== "android") {
+      await Linking.openSettings();
+      return;
+    }
+
+    const packageName = Application.applicationId;
+    const optimizationEnabled = await Battery.isBatteryOptimizationEnabledAsync();
+
+    console.log("🔋 battery optimization enabled =", optimizationEnabled);
+    console.log("📦 packageName =", packageName);
+
+    // لو التطبيق ما زال داخل تحسين البطارية: اطلب استثناء مباشر للتطبيق
+    if (optimizationEnabled && packageName) {
+      try {
+        await IntentLauncher.startActivityAsync(
+          "android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+          {
+            data: `package:${packageName}`,
+          }
+        );
+        return;
+      } catch (e) {
+        console.log("❌ direct request failed, fallback to list screen", e);
+      }
+    }
+
+    // fallback: افتح شاشة إعدادات تحسين البطارية العامة
+    try {
+      await IntentLauncher.startActivityAsync(
+        "android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS"
+      );
+      return;
+    } catch (e) {
+      console.log("❌ optimization settings failed, fallback to app settings", e);
+    }
+
+    // fallback أخير
+    await Linking.openSettings();
+  } catch (error) {
+    console.log("❌ openBatterySettings error =", error);
+    Alert.alert("Error", "Could not open settings");
+  }
+};
   const onMaybeLater = async () => {
     try {
       await handleBackgroundReminderMaybeLater();
@@ -73,13 +118,13 @@ export default function BackgroundActivityScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={[styles.primaryButton, { backgroundColor: theme.tint }]}
-          onPress={openSettings}
-        >
-          <Text style={styles.primaryButtonText}>Open Settings</Text>
-        </TouchableOpacity>
+    <TouchableOpacity
+  activeOpacity={0.85}
+  style={[styles.primaryButton, { backgroundColor: theme.tint }]}
+  onPress={openBatterySettings}
+>
+  <Text style={styles.primaryButtonText}>Open Battery Settings</Text>
+</TouchableOpacity>
 
         <TouchableOpacity
           activeOpacity={0.8}

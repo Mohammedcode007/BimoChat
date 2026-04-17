@@ -5,6 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Audio, ResizeMode, Video } from "expo-av";
 import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system";
+import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -13,7 +14,6 @@ import {
   Animated,
 
   FlatList,
-  Image,
   ImageSourcePropType,
   Keyboard,
   KeyboardAvoidingView,
@@ -861,10 +861,13 @@ function UsersModal({
               const isMe = u.id === myUserId;
               return (
                 <TouchableOpacity key={u.id} style={s.row} onPress={() => onCopyUser(u)} activeOpacity={0.88}>
-                  <Image
-                    source={{ uri: u.avatarGif || u.avatar || "https://i.pravatar.cc/150?img=12" }}
-                    style={s.avatar}
-                  />
+                <Image
+  source={resolveAvatarSource(u)}
+  style={s.avatar}
+  contentFit="cover"
+  cachePolicy="memory-disk"
+  transition={0}
+/>
                   <View style={{ flex: 1 }}>
                     <View style={s.rowTop}>
                       <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
@@ -1115,10 +1118,13 @@ if (item.type === "system") {
     <View style={[bubble.row, isMe ? bubble.rowMe : bubble.rowOther]}>
       {!isMe && (
         <Pressable style={bubble.avatarWrapLeft} onLongPress={() => onAvatarLongPress(item.sender)} delayLongPress={350}>
-          <Image
-            source={{ uri: resolveAvatarSource(item.sender) }}
-            style={bubble.avatar}
-          />
+       <Image
+  source={resolveAvatarSource(item.sender)}
+  style={bubble.avatar}
+  contentFit="cover"
+  cachePolicy="memory-disk"
+  transition={0}
+/>
           {shouldShowStar(senderRole) && <Text style={[bubble.avatarStarLeft, { color: starColor }]}>★</Text>}
         </Pressable>
       )}
@@ -1274,10 +1280,13 @@ if (item.type === "system") {
 
       {isMe && (
         <Pressable style={bubble.avatarWrapRight} onLongPress={() => onAvatarLongPress(item.sender)} delayLongPress={350}>
-          <Image
-            source={{ uri: resolveAvatarSource(item.sender) }}
-            style={bubble.avatar}
-          />
+       <Image
+  source={resolveAvatarSource(item.sender)}
+  style={bubble.avatar}
+  contentFit="cover"
+  cachePolicy="memory-disk"
+  transition={0}
+/>
           {shouldShowStar(senderRole) && <Text style={[bubble.avatarStarRight, { color: starColor }]}>★</Text>}
         </Pressable>
       )}

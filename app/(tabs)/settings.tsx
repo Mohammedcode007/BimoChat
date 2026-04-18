@@ -6,6 +6,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { logout, toggleInvisible } from '@/redux/slices/authSlice';
 import { resetChatState } from '@/redux/slices/chatSlice';
 import { setTabBarHidden } from '@/redux/slices/ui.slice';
+import { fetchMyFullUser, selectMe, selectUserUpdating, updateMyProfileSettings } from '@/redux/slices/userSlice';
 import { AppDispatch, RootState } from '@/redux/store';
 import {
   getNotificationSoundEnabled,
@@ -36,14 +37,23 @@ export default function SettingsScreen() {
   const [notifications, setNotifications] = React.useState(true);
   const [sounds, setSounds] = React.useState(true);
   const [loadingSoundSetting, setLoadingSoundSetting] = React.useState(true);
-
+const [friendsOnlyMessages, setFriendsOnlyMessages] = React.useState(false);
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-
+const me = useSelector(selectMe);
+const updatingUser = useSelector(selectUserUpdating);
   useEffect(() => {
     loadLocalSettings();
   }, []);
-
+  useEffect(() => {
+  if (!me) {
+    dispatch(fetchMyFullUser());
+  }
+}, [me, dispatch]);
+useEffect(() => {
+  const allowMessages = me?.privacy?.allowMessages;
+  setFriendsOnlyMessages(allowMessages === false);
+}, [me?.privacy?.allowMessages]);
   const loadLocalSettings = async () => {
     try {
       setLoadingSoundSetting(true);
@@ -54,7 +64,23 @@ export default function SettingsScreen() {
       setLoadingSoundSetting(false);
     }
   };
+const handleToggleFriendsOnlyMessages = async (value: boolean) => {
+  const oldValue = friendsOnlyMessages;
 
+  setFriendsOnlyMessages(value);
+
+  try {
+    await dispatch(
+      updateMyProfileSettings({
+        privacy: {
+          allowMessages: !value,
+        },
+      })
+    ).unwrap();
+  } catch (error) {
+    setFriendsOnlyMessages(oldValue);
+  }
+};
   const handleToggleOnline = (value: boolean) => {
     dispatch(toggleInvisible(!value));
   };
@@ -125,6 +151,14 @@ export default function SettingsScreen() {
           arrow
           onPress={() => router.push('/blocked')}
         />
+<Row
+  icon="chatbubble-ellipses-outline"
+  text={t('settingsScreen.friendsOnlyMessages')}
+  switcher
+  value={friendsOnlyMessages}
+  onChange={handleToggleFriendsOnlyMessages}
+  disabled={updatingUser}
+/>
       </Section>
 
       {/* ===== Notifications ===== */}
@@ -228,6 +262,7 @@ function Row({
   value,
   onChange,
   onPress,
+  disabled,
 }: any) {
   const { colorScheme, themePreference, setThemePreference } = useColorScheme();
 
@@ -236,15 +271,15 @@ function Row({
   const { isRTL } = useTranslation();
 
   return (
-    <TouchableOpacity
-      disabled={!onPress}
-      onPress={onPress}
-      style={[
-        styles.row,
-        { flexDirection: isRTL ? "row-reverse" : "row" },
-      ]}
-      activeOpacity={0.7}
-    >
+<TouchableOpacity
+  disabled={!onPress || disabled}
+  onPress={onPress}
+  style={[
+    styles.row,
+    { flexDirection: isRTL ? "row-reverse" : "row", opacity: disabled ? 0.6 : 1 },
+  ]}
+  activeOpacity={0.7}
+>
 
       <View
         style={[
@@ -275,8 +310,9 @@ function Row({
         />
       )}
 
-      {switcher && <Switch value={value} onValueChange={onChange} />}
-
+{switcher && (
+  <Switch value={value} onValueChange={onChange} disabled={disabled} />
+)}
     </TouchableOpacity>
   );
 }

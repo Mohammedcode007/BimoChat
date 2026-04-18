@@ -86,6 +86,7 @@ import { searchUsers } from "@/redux/slices/friendSlice";
 import { debitMyCoinz } from "@/redux/slices/userSlice";
 import { RootState } from "@/redux/store";
 import { uploadToCloudinary } from "@/services/upload.service";
+import { addManySeenGiftIds, addSeenGiftId, getSeenGiftIds } from "@/storage/roomGiftSeen";
 import LottieView from "lottie-react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { useSelector } from "react-redux";
@@ -1148,9 +1149,12 @@ if (item.type === "system") {
 
               <DynamicUserBadge badge={pickPrimaryBadge(item.sender?.activeBadges)} />
             </View> */}
-            <View style={bubble.nameRow}>
-
-
+<View
+  style={[
+    bubble.nameRow,
+    { alignSelf: isMe ? "flex-end" : "flex-start" }
+  ]}
+>
               <DynamicUserBadge badge={pickPrimaryBadge(item.sender?.activeBadges)} />
               <CustomEmojiBadgeView badge={item.sender?.customEmojiBadge} />
 
@@ -1300,7 +1304,8 @@ export default function ChatScreen() {
   const dispatch = useAppDispatch();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-
+const seenGiftIdsRef = useRef<Set<string>>(new Set());
+const didInitSeenGiftsRef = useRef(false);
   const { colorScheme, themePreference, setThemePreference } = useColorScheme();
 
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
@@ -1532,6 +1537,26 @@ export default function ChatScreen() {
 
     return map;
   }, [roomUsers, myUserId, myName, myAvatar, myRole, authUser, myInventory]);
+  useEffect(() => {
+  let mounted = true;
+
+  const loadSeenGiftIds = async () => {
+    if (!myUserId || !roomId) return;
+
+    const storedIds = await getSeenGiftIds(myUserId, roomId);
+    if (!mounted) return;
+
+    seenGiftIdsRef.current = new Set(storedIds);
+    didInitSeenGiftsRef.current = true;
+  };
+
+  loadSeenGiftIds();
+
+  return () => {
+    mounted = false;
+  };
+}, [myUserId, roomId]);
+
   const resolveUserNameById = (id?: string) => {
     if (!id) return "";
     const v = usersMap.get(String(id));
@@ -2227,7 +2252,26 @@ export default function ChatScreen() {
     return reduxMessages.map(mapReduxToUIMessage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduxMessages, roomUsers, myUserId, myName, myAvatar, myRole]);
+const didSeedCurrentGiftsRef = useRef(false);
 
+useEffect(() => {
+  if (!didInitSeenGiftsRef.current) return;
+  if (didSeedCurrentGiftsRef.current) return;
+  if (!myUserId || !roomId) return;
+  if (!uiMessages?.length) return;
+
+  const existingGiftIds = uiMessages
+    .filter((m) => m.type === "gift" && m.id)
+    .map((m) => String(m.id));
+
+  existingGiftIds.forEach((id) => seenGiftIdsRef.current.add(id));
+
+  if (existingGiftIds.length) {
+    addManySeenGiftIds(myUserId, roomId, existingGiftIds);
+  }
+
+  didSeedCurrentGiftsRef.current = true;
+}, [uiMessages, myUserId, roomId]);
   /* ================= latestPinned ================= */
   const latestPinned = useMemo(() => {
     const list = reduxMessages || [];
@@ -2245,30 +2289,44 @@ export default function ChatScreen() {
   }, [reduxMessages, roomUsers, myUserId, myName, myAvatar, myRole]);
 
   /* ================= GIFT OVERLAY AUTO ================= */
-  useEffect(() => {
-    const latestGift = [...uiMessages].find((m) => m.type === "gift" && !giftDoneById[m.id] && !m.deletedForEveryone);
-    if (!latestGift) return;
+useEffect(() => {
+  if (!didInitSeenGiftsRef.current) return;
+  if (!didSeedCurrentGiftsRef.current) return;
+  if (!uiMessages?.length) return;
 
-    if (giftOverlay.visible && giftOverlay.messageId === latestGift.id) return;
+  const latestGift = [...uiMessages]
+    .reverse()
+    .find(
+      (m) =>
+        m.type === "gift" &&
+        m.id &&
+        !m.deletedForEveryone &&
+        !seenGiftIdsRef.current.has(String(m.id))
+    );
 
-    const key = String(latestGift.gift?.key || latestGift.text || "");
-    const meta = GIFT_META[key] || { icon: "🎁", count: 45, lottie: undefined };
-    const fromName = latestGift.sender?.name || "Someone";
-    const isBoost = key.startsWith("boost");
-    const toName = isBoost ? "Room" : latestGift.gift?.targetName || "Someone";
+  if (!latestGift) return;
 
-    setGiftOverlay({
-      visible: true,
-      messageId: latestGift.id,
-      giftKey: key,
-      icon: latestGift.gift?.icon || meta.icon,
-      count: latestGift.gift?.count || meta.count,
-      lottie: meta.lottie,
-      fromName,
-      toName
-    });
-  }, [uiMessages, giftDoneById, giftOverlay.visible, giftOverlay.messageId]);
+  const key = String(latestGift.gift?.key || "");
+  const meta = GIFT_META[key] || {
+    icon: latestGift.gift?.icon || "🎁",
+    count: latestGift.gift?.count || 45,
+    lottie: undefined,
+  };
 
+  setGiftOverlay({
+    visible: true,
+    messageId: String(latestGift.id),
+    giftKey: key,
+    icon: latestGift.gift?.icon || meta.icon,
+    count: latestGift.gift?.count || meta.count,
+    lottie: meta.lottie,
+    fromName: latestGift.sender?.name || "Someone",
+    toName: latestGift.gift?.targetName || "Someone",
+  });
+
+  seenGiftIdsRef.current.add(String(latestGift.id));
+  addSeenGiftId(myUserId, roomId, String(latestGift.id));
+}, [uiMessages, myUserId, roomId]);
   /* ================= AUDIO (GLOBAL BAR anim) ================= */
   useEffect(() => {
     Animated.timing(progressAnim, {
@@ -3601,7 +3659,6 @@ function makeBubbleStyles(theme: typeof Colors.light) {
     nameRow: {
       flexDirection: "row",
       alignItems: "center",
-      alignSelf: "flex-start",
       maxWidth: "100%",
     },
     senderName: {

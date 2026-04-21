@@ -478,7 +478,7 @@ export const fetchBannedUsers = createAsyncThunk<
   const startedAt = Date.now();
 
   try {
-   
+
 
     const res = await api.get(`/rooms/${roomId}/control/banned`);
 
@@ -493,11 +493,11 @@ export const fetchBannedUsers = createAsyncThunk<
       until: null
     }));
 
-    
+
 
     return { roomId: String(data?.roomId || roomId), list };
   } catch (e: any) {
-  
+
     return thunkAPI.rejectWithValue(errMsg(e, "Failed to fetch banned users"));
   }
 });
@@ -587,26 +587,26 @@ export const fetchRoomUsers = createAsyncThunk<
     const payload = dataOf(res);
     const rawUsers = payload?.users ?? payload ?? [];
 
-const users: RoomUser[] = Array.isArray(rawUsers)
-  ? rawUsers.map((u: any) => ({
-      _id: String(u?._id || ""),
-      username: String(u?.username || "User"),
-      avatar: u?.avatar ? String(u.avatar) : "",
-      avatarGif: u?.avatarGif ? String(u.avatarGif) : "",
-      usernameColor: u?.usernameColor ? String(u.usernameColor) : "",
-      messageTextColor: u?.messageTextColor ? String(u.messageTextColor) : "",
-      isOnline: Boolean(u?.isOnline),
-      lastSeen: u?.lastSeen ? String(u.lastSeen) : undefined,
-      role: u?.role,
-      isVip: Boolean(u?.isVip),
-      vipExpiresAt: u?.vipExpiresAt ? String(u.vipExpiresAt) : null,
-      isMuted: Boolean(u?.isMuted),
-      mutedUntil: u?.mutedUntil ? String(u.mutedUntil) : null,
-      isActive: Boolean(u?.isActive),
-      inventory: Array.isArray(u?.inventory) ? u.inventory : [],
+    const users: RoomUser[] = Array.isArray(rawUsers)
+      ? rawUsers.map((u: any) => ({
+        _id: String(u?._id || ""),
+        username: String(u?.username || "User"),
+        avatar: u?.avatar ? String(u.avatar) : "",
+        avatarGif: u?.avatarGif ? String(u.avatarGif) : "",
+        usernameColor: u?.usernameColor ? String(u.usernameColor) : "",
+        messageTextColor: u?.messageTextColor ? String(u.messageTextColor) : "",
+        isOnline: Boolean(u?.isOnline),
+        lastSeen: u?.lastSeen ? String(u.lastSeen) : undefined,
+        role: u?.role,
+        isVip: Boolean(u?.isVip),
+        vipExpiresAt: u?.vipExpiresAt ? String(u.vipExpiresAt) : null,
+        isMuted: Boolean(u?.isMuted),
+        mutedUntil: u?.mutedUntil ? String(u.mutedUntil) : null,
+        isActive: Boolean(u?.isActive),
+        inventory: Array.isArray(u?.inventory) ? u.inventory : [],
 
-      activeCustomization: u?.activeCustomization
-        ? {
+        activeCustomization: u?.activeCustomization
+          ? {
             avatarFrame: u.activeCustomization?.avatarFrame
               ? String(u.activeCustomization.avatarFrame)
               : "",
@@ -630,13 +630,13 @@ const users: RoomUser[] = Array.isArray(rawUsers)
               : [],
             verificationType: u?.activeCustomization?.verificationType || "none"
           }
-        : undefined,
+          : undefined,
 
-      verificationType: u?.verificationType || "none",
+        verificationType: u?.verificationType || "none",
 
-      customEmojiBadge:
-        u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
-          ? {
+        customEmojiBadge:
+          u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
+            ? {
               emoji: u.customEmojiBadge?.emoji
                 ? String(u.customEmojiBadge.emoji)
                 : "",
@@ -648,9 +648,9 @@ const users: RoomUser[] = Array.isArray(rawUsers)
                 ? String(u.customEmojiBadge.expiresAt)
                 : null
             }
-          : null
-    }))
-  : [];
+            : null
+      }))
+      : [];
 
     return { roomId, users };
   } catch (e: any) {
@@ -767,7 +767,7 @@ export const enterRoomDirect = createAsyncThunk<
   const startedAt = Date.now();
 
   try {
-  
+
 
     // ✅ 1) اضبط الغرفة النشطة
     thunkAPI.dispatch(setActiveRoom(roomId));
@@ -801,11 +801,11 @@ export const enterRoomDirect = createAsyncThunk<
      * تعمل join للسوكت اعتمادًا على activeRoomId أو params.id
      */
 
-  
+
 
     return { roomId };
   } catch (e: any) {
-   
+
     return thunkAPI.rejectWithValue(errMsg(e, "Enter room failed"));
   }
 });
@@ -1315,6 +1315,18 @@ const roomSlice = createSlice({
   initialState,
   reducers: {
     resetRoomState: () => initialState,
+    setCurrentRoomUserId: (state, action: PayloadAction<string | undefined>) => {
+      state.currentUserId = action.payload;
+    },
+    markRoomActive: (state, action: PayloadAction<{ roomId: string }>) => {
+      const room = state.rooms.find((r) => r._id === action.payload.roomId);
+      if (room) room.isActive = true;
+    },
+
+    markRoomInactive: (state, action: PayloadAction<{ roomId: string }>) => {
+      const room = state.rooms.find((r) => r._id === action.payload.roomId);
+      if (room) room.isActive = false;
+    },
     optimisticAddRoomMessage: (state, action) => {
       const { roomId, message } = action.payload;
 
@@ -1538,15 +1550,27 @@ const roomSlice = createSlice({
      * ملاحظة: الأفضل عدم إضافة placeholder "User"
      * واعتماد room:users:update ثم fetchRoomUsers للحصول على بيانات صحيحة.
      */
-    socketUserJoined: (state, _action: PayloadAction<{ roomId: string; userId: string }>) => {
-      void state;
+    socketUserJoined: (state, action: PayloadAction<{ roomId: string; userId: string }>) => {
+      const { roomId, userId } = action.payload;
+
+      if (state.currentUserId && String(userId) === String(state.currentUserId)) {
+        const room = state.rooms.find((r) => r._id === roomId);
+        if (room) room.isActive = true;
+      }
     },
 
     socketUserLeft: (state, action: PayloadAction<{ roomId: string; userId: string }>) => {
       const { roomId, userId } = action.payload;
+
       const list = state.usersByRoom[roomId];
-      if (!list) return;
-      state.usersByRoom[roomId] = list.filter((u) => u._id !== userId);
+      if (list) {
+        state.usersByRoom[roomId] = list.filter((u) => u._id !== userId);
+      }
+
+      if (state.currentUserId && String(userId) === String(state.currentUserId)) {
+        const room = state.rooms.find((r) => r._id === roomId);
+        if (room) room.isActive = false;
+      }
     },
 
     /**
@@ -1698,12 +1722,12 @@ const roomSlice = createSlice({
       const raw = action?.payload as any;
 
       // ✅ طباعات تشخيصية
-   
+
       const roomId = String(raw?.roomId || "");
       const reason = raw?.reason ? String(raw.reason) : undefined;
 
       if (!roomId) {
-      
+
         return;
       }
 
@@ -1717,7 +1741,7 @@ const roomSlice = createSlice({
       delete state.activeCountByRoom[roomId];
       delete state.detailsByRoom[roomId];
 
-   
+
     },
   },
 
@@ -1731,6 +1755,8 @@ const roomSlice = createSlice({
       .addCase(enterRoomDirect.fulfilled, (state, action) => {
         state.mutatingRoom = false;
         state.activeRoomId = action.payload.roomId;
+        const room = state.rooms.find((r) => r._id === action.payload.roomId);
+        if (room) room.isActive = true;
       })
       .addCase(enterRoomDirect.rejected, (state, action) => {
         state.mutatingRoom = false;
@@ -1813,6 +1839,9 @@ const roomSlice = createSlice({
       .addCase(joinRoomAndEnter.fulfilled, (state, action) => {
         state.mutatingRoom = false;
         state.activeRoomId = action.payload.roomId;
+
+        const room = state.rooms.find((r) => r._id === action.payload.roomId);
+        if (room) room.isActive = true;
       })
       .addCase(joinRoomAndEnter.rejected, (state, action) => {
         state.mutatingRoom = false;
@@ -1828,7 +1857,8 @@ const roomSlice = createSlice({
         const roomId = action.payload.roomId;
 
         if (state.activeRoomId === roomId) state.activeRoomId = undefined;
-
+        const room = state.rooms.find((r) => r._id === roomId);
+        if (room) room.isActive = false;
         delete state.usersByRoom[roomId];
         delete state.messagesByRoom[roomId];
         delete state.activeCountByRoom[roomId];
@@ -2057,7 +2087,7 @@ const roomSlice = createSlice({
             deleteRoom.typePrefix,
             pinRoomMessage.typePrefix,
             toggleRoomReaction.typePrefix,
-              inviteToRoom.typePrefix,
+            inviteToRoom.typePrefix,
 
           ].some((p) => action.type.startsWith(p)),
         (state) => {
@@ -2142,7 +2172,7 @@ const roomSlice = createSlice({
             deleteRoom.typePrefix,
             pinRoomMessage.typePrefix,
             toggleRoomReaction.typePrefix,
-              inviteToRoom.typePrefix
+            inviteToRoom.typePrefix
 
           ].some((p) => action.type.startsWith(p)),
         (state) => {
@@ -2198,6 +2228,8 @@ export const {
   socketRoomBoostUpdate,
   socketRoomDeleted,
   clearKickedFlag,
+    setCurrentRoomUserId, // ✅ أضف هذا
+
   clearBannedFlag,
   socketRoomKicked,
   socketRoomBanned

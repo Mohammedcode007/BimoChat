@@ -22,15 +22,15 @@ import {
   FlatList,
   I18nManager,
   Image,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import { useDispatch, useSelector } from "react-redux";
 
 export default function ChatListScreen() {
@@ -44,11 +44,7 @@ export default function ChatListScreen() {
 
   const isRTL = language === "ar" || I18nManager.isRTL;
 
-  const [menuOpen, setMenuOpen] = useState<{
-    chatId: string;
-    x?: number;
-    y?: number;
-  } | null>(null);
+
 
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
@@ -86,28 +82,28 @@ export default function ChatListScreen() {
     }),
     [t, isRTL]
   );
-  
-useEffect(() => {
-  if (!currentUser?._id) return;
 
-  const initChats = () => {
-    try {
-      // 1) عرض الكاش فورًا
-      const cachedChats = loadChatsFromCache(currentUser._id);
-      if (cachedChats.length) {
-        dispatch(hydrateChatsFromCache(cachedChats));
+  useEffect(() => {
+    if (!currentUser?._id) return;
+
+    const initChats = () => {
+      try {
+        // 1) عرض الكاش فورًا
+        const cachedChats = loadChatsFromCache(currentUser._id);
+        if (cachedChats.length) {
+          dispatch(hydrateChatsFromCache(cachedChats));
+        }
+
+        // 2) مزامنة الخلفية من السيرفر
+        dispatch(fetchChats());
+        dispatch(fetchTotalUnread());
+      } catch (error) {
+        console.log("initChats error:", error);
       }
+    };
 
-      // 2) مزامنة الخلفية من السيرفر
-      dispatch(fetchChats());
-      dispatch(fetchTotalUnread());
-    } catch (error) {
-      console.log("initChats error:", error);
-    }
-  };
-
-  initChats();
-}, [dispatch, currentUser?._id]);
+    initChats();
+  }, [dispatch, currentUser?._id]);
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -171,14 +167,40 @@ useEffect(() => {
   };
 
   const handleDelete = async (chatId: string) => {
-    setMenuOpen(null);
 
     try {
       await dispatch(deleteChat(chatId)).unwrap();
     } catch (err) {
     }
   };
-
+  const renderRightActions = (chatId: string) => {
+    return (
+      <TouchableOpacity
+        onPress={() => handleDelete(chatId)}
+        activeOpacity={0.85}
+        style={{
+          width: 86,
+          marginVertical: 2,
+          borderRadius: 16,
+          backgroundColor: "#EF4444",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name="trash-outline" size={22} color="#fff" />
+        <Text
+          style={{
+            color: "#fff",
+            fontSize: 12,
+            fontWeight: "800",
+            marginTop: 4,
+          }}
+        >
+          {isRTL ? "حذف" : "Delete"}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View
@@ -228,31 +250,31 @@ useEffect(() => {
       <FlatList
         data={filteredChats}
         ListEmptyComponent={
-  <View style={{ marginTop: 80, alignItems: "center" }}>
-    <Ionicons name="chatbubble-ellipses-outline" size={40} color={theme.icon} />
+          <View style={{ marginTop: 80, alignItems: "center" }}>
+            <Ionicons name="chatbubble-ellipses-outline" size={40} color={theme.icon} />
 
-    <Text
-      style={{
-        marginTop: 12,
-        fontSize: 16,
-        fontWeight: "800",
-        color: theme.text,
-      }}
-    >
-      {isRTL ? "لا توجد محادثات" : "No chats yet"}
-    </Text>
+            <Text
+              style={{
+                marginTop: 12,
+                fontSize: 16,
+                fontWeight: "800",
+                color: theme.text,
+              }}
+            >
+              {isRTL ? "لا توجد محادثات" : "No chats yet"}
+            </Text>
 
-    <Text
-      style={{
-        marginTop: 6,
-        fontSize: 13,
-        color: theme.mutedText,
-      }}
-    >
-      {copy.startChatting}
-    </Text>
-  </View>
-}
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 13,
+                color: theme.mutedText,
+              }}
+            >
+              {copy.startChatting}
+            </Text>
+          </View>
+        }
         keyExtractor={(item: any) => item._id}
         showsVerticalScrollIndicator={false}
         refreshing={refreshing}
@@ -260,14 +282,12 @@ useEffect(() => {
         onScroll={onScroll}
         onRefresh={onRefresh}
         extraData={{
-          menuOpen,
           typingUsers,
           search,
           chatsLength: filteredChats.length,
           isRTL,
         }}
         contentContainerStyle={{ paddingBottom: 12 }}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderItem={({ item }: any) => {
           if (!currentUser?._id) return null;
 
@@ -293,19 +313,22 @@ useEffect(() => {
               : formatTime(item.updatedAt);
 
           return (
-            <View style={{ position: "relative" }}>
+            <Swipeable
+              renderRightActions={() => renderRightActions(item._id)}
+              overshootRight={false}
+              friction={2}
+              rightThreshold={40}
+            >
               <Pressable
-                onPress={() => {
-                  setMenuOpen(null);
-                  openChat(item._id);
-                }}
+                onPress={() => openChat(item._id)}
                 style={({ pressed }) => [
                   styles.card,
                   {
-                    backgroundColor: theme.card,
-                    borderColor: theme.border,
+                    backgroundColor: theme.background, // بدل card
                     opacity: pressed ? 0.96 : 1,
                     flexDirection: isRTL ? "row-reverse" : "row",
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: theme.border,
                   },
                 ]}
               >
@@ -321,7 +344,7 @@ useEffect(() => {
                     source={{
                       uri:
                         otherUser.avatar ||
-                        `https://i.pravatar.cc/150?u=${otherUser._id}`,
+                        `https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg`,
                     }}
                     style={styles.avatar}
                   />
@@ -345,7 +368,7 @@ useEffect(() => {
                         style={[
                           styles.name,
                           {
-                            color: titleColor,
+                            color: item.unreadCount > 0 ? theme.text : theme.mutedText,
                             textAlign: isRTL ? "right" : "left",
                           },
                         ]}
@@ -355,51 +378,17 @@ useEffect(() => {
                       </Text>
                     </View>
 
-                    <View
+                    <Text
                       style={[
-                        styles.topRight,
-                        { flexDirection: isRTL ? "row-reverse" : "row" },
+                        styles.time,
+                        {
+                          color: theme.subtleText,
+                          textAlign: isRTL ? "left" : "right",
+                        },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.time,
-                          {
-                            color: theme.subtleText,
-                            textAlign: isRTL ? "left" : "right",
-                          },
-                        ]}
-                      >
-                        {timeText}
-                      </Text>
-
-                      <TouchableOpacity
-                        onPress={(e: any) => {
-                          e.stopPropagation();
-                          const { pageX, pageY } = e.nativeEvent;
-
-                          setMenuOpen({
-                            chatId: item._id,
-                            x: pageX,
-                            y: pageY,
-                          });
-                        }}
-                        style={[
-                          styles.moreBtn,
-                          {
-                            backgroundColor: theme.surface2,
-                            borderColor: theme.border,
-                          },
-                        ]}
-                        hitSlop={10}
-                      >
-                        <Ionicons
-                          name="ellipsis-vertical"
-                          size={16}
-                          color={theme.icon}
-                        />
-                      </TouchableOpacity>
-                    </View>
+                      {timeText}
+                    </Text>
                   </View>
 
                   <View
@@ -414,7 +403,7 @@ useEffect(() => {
                         styles.lastMessage,
                         {
                           fontWeight: item.unreadCount > 0 ? "700" : "500",
-                          color: lastColor,
+                          color: isTyping ? theme.success : theme.mutedText,
                           textAlign: isRTL ? "right" : "left",
                         },
                       ]}
@@ -446,57 +435,12 @@ useEffect(() => {
                   </View>
                 </View>
               </Pressable>
-            </View>
+            </Swipeable>
           );
         }}
       />
 
-      <Modal
-        visible={!!menuOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuOpen(null)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setMenuOpen(null)}
-        >
-          <View
-            style={[
-              styles.modalMenu,
-              {
-                top: menuOpen?.y ? menuOpen.y + 8 : 80,
-                right: isRTL ? undefined : 16,
-                left: isRTL ? 16 : undefined,
-                backgroundColor: theme.card,
-                borderColor: theme.border,
-              },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                if (!menuOpen?.chatId) return;
-                handleDelete(menuOpen.chatId);
-              }}
-              style={[
-                styles.dropdownItem,
-                { flexDirection: isRTL ? "row-reverse" : "row" },
-              ]}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="trash-outline" size={18} color="#EF4444" />
-              <Text
-                style={[
-                  styles.deleteText,
-                  { textAlign: isRTL ? "right" : "left" },
-                ]}
-              >
-                {copy.deleteChat}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+
     </View>
   );
 }
@@ -575,10 +519,8 @@ const styles = StyleSheet.create({
 
   card: {
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
   },
 
   avatarWrapper: {
@@ -590,7 +532,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 52,
     height: 52,
-    borderRadius: 18,
+    borderRadius: 26,
   },
 
   onlineDot: {
@@ -662,10 +604,6 @@ const styles = StyleSheet.create({
     height: 20,
   },
 
-  separator: {
-    height: 8,
-    backgroundColor: "transparent",
-  },
 
   dropdown: {
     position: "absolute",

@@ -13,6 +13,7 @@ export type AppTheme = {
   /* Existing keys */
   text: string;
   background: string;
+  backgroundChat:string;
   tint: string;
   icon: string;
   tabIconDefault: string;
@@ -65,7 +66,7 @@ export const Colors: Record<ThemeName, AppTheme> = {
     /* ===== Existing keys (KEEP) ===== */
     text: "#11181C",
     background: "#FFFFFF",
-
+backgroundChat:"#ebeff2",
     tint: tintColorLight,
     icon: "#687076",
     tabIconDefault: "#687076",
@@ -112,6 +113,8 @@ dark: {
   /* ===== Existing keys (KEEP) ===== */
   text: "#F3F4F6",
   background: "#0B1220",
+    backgroundChat: "#0B1220",
+
   tint: tintColorDark,
   icon: "#E5E7EB",
   tabIconDefault: "#A7B0C0",

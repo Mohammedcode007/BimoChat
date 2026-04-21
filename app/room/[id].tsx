@@ -19,6 +19,7 @@ import {
   KeyboardAvoidingView,
   Linking,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -42,10 +43,10 @@ import {
   clearBannedFlag,
   clearKickedFlag,
   fetchRoomMessages,
+  fetchRoomsByType,
   fetchRoomStats,
   fetchRoomUsers,
   inviteToRoom,
-  leaveAndRefreshRooms,
   leaveRoomAndExit,
   optimisticAddRoomMessage,
   pinRoomMessage,
@@ -74,7 +75,6 @@ import {
   deleteRoomSocketMessage,
   joinRoomSocket,
   kickRoomUserSocket,
-  leaveRoomSocket,
   setRoomUserRoleSocket,
   toggleRoomReaction as toggleRoomReactionSocket
 } from "@/services/socket";
@@ -87,6 +87,7 @@ import { debitMyCoinz } from "@/redux/slices/userSlice";
 import { RootState } from "@/redux/store";
 import { uploadToCloudinary } from "@/services/upload.service";
 import { addManySeenGiftIds, addSeenGiftId, getSeenGiftIds } from "@/storage/roomGiftSeen";
+import { Feather, Octicons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { useSelector } from "react-redux";
@@ -862,13 +863,13 @@ function UsersModal({
               const isMe = u.id === myUserId;
               return (
                 <TouchableOpacity key={u.id} style={s.row} onPress={() => onCopyUser(u)} activeOpacity={0.88}>
-                <Image
-  source={resolveAvatarSource(u)}
-  style={s.avatar}
-  contentFit="cover"
-  cachePolicy="memory-disk"
-  transition={0}
-/>
+                  <Image
+                    source={resolveAvatarSource(u)}
+                    style={s.avatar}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={0}
+                  />
                   <View style={{ flex: 1 }}>
                     <View style={s.rowTop}>
                       <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
@@ -960,7 +961,7 @@ const resolveAvatarSource = (u?: Partial<UserUI> & { activeCustomization?: any }
       ""
     ).trim();
 
-  return gif || avatar || "https://i.pravatar.cc/150?img=12";
+  return gif || avatar || "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg";
 };
 
 /* ================= MESSAGE ITEM (Themed) ================= */
@@ -992,13 +993,13 @@ function MessageItem({
   bubble: ReturnType<typeof makeBubbleStyles>;
 }) {
   const { width } = useWindowDimensions();
-const copyUserNameOnly = async (user?: UserUI) => {
-  const name = String(user?.name || "").trim();
-  if (!name) return;
+  const copyUserNameOnly = async (user?: UserUI) => {
+    const name = String(user?.name || "").trim();
+    if (!name) return;
 
-  await Clipboard.setStringAsync(name);
+    await Clipboard.setStringAsync(name);
     Alert.alert("Copied", "Name copied");
-};
+  };
   const copyMessageContent = async () => {
     if (item.type === "system") return;
     if (item.deletedForEveryone) return;
@@ -1034,71 +1035,124 @@ const copyUserNameOnly = async (user?: UserUI) => {
   //     </View>
   //   );
   // }
-if (item.type === "system" && item.systemType === "music") {
-  return (
-    <View style={bubble.sysWrap}>
-      <View
-        style={[
-          bubble.sysBubble,
-          {
-            width: Math.min(width - 36, 340),
-            padding: 12,
-            alignItems: "stretch",
-          },
-        ]}
-      >
-        {item.music?.thumbnail ? (
-          <Image
-            source={{ uri: item.music.thumbnail }}
-            style={{
-              width: "100%",
-              height: 170,
-              borderRadius: 14,
-              marginBottom: 10,
-            }}
-            resizeMode="cover"
-          />
-        ) : null}
-
-        <Text
-          style={{
-            color: theme.text,
-            fontWeight: "900",
-            fontSize: 14,
-            textAlign: "center",
-          }}
-          numberOfLines={2}
+  if (item.type === "system" && item.systemType === "music") {
+    return (
+      <View style={bubble.sysWrap}>
+        <View
+          style={[
+            bubble.sysBubble,
+            {
+              width: Math.min(width - 36, 340),
+              padding: 12,
+              alignItems: "stretch",
+            },
+          ]}
         >
-          {item.music?.title || "Audio Track"}
-        </Text>
+          {item.music?.thumbnail ? (
+            <Image
+              source={{ uri: item.music.thumbnail }}
+              style={{
+                width: "100%",
+                height: 170,
+                borderRadius: 14,
+                marginBottom: 10,
+              }}
+              resizeMode="cover"
+            />
+          ) : null}
 
-        {!!item.music?.channel && (
           <Text
             style={{
-              color: theme.mutedText,
-              fontSize: 12,
-              marginTop: 4,
+              color: theme.text,
+              fontWeight: "900",
+              fontSize: 14,
               textAlign: "center",
             }}
-            numberOfLines={1}
+            numberOfLines={2}
           >
-            {item.music.channel}
+            {item.music?.title || "Audio Track"}
           </Text>
-        )}
 
-        {!!item.music?.audioUrl && (
-          <View style={{ marginTop: 10 }}>
-            <VoiceMessagePlayer uri={item.music.audioUrl} isMe={false} />
-          </View>
-        )}
+          {!!item.music?.channel && (
+            <Text
+              style={{
+                color: theme.mutedText,
+                fontSize: 12,
+                marginTop: 4,
+                textAlign: "center",
+              }}
+              numberOfLines={1}
+            >
+              {item.music.channel}
+            </Text>
+          )}
 
-        <Text style={[bubble.sysTime, { marginTop: 8 }]}>{item.time}</Text>
+          {!!item.music?.audioUrl && (
+            <View style={{ marginTop: 10 }}>
+              <VoiceMessagePlayer uri={item.music.audioUrl} isMe={false} />
+            </View>
+          )}
+
+          <Text style={[bubble.sysTime, { marginTop: 8 }]}>{item.time}</Text>
+        </View>
       </View>
-    </View>
-  );
-}
+    );
+  }
 
 if (item.type === "system") {
+  const isJoin = item.systemType === "join";
+  const isLeave = item.systemType === "leave";
+
+  if (isJoin || isLeave) {
+    return (
+      <View
+        style={{
+          alignItems: "center",
+          justifyContent: "center",
+          marginVertical: 6,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+          }}
+        >
+          {/* 👈 الدخول: الأيقونة في اليسار */}
+          {isJoin && (
+            <Octicons
+              name="sign-in"
+              size={16}
+              color={theme.text}
+              style={{ marginRight: 6 }}
+            />
+          )}
+
+          {/* 👤 الاسم */}
+          <Text
+            style={{
+              color: theme.text,
+              fontSize: 13,
+              fontWeight: "600",
+            }}
+          >
+            {item.text}
+          </Text>
+
+          {/* 👉 الخروج: الأيقونة في اليمين */}
+          {isLeave && (
+            <Feather
+              name="log-out"
+              size={16}
+              color={theme.text}
+              style={{ marginLeft: 6 }}
+            />
+          )}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={bubble.sysWrap}>
       <View style={bubble.sysBubble}>
@@ -1107,7 +1161,6 @@ if (item.type === "system") {
           source={{ html: String(item.text || "") }}
           enableCSSInlineProcessing={true}
         />
-        <Text style={bubble.sysTime}>{item.time}</Text>
       </View>
     </View>
   );
@@ -1119,13 +1172,13 @@ if (item.type === "system") {
     <View style={[bubble.row, isMe ? bubble.rowMe : bubble.rowOther]}>
       {!isMe && (
         <Pressable style={bubble.avatarWrapLeft} onLongPress={() => onAvatarLongPress(item.sender)} delayLongPress={350}>
-       <Image
-  source={resolveAvatarSource(item.sender)}
-  style={bubble.avatar}
-  contentFit="cover"
-  cachePolicy="memory-disk"
-  transition={0}
-/>
+          <Image
+            source={resolveAvatarSource(item.sender)}
+            style={[bubble.avatar]}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={0}
+          />
           {shouldShowStar(senderRole) && <Text style={[bubble.avatarStarLeft, { color: starColor }]}>★</Text>}
         </Pressable>
       )}
@@ -1149,12 +1202,12 @@ if (item.type === "system") {
 
               <DynamicUserBadge badge={pickPrimaryBadge(item.sender?.activeBadges)} />
             </View> */}
-<View
-  style={[
-    bubble.nameRow,
-    { alignSelf: isMe ? "flex-end" : "flex-start" }
-  ]}
->
+            <View
+              style={[
+                bubble.nameRow,
+                { alignSelf: isMe ? "flex-end" : "flex-start" }
+              ]}
+            >
               <DynamicUserBadge badge={pickPrimaryBadge(item.sender?.activeBadges)} />
               <CustomEmojiBadgeView badge={item.sender?.customEmojiBadge} />
 
@@ -1166,7 +1219,7 @@ if (item.type === "system") {
                     : null,
                   { flexShrink: 1, flexWrap: "wrap" }
                 ]}
-                  onLongPress={() => copyUserNameOnly(item.sender)}
+                onLongPress={() => copyUserNameOnly(item.sender)}
 
               >
                 {item.sender.name}
@@ -1284,13 +1337,13 @@ if (item.type === "system") {
 
       {isMe && (
         <Pressable style={bubble.avatarWrapRight} onLongPress={() => onAvatarLongPress(item.sender)} delayLongPress={350}>
-       <Image
-  source={resolveAvatarSource(item.sender)}
-  style={bubble.avatar}
-  contentFit="cover"
-  cachePolicy="memory-disk"
-  transition={0}
-/>
+          <Image
+            source={resolveAvatarSource(item.sender)}
+            style={bubble.avatar}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={0}
+          />
           {shouldShowStar(senderRole) && <Text style={[bubble.avatarStarRight, { color: starColor }]}>★</Text>}
         </Pressable>
       )}
@@ -1304,8 +1357,8 @@ export default function ChatScreen() {
   const dispatch = useAppDispatch();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-const seenGiftIdsRef = useRef<Set<string>>(new Set());
-const didInitSeenGiftsRef = useRef(false);
+  const seenGiftIdsRef = useRef<Set<string>>(new Set());
+  const didInitSeenGiftsRef = useRef(false);
   const { colorScheme, themePreference, setThemePreference } = useColorScheme();
 
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
@@ -1362,7 +1415,8 @@ const didInitSeenGiftsRef = useRef(false);
   const roomName = useAppSelector((state) => selectRoomNameById(state, roomId));
   const roomAvatar = useAppSelector((state) => selectRoomAvatarById(state, roomId));
   const activeCount = useAppSelector((state) => selectRoomActiveCount(state, roomId));
-
+const showInitialMessagesSkeleton =
+  loadingMessages && (!reduxMessages || reduxMessages.length === 0);
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<MessageUI | null>(null);
 
@@ -1397,7 +1451,10 @@ const didInitSeenGiftsRef = useRef(false);
 
   const [showActions, setShowActions] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<MessageUI | null>(null);
+const [pinnedHidden, setPinnedHidden] = useState(false);
 
+const pinnedTranslateX = useRef(new Animated.Value(0)).current;
+const arrowTranslateX = useRef(new Animated.Value(40)).current; // يبدأ مخفي
   const [pinHtml, setPinHtml] = useState<string>("");
   const [showPinModal, setShowPinModal] = useState(false);
 
@@ -1538,24 +1595,24 @@ const didInitSeenGiftsRef = useRef(false);
     return map;
   }, [roomUsers, myUserId, myName, myAvatar, myRole, authUser, myInventory]);
   useEffect(() => {
-  let mounted = true;
+    let mounted = true;
 
-  const loadSeenGiftIds = async () => {
-    if (!myUserId || !roomId) return;
+    const loadSeenGiftIds = async () => {
+      if (!myUserId || !roomId) return;
 
-    const storedIds = await getSeenGiftIds(myUserId, roomId);
-    if (!mounted) return;
+      const storedIds = await getSeenGiftIds(myUserId, roomId);
+      if (!mounted) return;
 
-    seenGiftIdsRef.current = new Set(storedIds);
-    didInitSeenGiftsRef.current = true;
-  };
+      seenGiftIdsRef.current = new Set(storedIds);
+      didInitSeenGiftsRef.current = true;
+    };
 
-  loadSeenGiftIds();
+    loadSeenGiftIds();
 
-  return () => {
-    mounted = false;
-  };
-}, [myUserId, roomId]);
+    return () => {
+      mounted = false;
+    };
+  }, [myUserId, roomId]);
 
   const resolveUserNameById = (id?: string) => {
     if (!id) return "";
@@ -1584,7 +1641,87 @@ const didInitSeenGiftsRef = useRef(false);
       flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
     } catch { }
   };
+const hidePinnedBar = () => {
+  Animated.parallel([
+    Animated.timing(pinnedTranslateX, {
+      toValue: -260,
+      duration: 220,
+      useNativeDriver: true,
+    }),
+    Animated.timing(arrowTranslateX, {
+      toValue: 0,
+      duration: 220,
+      useNativeDriver: true,
+    }),
+  ]).start(() => {
+    setPinnedHidden(true);
+  });
+};
 
+const showPinnedBar = () => {
+  setPinnedHidden(false);
+
+  Animated.parallel([
+    Animated.timing(pinnedTranslateX, {
+      toValue: 0,
+      duration: 220,
+      useNativeDriver: true,
+    }),
+    Animated.timing(arrowTranslateX, {
+      toValue: 40,
+      duration: 220,
+      useNativeDriver: true,
+    }),
+  ]).start();
+};
+const pinnedPanResponder = useRef(
+  PanResponder.create({
+    onMoveShouldSetPanResponder: (_: any, gestureState: { dx: number; }) => {
+      return Math.abs(gestureState.dx) > 8;
+    },
+
+    onPanResponderMove: (_: any, gestureState: { dx: number; }) => {
+      if (gestureState.dx < 0) {
+        pinnedTranslateX.setValue(gestureState.dx);
+      }
+    },
+
+    onPanResponderRelease: (_: any, gestureState: { dx: number; }) => {
+      if (gestureState.dx < -80) {
+        hidePinnedBar();
+      } else {
+        Animated.spring(pinnedTranslateX, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  })
+).current;
+const arrowPanResponder = useRef(
+  PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return Math.abs(gestureState.dx) > 8;
+    },
+
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dx < 0) {
+        arrowTranslateX.setValue(Math.max(0, 40 + gestureState.dx));
+      }
+    },
+
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dx < -35) {
+        showPinnedBar();
+      } else {
+        Animated.spring(arrowTranslateX, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  })
+).current;
   const formatTime = (millis: number) => {
     const totalSeconds = Math.floor(millis / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -1993,7 +2130,6 @@ const didInitSeenGiftsRef = useRef(false);
     const serverId = m?._id ? String(m._id) : undefined;
     const clientId = m?.clientId ? String(m.clientId) : undefined;
 
-    // ✅ المفتاح الثابت للـ FlatList: لا يتغير عند وصول _id
     // إذا عندك clientId استخدمه دائمًا، وإلا استخدم serverId
     const stableId =
       clientId ||
@@ -2013,8 +2149,8 @@ const didInitSeenGiftsRef = useRef(false);
     // نص السيستم
     let systemText = String(m?.content || "");
 
-    if (backendType === "join") systemText = `✅ ${systemUserName} Join`;
-    else if (backendType === "leave") systemText = `🚪 ${systemUserName} Left`;
+   if (backendType === "join") systemText = systemUserName;
+else if (backendType === "leave") systemText = systemUserName;
     else if (backendType === "promotion") {
       const action = String(m?.action || m?.meta?.action || "");
       const actor = String(m?.actorName || m?.meta?.actorName || "").trim() || systemUserName || "مشرف";
@@ -2187,14 +2323,14 @@ const didInitSeenGiftsRef = useRef(false);
       activeBadges: picked.activeBadges || [],
       customEmojiBadge: (picked as any).customEmojiBadge || null
     };
-   const messageText =
-  parsedSystemMusic
-    ? parsedSystemMusic.title
-    : uiType === "audio"
-      ? String(m?.content || m?.music?.title || "Voice")
-      : isSystem
-        ? systemText
-        : String(m?.content || "");
+    const messageText =
+      parsedSystemMusic
+        ? parsedSystemMusic.title
+        : uiType === "audio"
+          ? String(m?.content || m?.music?.title || "Voice")
+          : isSystem
+            ? systemText
+            : String(m?.content || "");
     // ✅ gift payload
     const giftPayload = m?.gift || m?.meta?.gift || null;
     const giftKey = backendType === "gift" ? String(giftPayload?.key || m?.content || "") : "";
@@ -2252,26 +2388,26 @@ const didInitSeenGiftsRef = useRef(false);
     return reduxMessages.map(mapReduxToUIMessage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduxMessages, roomUsers, myUserId, myName, myAvatar, myRole]);
-const didSeedCurrentGiftsRef = useRef(false);
+  const didSeedCurrentGiftsRef = useRef(false);
 
-useEffect(() => {
-  if (!didInitSeenGiftsRef.current) return;
-  if (didSeedCurrentGiftsRef.current) return;
-  if (!myUserId || !roomId) return;
-  if (!uiMessages?.length) return;
+  useEffect(() => {
+    if (!didInitSeenGiftsRef.current) return;
+    if (didSeedCurrentGiftsRef.current) return;
+    if (!myUserId || !roomId) return;
+    if (!uiMessages?.length) return;
 
-  const existingGiftIds = uiMessages
-    .filter((m) => m.type === "gift" && m.id)
-    .map((m) => String(m.id));
+    const existingGiftIds = uiMessages
+      .filter((m) => m.type === "gift" && m.id)
+      .map((m) => String(m.id));
 
-  existingGiftIds.forEach((id) => seenGiftIdsRef.current.add(id));
+    existingGiftIds.forEach((id) => seenGiftIdsRef.current.add(id));
 
-  if (existingGiftIds.length) {
-    addManySeenGiftIds(myUserId, roomId, existingGiftIds);
-  }
+    if (existingGiftIds.length) {
+      addManySeenGiftIds(myUserId, roomId, existingGiftIds);
+    }
 
-  didSeedCurrentGiftsRef.current = true;
-}, [uiMessages, myUserId, roomId]);
+    didSeedCurrentGiftsRef.current = true;
+  }, [uiMessages, myUserId, roomId]);
   /* ================= latestPinned ================= */
   const latestPinned = useMemo(() => {
     const list = reduxMessages || [];
@@ -2289,44 +2425,44 @@ useEffect(() => {
   }, [reduxMessages, roomUsers, myUserId, myName, myAvatar, myRole]);
 
   /* ================= GIFT OVERLAY AUTO ================= */
-useEffect(() => {
-  if (!didInitSeenGiftsRef.current) return;
-  if (!didSeedCurrentGiftsRef.current) return;
-  if (!uiMessages?.length) return;
+  useEffect(() => {
+    if (!didInitSeenGiftsRef.current) return;
+    if (!didSeedCurrentGiftsRef.current) return;
+    if (!uiMessages?.length) return;
 
-  const latestGift = [...uiMessages]
-    .reverse()
-    .find(
-      (m) =>
-        m.type === "gift" &&
-        m.id &&
-        !m.deletedForEveryone &&
-        !seenGiftIdsRef.current.has(String(m.id))
-    );
+    const latestGift = [...uiMessages]
+      .reverse()
+      .find(
+        (m) =>
+          m.type === "gift" &&
+          m.id &&
+          !m.deletedForEveryone &&
+          !seenGiftIdsRef.current.has(String(m.id))
+      );
 
-  if (!latestGift) return;
+    if (!latestGift) return;
 
-  const key = String(latestGift.gift?.key || "");
-  const meta = GIFT_META[key] || {
-    icon: latestGift.gift?.icon || "🎁",
-    count: latestGift.gift?.count || 45,
-    lottie: undefined,
-  };
+    const key = String(latestGift.gift?.key || "");
+    const meta = GIFT_META[key] || {
+      icon: latestGift.gift?.icon || "🎁",
+      count: latestGift.gift?.count || 45,
+      lottie: undefined,
+    };
 
-  setGiftOverlay({
-    visible: true,
-    messageId: String(latestGift.id),
-    giftKey: key,
-    icon: latestGift.gift?.icon || meta.icon,
-    count: latestGift.gift?.count || meta.count,
-    lottie: meta.lottie,
-    fromName: latestGift.sender?.name || "Someone",
-    toName: latestGift.gift?.targetName || "Someone",
-  });
+    setGiftOverlay({
+      visible: true,
+      messageId: String(latestGift.id),
+      giftKey: key,
+      icon: latestGift.gift?.icon || meta.icon,
+      count: latestGift.gift?.count || meta.count,
+      lottie: meta.lottie,
+      fromName: latestGift.sender?.name || "Someone",
+      toName: latestGift.gift?.targetName || "Someone",
+    });
 
-  seenGiftIdsRef.current.add(String(latestGift.id));
-  addSeenGiftId(myUserId, roomId, String(latestGift.id));
-}, [uiMessages, myUserId, roomId]);
+    seenGiftIdsRef.current.add(String(latestGift.id));
+    addSeenGiftId(myUserId, roomId, String(latestGift.id));
+  }, [uiMessages, myUserId, roomId]);
   /* ================= AUDIO (GLOBAL BAR anim) ================= */
   useEffect(() => {
     Animated.timing(progressAnim, {
@@ -2619,22 +2755,20 @@ useEffect(() => {
       Alert.alert("Error", e?.message || "Failed to load stats");
     }
   };
-  const onLeaveRoom = () => {
-    if (!roomId) return;
-    if (didLeaveRef.current) return;
+const onLeaveRoom = () => {
+  if (!roomId) return;
+  if (didLeaveRef.current) return;
 
-    setShowRoomMenu(false);
-    didLeaveRef.current = true;
+  setShowRoomMenu(false);
+  didLeaveRef.current = true;
 
-    leaveRoomSocket(roomId);
-    router.back();
+  router.back();
 
-    setTimeout(() => {
-      dispatch(leaveRoomAndExit({ roomId, cleanup: true }));
-      dispatch(leaveAndRefreshRooms({ roomId, type: "public" }));
-    }, 0);
-  };
-
+  setTimeout(() => {
+    dispatch(leaveRoomAndExit({ roomId, cleanup: true }));
+    dispatch(fetchRoomsByType({ type: "public", page: 1, limit: 30 }));
+  }, 0);
+};
   /* ================= USERS: COPY/ROLE/KICK/BAN ================= */
   const onCopyUser = async (u: UserUI) => {
     await Clipboard.setStringAsync(`${u.name} (${u.id})`);
@@ -2788,16 +2922,17 @@ useEffect(() => {
           </TouchableOpacity>
 
           <TouchableOpacity activeOpacity={0.85} onPress={goDetails}>
-            <Image source={{ uri: roomAvatar || "https://i.pravatar.cc/150?img=12" }} style={styles.roomAvatar} />
+            <Image source={{ uri: roomAvatar || "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg" }} style={styles.roomAvatar} />
           </TouchableOpacity>
 
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.roomName} numberOfLines={1}>
               {roomName}
             </Text>
-            <Text style={styles.roomMeta}>
-              {loadingMessages ? "Loading..." : `Online: ${activeCount} • ${uiMessages.length} Messages`}
-            </Text>
+          <Text style={styles.roomMeta}>
+  Online: {activeCount}
+  {uiMessages.length > 0 ? ` • ${uiMessages.length} Messages` : ""}
+</Text>
           </View>
         </View>
 
@@ -3610,15 +3745,65 @@ useEffect(() => {
 /* ================= STYLES FACTORIES ================= */
 function makeBubbleStyles(theme: typeof Colors.light) {
   return StyleSheet.create({
-    row: { flexDirection: "row", marginBottom: 10, alignItems: "flex-start" },
-    rowOther: { justifyContent: "flex-start" },
-    rowMe: { justifyContent: "flex-end" },
+ row: {
+      flexDirection: "row",
+      marginBottom: 10,
+  alignItems: "flex-start", // 👈 هذا هو الحل
+    },
 
-    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.surface2 },
+    rowOther: {
+      justifyContent: "flex-start",
+    },
 
-    avatarWrapLeft: { width: 40, height: 40, marginRight: 8, position: "relative" },
-    avatarWrapRight: { width: 40, height: 40, marginLeft: 8, position: "relative" },
+    rowMe: {
+      justifyContent: "flex-end",
+    },
 
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: theme.surface2,
+    },
+
+    avatarWrapLeft: {
+      width: 48,
+      height: 48,
+      marginRight: 8,
+      position: "relative",
+      flexShrink: 0,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    avatarWrapRight: {
+      width: 48,
+      height: 48,
+      marginLeft: 8,
+      position: "relative",
+      flexShrink: 0,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    bubble: {
+      maxWidth: "78%",
+      borderRadius: 14,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      // borderWidth: 1,
+      // borderColor: theme.border,
+      backgroundColor: theme.surface,
+      flexShrink: 1,
+    },
+
+    bubbleOther: {
+      borderTopLeftRadius: 6,
+    },
+
+    bubbleMe: {
+      borderTopRightRadius: 6,
+    },
     avatarStarLeft: {
       position: "absolute",
       top: -6,
@@ -3640,17 +3825,7 @@ function makeBubbleStyles(theme: typeof Colors.light) {
       textShadowRadius: 2
     },
 
-    bubble: {
-      maxWidth: "78%",
-      borderRadius: 14,
-      paddingVertical: 8,
-      paddingHorizontal: 10,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.surface
-    },
-    bubbleOther: { borderTopLeftRadius: 6 },
-    bubbleMe: { borderTopRightRadius: 6 },
+ 
 
     msgText: { fontSize: 15, color: theme.text, lineHeight: 20 },
     msgTextMuted: { fontSize: 14, color: theme.mutedText },
@@ -3786,7 +3961,7 @@ function makeUsersStyles(theme: typeof Colors.light) {
 
 function makeScreenStyles(theme: typeof Colors.light, bottomInset: number) {
   return StyleSheet.create({
-    root: { flex: 1, backgroundColor: theme.background },
+    root: { flex: 1, backgroundColor: theme.backgroundChat },
 
     header: {
       height: 56,
@@ -3809,7 +3984,7 @@ function makeScreenStyles(theme: typeof Colors.light, bottomInset: number) {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      backgroundColor: theme.card,
+  backgroundColor: "rgba(0,0,0,0.0)", // 👈 شفاف
       borderBottomWidth: 1,
       borderColor: theme.separator,
       paddingHorizontal: 12,

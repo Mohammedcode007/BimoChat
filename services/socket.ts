@@ -67,19 +67,19 @@ export const connectSocket = (token: string): Socket => {
   }
 
 
-  // socket = io("http://192.168.0.102:5000", {
-  //   auth: { token },
-  //   transports: ["websocket"],
-  //   reconnection: true,
- 
-  // });
-
-    socket = io("https://te-bot.site", {
+  socket = io("http://192.168.1.12:5000", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true,
  
   });
+
+  //   socket = io("https://te-bot.site", {
+  //   auth: { token },
+  //   transports: ["websocket"],
+  //   reconnection: true,
+ 
+  // });
 
   socket.on("connect", () => {
   });

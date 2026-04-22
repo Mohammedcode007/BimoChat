@@ -975,6 +975,7 @@ function MessageItem({
   playingId,
   progressAnim,
   onGiftDone,
+  onAvatarPress,
   onAvatarLongPress,
   theme,
   bubble
@@ -988,6 +989,7 @@ function MessageItem({
   playingId: string | null;
   progressAnim: Animated.Value;
   onGiftDone?: () => void;
+  onAvatarPress: (u?: UserUI) => void;
   onAvatarLongPress: (u?: UserUI) => void;
   theme: typeof Colors.light;
   bubble: ReturnType<typeof makeBubbleStyles>;
@@ -1099,79 +1101,84 @@ function MessageItem({
     );
   }
 
-if (item.type === "system") {
-  const isJoin = item.systemType === "join";
-  const isLeave = item.systemType === "leave";
+  if (item.type === "system") {
+    const isJoin = item.systemType === "join";
+    const isLeave = item.systemType === "leave";
 
-  if (isJoin || isLeave) {
-    return (
-      <View
-        style={{
-          alignItems: "center",
-          justifyContent: "center",
-          marginVertical: 6,
-        }}
-      >
+    if (isJoin || isLeave) {
+      return (
         <View
           style={{
-            flexDirection: "row",
             alignItems: "center",
+            justifyContent: "center",
+            marginVertical: 6,
           }}
         >
-          {/* 👈 الدخول: الأيقونة في اليسار */}
-          {isJoin && (
-            <Octicons
-              name="sign-in"
-              size={16}
-              color={theme.text}
-              style={{ marginRight: 6 }}
-            />
-          )}
-
-          {/* 👤 الاسم */}
-          <Text
+          <View
             style={{
-              color: theme.text,
-              fontSize: 13,
-              fontWeight: "600",
+              flexDirection: "row",
+              alignItems: "center",
             }}
           >
-            {item.text}
-          </Text>
+            {/* 👈 الدخول: الأيقونة في اليسار */}
+            {isJoin && (
+              <Octicons
+                name="sign-in"
+                size={16}
+                color={theme.text}
+                style={{ marginRight: 6 }}
+              />
+            )}
 
-          {/* 👉 الخروج: الأيقونة في اليمين */}
-          {isLeave && (
-            <Feather
-              name="log-out"
-              size={16}
-              color={theme.text}
-              style={{ marginLeft: 6 }}
-            />
-          )}
+            {/* 👤 الاسم */}
+            <Text
+              style={{
+                color: theme.text,
+                fontSize: 13,
+                fontWeight: "600",
+              }}
+            >
+              {item.text}
+            </Text>
+
+            {/* 👉 الخروج: الأيقونة في اليمين */}
+            {isLeave && (
+              <Feather
+                name="log-out"
+                size={16}
+                color={theme.text}
+                style={{ marginLeft: 6 }}
+              />
+            )}
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={bubble.sysWrap}>
+        <View style={bubble.sysBubble}>
+          <RenderHTML
+            contentWidth={width - 40}
+            source={{ html: String(item.text || "") }}
+            enableCSSInlineProcessing={true}
+          />
         </View>
       </View>
     );
   }
-
-  return (
-    <View style={bubble.sysWrap}>
-      <View style={bubble.sysBubble}>
-        <RenderHTML
-          contentWidth={width - 40}
-          source={{ html: String(item.text || "") }}
-          enableCSSInlineProcessing={true}
-        />
-      </View>
-    </View>
-  );
-}
   const senderRole = item.sender?.role;
   const starColor = getStarColor(senderRole);
 
   return (
     <View style={[bubble.row, isMe ? bubble.rowMe : bubble.rowOther]}>
       {!isMe && (
-        <Pressable style={bubble.avatarWrapLeft} onLongPress={() => onAvatarLongPress(item.sender)} delayLongPress={350}>
+        <Pressable
+          style={bubble.avatarWrapLeft}
+          onPress={() => onAvatarPress(item.sender)}
+          onLongPress={() => onAvatarLongPress(item.sender)}
+          delayLongPress={350}
+        >
           <Image
             source={resolveAvatarSource(item.sender)}
             style={[bubble.avatar]}
@@ -1336,7 +1343,12 @@ if (item.type === "system") {
       </TouchableOpacity>
 
       {isMe && (
-        <Pressable style={bubble.avatarWrapRight} onLongPress={() => onAvatarLongPress(item.sender)} delayLongPress={350}>
+<Pressable
+  style={bubble.avatarWrapRight}
+  onPress={() => onAvatarPress(item.sender)}
+  onLongPress={() => onAvatarLongPress(item.sender)}
+  delayLongPress={350}
+>
           <Image
             source={resolveAvatarSource(item.sender)}
             style={bubble.avatar}
@@ -1415,8 +1427,8 @@ export default function ChatScreen() {
   const roomName = useAppSelector((state) => selectRoomNameById(state, roomId));
   const roomAvatar = useAppSelector((state) => selectRoomAvatarById(state, roomId));
   const activeCount = useAppSelector((state) => selectRoomActiveCount(state, roomId));
-const showInitialMessagesSkeleton =
-  loadingMessages && (!reduxMessages || reduxMessages.length === 0);
+  const showInitialMessagesSkeleton =
+    loadingMessages && (!reduxMessages || reduxMessages.length === 0);
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<MessageUI | null>(null);
 
@@ -1451,10 +1463,10 @@ const showInitialMessagesSkeleton =
 
   const [showActions, setShowActions] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<MessageUI | null>(null);
-const [pinnedHidden, setPinnedHidden] = useState(false);
+  const [pinnedHidden, setPinnedHidden] = useState(false);
 
-const pinnedTranslateX = useRef(new Animated.Value(0)).current;
-const arrowTranslateX = useRef(new Animated.Value(40)).current; // يبدأ مخفي
+  const pinnedTranslateX = useRef(new Animated.Value(0)).current;
+  const arrowTranslateX = useRef(new Animated.Value(40)).current; // يبدأ مخفي
   const [pinHtml, setPinHtml] = useState<string>("");
   const [showPinModal, setShowPinModal] = useState(false);
 
@@ -1484,6 +1496,15 @@ const arrowTranslateX = useRef(new Animated.Value(40)).current; // يبدأ مخ
     fromName: undefined,
     toName: undefined
   });
+const onAvatarPress = (u?: UserUI) => {
+  const userId = String(u?.id || "").trim();
+  if (!userId) return;
+
+  router.push({
+    pathname: "/profile/[id]",
+    params: { id: userId },
+  });
+};
   const handleInviteSearch = async () => {
     const q = String(inviteUsername || "").trim();
     if (!q) {
@@ -1641,87 +1662,87 @@ const arrowTranslateX = useRef(new Animated.Value(40)).current; // يبدأ مخ
       flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
     } catch { }
   };
-const hidePinnedBar = () => {
-  Animated.parallel([
-    Animated.timing(pinnedTranslateX, {
-      toValue: -260,
-      duration: 220,
-      useNativeDriver: true,
-    }),
-    Animated.timing(arrowTranslateX, {
-      toValue: 0,
-      duration: 220,
-      useNativeDriver: true,
-    }),
-  ]).start(() => {
-    setPinnedHidden(true);
-  });
-};
+  const hidePinnedBar = () => {
+    Animated.parallel([
+      Animated.timing(pinnedTranslateX, {
+        toValue: -260,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(arrowTranslateX, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setPinnedHidden(true);
+    });
+  };
 
-const showPinnedBar = () => {
-  setPinnedHidden(false);
+  const showPinnedBar = () => {
+    setPinnedHidden(false);
 
-  Animated.parallel([
-    Animated.timing(pinnedTranslateX, {
-      toValue: 0,
-      duration: 220,
-      useNativeDriver: true,
-    }),
-    Animated.timing(arrowTranslateX, {
-      toValue: 40,
-      duration: 220,
-      useNativeDriver: true,
-    }),
-  ]).start();
-};
-const pinnedPanResponder = useRef(
-  PanResponder.create({
-    onMoveShouldSetPanResponder: (_: any, gestureState: { dx: number; }) => {
-      return Math.abs(gestureState.dx) > 8;
-    },
+    Animated.parallel([
+      Animated.timing(pinnedTranslateX, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(arrowTranslateX, {
+        toValue: 40,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+  const pinnedPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_: any, gestureState: { dx: number; }) => {
+        return Math.abs(gestureState.dx) > 8;
+      },
 
-    onPanResponderMove: (_: any, gestureState: { dx: number; }) => {
-      if (gestureState.dx < 0) {
-        pinnedTranslateX.setValue(gestureState.dx);
-      }
-    },
+      onPanResponderMove: (_: any, gestureState: { dx: number; }) => {
+        if (gestureState.dx < 0) {
+          pinnedTranslateX.setValue(gestureState.dx);
+        }
+      },
 
-    onPanResponderRelease: (_: any, gestureState: { dx: number; }) => {
-      if (gestureState.dx < -80) {
-        hidePinnedBar();
-      } else {
-        Animated.spring(pinnedTranslateX, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      }
-    },
-  })
-).current;
-const arrowPanResponder = useRef(
-  PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gestureState) => {
-      return Math.abs(gestureState.dx) > 8;
-    },
+      onPanResponderRelease: (_: any, gestureState: { dx: number; }) => {
+        if (gestureState.dx < -80) {
+          hidePinnedBar();
+        } else {
+          Animated.spring(pinnedTranslateX, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+  const arrowPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dx) > 8;
+      },
 
-    onPanResponderMove: (_, gestureState) => {
-      if (gestureState.dx < 0) {
-        arrowTranslateX.setValue(Math.max(0, 40 + gestureState.dx));
-      }
-    },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dx < 0) {
+          arrowTranslateX.setValue(Math.max(0, 40 + gestureState.dx));
+        }
+      },
 
-    onPanResponderRelease: (_, gestureState) => {
-      if (gestureState.dx < -35) {
-        showPinnedBar();
-      } else {
-        Animated.spring(arrowTranslateX, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
-      }
-    },
-  })
-).current;
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx < -35) {
+          showPinnedBar();
+        } else {
+          Animated.spring(arrowTranslateX, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
   const formatTime = (millis: number) => {
     const totalSeconds = Math.floor(millis / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -2149,8 +2170,8 @@ const arrowPanResponder = useRef(
     // نص السيستم
     let systemText = String(m?.content || "");
 
-   if (backendType === "join") systemText = systemUserName;
-else if (backendType === "leave") systemText = systemUserName;
+    if (backendType === "join") systemText = systemUserName;
+    else if (backendType === "leave") systemText = systemUserName;
     else if (backendType === "promotion") {
       const action = String(m?.action || m?.meta?.action || "");
       const actor = String(m?.actorName || m?.meta?.actorName || "").trim() || systemUserName || "مشرف";
@@ -2290,15 +2311,7 @@ else if (backendType === "leave") systemText = systemUserName;
     else if (isSystem && isAudioMedia) uiType = "audio";
     else if (isSystem) uiType = "system";
     if (backendType === "system") {
-      console.log("🟡 SYSTEM MESSAGE RECEIVED =>");
-      console.log("FULL MESSAGE:", m);
 
-      console.log("📌 content:", m?.content);
-      console.log("📌 systemType:", m?.systemType);
-      console.log("📌 music:", m?.music);
-      console.log("📌 media:", m?.media);
-      console.log("📌 media.url:", m?.media?.url);
-      console.log("📌 media.mimeType:", m?.media?.mimeType);
     }
     // ✅ time (يفضل تثبيت createdAt في optimistic لتقليل الحركة)
     const time = new Date(m?.createdAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -2755,20 +2768,20 @@ else if (backendType === "leave") systemText = systemUserName;
       Alert.alert("Error", e?.message || "Failed to load stats");
     }
   };
-const onLeaveRoom = () => {
-  if (!roomId) return;
-  if (didLeaveRef.current) return;
+  const onLeaveRoom = () => {
+    if (!roomId) return;
+    if (didLeaveRef.current) return;
 
-  setShowRoomMenu(false);
-  didLeaveRef.current = true;
+    setShowRoomMenu(false);
+    didLeaveRef.current = true;
 
-  router.back();
+    router.back();
 
-  setTimeout(() => {
-    dispatch(leaveRoomAndExit({ roomId, cleanup: true }));
-    dispatch(fetchRoomsByType({ type: "public", page: 1, limit: 30 }));
-  }, 0);
-};
+    setTimeout(() => {
+      dispatch(leaveRoomAndExit({ roomId, cleanup: true }));
+      dispatch(fetchRoomsByType({ type: "public", page: 1, limit: 30 }));
+    }, 0);
+  };
   /* ================= USERS: COPY/ROLE/KICK/BAN ================= */
   const onCopyUser = async (u: UserUI) => {
     await Clipboard.setStringAsync(`${u.name} (${u.id})`);
@@ -2929,10 +2942,10 @@ const onLeaveRoom = () => {
             <Text style={styles.roomName} numberOfLines={1}>
               {roomName}
             </Text>
-          <Text style={styles.roomMeta}>
-  Online: {activeCount}
-  {uiMessages.length > 0 ? ` • ${uiMessages.length} Messages` : ""}
-</Text>
+            <Text style={styles.roomMeta}>
+              Online: {activeCount}
+              {uiMessages.length > 0 ? ` • ${uiMessages.length} Messages` : ""}
+            </Text>
           </View>
         </View>
 
@@ -3123,6 +3136,8 @@ const onLeaveRoom = () => {
                 if (!u?.id) return;
                 setGiftPicker({ visible: true, target: u });
               }}
+                onAvatarPress={onAvatarPress}
+
               onPressImage={(payload) => setPreviewImage(payload)}
               onTogglePlay={togglePlay}
               playingId={playingId}
@@ -3745,10 +3760,10 @@ const onLeaveRoom = () => {
 /* ================= STYLES FACTORIES ================= */
 function makeBubbleStyles(theme: typeof Colors.light) {
   return StyleSheet.create({
- row: {
+    row: {
       flexDirection: "row",
       marginBottom: 10,
-  alignItems: "flex-start", // 👈 هذا هو الحل
+      alignItems: "flex-start", // 👈 هذا هو الحل
     },
 
     rowOther: {
@@ -3825,7 +3840,7 @@ function makeBubbleStyles(theme: typeof Colors.light) {
       textShadowRadius: 2
     },
 
- 
+
 
     msgText: { fontSize: 15, color: theme.text, lineHeight: 20 },
     msgTextMuted: { fontSize: 14, color: theme.mutedText },
@@ -3984,7 +3999,7 @@ function makeScreenStyles(theme: typeof Colors.light, bottomInset: number) {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-  backgroundColor: "rgba(0,0,0,0.0)", // 👈 شفاف
+      backgroundColor: "rgba(0,0,0,0.0)", // 👈 شفاف
       borderBottomWidth: 1,
       borderColor: theme.separator,
       paddingHorizontal: 12,

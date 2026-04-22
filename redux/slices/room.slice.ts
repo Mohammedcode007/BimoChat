@@ -180,7 +180,6 @@ export type RoomUser = {
     expiresAt?: string | null;
   } | null;
 };
-
 export type RoomMessageType =
   | "text"
   | "image"
@@ -196,9 +195,10 @@ export type RoomMessageType =
   | "promotion"
   | "role"
   | "invitation"
-
   | "ban"
-  | "gift";
+  | "gift"
+  | "song"
+  | "game";
 
 export type RoomMessageSender = RoomUser | string | null;
 

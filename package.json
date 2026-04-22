@@ -28,6 +28,7 @@
     "country-state-city": "^3.2.1",
     "expo": "~54.0.33",
     "expo-application": "~7.0.8",
+    "expo-audio": "~1.1.1",
     "expo-av": "~16.0.8",
     "expo-battery": "~10.0.8",
     "expo-blur": "~15.0.8",

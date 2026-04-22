@@ -124,13 +124,19 @@ type UserUI = {
 
 type MessageUI = {
   id: string;
-  type: "text" | "image" | "file" | "audio" | "video" | "system" | "gift";
+  type: "text" | "image" | "file" | "audio" | "video" | "system" | "gift" | "song" | "game";
   systemType?: "join" | "leave" | "announcement" | "promotion" | "ban" | "role" | "music";
   music?: {
     title?: string;
     channel?: string;
     audioUrl?: string;
     thumbnail?: string;
+    youtubeUrl?: string;
+  };
+  game?: {
+    gameType?: string;
+    title?: string;
+    state?: string;
   };
   text?: string;
   uri?: string;
@@ -977,6 +983,7 @@ function MessageItem({
   onGiftDone,
   onAvatarPress,
   onAvatarLongPress,
+  onOpenAudioModal,
   theme,
   bubble
 }: {
@@ -991,6 +998,7 @@ function MessageItem({
   onGiftDone?: () => void;
   onAvatarPress: (u?: UserUI) => void;
   onAvatarLongPress: (u?: UserUI) => void;
+  onOpenAudioModal: (message: MessageUI) => void;
   theme: typeof Colors.light;
   bubble: ReturnType<typeof makeBubbleStyles>;
 }) {
@@ -1037,7 +1045,7 @@ function MessageItem({
   //     </View>
   //   );
   // }
-  if (item.type === "system" && item.systemType === "music") {
+  if (item.type === "song" || (item.type === "system" && item.systemType === "music")) {
     return (
       <View style={bubble.sysWrap}>
         <View
@@ -1180,12 +1188,12 @@ function MessageItem({
           delayLongPress={350}
         >
           <Image
-  source={
-    resolveAvatarSource(item.sender) || {
-      uri: "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg",
-    }
-  }
-              style={[bubble.avatar]}
+            source={
+              resolveAvatarSource(item.sender) || {
+                uri: "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg",
+              }
+            }
+            style={[bubble.avatar]}
             contentFit="cover"
             cachePolicy="memory-disk"
             transition={0}
@@ -1330,11 +1338,37 @@ function MessageItem({
               </View>
             ) : null}
 
-            {item.type === "audio" && item.uri ? (
-              <>
-                <VoiceMessagePlayer uri={item.uri} isMe={isMe} />
-              </>
-            ) : null}
+       {item.type === "audio" && item.uri ? (
+  <TouchableOpacity
+    activeOpacity={0.85}
+    onPress={() => onOpenAudioModal(item)}
+    style={{
+      flexDirection: "row",
+      alignItems: "center",
+      flexWrap: "wrap",
+    }}
+  >
+    <Text
+      style={{
+        fontSize: 14,
+        color: theme.text,
+        fontWeight: "500",
+      }}
+    >
+      Voice message{" "}
+    </Text>
+
+    <Text
+      style={{
+        fontSize: 14,
+        color: "#2563EB",
+        fontWeight: "800",
+      }}
+    >
+      Play
+    </Text>
+  </TouchableOpacity>
+) : null}
           </>
         )}
 
@@ -1352,17 +1386,17 @@ function MessageItem({
           onLongPress={() => onAvatarLongPress(item.sender)}
           delayLongPress={350}
         >
-      <Image
-  source={
-    resolveAvatarSource(item.sender) || {
-      uri: "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg",
-    }
-  }
-  style={bubble.avatar}
-  contentFit="cover"
-  cachePolicy="memory-disk"
-  transition={0}
-/>
+          <Image
+            source={
+              resolveAvatarSource(item.sender) || {
+                uri: "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg",
+              }
+            }
+            style={bubble.avatar}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={0}
+          />
           {shouldShowStar(senderRole) && <Text style={[bubble.avatarStarRight, { color: starColor }]}>★</Text>}
         </Pressable>
       )}
@@ -1379,7 +1413,7 @@ export default function ChatScreen() {
   const seenGiftIdsRef = useRef<Set<string>>(new Set());
   const didInitSeenGiftsRef = useRef(false);
   const { colorScheme, themePreference, setThemePreference } = useColorScheme();
-
+  const [showAudioModal, setShowAudioModal] = useState(false);
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
 
   const styles = useMemo(() => makeScreenStyles(theme, insets.bottom), [theme, insets.bottom]);
@@ -1423,10 +1457,10 @@ export default function ChatScreen() {
   const authUser = useAppSelector((state) => state.auth.user);
   const myUserId = String((authUser as any)?._id || (authUser as any)?.id || "");
   const myName = String((authUser as any)?.username || (authUser as any)?.name || "Me");
-const myAvatar = String(
-  (authUser as any)?.avatar ||
-  "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg"
-);
+  const myAvatar = String(
+    (authUser as any)?.avatar ||
+    "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg"
+  );
   const myStore = useAppSelector(selectMyStore);
   const myInventory = Array.isArray(myStore?.inventory)
     ? myStore.inventory
@@ -1486,7 +1520,11 @@ const myAvatar = String(
 
   const [giftDoneById, setGiftDoneById] = useState<Record<string, boolean>>({});
   const markGiftDone = (id: string) => setGiftDoneById((prev) => ({ ...prev, [id]: true }));
-
+  const openAudioModal = (message: MessageUI) => {
+    if (!message?.uri) return;
+    setActiveAudio(message);
+    setShowAudioModal(true);
+  };
   const [giftOverlay, setGiftOverlay] = useState<{
     visible: boolean;
     messageId: string | null;
@@ -2101,53 +2139,62 @@ const myAvatar = String(
       customEmojiBadge
     };
   };
-  function parseSystemMusicMessage(content?: string, media?: any) {
-    const text = String(content || "").trim();
-    if (!text) return null;
+  function parseSongMessage(m: any) {
+    const song = m?.song || {};
+    const text = String(m?.content || "").trim();
 
     const lines = text
       .split("\n")
-      .map((x) => String(x || "").trim())
+      .map((x: string) => String(x || "").trim())
       .filter(Boolean);
 
-    const titleLine = lines.find((l) => l.startsWith("🎵"));
-    const channelLine = lines.find((l) => l.startsWith("🎤"));
-    const linkLine = lines.find((l) => l.startsWith("🔗"));
+    const titleLine = lines.find((l: string) => l.startsWith("🎵"));
+    const channelLine = lines.find((l: string) => l.startsWith("🎤"));
+    const linkLine = lines.find((l: string) => l.startsWith("🔗"));
 
-    const audioUrl = linkLine
-      ? linkLine.replace(/^🔗\s*/, "").trim()
-      : "";
+    const title =
+      String(song?.title || "").trim() ||
+      (titleLine ? titleLine.replace(/^🎵\s*/, "").trim() : "") ||
+      text;
 
-    const title = titleLine
-      ? titleLine.replace(/^🎵\s*/, "").trim()
-      : "";
+    const channel =
+      String(song?.channelTitle || "").trim() ||
+      (channelLine ? channelLine.replace(/^🎤\s*/, "").trim() : "");
 
-    const channel = channelLine
-      ? channelLine.replace(/^🎤\s*/, "").trim()
-      : "";
+    const audioUrl =
+      String(song?.audioUrl || "").trim() ||
+      String(m?.media?.url || "").trim() ||
+      (linkLine ? linkLine.replace(/^🔗\s*/, "").trim() : "");
 
     const thumbnail =
-      String(media?.mimeType || "").toLowerCase().startsWith("image/")
-        ? String(media?.url || "").trim()
-        : "";
+      String(song?.thumbnail || "").trim() ||
+      (String(m?.media?.mimeType || "").toLowerCase().startsWith("image/")
+        ? String(m?.media?.url || "").trim()
+        : "");
 
-    if (!audioUrl || !title) return null;
+    const youtubeUrl = String(song?.youtubeUrl || "").trim();
+
+    if (!title && !audioUrl) return null;
 
     return {
       title,
       channel,
       audioUrl,
       thumbnail,
+      youtubeUrl
     };
   }
   const mapReduxToUIMessage = (m: any): MessageUI => {
     logSenderFromMessage(m, "MAP_MESSAGE_USER_DUMP");
 
     const backendType = String(m?.type || "text");
-    const parsedSystemMusic =
-      backendType === "system"
-        ? parseSystemMusicMessage(m?.content, m?.media)
-        : null;
+
+    const parsedSong =
+      backendType === "song"
+        ? parseSongMessage(m)
+        : backendType === "system" && String(m?.systemType || "") === "room_music"
+          ? parseSongMessage(m)
+          : null;
     const isSystem =
       backendType === "system" ||
       backendType === "announcement" ||
@@ -2309,15 +2356,12 @@ const myAvatar = String(
     let resolvedSystemType: MessageUI["systemType"] | undefined = undefined;
 
     if (backendType === "gift") uiType = "gift";
+    else if (backendType === "song") uiType = "song";
+    else if (backendType === "game") uiType = "game";
     else if (backendType === "image") uiType = "image";
     else if (backendType === "video") uiType = "video";
     else if (backendType === "audio") uiType = "audio";
     else if (backendType === "file") uiType = "file";
-    else if (parsedSystemMusic) {
-      uiType = "system";
-      resolvedSystemType = "music";
-    }
-    else if (isSystem && isAudioMedia) uiType = "audio";
     else if (isSystem) uiType = "system";
     if (backendType === "system") {
 
@@ -2346,8 +2390,8 @@ const myAvatar = String(
       customEmojiBadge: (picked as any).customEmojiBadge || null
     };
     const messageText =
-      parsedSystemMusic
-        ? parsedSystemMusic.title
+      parsedSong
+        ? parsedSong.title
         : uiType === "audio"
           ? String(m?.content || m?.music?.title || "Voice")
           : isSystem
@@ -2372,20 +2416,30 @@ const myAvatar = String(
 
       type: uiType,
       systemType: isSystem ? (backendType as any) : undefined,
-      music: parsedSystemMusic
+      music: parsedSong
         ? {
-          title: parsedSystemMusic.title,
-          channel: parsedSystemMusic.channel,
-          audioUrl: parsedSystemMusic.audioUrl,
-          thumbnail: parsedSystemMusic.thumbnail,
+          title: parsedSong.title,
+          channel: parsedSong.channel,
+          audioUrl: parsedSong.audioUrl,
+          thumbnail: parsedSong.thumbnail,
+          youtubeUrl: parsedSong.youtubeUrl,
         }
         : undefined,
+
+      game:
+        backendType === "game"
+          ? {
+            gameType: String(m?.gameType || "").trim(),
+            title: String(m?.game?.title || m?.content || "").trim(),
+            state: String(m?.game?.state || "").trim(),
+          }
+          : undefined,
       text: messageText,
       uri: m?.media?.url,
 
       // في announcement كنت تخفي sender عندك — نفس السلوك
       sender:
-        uiType === "audio"
+        uiType === "audio" || uiType === "song" || uiType === "game"
           ? senderUI
           : backendType === "announcement"
             ? senderUI
@@ -3048,7 +3102,7 @@ const myAvatar = String(
       />
 
       {/* ================= GLOBAL AUDIO BAR ================= */}
-      {activeAudio && (
+      {/* {activeAudio && (
         <View style={styles.globalAudioPlayer}>
           <View style={styles.audioIcon}>
             <Ionicons name="musical-notes" size={18} color={theme.primaryText} />
@@ -3092,8 +3146,44 @@ const myAvatar = String(
             <Ionicons name="close" size={22} color={theme.icon} />
           </TouchableOpacity>
         </View>
-      )}
+      )} */}
+      {/* ================= AUDIO MODAL ================= */}
+      <Modal
+        transparent
+        visible={showAudioModal && !!activeAudio}
+        animationType="fade"
+        onRequestClose={() => setShowAudioModal(false)}
+      >
+        <Pressable
+          style={styles.audioModalOverlay}
+          onPress={() => setShowAudioModal(false)}
+        >
+          <Pressable style={styles.audioModalCard} onPress={() => { }}>
+            <View style={styles.audioModalHeader}>
+              <Text style={styles.audioModalTitle}>Voice message</Text>
 
+              <TouchableOpacity
+                onPress={() => setShowAudioModal(false)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="close" size={20} color={theme.icon} />
+              </TouchableOpacity>
+            </View>
+
+            {!!activeAudio?.sender?.name && (
+              <Text style={styles.audioModalSender} numberOfLines={1}>
+                {activeAudio.sender.name}
+              </Text>
+            )}
+
+            {!!activeAudio?.uri && (
+              <View style={{ marginTop: 10 }}>
+                <VoiceMessagePlayer uri={activeAudio.uri} isMe={false} />
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
       {/* ================= PINNED BAR ================= */}
       {latestPinned && (
         <TouchableOpacity
@@ -3141,6 +3231,7 @@ const myAvatar = String(
               item={item}
               isMe={isMe}
               showName={showName}
+              onOpenAudioModal={openAudioModal}
               onAvatarLongPress={(u) => {
                 if (!u?.id) return;
                 setGiftPicker({ visible: true, target: u });
@@ -4003,7 +4094,64 @@ function makeScreenStyles(theme: typeof Colors.light, bottomInset: number) {
     roomAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.surface2 },
     roomName: { fontSize: 16, fontWeight: "900", color: theme.text },
     roomMeta: { fontSize: 12, color: theme.mutedText },
+    voiceInlineRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      flexWrap: "wrap",
+    },
 
+    voiceInlineText: {
+      fontSize: 14,
+      color: theme.text,
+      fontWeight: "500",
+    },
+
+    voiceInlinePlay: {
+      fontSize: 14,
+      color: "#2563EB",
+      fontWeight: "800",
+    },
+
+    audioModalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.18)",
+      justifyContent: "flex-start",
+    },
+
+    audioModalCard: {
+      marginTop: 88,
+      marginHorizontal: 12,
+      backgroundColor: theme.card,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      shadowColor: "#000",
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 6,
+    },
+
+    audioModalHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+
+    audioModalTitle: {
+      fontSize: 15,
+      fontWeight: "900",
+      color: theme.text,
+    },
+
+    audioModalSender: {
+      marginTop: 4,
+      fontSize: 12,
+      color: theme.mutedText,
+      fontWeight: "600",
+    },
     pinnedBar: {
       flexDirection: "row",
       alignItems: "center",
@@ -4028,6 +4176,7 @@ function makeScreenStyles(theme: typeof Colors.light, bottomInset: number) {
       paddingBottom: 10 + Math.max(0, bottomInset * 0.2),
       backgroundColor: theme.card
     },
+
     inputBarWrap: {
       borderTopWidth: 1,
       borderColor: theme.separator,

@@ -1,4 +1,3 @@
-
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -13,23 +12,20 @@ import {
 } from "@/redux/slices/userSlice";
 import type { AppDispatch } from "@/redux/store";
 import { Ionicons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
+import { City, Country } from "country-state-city";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Dimensions,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
-
-const { width: W } = Dimensions.get("window");
 
 function rgba(hex: string, alpha: number) {
   const h = hex.replace("#", "");
@@ -41,71 +37,15 @@ function rgba(hex: string, alpha: number) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function Divider({ theme }: { theme: any }) {
-  return (
-    <View
-      style={{
-        height: 1,
-        backgroundColor: theme.border,
-        opacity: 0.9,
-        marginVertical: 12,
-      }}
-    />
-  );
-}
+const COUNTRY_OPTIONS = Country.getAllCountries().map((country) => ({
+  label: country.name,
+  value: country.isoCode,
+}));
 
-function SectionHeader({
-  title,
-  subtitle,
-  theme,
-  icon,
-  onPress,
-}: {
-  title: string;
-  subtitle?: string;
-  theme: any;
-  icon?: keyof typeof Ionicons.glyphMap;
-  onPress?: () => void;
-}) {
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-      }}
-    >
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.h2, { color: theme.text }]}>{title}</Text>
-        {subtitle ? (
-          <Text
-            style={[styles.h2Sub, { color: theme.textMuted }]}
-            numberOfLines={2}
-          >
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
-
-      {icon ? (
-        <Pressable
-          onPress={onPress}
-          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
-        >
-          <View
-            style={[
-              styles.iconPill,
-              { backgroundColor: theme.surface2, borderColor: theme.border },
-            ]}
-          >
-            <Ionicons name={icon} size={18} color={theme.text} />
-          </View>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
+const GENDER_OPTIONS = [
+  { label: "ذكر", value: "male" },
+  { label: "أنثى", value: "female" },
+];
 
 function Card({
   theme,
@@ -126,6 +66,27 @@ function Card({
   );
 }
 
+function SectionHeader({
+  title,
+  subtitle,
+  theme,
+}: {
+  title: string;
+  subtitle?: string;
+  theme: any;
+}) {
+  return (
+    <View>
+      <Text style={[styles.h2, { color: theme.text }]}>{title}</Text>
+      {subtitle ? (
+        <Text style={[styles.h2Sub, { color: theme.textMuted }]}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 function Field({
   label,
   value,
@@ -134,8 +95,9 @@ function Field({
   theme,
   icon,
   multiline,
+  keyboardType,
   rightHint,
-  editable = true,
+  maxLength,
 }: {
   label: string;
   value: string;
@@ -144,11 +106,12 @@ function Field({
   theme: any;
   icon?: keyof typeof Ionicons.glyphMap;
   multiline?: boolean;
+  keyboardType?: "default" | "numeric";
   rightHint?: string;
-  editable?: boolean;
+  maxLength?: number;
 }) {
   return (
-    <View style={{ marginTop: 12 }}>
+    <View style={{ marginTop: 14 }}>
       <View
         style={{
           flexDirection: "row",
@@ -172,7 +135,6 @@ function Field({
             backgroundColor: theme.surface2,
             borderColor: theme.border,
             alignItems: multiline ? "flex-start" : "center",
-            opacity: editable ? 1 : 0.7,
           },
         ]}
       >
@@ -191,12 +153,13 @@ function Field({
           placeholder={placeholder}
           placeholderTextColor={theme.textMuted}
           multiline={multiline}
-          editable={editable}
+          keyboardType={keyboardType || "default"}
+          maxLength={maxLength ?? (multiline ? 2000 : 120)}
           style={[
             styles.input,
             {
               color: theme.text,
-              minHeight: multiline ? 90 : 44,
+              minHeight: multiline ? 110 : 44,
               textAlignVertical: multiline ? "top" : "center",
               textAlign: "right",
               writingDirection: "rtl",
@@ -208,42 +171,57 @@ function Field({
   );
 }
 
-function Chip({
+function PickerField({
   label,
-  active,
+  value,
+  onValueChange,
+  items,
   theme,
-  onPress,
+  enabled = true,
+  placeholder,
 }: {
   label: string;
-  active?: boolean;
+  value: string;
+  onValueChange: (value: string) => void;
+  items: { label: string; value: string }[];
   theme: any;
-  onPress?: () => void;
+  enabled?: boolean;
+  placeholder: string;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
-    >
+    <View style={{ marginTop: 14 }}>
+      <Text style={[styles.label, { color: theme.textMuted, marginBottom: 8 }]}>
+        {label}
+      </Text>
+
       <View
         style={[
-          styles.chip,
+          styles.pickerWrap,
           {
-            backgroundColor: active ? rgba(theme.tint, 0.18) : theme.surface2,
-            borderColor: active ? rgba(theme.tint, 0.35) : theme.border,
+            backgroundColor: theme.surface2,
+            borderColor: theme.border,
+            opacity: enabled ? 1 : 0.6,
           },
         ]}
       >
-        <Text
-          style={[
-            styles.chipText,
-            { color: active ? theme.tint : theme.text },
-          ]}
-          numberOfLines={1}
+        <Picker
+          enabled={enabled}
+          selectedValue={value}
+          onValueChange={(itemValue) => onValueChange(String(itemValue))}
+          style={{ color: theme.text }}
+          dropdownIconColor={theme.text}
         >
-          {label}
-        </Text>
+          <Picker.Item label={placeholder} value="" />
+          {items.map((item) => (
+            <Picker.Item
+              key={`${item.value}-${item.label}`}
+              label={item.label}
+              value={item.value}
+            />
+          ))}
+        </Picker>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -279,14 +257,12 @@ function GhostButton({
   label,
   theme,
   icon,
-  danger,
   onPress,
   disabled,
 }: {
   label: string;
   theme: any;
   icon?: keyof typeof Ionicons.glyphMap;
-  danger?: boolean;
   onPress?: () => void;
   disabled?: boolean;
 }) {
@@ -303,21 +279,8 @@ function GhostButton({
           { backgroundColor: theme.surface2, borderColor: theme.border },
         ]}
       >
-        {icon ? (
-          <Ionicons
-            name={icon}
-            size={18}
-            color={danger ? "#EF4444" : theme.text}
-          />
-        ) : null}
-        <Text
-          style={[
-            styles.ghostText,
-            { color: danger ? "#EF4444" : theme.text },
-          ]}
-        >
-          {label}
-        </Text>
+        {icon ? <Ionicons name={icon} size={18} color={theme.text} /> : null}
+        <Text style={[styles.ghostText, { color: theme.text }]}>{label}</Text>
       </View>
     </Pressable>
   );
@@ -334,8 +297,7 @@ export default function ProfileSettingsScreen() {
   const errorMe = useSelector(selectUserErrorMe);
   const errorUpdate = useSelector(selectUserErrorUpdate);
 
-  const { colorScheme, themePreference, setThemePreference } = useColorScheme();
-
+  const { colorScheme } = useColorScheme();
   const themeBase = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
 
@@ -362,44 +324,12 @@ export default function ProfileSettingsScreen() {
     return { background, card, tint, text, border, textMuted, surface2 };
   }, [themeBase, isDark]);
 
-  const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
-  const [city, setCity] = useState("");
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("");
   const [country, setCountry] = useState("");
-
-  const [privacyProfileVisible, setPrivacyProfileVisible] = useState(true);
-  const [privacyShowLastActive, setPrivacyShowLastActive] = useState(true);
-  const [privacyShowMedia, setPrivacyShowMedia] = useState(true);
-  const [privacyAllowMessages, setPrivacyAllowMessages] = useState(true);
-
-  const [notifMessages, setNotifMessages] = useState(true);
-  const [notifLikes, setNotifLikes] = useState(true);
-  const [notifFollows, setNotifFollows] = useState(true);
-
-  const [partnerAgeRange, setPartnerAgeRange] = useState("");
-  const [partnerLocation, setPartnerLocation] = useState("");
-  const [partnerMarital, setPartnerMarital] = useState("");
-  const [partnerReligiosity, setPartnerReligiosity] = useState("");
-
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-
-  const allTags = [
-    t("profileSettings.tags.calm"),
-    t("profileSettings.tags.respect"),
-    t("profileSettings.tags.reading"),
-    t("profileSettings.tags.education"),
-    t("profileSettings.tags.lightSports"),
-    t("profileSettings.tags.familyLife"),
-    t("profileSettings.tags.travel"),
-    t("profileSettings.tags.volunteering"),
-  ];
-
-  const toggleTag = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((x) => x !== tag) : [...prev, tag]
-    );
-  };
+  const [countryCode, setCountryCode] = useState("");
+  const [city, setCity] = useState("");
 
   useEffect(() => {
     dispatch(fetchMyFullUser());
@@ -408,60 +338,64 @@ export default function ProfileSettingsScreen() {
   useEffect(() => {
     if (!me) return;
 
-    setDisplayName(me.displayName || "");
-    setUsername(me.atUsername || "");
+    const savedCountryName = me.country || "";
+    const matchedCountry = Country.getAllCountries().find(
+      (item) =>
+        item.name === savedCountryName ||
+        item.isoCode === savedCountryName
+    );
+
     setBio(me.bio || "");
+    setCountry(matchedCountry?.name || savedCountryName || "");
+    setCountryCode(matchedCountry?.isoCode || "");
     setCity(me.city || "");
-    setCountry(me.country || "");
-
-    setPrivacyProfileVisible(me.privacy?.profileVisible ?? true);
-    setPrivacyShowLastActive(me.privacy?.showLastActive ?? true);
-    setPrivacyShowMedia(me.privacy?.showMedia ?? true);
-    setPrivacyAllowMessages(me.privacy?.allowMessages ?? true);
-
-    setNotifMessages(me.notifications?.messages ?? true);
-    setNotifLikes(me.notifications?.likes ?? true);
-    setNotifFollows(me.notifications?.follows ?? true);
-
-    setPartnerAgeRange(me.partnerPreferences?.ageRange || "");
-    setPartnerLocation(me.partnerPreferences?.location || "");
-    setPartnerMarital(me.partnerPreferences?.maritalStatus || "");
-    setPartnerReligiosity(me.partnerPreferences?.religiosity || "");
-
-    setSelectedTags(Array.isArray(me.tags) ? me.tags : []);
+    setAge(me.age ? String(me.age) : "");
+    setGender((me as any)?.gender || "");
   }, [me]);
 
+const cityOptions = useMemo(() => {
+  if (!countryCode) return [];
+
+  const cities = City.getCitiesOfCountry(countryCode) || [];
+
+  return cities.map((item) => ({
+    label: item.name,
+    value: item.name,
+  }));
+}, [countryCode]);
+  const onChangeCountry = (value: string) => {
+    setCountryCode(value);
+    setCity("");
+
+    const selectedCountry = Country.getAllCountries().find(
+      (item) => item.isoCode === value
+    );
+
+    setCountry(selectedCountry?.name || "");
+  };
+
   const onSave = async () => {
-    const payload = {
-      displayName,
+    const normalizedAge = Number(age);
+
+    const payload: {
+      bio?: string;
+      country?: string;
+      city?: string;
+      age?: number;
+      gender?: string;
+    } = {
       bio,
-      city,
       country,
-      tags: selectedTags,
-
-      privacy: {
-        profileVisible: privacyProfileVisible,
-        showLastActive: privacyShowLastActive,
-        showMedia: privacyShowMedia,
-        allowMessages: privacyAllowMessages,
-      },
-
-      notifications: {
-        messages: notifMessages,
-        likes: notifLikes,
-        follows: notifFollows,
-      },
-
-      partnerPreferences: {
-        ageRange: partnerAgeRange,
-        location: partnerLocation,
-        maritalStatus: partnerMarital,
-        religiosity: partnerReligiosity,
-      },
+      city,
+      gender: gender || undefined,
+      age:
+        Number.isFinite(normalizedAge) && normalizedAge > 0
+          ? normalizedAge
+          : undefined,
     };
 
     try {
-      await dispatch(updateMyProfileSettings(payload)).unwrap();
+      await dispatch(updateMyProfileSettings(payload as any)).unwrap();
       router.back();
     } catch {}
   };
@@ -502,9 +436,7 @@ export default function ProfileSettingsScreen() {
             style={[styles.topSub, { color: theme.textMuted }]}
             numberOfLines={1}
           >
-            {loadingMe
-              ? t("profileSettings.loading")
-              : t("profileSettings.headerSub")}
+            {loadingMe ? t("profileSettings.loading") : "تعديل البيانات الأساسية"}
           </Text>
         </View>
 
@@ -521,9 +453,7 @@ export default function ProfileSettingsScreen() {
               color="#fff"
             />
             <Text style={styles.topSaveText}>
-              {updating
-                ? t("profileSettings.actions.saving")
-                : t("profileSettings.actions.save")}
+              {updating ? "جارٍ الحفظ" : "حفظ"}
             </Text>
           </View>
         </Pressable>
@@ -569,449 +499,72 @@ export default function ProfileSettingsScreen() {
 
         <Card theme={theme}>
           <SectionHeader
-            title={t("profileSettings.quickSummary.title")}
-            subtitle={t("profileSettings.quickSummary.subtitle")}
+            title="البيانات الأساسية"
+            subtitle="يمكنك تعديل النوع، العمر، الدولة، المدينة، والبايو فقط"
             theme={theme}
-            icon="refresh-outline"
-            onPress={() => dispatch(fetchMyFullUser())}
           />
 
-          <View
-            style={[
-              styles.preview,
-              { backgroundColor: theme.surface2, borderColor: theme.border },
-            ]}
-          >
-            <View style={styles.previewLeft}>
-              <View
-                style={[
-                  styles.avatarWrap,
-                  { borderColor: theme.border, backgroundColor: theme.card },
-                ]}
-              >
-                <Image
-                  source={{
-                    uri:
-                      me?.avatar ||
-                      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=256&q=80",
-                  }}
-                  style={styles.avatar}
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[styles.previewName, { color: theme.text }]}
-                  numberOfLines={1}
-                >
-                  {displayName || "—"}
-                </Text>
-                <Text
-                  style={[styles.previewUser, { color: theme.textMuted }]}
-                  numberOfLines={1}
-                >
-                  {username || "—"} • {city || "—"}، {country || "—"}
-                </Text>
-              </View>
-            </View>
-
-            <View
-              style={[
-                styles.previewPill,
-                { borderColor: theme.border, backgroundColor: theme.card },
-              ]}
-            >
-              <Ionicons
-                name="moon-outline"
-                size={16}
-                color={theme.textMuted}
-              />
-              <Text
-                style={[styles.previewPillText, { color: theme.textMuted }]}
-              >
-                {isDark
-                  ? t("profileSettings.theme.dark")
-                  : t("profileSettings.theme.light")}
-              </Text>
-            </View>
-          </View>
-
-          <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-            <PrimaryButton
-              label={t("profileSettings.actions.save")}
-              icon="checkmark-outline"
-              theme={theme}
-              onPress={onSave}
-              disabled={updating}
-            />
-            <GhostButton
-              label={t("profileSettings.actions.back")}
-              icon="arrow-back-outline"
-              theme={theme}
-              onPress={() => router.back()}
-              disabled={updating}
-            />
-          </View>
-        </Card>
-
-        <Card theme={theme}>
-          <SectionHeader
-            title={t("profileSettings.basic.title")}
-            subtitle={t("profileSettings.basic.subtitle")}
+          <PickerField
+            label="النوع"
+            value={gender}
+            onValueChange={setGender}
+            items={GENDER_OPTIONS}
             theme={theme}
+            placeholder="اختر النوع"
           />
 
           <Field
-            label={t("profileSettings.basic.fields.displayName")}
-            value={displayName}
-            onChangeText={setDisplayName}
-            placeholder={t("profileSettings.basic.placeholders.displayName")}
+            label="العمر"
+            value={age}
+            onChangeText={(text) => setAge(text.replace(/[^0-9]/g, ""))}
+            placeholder="أدخل العمر"
             theme={theme}
-            icon="person-outline"
+            icon="calendar-outline"
+            keyboardType="numeric"
+            maxLength={3}
+          />
+
+          <PickerField
+            label="الدولة"
+            value={countryCode}
+            onValueChange={onChangeCountry}
+            items={COUNTRY_OPTIONS}
+            theme={theme}
+            placeholder="اختر الدولة"
+          />
+
+          <PickerField
+            label="المدينة"
+            value={city}
+            onValueChange={setCity}
+            items={cityOptions}
+            theme={theme}
+            enabled={!!countryCode}
+            placeholder={countryCode ? "اختر المدينة" : "اختر الدولة أولاً"}
           />
 
           <Field
-            label={t("profileSettings.basic.fields.username")}
-            value={username}
-            onChangeText={() => {}}
-            placeholder={t("profileSettings.basic.placeholders.username")}
-            theme={theme}
-            icon="at-outline"
-            rightHint={t("profileSettings.basic.readOnly")}
-            editable={false}
-          />
-
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Field
-                label={t("profileSettings.basic.fields.city")}
-                value={city}
-                onChangeText={setCity}
-                placeholder={t("profileSettings.basic.placeholders.city")}
-                theme={theme}
-                icon="location-outline"
-              />
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Field
-                label={t("profileSettings.basic.fields.country")}
-                value={country}
-                onChangeText={setCountry}
-                placeholder={t("profileSettings.basic.placeholders.country")}
-                theme={theme}
-                icon="flag-outline"
-              />
-            </View>
-          </View>
-
-          <Field
-            label={t("profileSettings.basic.fields.bio")}
+            label="البايو"
             value={bio}
             onChangeText={setBio}
-            placeholder={t("profileSettings.basic.placeholders.bio")}
+            placeholder="اكتب نبذة مختصرة عنك"
             theme={theme}
             icon="create-outline"
             multiline
             rightHint={`${bio.length}/2000`}
-          />
-        </Card>
-
-        <Card theme={theme}>
-          <SectionHeader
-            title={t("profileSettings.media.title")}
-            subtitle={t("profileSettings.media.subtitle")}
-            theme={theme}
+            maxLength={2000}
           />
 
-          <View
-            style={[
-              styles.switchRow,
-              {
-                borderColor: theme.border,
-                backgroundColor: theme.surface2,
-                marginTop: 12,
-              },
-            ]}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.switchTitle, { color: theme.text }]}>
-                {t("profileSettings.media.allowMedia.title")}
-              </Text>
-              <Text style={[styles.switchSub, { color: theme.textMuted }]}>
-                {t("profileSettings.media.allowMedia.subtitle")}
-              </Text>
-            </View>
-
-            <Switch
-              value={privacyShowMedia}
-              onValueChange={setPrivacyShowMedia}
-              trackColor={{
-                false: rgba(theme.textMuted, 0.25),
-                true: rgba(theme.tint, 0.35),
-              }}
-              thumbColor={privacyShowMedia ? theme.tint : theme.textMuted}
-            />
-          </View>
-        </Card>
-
-        <Card theme={theme}>
-          <SectionHeader
-            title={t("profileSettings.partner.title")}
-            subtitle={t("profileSettings.partner.subtitle")}
-            theme={theme}
-          />
-
-          <Field
-            label={t("profileSettings.partner.fields.ageRange")}
-            value={partnerAgeRange}
-            onChangeText={setPartnerAgeRange}
-            placeholder={t("profileSettings.partner.placeholders.ageRange")}
-            theme={theme}
-            icon="time-outline"
-          />
-
-          <Field
-            label={t("profileSettings.partner.fields.location")}
-            value={partnerLocation}
-            onChangeText={setPartnerLocation}
-            placeholder={t("profileSettings.partner.placeholders.location")}
-            theme={theme}
-            icon="map-outline"
-          />
-
-          <Field
-            label={t("profileSettings.partner.fields.maritalStatus")}
-            value={partnerMarital}
-            onChangeText={setPartnerMarital}
-            placeholder={t("profileSettings.partner.placeholders.maritalStatus")}
-            theme={theme}
-            icon="people-outline"
-          />
-
-          <Field
-            label={t("profileSettings.partner.fields.religiosity")}
-            value={partnerReligiosity}
-            onChangeText={setPartnerReligiosity}
-            placeholder={t("profileSettings.partner.placeholders.religiosity")}
-            theme={theme}
-            icon="shield-outline"
-          />
-        </Card>
-
-        <Card theme={theme}>
-          <SectionHeader
-            title={t("profileSettings.interests.title")}
-            subtitle={t("profileSettings.interests.subtitle")}
-            theme={theme}
-          />
-
-          <View
-            style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 }}
-          >
-            {allTags.map((tag) => (
-              <Chip
-                key={tag}
-                label={tag}
-                active={selectedTags.includes(tag)}
-                theme={theme}
-                onPress={() => toggleTag(tag)}
-              />
-            ))}
-          </View>
-        </Card>
-
-        <Card theme={theme}>
-          <SectionHeader
-            title={t("profileSettings.privacy.title")}
-            subtitle={t("profileSettings.privacy.subtitle")}
-            theme={theme}
-          />
-
-          <View style={{ gap: 10, marginTop: 12 }}>
-            <View
-              style={[
-                styles.switchRow,
-                { borderColor: theme.border, backgroundColor: theme.surface2 },
-              ]}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.switchTitle, { color: theme.text }]}>
-                  {t("profileSettings.privacy.profileVisible.title")}
-                </Text>
-                <Text style={[styles.switchSub, { color: theme.textMuted }]}>
-                  {t("profileSettings.privacy.profileVisible.subtitle")}
-                </Text>
-              </View>
-
-              <Switch
-                value={privacyProfileVisible}
-                onValueChange={setPrivacyProfileVisible}
-                trackColor={{
-                  false: rgba(theme.textMuted, 0.25),
-                  true: rgba(theme.tint, 0.35),
-                }}
-                thumbColor={privacyProfileVisible ? theme.tint : theme.textMuted}
-              />
-            </View>
-
-            <View
-              style={[
-                styles.switchRow,
-                { borderColor: theme.border, backgroundColor: theme.surface2 },
-              ]}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.switchTitle, { color: theme.text }]}>
-                  {t("profileSettings.privacy.lastActive.title")}
-                </Text>
-                <Text style={[styles.switchSub, { color: theme.textMuted }]}>
-                  {t("profileSettings.privacy.lastActive.subtitle")}
-                </Text>
-              </View>
-
-              <Switch
-                value={privacyShowLastActive}
-                onValueChange={setPrivacyShowLastActive}
-                trackColor={{
-                  false: rgba(theme.textMuted, 0.25),
-                  true: rgba(theme.tint, 0.35),
-                }}
-                thumbColor={privacyShowLastActive ? theme.tint : theme.textMuted}
-              />
-            </View>
-
-            <View
-              style={[
-                styles.switchRow,
-                { borderColor: theme.border, backgroundColor: theme.surface2 },
-              ]}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.switchTitle, { color: theme.text }]}>
-                  {t("profileSettings.privacy.allowMessages.title")}
-                </Text>
-                <Text style={[styles.switchSub, { color: theme.textMuted }]}>
-                  {t("profileSettings.privacy.allowMessages.subtitle")}
-                </Text>
-              </View>
-
-              <Switch
-                value={privacyAllowMessages}
-                onValueChange={setPrivacyAllowMessages}
-                trackColor={{
-                  false: rgba(theme.textMuted, 0.25),
-                  true: rgba(theme.tint, 0.35),
-                }}
-                thumbColor={privacyAllowMessages ? theme.tint : theme.textMuted}
-              />
-            </View>
-          </View>
-        </Card>
-
-        <Card theme={theme}>
-          <SectionHeader
-            title={t("profileSettings.notifications.title")}
-            subtitle={t("profileSettings.notifications.subtitle")}
-            theme={theme}
-          />
-
-          <View style={{ gap: 10, marginTop: 12 }}>
-            <View
-              style={[
-                styles.switchRow,
-                { borderColor: theme.border, backgroundColor: theme.surface2 },
-              ]}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.switchTitle, { color: theme.text }]}>
-                  {t("profileSettings.notifications.messages.title")}
-                </Text>
-                <Text style={[styles.switchSub, { color: theme.textMuted }]}>
-                  {t("profileSettings.notifications.messages.subtitle")}
-                </Text>
-              </View>
-
-              <Switch
-                value={notifMessages}
-                onValueChange={setNotifMessages}
-                trackColor={{
-                  false: rgba(theme.textMuted, 0.25),
-                  true: rgba(theme.tint, 0.35),
-                }}
-                thumbColor={notifMessages ? theme.tint : theme.textMuted}
-              />
-            </View>
-
-            <View
-              style={[
-                styles.switchRow,
-                { borderColor: theme.border, backgroundColor: theme.surface2 },
-              ]}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.switchTitle, { color: theme.text }]}>
-                  {t("profileSettings.notifications.likes.title")}
-                </Text>
-                <Text style={[styles.switchSub, { color: theme.textMuted }]}>
-                  {t("profileSettings.notifications.likes.subtitle")}
-                </Text>
-              </View>
-
-              <Switch
-                value={notifLikes}
-                onValueChange={setNotifLikes}
-                trackColor={{
-                  false: rgba(theme.textMuted, 0.25),
-                  true: rgba(theme.tint, 0.35),
-                }}
-                thumbColor={notifLikes ? theme.tint : theme.textMuted}
-              />
-            </View>
-
-            <View
-              style={[
-                styles.switchRow,
-                { borderColor: theme.border, backgroundColor: theme.surface2 },
-              ]}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.switchTitle, { color: theme.text }]}>
-                  {t("profileSettings.notifications.follows.title")}
-                </Text>
-                <Text style={[styles.switchSub, { color: theme.textMuted }]}>
-                  {t("profileSettings.notifications.follows.subtitle")}
-                </Text>
-              </View>
-
-              <Switch
-                value={notifFollows}
-                onValueChange={setNotifFollows}
-                trackColor={{
-                  false: rgba(theme.textMuted, 0.25),
-                  true: rgba(theme.tint, 0.35),
-                }}
-                thumbColor={notifFollows ? theme.tint : theme.textMuted}
-              />
-            </View>
-          </View>
-
-          <Divider theme={theme} />
-
-          <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 18 }}>
             <PrimaryButton
-              label={
-                updating
-                  ? t("profileSettings.actions.saving")
-                  : t("profileSettings.actions.save")
-              }
+              label={updating ? "جارٍ الحفظ" : "حفظ"}
               icon="checkmark-outline"
               theme={theme}
               onPress={onSave}
               disabled={updating}
             />
             <GhostButton
-              label={t("profileSettings.actions.back")}
+              label="رجوع"
               icon="arrow-back-outline"
               theme={theme}
               onPress={() => router.back()}
@@ -1072,57 +625,6 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
 
-  iconPill: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  preview: {
-    marginTop: 12,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  previewLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    flex: 1,
-  },
-  avatarWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 3,
-  },
-  avatar: { width: "100%", height: "100%", borderRadius: 14 },
-  previewName: { fontSize: 14.5, fontWeight: "900", textAlign: "right" },
-  previewUser: {
-    marginTop: 4,
-    fontSize: 12.5,
-    fontWeight: "700",
-    textAlign: "right",
-  },
-  previewPill: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  previewPillText: { fontSize: 12.5, fontWeight: "800" },
-
   label: { fontSize: 12.5, fontWeight: "800", textAlign: "right" },
   hint: { fontSize: 12, fontWeight: "800", textAlign: "right" },
 
@@ -1136,31 +638,13 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontSize: 13.5, fontWeight: "800" },
 
-  switchRow: {
+  pickerWrap: {
     borderWidth: 1,
     borderRadius: 16,
-    padding: 12,
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "center",
+    overflow: "hidden",
+    minHeight: 54,
+    justifyContent: "center",
   },
-  switchTitle: { fontSize: 13.5, fontWeight: "900", textAlign: "right" },
-  switchSub: {
-    marginTop: 4,
-    fontSize: 12.5,
-    fontWeight: "700",
-    lineHeight: 17,
-    textAlign: "right",
-  },
-
-  chip: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    maxWidth: W - 24,
-  },
-  chipText: { fontSize: 12.5, fontWeight: "900" },
 
   primaryBtn: {
     height: 44,

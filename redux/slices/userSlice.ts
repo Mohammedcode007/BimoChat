@@ -20,9 +20,10 @@ export type UpdateProfilePayload = {
   city?: string;
   dateOfBirth?: string | Date;
   email?: string;
-
+gender?: string;
   avatar?: string;
   coverImage?: string;
+  age?: number;
 
   tags?: string[];
 
@@ -66,6 +67,7 @@ export type UserFull = {
   isOnline: boolean;
   isInvisible?: boolean;
   lastSeen?: string;
+  age?: number;
 
   blockedUsers: string[];
 

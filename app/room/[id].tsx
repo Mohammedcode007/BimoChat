@@ -1180,8 +1180,12 @@ function MessageItem({
           delayLongPress={350}
         >
           <Image
-            source={resolveAvatarSource(item.sender)}
-            style={[bubble.avatar]}
+  source={
+    resolveAvatarSource(item.sender) || {
+      uri: "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg",
+    }
+  }
+              style={[bubble.avatar]}
             contentFit="cover"
             cachePolicy="memory-disk"
             transition={0}
@@ -1328,7 +1332,6 @@ function MessageItem({
 
             {item.type === "audio" && item.uri ? (
               <>
-                {console.log("AUDIO URL:", item.uri)}
                 <VoiceMessagePlayer uri={item.uri} isMe={isMe} />
               </>
             ) : null}
@@ -1343,19 +1346,23 @@ function MessageItem({
       </TouchableOpacity>
 
       {isMe && (
-<Pressable
-  style={bubble.avatarWrapRight}
-  onPress={() => onAvatarPress(item.sender)}
-  onLongPress={() => onAvatarLongPress(item.sender)}
-  delayLongPress={350}
->
-          <Image
-            source={resolveAvatarSource(item.sender)}
-            style={bubble.avatar}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            transition={0}
-          />
+        <Pressable
+          style={bubble.avatarWrapRight}
+          onPress={() => onAvatarPress(item.sender)}
+          onLongPress={() => onAvatarLongPress(item.sender)}
+          delayLongPress={350}
+        >
+      <Image
+  source={
+    resolveAvatarSource(item.sender) || {
+      uri: "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg",
+    }
+  }
+  style={bubble.avatar}
+  contentFit="cover"
+  cachePolicy="memory-disk"
+  transition={0}
+/>
           {shouldShowStar(senderRole) && <Text style={[bubble.avatarStarRight, { color: starColor }]}>★</Text>}
         </Pressable>
       )}
@@ -1416,7 +1423,10 @@ export default function ChatScreen() {
   const authUser = useAppSelector((state) => state.auth.user);
   const myUserId = String((authUser as any)?._id || (authUser as any)?.id || "");
   const myName = String((authUser as any)?.username || (authUser as any)?.name || "Me");
-  const myAvatar = String((authUser as any)?.avatar || "https://i.pravatar.cc/150?img=32");
+const myAvatar = String(
+  (authUser as any)?.avatar ||
+  "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg"
+);
   const myStore = useAppSelector(selectMyStore);
   const myInventory = Array.isArray(myStore?.inventory)
     ? myStore.inventory
@@ -1496,15 +1506,15 @@ export default function ChatScreen() {
     fromName: undefined,
     toName: undefined
   });
-const onAvatarPress = (u?: UserUI) => {
-  const userId = String(u?.id || "").trim();
-  if (!userId) return;
+  const onAvatarPress = (u?: UserUI) => {
+    const userId = String(u?.id || "").trim();
+    if (!userId) return;
 
-  router.push({
-    pathname: "/profile/[id]",
-    params: { id: userId },
-  });
-};
+    router.push({
+      pathname: "/profile/[id]",
+      params: { id: userId },
+    });
+  };
   const handleInviteSearch = async () => {
     const q = String(inviteUsername || "").trim();
     if (!q) {
@@ -2220,7 +2230,6 @@ const onAvatarPress = (u?: UserUI) => {
                   ? "file"
                   : "text";
         if (uiType === "audio") {
-          console.log("SERVER AUDIO URL:", m?.media?.url);
         }
         return {
           id: rid,
@@ -3136,7 +3145,7 @@ const onAvatarPress = (u?: UserUI) => {
                 if (!u?.id) return;
                 setGiftPicker({ visible: true, target: u });
               }}
-                onAvatarPress={onAvatarPress}
+              onAvatarPress={onAvatarPress}
 
               onPressImage={(payload) => setPreviewImage(payload)}
               onTogglePlay={togglePlay}

@@ -13,6 +13,8 @@ interface UpdateProfilePayload {
   avatar?: string;
   coverImage?: string;
   bio?: string;
+  gender?: string;
+
   country?: string;
   notificationSound?: boolean;
   readReceiptsEnabled?: boolean;

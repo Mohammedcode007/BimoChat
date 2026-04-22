@@ -199,7 +199,13 @@ export type RoomMessageType =
   | "gift"
   | "song"
   | "game";
-
+export type RoomGameType =
+  | ""
+  | "cricket"
+  | "chess"
+  | "quiz"
+  | "xo"
+  | "cards";
 export type RoomMessageSender = RoomUser | string | null;
 
 export type RoomMessage = {
@@ -208,7 +214,27 @@ export type RoomMessage = {
   gift?: GiftPayload;
   clientId?: string;
   invitation?: InvitationPayload;
+song?: {
+  title?: string;
+  audioUrl?: string;
+  youtubeUrl?: string;
+  thumbnail?: string;
+  channelTitle?: string;
+  provider?: string;
+  filename?: string;
+  expiresInMs?: number;
+};
 
+gameType?: RoomGameType;
+
+game?: {
+  gameId?: string;
+  title?: string;
+  state?: string;
+  turnUserId?: string;
+  winnerUserId?: string;
+  payload?: any;
+};
   optimistic?: boolean; // اختياري
   failed?: boolean;     // اختياري
   sender?: RoomMessageSender;
@@ -823,6 +849,10 @@ export const sendRoomMessage = createAsyncThunk<
     mentions?: string[];
     media?: RoomMessage["media"];
     gift?: RoomMessage["gift"];
+
+    song?: RoomMessage["song"];
+    gameType?: RoomMessage["gameType"];
+    game?: RoomMessage["game"];
   },
   { state: RootState }
 >("room/sendRoomMessage", async (payload, thunkAPI) => {

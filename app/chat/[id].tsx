@@ -291,6 +291,7 @@ export default function ChatScreen() {
     messagesRef.current = Array.isArray(messages) ? messages : [];
   }, [messages]);
 
+
 useEffect(() => {
   if (!chatId) return;
   if (!currentUser?._id) return;
@@ -1683,6 +1684,8 @@ useEffect(() => {
       {recordedUri && (
         <VoiceRecorderPreview
           uri={recordedUri}
+              topOffset={insets.top + 56} // عدل الرقم حسب ارتفاع الهيدر عندك
+
           onCancel={() => setRecordedUri(null)}
           onSend={async () => {
             if (isBlocked) return;
@@ -2230,7 +2233,7 @@ const styles = StyleSheet.create({
   },
 
   me: {
-    backgroundColor: "#80c080",
+    backgroundColor: "#5fc4e8",
     borderBottomRightRadius: 4,
   },
   inviteCard: {

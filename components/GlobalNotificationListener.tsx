@@ -99,7 +99,7 @@ export default function GlobalNotificationListener() {
       });
 
       const { sound } = await Audio.Sound.createAsync(
-        require("@/assets/sounds/notification.mp3"),
+        require("@/assets/sounds/notification.wav"),
         { shouldPlay: true }
       );
 

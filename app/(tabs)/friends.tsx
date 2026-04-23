@@ -49,7 +49,7 @@ export default function FriendsScreen() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const me = useSelector((st: RootState) => st.auth?.user);
-const chats = useSelector((state: RootState) => state.chat?.chats || []);
+  const chats = useSelector((state: RootState) => state.chat?.chats || []);
   const { friends, loading } = useSelector((state: RootState) => state.friends);
   const storiesFeed = useSelector((st: RootState) => st.stories?.feed || []);
   const myStories = useSelector((st: RootState) => st.stories?.myStories || null);
@@ -239,46 +239,46 @@ const chats = useSelector((state: RootState) => state.chat?.chats || []);
   };
 
   const findExistingChatId = useCallback(
-  (targetUserId: string) => {
-    const foundChat = chats.find((chat: any) => {
-      const participants = Array.isArray(chat?.participants)
-        ? chat.participants
-        : [];
+    (targetUserId: string) => {
+      const foundChat = chats.find((chat: any) => {
+        const participants = Array.isArray(chat?.participants)
+          ? chat.participants
+          : [];
 
-      return participants.some((p: any) => {
-        const participantId = typeof p === "string" ? p : p?._id;
-        return String(participantId) === String(targetUserId);
+        return participants.some((p: any) => {
+          const participantId = typeof p === "string" ? p : p?._id;
+          return String(participantId) === String(targetUserId);
+        });
       });
-    });
 
-    return foundChat?._id || null;
-  },
-  [chats]
-);
+      return foundChat?._id || null;
+    },
+    [chats]
+  );
 
-const openChat = async (targetUserId: string) => {
-  if (creatingChatId) return;
+  const openChat = async (targetUserId: string) => {
+    if (creatingChatId) return;
 
-  const existingChatId = findExistingChatId(targetUserId);
+    const existingChatId = findExistingChatId(targetUserId);
 
-  if (existingChatId) {
-    dispatch(setActiveChat(existingChatId));
-    router.push(`/chat/${existingChatId}`);
-    return;
-  }
+    if (existingChatId) {
+      dispatch(setActiveChat(existingChatId));
+      router.push(`/chat/${existingChatId}`);
+      return;
+    }
 
-  try {
-    setCreatingChatId(targetUserId);
+    try {
+      setCreatingChatId(targetUserId);
 
-    const chat = await dispatch(createChat(targetUserId)).unwrap();
-    dispatch(setActiveChat(chat._id));
-    router.push(`/chat/${chat._id}`);
-  } catch (e) {
-  } finally {
-    setCreatingChatId(null);
-  }
-};
- 
+      const chat = await dispatch(createChat(targetUserId)).unwrap();
+      dispatch(setActiveChat(chat._id));
+      router.push(`/chat/${chat._id}`);
+    } catch (e) {
+    } finally {
+      setCreatingChatId(null);
+    }
+  };
+
   const isSeen = useCallback(
     (storyId?: string) => {
       if (!storyId) return false;
@@ -681,59 +681,65 @@ const openChat = async (targetUserId: string) => {
           const cleanBio = item.bio ? String(item.bio).replace(/<[^>]+>/g, "") : "";
 
           return (
-            <Swipeable
-              overshootRight={false}
-              renderRightActions={() => renderRightActions(item)}
-            >
-              <TouchableOpacity
-                activeOpacity={0.92}
-                onPress={() => openChat(item._id)}
-                style={s.rowPress}
+            <View>
+              <Swipeable
+                overshootRight={false}
+                renderRightActions={() => renderRightActions(item)}
               >
-                <View style={s.row}>
-                  <View style={s.avatarWrap}>
-                    <Image
-                      source={{
-                        uri: item.avatar || `https://i.pravatar.cc/150?u=${item._id}`,
-                      }}
-                      style={s.avatar}
-                    />
-                    <View
-                      style={[
-                        s.statusDot,
-                        item.isOnline ? s.onlineDot : s.offlineDot,
-                      ]}
-                    />
-                  </View>
+                <TouchableOpacity
+                  activeOpacity={0.92}
+                  onPress={() => openChat(item._id)}
+                  style={s.rowPress}
+                >
+                  <View style={s.row}>
+                    <View style={s.avatarWrap}>
+                      <Image
+                        source={{
+                          uri:
+                            item.avatar ||
+                            "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg",
+                        }}
+                        style={s.avatar}
+                      />
+                      <View
+                        style={[
+                          s.statusDot,
+                          item.isOnline ? s.onlineDot : s.offlineDot,
+                        ]}
+                      />
+                    </View>
 
-                  <View style={s.info}>
-                    <View style={s.nameLine}>
-                      <Text style={s.name} numberOfLines={1} ellipsizeMode="tail">
-                        {item.username}
+                    <View style={s.info}>
+                      <View style={s.nameLine}>
+                        <Text style={s.name} numberOfLines={1} ellipsizeMode="tail">
+                          {item.username}
+                        </Text>
+                      </View>
+
+                      <Text style={s.bio} numberOfLines={1}>
+                        {cleanBio || copy.noBio}
                       </Text>
                     </View>
 
-                    <Text style={s.bio} numberOfLines={1}>
-                      {cleanBio || copy.noBio}
-                    </Text>
-                  </View>
+                    <View style={s.right}>
+                      <Text style={s.time} numberOfLines={1}>
+                        {item.isOnline ? copy.now : formatLastSeenListFriend(item.lastSeen)}
+                      </Text>
 
-                  <View style={s.right}>
-                    <Text style={s.time} numberOfLines={1}>
-                      {item.isOnline ? copy.now : formatLastSeenListFriend(item.lastSeen)}
-                    </Text>
-
-                    {creatingChatId === item._id && (
-                      <ActivityIndicator
-                        size="small"
-                        color={theme.primary}
-                        style={{ marginTop: 6 }}
-                      />
-                    )}
+                      {creatingChatId === item._id && (
+                        <ActivityIndicator
+                          size="small"
+                          color={theme.primary}
+                          style={{ marginTop: 6 }}
+                        />
+                      )}
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            </Swipeable>
+                </TouchableOpacity>
+              </Swipeable>
+
+              <View style={s.separator} />
+            </View>
           );
         }}
       />
@@ -952,7 +958,11 @@ function makeStyles(theme: any, isDark: boolean, isRTL: boolean) {
       justifyContent: "center",
       backgroundColor: theme.border,
     },
-
+    separator: {
+      height: 1,
+      backgroundColor: "#E5E7EB",
+      marginHorizontal: 20,
+    },
     storyInnerFrame: {
       width: "100%",
       height: "100%",
@@ -1048,8 +1058,8 @@ function makeStyles(theme: any, isDark: boolean, isRTL: boolean) {
       paddingVertical: 10,
       paddingHorizontal: 10,
       backgroundColor: theme.surface,
-      borderWidth: 1,
-      borderColor: theme.border,
+      // borderWidth: 1,
+      // borderColor: theme.border,
       borderRadius: 16,
     },
 
@@ -1058,9 +1068,9 @@ function makeStyles(theme: any, isDark: boolean, isRTL: boolean) {
     },
 
     avatarWrap: {
-      width: 46,
-      height: 46,
-      borderRadius: 16,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       marginRight: isRTL ? 0 : 10,
       marginLeft: isRTL ? 10 : 0,
       position: "relative",
@@ -1074,7 +1084,7 @@ function makeStyles(theme: any, isDark: boolean, isRTL: boolean) {
     avatar: {
       width: 44,
       height: 44,
-      borderRadius: 15,
+      borderRadius: 22,
       backgroundColor: theme.surface2,
     },
 
@@ -1207,15 +1217,15 @@ function makeStyles(theme: any, isDark: boolean, isRTL: boolean) {
       zIndex: 20,
     },
 
-  fabArea: {
-  position: "absolute",
-  bottom: 40, // ✅ بدل 24
-  right: isRTL ? undefined : 18,
-  left: isRTL ? 18 : undefined,
-  
-  zIndex: 40,
-  alignItems: isRTL ? "flex-start" : "flex-end",
-},
+    fabArea: {
+      position: "absolute",
+      bottom: 40, // ✅ بدل 24
+      right: isRTL ? undefined : 18,
+      left: isRTL ? 18 : undefined,
+
+      zIndex: 40,
+      alignItems: isRTL ? "flex-start" : "flex-end",
+    },
 
     menuItemWrap: {
       marginBottom: 10,

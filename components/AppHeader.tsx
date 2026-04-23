@@ -18,7 +18,6 @@ import {
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
-import ConnectedDotsBackground from "./ConnectedDotsBackground";
 
 export default function AppHeader() {
   const pathname = usePathname();
@@ -34,7 +33,7 @@ export default function AppHeader() {
   const unreadCount = useSelector(
     (state: RootState) => state.notification.unreadCount
   );
- 
+
   const authUser = useSelector((state: RootState) => state.auth.user);
   const me = useSelector((state: RootState) => state.user.me);
 
@@ -72,41 +71,32 @@ export default function AppHeader() {
     });
   }, [showThemeMenu, dropdownProgress]);
 
-const dropdownAnimatedStyle = useAnimatedStyle(() => {
-  return {
-    opacity: dropdownProgress.value,
-    transform: [
-      {
-        translateY: interpolate(dropdownProgress.value, [0, 1], [-8, 0]),
-      },
-      {
-        scale: interpolate(dropdownProgress.value, [0, 1], [0.96, 1]),
-      },
-    ],
-    pointerEvents: dropdownProgress.value === 0 ? "none" : "auto",
-  } as any;
-});
+  const dropdownAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: dropdownProgress.value,
+      transform: [
+        {
+          translateY: interpolate(dropdownProgress.value, [0, 1], [-8, 0]),
+        },
+        {
+          scale: interpolate(dropdownProgress.value, [0, 1], [0.96, 1]),
+        },
+      ],
+      pointerEvents: dropdownProgress.value === 0 ? "none" : "auto",
+    } as any;
+  });
 
-if (pathname.includes("chat/room")) return null;
+  if (pathname.includes("chat/room")) return null;
 
-const toggleThemeMenu = () => {
-  setShowThemeMenu((prev) => !prev);
-};
+  const toggleThemeMenu = () => {
+    setShowThemeMenu((prev) => !prev);
+  };
   const closeThemeMenu = () => {
     setShowThemeMenu(false);
   };
   return (
     <View style={[s.wrap, { paddingTop: insets.top }]}>
-      <ConnectedDotsBackground
-        backgroundColor={
-          isDark ? "rgba(20,20,24,0.92)" : "rgba(255,255,255,0.92)"
-        }
-        dotColor={isDark ? "#FFD700" : "#D4AF37"}
-        lineColor={isDark ? "#FACC15" : "#E6B800"}
-        height={62 + insets.top}
-        style={s.headerBg}
-      />
-
+  
       <View style={s.container}>
 
 
@@ -312,22 +302,22 @@ function makeStyles(theme: any, isDark: boolean) {
       alignItems: "center",
       overflow: "visible",
     },
-menuBtn: {
-  width: 36,
-  height: 36,
-  borderRadius: 12,
-  alignItems: "center",
-  justifyContent: "center",
-  position: "relative",
-  overflow: "visible",
-},
-rightActions: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 4,
-  zIndex: 999999,
-  elevation: 999,
-},
+    menuBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      position: "relative",
+      overflow: "visible",
+    },
+    rightActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      zIndex: 999999,
+      elevation: 999,
+    },
 
     themeMenuWrap: {
       position: "relative",

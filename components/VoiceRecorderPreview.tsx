@@ -1,26 +1,27 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 
 interface Props {
   uri: string;
   onSend: () => Promise<void>;
   onCancel: () => void;
+  topOffset?: number;
 }
 
 export default function VoiceRecorderPreview({
   uri,
   onSend,
-  onCancel
+  onCancel,
+  topOffset = 90
 }: Props) {
-
   const soundRef = useRef<Audio.Sound | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -44,14 +45,11 @@ export default function VoiceRecorderPreview({
   };
 
   const togglePlayback = async () => {
-
     if (!soundRef.current) {
-
       const { sound } = await Audio.Sound.createAsync(
         { uri },
         { shouldPlay: true },
         (status) => {
-
           if (!status.isLoaded) return;
 
           setPosition(status.positionMillis || 0);
@@ -66,9 +64,7 @@ export default function VoiceRecorderPreview({
 
       soundRef.current = sound;
       setIsPlaying(true);
-
     } else {
-
       if (isPlaying) {
         await soundRef.current.pauseAsync();
         setIsPlaying(false);
@@ -97,32 +93,23 @@ export default function VoiceRecorderPreview({
 
   const progressPercent = (position / duration) * 100;
 
-  // موجات ثابتة الشكل
-  const waves = Array.from({ length: 20 }, () =>
-    Math.floor(Math.random() * 18) + 6
+  const waves = useMemo(
+    () =>
+      Array.from({ length: 20 }, () => Math.floor(Math.random() * 18) + 6),
+    []
   );
 
   return (
-    <View style={styles.container}>
-
-      {/* Cancel */}
-      <TouchableOpacity
-        onPress={onCancel}
-        disabled={isSending}
-      >
-        <Ionicons
-          name="trash-outline"
-          size={22}
-          color="#EF4444"
-        />
+    <View style={[styles.container, { top: topOffset }]}>
+      <TouchableOpacity onPress={onCancel} disabled={isSending} style={styles.sideButton}>
+        <Ionicons name="trash-outline" size={22} color="#EF4444" />
       </TouchableOpacity>
 
-      {/* Player */}
       <View style={styles.player}>
-
         <TouchableOpacity
           onPress={togglePlayback}
           disabled={isSending}
+          style={styles.playButton}
         >
           <Ionicons
             name={isPlaying ? "pause" : "play"}
@@ -131,7 +118,6 @@ export default function VoiceRecorderPreview({
           />
         </TouchableOpacity>
 
-        {/* Waves */}
         <View style={styles.waveContainer}>
           {waves.map((height, index) => (
             <View
@@ -151,14 +137,10 @@ export default function VoiceRecorderPreview({
         </View>
 
         <Text style={styles.time}>
-          {isPlaying
-            ? formatTime(position)
-            : formatTime(duration)}
+          {isPlaying ? formatTime(position) : formatTime(duration)}
         </Text>
-
       </View>
 
-      {/* Send */}
       <TouchableOpacity
         onPress={handleSend}
         disabled={isSending}
@@ -167,32 +149,54 @@ export default function VoiceRecorderPreview({
         {isSending ? (
           <ActivityIndicator size="small" color="#25D366" />
         ) : (
-          <Ionicons
-            name="send"
-            size={22}
-            color="#25D366"
-          />
+          <Ionicons name="send" size={22} color="#25D366" />
         )}
       </TouchableOpacity>
-
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    zIndex: 999,
+    elevation: 999,
+
     backgroundColor: "#FFFFFF",
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: 1,
-    borderColor: "#E5E7EB"
+
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 16,
+
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 }
+  },
+  sideButton: {
+    width: 34,
+    alignItems: "center",
+    justifyContent: "center"
   },
   player: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
     marginHorizontal: 10
+  },
+  playButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F3F4F6"
   },
   waveContainer: {
     flexDirection: "row",
@@ -208,10 +212,15 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 12,
     color: "#555",
-    minWidth: 40
+    minWidth: 40,
+    textAlign: "right"
   },
   sendButton: {
-    width: 28,
-    alignItems: "center"
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F0FDF4"
   }
 });

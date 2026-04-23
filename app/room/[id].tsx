@@ -81,10 +81,14 @@ import {
 
 import BoostLottieOverlay from "@/components/BoostLottieOverlay";
 import LottieBadge from "@/components/LottieBadge";
+import CricketGameMessage from "@/components/room/CricketGameMessage";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { createChat, setActiveChat } from "@/redux/slices/chatSlice";
 import { searchUsers } from "@/redux/slices/friendSlice";
+import { setMessages } from "@/redux/slices/messageSlice";
 import { debitMyCoinz } from "@/redux/slices/userSlice";
 import { RootState } from "@/redux/store";
+import api from "@/services/api";
 import { uploadToCloudinary } from "@/services/upload.service";
 import { addManySeenGiftIds, addSeenGiftId, getSeenGiftIds } from "@/storage/roomGiftSeen";
 import { Feather, Octicons } from "@expo/vector-icons";
@@ -133,11 +137,14 @@ type MessageUI = {
     thumbnail?: string;
     youtubeUrl?: string;
   };
-  game?: {
-    gameType?: string;
-    title?: string;
-    state?: string;
-  };
+game?: {
+  gameType?: string;
+  title?: string;
+  state?: string;
+  turnUserId?: string;
+  winnerUserId?: string;
+  payload?: any;
+};
   text?: string;
   uri?: string;
   clientId?: string;       // ✅ للـ optimistic
@@ -240,7 +247,7 @@ const pickPrimaryBadge = (badges?: UserBadgeUI[]) => {
 
 const DynamicUserBadge = ({
   badge,
-  size = 18,
+  size = 25,
 }: {
   badge?: UserBadgeUI | null;
   size?: number;
@@ -462,7 +469,7 @@ function GiftPickerModal({
   theme: typeof Colors.light;
 }) {
   return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
       <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" }} onPress={onClose}>
         <Pressable
           style={{
@@ -589,10 +596,9 @@ function GiftBurstOverlay({
   useEffect(() => {
     if (!visible) return;
 
-    opacity.setValue(0);
+    opacity.setValue(1);
     particles.forEach((p) => p.t.setValue(0));
 
-    Animated.timing(opacity, { toValue: 1, duration: 160, useNativeDriver: true }).start();
 
     const anims = particles.map((p) =>
       Animated.timing(p.t, { toValue: 1, duration: p.dur, delay: p.delay, useNativeDriver: true })
@@ -695,27 +701,27 @@ function GiftLottieOverlay({
   useEffect(() => {
     if (!visible) return;
 
-    opacity.setValue(0);
-    scale.setValue(0.85);
+    opacity.setValue(1);
+    scale.setValue(1);
 
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: true
-      }),
-      Animated.spring(scale, {
-        toValue: 1,
-        friction: 6,
-        tension: 70,
-        useNativeDriver: true
-      })
-    ]).start();
+    // Animated.parallel([
+    //   Animated.timing(opacity, {
+    //     toValue: 1,
+    //     duration: 100,
+    //     useNativeDriver: true
+    //   }),
+    //   Animated.spring(scale, {
+    //     toValue: 1,
+    //     friction: 6,
+    //     tension: 70,
+    //     useNativeDriver: true
+    //   })
+    // ]).start();
 
     const fadeTimer = setTimeout(() => {
       Animated.timing(opacity, {
         toValue: 0,
-        duration: 260,
+        duration: 180,
         useNativeDriver: true
       }).start();
     }, Math.max(500, durationMs - 400));
@@ -817,6 +823,9 @@ function UsersModal({
   onChangeRole,
   onKickUser,
   onBanUser,
+  onOpenGift,
+  onAvatarPress,
+  onStartChat,
   theme
 }: {
   visible: boolean;
@@ -828,26 +837,41 @@ function UsersModal({
   onChangeRole: (u: UserUI, newRole: UserUI["role"]) => void;
   onKickUser: (u: UserUI) => void;
   onBanUser: (u: UserUI) => void;
+  onOpenGift: (u: UserUI) => void;
+  onAvatarPress: (u: UserUI) => void;
+  onStartChat: (u: UserUI) => void;
   theme: typeof Colors.light;
 }) {
   const canManage = myRole === "creator" || myRole === "owner" || myRole === "admin";
   const s = useMemo(() => makeUsersStyles(theme), [theme]);
 
-  const roleLabel = (r?: string) => {
-    if (r === "creator") return "Creator";
-    if (r === "owner") return "Owner";
-    if (r === "admin") return "Admin";
-    return "Member";
+  const getRoleColor = (role?: UserUI["role"]) => {
+    if (role === "creator") return "#FF8C00";
+    if (role === "owner") return "#FF0000";   // أحمر
+    if (role === "admin") return "#1D4ED8";   // أزرق
+    return "#16A34A";                         // أخضر
   };
-
   const RoleChip = ({ title, active, onPress }: { title: string; active: boolean; onPress: () => void }) => (
     <TouchableOpacity onPress={onPress} style={[s.roleChip, active && s.roleChipActive]} activeOpacity={0.85}>
       <Text style={[s.roleChipText, active && s.roleChipTextActive]}>{title}</Text>
     </TouchableOpacity>
   );
+  const ROLE_ORDER: Record<string, number> = {
+    creator: 0,
+    owner: 1,
+    admin: 2,
+    member: 3,
+  };
 
+  const sortedUsers = [...users].sort((a, b) => {
+    const aRank = ROLE_ORDER[String(a.role || "member")] ?? 99;
+    const bRank = ROLE_ORDER[String(b.role || "member")] ?? 99;
+    if (aRank !== bRank) return aRank - bRank;
+
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
   return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
       <Pressable style={s.overlay} onPress={onClose}>
         <Pressable style={s.sheet} onPress={() => { }}>
           <View style={s.header}>
@@ -865,64 +889,119 @@ function UsersModal({
           </View>
 
           <View style={s.list}>
-            {users.map((u) => {
+            {sortedUsers.map((u) => {
               const isMe = u.id === myUserId;
               return (
-                <TouchableOpacity key={u.id} style={s.row} onPress={() => onCopyUser(u)} activeOpacity={0.88}>
-                  <Image
-                    source={resolveAvatarSource(u)}
-                    style={s.avatar}
-                    contentFit="cover"
-                    cachePolicy="memory-disk"
-                    transition={0}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <View style={s.rowTop}>
-                      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
-                        <Text
-                          style={[
-                            s.name,
-                            u.usernameColor ? { color: u.usernameColor } : null,
-                            { flexShrink: 1, flexWrap: "wrap" }
-                          ]}
-                        >
-                          {u.name} {isMe ? "(You)" : ""}
-                        </Text>
+                <TouchableOpacity
+                  key={u.id}
+                  style={s.row}
+                  onPress={() => onCopyUser(u)}
+                  activeOpacity={0.88}
+                >
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      onAvatarPress(u);
+                    }}
+                  >
+                    <Image
+                      source={resolveAvatarSource(u)}
+                      style={s.avatar}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                      transition={0}
+                    />
+                  </TouchableOpacity>
 
-                        <CustomEmojiBadgeView badge={u.customEmojiBadge} />
-
-                        <DynamicUserBadge badge={pickPrimaryBadge(u.activeBadges)} />
-                      </View>
-                      <View style={s.badge}>
-                        <Text style={s.badgeText}>{roleLabel(u.role)}</Text>
-                      </View>
-                    </View>
-
-                    <Text style={s.sub} numberOfLines={1}>
-                      ID: {u.id}
+                  <View style={s.centerContent}>
+                    <Text
+                      style={[
+                        s.name,
+                        { color: u.usernameColor || getRoleColor(u.role) }
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {u.name} {isMe ? "(You)" : ""}
                     </Text>
+
+                    <View style={s.inlineBadges}>
+                      <CustomEmojiBadgeView badge={u.customEmojiBadge} />
+                      <DynamicUserBadge badge={pickPrimaryBadge(u.activeBadges)} />
+                    </View>
 
                     {canManage && !isMe && (
                       <View style={s.rolesRow}>
-                        <RoleChip title="Member" active={(u.role || "member") === "member"} onPress={() => onChangeRole(u, "member")} />
-                        <RoleChip title="Admin" active={u.role === "admin"} onPress={() => onChangeRole(u, "admin")} />
-                        <RoleChip title="Owner" active={u.role === "owner"} onPress={() => onChangeRole(u, "owner")} />
+                        <RoleChip
+                          title="Member"
+                          active={(u.role || "member") === "member"}
+                          onPress={() => onChangeRole(u, "member")}
+                        />
+                        <RoleChip
+                          title="Admin"
+                          active={u.role === "admin"}
+                          onPress={() => onChangeRole(u, "admin")}
+                        />
+                        <RoleChip
+                          title="Owner"
+                          active={u.role === "owner"}
+                          onPress={() => onChangeRole(u, "owner")}
+                        />
                       </View>
                     )}
 
                     {canManage && !isMe && (
                       <View style={s.actionsRow}>
-                        <TouchableOpacity onPress={() => onKickUser(u)} style={s.kickBtn} activeOpacity={0.85}>
+                        <TouchableOpacity
+                          onPress={() => onKickUser(u)}
+                          style={s.kickBtn}
+                          activeOpacity={0.85}
+                        >
                           <Text style={s.kickText}>Kick</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => onBanUser(u)} style={s.banBtn} activeOpacity={0.85}>
+
+                        <TouchableOpacity
+                          onPress={() => onBanUser(u)}
+                          style={s.banBtn}
+                          activeOpacity={0.85}
+                        >
                           <Text style={s.banText}>Ban</Text>
                         </TouchableOpacity>
                       </View>
                     )}
                   </View>
 
-                  <Ionicons name="copy-outline" size={18} color={theme.icon} />
+                  <View style={s.trailingActions}>
+                    {!isMe && (
+                      <>
+                     <TouchableOpacity
+  onPress={(e) => {
+    e.stopPropagation?.();
+    onClose();
+    requestAnimationFrame(() => {
+      onOpenGift(u);
+    });
+  }}
+  activeOpacity={0.85}
+  style={s.iconBtn}
+>
+  <Ionicons name="gift-outline" size={20} color={theme.text} />
+</TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            onStartChat(u);
+                          }}
+                          activeOpacity={0.85}
+                          style={s.iconBtn}
+                        >
+                          <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.text} />
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -985,7 +1064,10 @@ function MessageItem({
   onAvatarLongPress,
   onOpenAudioModal,
   theme,
-  bubble
+  bubble,
+  currentUserId,
+  onSendCricketJoin,
+  onSendCricketHit
 }: {
   item: MessageUI;
   isMe: boolean;
@@ -1001,8 +1083,25 @@ function MessageItem({
   onOpenAudioModal: (message: MessageUI) => void;
   theme: typeof Colors.light;
   bubble: ReturnType<typeof makeBubbleStyles>;
+  currentUserId: string;
+  onSendCricketJoin?: (gameId: string) => void;
+  onSendCricketHit?: (gameId: string) => void;
 }) {
   const { width } = useWindowDimensions();
+  type CricketMessageUI = MessageUI & {
+  type: "game";
+  game: {
+    gameType: "cricket" | string;
+    title?: string;
+    state?: string;
+    turnUserId?: string;
+    winnerUserId?: string;
+    payload?: any;
+  };
+};
+function isCricketMessage(item: MessageUI): item is CricketMessageUI {
+  return item.type === "game" && item.game?.gameType === "cricket";
+}
   const copyUserNameOnly = async (user?: UserUI) => {
     const name = String(user?.name || "").trim();
     if (!name) return;
@@ -1058,18 +1157,7 @@ function MessageItem({
             },
           ]}
         >
-          {item.music?.thumbnail ? (
-            <Image
-              source={{ uri: item.music.thumbnail }}
-              style={{
-                width: "100%",
-                height: 170,
-                borderRadius: 14,
-                marginBottom: 10,
-              }}
-              resizeMode="cover"
-            />
-          ) : null}
+
 
           <Text
             style={{
@@ -1175,6 +1263,33 @@ function MessageItem({
       </View>
     );
   }
+if (isCricketMessage(item)) {
+  const gameId = String(item.game?.payload?.gameId || "").trim();
+
+  return (
+    <CricketGameMessage
+      item={item}
+      currentUserId={currentUserId}
+      theme={theme}
+      onJoin={() => {
+        if (!gameId) {
+          Alert.alert("Notice", "Game id not found");
+          return;
+        }
+
+        onSendCricketJoin?.(gameId);
+      }}
+      onPlayNow={() => {
+        if (!gameId) {
+          Alert.alert("Notice", "Game id not found");
+          return;
+        }
+
+        onSendCricketHit?.(gameId);
+      }}
+    />
+  );
+}
   const senderRole = item.sender?.role;
   const starColor = getStarColor(senderRole);
 
@@ -1338,37 +1453,37 @@ function MessageItem({
               </View>
             ) : null}
 
-       {item.type === "audio" && item.uri ? (
-  <TouchableOpacity
-    activeOpacity={0.85}
-    onPress={() => onOpenAudioModal(item)}
-    style={{
-      flexDirection: "row",
-      alignItems: "center",
-      flexWrap: "wrap",
-    }}
-  >
-    <Text
-      style={{
-        fontSize: 14,
-        color: theme.text,
-        fontWeight: "500",
-      }}
-    >
-      Voice message{" "}
-    </Text>
+            {item.type === "audio" && item.uri ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => onOpenAudioModal(item)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: theme.text,
+                    fontWeight: "500",
+                  }}
+                >
+                  Voice message{" "}
+                </Text>
 
-    <Text
-      style={{
-        fontSize: 14,
-        color: "#2563EB",
-        fontWeight: "800",
-      }}
-    >
-      Play
-    </Text>
-  </TouchableOpacity>
-) : null}
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: "#2563EB",
+                    fontWeight: "800",
+                  }}
+                >
+                  Play
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </>
         )}
 
@@ -1508,6 +1623,7 @@ export default function ChatScreen() {
   const [showActions, setShowActions] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<MessageUI | null>(null);
   const [pinnedHidden, setPinnedHidden] = useState(false);
+  const [creatingChatId, setCreatingChatId] = useState<string | null>(null);
 
   const pinnedTranslateX = useRef(new Animated.Value(0)).current;
   const arrowTranslateX = useRef(new Animated.Value(40)).current; // يبدأ مخفي
@@ -1525,6 +1641,41 @@ export default function ChatScreen() {
     setActiveAudio(message);
     setShowAudioModal(true);
   };
+  const sendCricketJoin = async (gameId: string) => {
+  try {
+    const content = `!cricket join ${gameId}`;
+    const clientId = `cricket_join_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    await dispatch(
+      sendRoomMessage({
+        roomId,
+        clientId,
+        content,
+        type: "text",
+      })
+    ).unwrap();
+  } catch (e: any) {
+    Alert.alert("Error", e?.message || "Join failed");
+  }
+};
+
+const sendCricketHit = async (gameId: string) => {
+  try {
+    const content = `!cricket hit ${gameId}`;
+    const clientId = `cricket_hit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    await dispatch(
+      sendRoomMessage({
+        roomId,
+        clientId,
+        content,
+        type: "text",
+      })
+    ).unwrap();
+  } catch (e: any) {
+    Alert.alert("Error", e?.message || "Play failed");
+  }
+};
   const [giftOverlay, setGiftOverlay] = useState<{
     visible: boolean;
     messageId: string | null;
@@ -1579,6 +1730,30 @@ export default function ChatScreen() {
     const me = (roomUsers || []).find((u: any) => String(u?._id) === myUserId);
     return me?.role;
   }, [roomUsers, myUserId]);
+  const openChat = async (targetUserId: string) => {
+    if (creatingChatId) return;
+
+    try {
+      setCreatingChatId(targetUserId);
+
+      const chat = await dispatch(createChat(targetUserId)).unwrap();
+      dispatch(setActiveChat(chat._id));
+
+      const messagesRes = await api.get(`/messages/${chat._id}?page=1`);
+
+      dispatch(
+        setMessages({
+          chatId: chat._id,
+          messages: messagesRes.data,
+        })
+      );
+
+      router.push(`/chat/${chat._id}`);
+    } catch (e: any) {
+    } finally {
+      setCreatingChatId(null);
+    }
+  };
 
   const canModerate = useMemo(() => myRole === "creator" || myRole === "owner" || myRole === "admin", [myRole]);
   type UsersMapValue = {
@@ -2426,14 +2601,17 @@ export default function ChatScreen() {
         }
         : undefined,
 
-      game:
-        backendType === "game"
-          ? {
-            gameType: String(m?.gameType || "").trim(),
-            title: String(m?.game?.title || m?.content || "").trim(),
-            state: String(m?.game?.state || "").trim(),
-          }
-          : undefined,
+ game:
+  backendType === "game"
+    ? {
+        gameType: String(m?.gameType || "").trim(),
+        title: String(m?.game?.title || m?.content || "").trim(),
+        state: String(m?.game?.state || "").trim(),
+        turnUserId: String(m?.game?.turnUserId || "").trim(),
+        winnerUserId: String(m?.game?.winnerUserId || "").trim(),
+        payload: m?.game?.payload || null,
+      }
+    : undefined,
       text: messageText,
       uri: m?.media?.url,
 
@@ -3093,7 +3271,10 @@ export default function ChatScreen() {
         onClose={() => setShowUsersModal(false)}
         users={usersUI}
         myUserId={myUserId}
+        onAvatarPress={onAvatarPress}
         myRole={myRole}
+        onOpenGift={(u) => setGiftPicker({ visible: true, target: u })}
+        onStartChat={(u) => openChat(String(u.id))}
         onCopyUser={onCopyUser}
         onChangeRole={onChangeRole}
         onKickUser={onKickUser}
@@ -3231,7 +3412,10 @@ export default function ChatScreen() {
               item={item}
               isMe={isMe}
               showName={showName}
+              currentUserId={myUserId}
               onOpenAudioModal={openAudioModal}
+              onSendCricketJoin={sendCricketJoin}
+onSendCricketHit={sendCricketHit}
               onAvatarLongPress={(u) => {
                 if (!u?.id) return;
                 setGiftPicker({ visible: true, target: u });
@@ -3270,6 +3454,7 @@ export default function ChatScreen() {
       {!!pendingVoiceUri && (
         <VoiceRecorderPreview
           uri={pendingVoiceUri}
+          topOffset={insets.top + 56} // عدل الرقم حسب ارتفاع الهيدر عندك
           onCancel={() => setPendingVoiceUri(null)}
           onSend={async () => {
             if (!roomId || !pendingVoiceUri) return;
@@ -3862,7 +4047,7 @@ function makeBubbleStyles(theme: typeof Colors.light) {
   return StyleSheet.create({
     row: {
       flexDirection: "row",
-      marginBottom: 10,
+      marginBottom: 5,
       alignItems: "flex-start", // 👈 هذا هو الحل
     },
 
@@ -4042,19 +4227,52 @@ function makeUsersStyles(theme: typeof Colors.light) {
     noteText: { fontSize: 12, color: theme.mutedText, lineHeight: 18 },
     list: { marginTop: 12, gap: 10 },
 
+
+    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.surface2 },
     row: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
-      padding: 12,
-      borderRadius: 16,
-      backgroundColor: theme.surface,
-      borderWidth: 1,
-      borderColor: theme.border
+      paddingVertical: 1,
+      paddingHorizontal: 0,
+      marginVertical: 0,
     },
-    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.surface2 },
-    rowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-    name: { flex: 1, fontSize: 14, fontWeight: "900", color: theme.text },
+
+    centerContent: {
+      flex: 1,
+      minWidth: 0,
+      marginLeft: 10,
+    },
+
+    name: {
+      fontSize: 15,
+      fontWeight: "700",
+      flexShrink: 1,
+    },
+
+    inlineBadges: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 2,
+      minHeight: 18,
+    },
+
+    trailingActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      marginLeft: 8,
+    },
+
+    iconBtn: {
+      width: 32,
+      height: 32,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: 4,
+    },
+
+
+
     sub: { fontSize: 12, color: theme.mutedText, marginTop: 2 },
 
     badge: { backgroundColor: theme.primarySoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: theme.border },
@@ -4065,6 +4283,7 @@ function makeUsersStyles(theme: typeof Colors.light) {
     roleChipActive: { backgroundColor: theme.primarySoft, borderColor: theme.primary },
     roleChipText: { fontSize: 12, fontWeight: "800", color: theme.mutedText },
     roleChipTextActive: { color: theme.primary },
+
 
     actionsRow: { flexDirection: "row", gap: 8, marginTop: 10 },
     kickBtn: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, backgroundColor: "rgba(245, 158, 11, 0.16)", borderWidth: 1, borderColor: theme.warning },
@@ -4203,6 +4422,8 @@ function makeScreenStyles(theme: typeof Colors.light, bottomInset: number) {
       borderTopWidth: 1,
       borderColor: theme.separator
     },
+
+
 
     actionsOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "center", alignItems: "center" },
     actionsBox: { backgroundColor: theme.card, width: "80%", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: theme.border },

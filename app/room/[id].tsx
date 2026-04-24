@@ -13,6 +13,8 @@ import {
   Alert,
   Animated,
 
+  Easing,
+
   FlatList,
   ImageSourcePropType,
   Keyboard,
@@ -34,7 +36,6 @@ import Reanimated, {
   useAnimatedStyle,
   useSharedValue,
 } from "react-native-reanimated";
-import RenderHTML from "react-native-render-html";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/theme";
@@ -81,6 +82,7 @@ import {
 
 import BoostLottieOverlay from "@/components/BoostLottieOverlay";
 import LottieBadge from "@/components/LottieBadge";
+import ActiveRoomsDrawer from "@/components/room/ActiveRoomsDrawer";
 import CricketGameMessage from "@/components/room/CricketGameMessage";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { createChat, setActiveChat } from "@/redux/slices/chatSlice";
@@ -94,6 +96,7 @@ import { addManySeenGiftIds, addSeenGiftId, getSeenGiftIds } from "@/storage/roo
 import { Feather, Octicons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
 import { ScrollView } from "react-native-gesture-handler";
+import WebView from "react-native-webview";
 import { useSelector } from "react-redux";
 
 /* ================= TYPES ================= */
@@ -137,14 +140,15 @@ type MessageUI = {
     thumbnail?: string;
     youtubeUrl?: string;
   };
-game?: {
-  gameType?: string;
-  title?: string;
-  state?: string;
-  turnUserId?: string;
-  winnerUserId?: string;
-  payload?: any;
-};
+  game?: {
+    gameType?: string;
+    gameId?: string;
+    title?: string;
+    state?: string;
+    turnUserId?: string;
+    winnerUserId?: string;
+    payload?: any;
+  };
   text?: string;
   uri?: string;
   clientId?: string;       // ✅ للـ optimistic
@@ -291,6 +295,10 @@ const buildActiveBadgesFromUser = (
   u: any,
   fallbackInventory?: any[]
 ): UserBadgeUI[] => {
+  if (Array.isArray(u?.activeBadges) && u.activeBadges.length) {
+    return dedupeBadges(u.activeBadges);
+  }
+
   const activeKeys = Array.isArray(u?.activeCustomization?.badges)
     ? u.activeCustomization.badges.map((x: any) => String(x || "").trim()).filter(Boolean)
     : [];
@@ -310,21 +318,20 @@ const buildActiveBadgesFromUser = (
         String(row?.itemKey || "").trim() === key
     );
 
-    const item = invRow?.item || null;
-    const meta = item?.meta || {};
+    const item = invRow?.item || invRow?.storeItem || null;
+    const meta = item?.meta || invRow?.meta || {};
 
     out.push({
       key,
       name: item?.name || key,
-      lottieUrl: String(meta?.lottieUrl || ""),
-      iconUrl: getItemImageUrl(item),
+      lottieUrl: String(meta?.lottieUrl || item?.lottieUrl || ""),
+      iconUrl: getItemImageUrl(item) || String(meta?.iconUrl || ""),
       emoji: String(meta?.emoji || ""),
     });
   }
 
   return dedupeBadges(out);
 };
-
 
 const isCustomEmojiBadgeActive = (
   badge?: { emoji?: string; isActive?: boolean; expiresAt?: string | null } | null
@@ -803,15 +810,23 @@ function GiftLottieOverlay({
   );
 }
 /* ================= ROLE STAR ================= */
-const ROLE_STAR_COLOR: Record<string, string> = {
-  creator: "#F59E0B",
-  owner: "#8B5CF6",
-  admin: "#3B82F6"
+const ROLE_STAR_COLOR: Record<RoomRole, string> = {
+  creator: "#F59E0B", // منشئ الغرفة - ذهبي/برتقالي
+  owner: "#EF4444",   // Owner - أحمر
+  admin: "#2563EB",   // Admin - أزرق
+  member: "#16A34A",  // Member - أخضر
 };
 
-const shouldShowStar = (role?: RoomRole) => role === "creator" || role === "owner" || role === "admin";
-const getStarColor = (role?: RoomRole) => (role ? ROLE_STAR_COLOR[role] || "#111827" : "#111827");
+const shouldShowStar = (role?: RoomRole) =>
+  role === "creator" ||
+  role === "owner" ||
+  role === "admin" ||
+  role === "member";
 
+const getStarColor = (role?: RoomRole) => {
+  if (!role) return "#16A34A";
+  return ROLE_STAR_COLOR[role] || "#16A34A";
+};
 /* ================= USERS MODAL (Themed) ================= */
 function UsersModal({
   visible,
@@ -907,7 +922,7 @@ function UsersModal({
                   >
                     <Image
                       source={resolveAvatarSource(u)}
-                      style={s.avatar}
+                      style={s.usersModalAvatar}
                       contentFit="cover"
                       cachePolicy="memory-disk"
                       transition={0}
@@ -915,16 +930,16 @@ function UsersModal({
                   </TouchableOpacity>
 
                   <View style={s.centerContent}>
-                    <Text
-                      style={[
-                        s.name,
-                        { color: u.usernameColor || getRoleColor(u.role) }
-                      ]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {u.name} {isMe ? "(You)" : ""}
-                    </Text>
+               <Text
+  style={[
+    s.name,
+    { color: getRoleColor(u.role) }
+  ]}
+  numberOfLines={1}
+  ellipsizeMode="tail"
+>
+  {u.name} {isMe ? "(You)" : ""}
+</Text>
 
                     <View style={s.inlineBadges}>
                       <CustomEmojiBadgeView badge={u.customEmojiBadge} />
@@ -975,19 +990,19 @@ function UsersModal({
                   <View style={s.trailingActions}>
                     {!isMe && (
                       <>
-                     <TouchableOpacity
-  onPress={(e) => {
-    e.stopPropagation?.();
-    onClose();
-    requestAnimationFrame(() => {
-      onOpenGift(u);
-    });
-  }}
-  activeOpacity={0.85}
-  style={s.iconBtn}
->
-  <Ionicons name="gift-outline" size={20} color={theme.text} />
-</TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            onClose();
+                            requestAnimationFrame(() => {
+                              onOpenGift(u);
+                            });
+                          }}
+                          activeOpacity={0.85}
+                          style={s.iconBtn}
+                        >
+                          <Ionicons name="gift-outline" size={20} color={theme.text} />
+                        </TouchableOpacity>
 
                         <TouchableOpacity
                           onPress={(e) => {
@@ -1067,7 +1082,7 @@ function MessageItem({
   bubble,
   currentUserId,
   onSendCricketJoin,
-  onSendCricketHit
+  onSendCricketPlay
 }: {
   item: MessageUI;
   isMe: boolean;
@@ -1085,23 +1100,24 @@ function MessageItem({
   bubble: ReturnType<typeof makeBubbleStyles>;
   currentUserId: string;
   onSendCricketJoin?: (gameId: string) => void;
-  onSendCricketHit?: (gameId: string) => void;
+  onSendCricketPlay?: (gameId: string, n: number) => void;
 }) {
   const { width } = useWindowDimensions();
   type CricketMessageUI = MessageUI & {
-  type: "game";
-  game: {
-    gameType: "cricket" | string;
-    title?: string;
-    state?: string;
-    turnUserId?: string;
-    winnerUserId?: string;
-    payload?: any;
+    type: "game";
+    game: {
+      gameType: "cricket" | string;
+      gameId?: string;
+      title?: string;
+      state?: string;
+      turnUserId?: string;
+      winnerUserId?: string;
+      payload?: any;
+    };
   };
-};
-function isCricketMessage(item: MessageUI): item is CricketMessageUI {
-  return item.type === "game" && item.game?.gameType === "cricket";
-}
+  function isCricketMessage(item: MessageUI): item is CricketMessageUI {
+    return item.type === "game" && item.game?.gameType === "cricket";
+  }
   const copyUserNameOnly = async (user?: UserUI) => {
     const name = String(user?.name || "").trim();
     if (!name) return;
@@ -1129,21 +1145,6 @@ function isCricketMessage(item: MessageUI): item is CricketMessageUI {
     Alert.alert("Copied", "تم نسخ محتوى الرسالة");
   };
 
-  // if (item.type === "system") {
-  //   return (
-  //     <View style={bubble.sysWrap}>
-  //       <View style={bubble.sysBubble}>
-  //         <RenderHTML
-  //           contentWidth={width - 40}
-  //           source={{ html: String(item.text || "") }}
-  //           enableCSSInlineProcessing={true}
-
-  //         />
-  //         <Text style={bubble.sysTime}>{item.time}</Text>
-  //       </View>
-  //     </View>
-  //   );
-  // }
   if (item.type === "song" || (item.type === "system" && item.systemType === "music")) {
     return (
       <View style={bubble.sysWrap}>
@@ -1253,43 +1254,46 @@ function isCricketMessage(item: MessageUI): item is CricketMessageUI {
 
     return (
       <View style={bubble.sysWrap}>
-        <View style={bubble.sysBubble}>
-          <RenderHTML
-            contentWidth={width - 40}
-            source={{ html: String(item.text || "") }}
-            enableCSSInlineProcessing={true}
+        <View style={[bubble.sysBubble, { width: width - 50 }]}>
+          <PinnedHtmlWebView
+            html={String(item.text || "")}
+            width={width - 70}
+            minHeight={36}
+            textColor={theme.text}
+            textAlign="center"
+            fontSize={14}
+            lineHeight={24}
           />
         </View>
       </View>
     );
   }
-if (isCricketMessage(item)) {
-  const gameId = String(item.game?.payload?.gameId || "").trim();
+  if (isCricketMessage(item)) {
+    const gameId = String(item.game?.gameId || item.game?.payload?.gameId || "").trim();
+    return (
+      <CricketGameMessage
+        item={item}
+        currentUserId={currentUserId}
+        theme={theme}
+        onJoin={() => {
+          if (!gameId) {
+            Alert.alert("Notice", "Game id not found");
+            return;
+          }
 
-  return (
-    <CricketGameMessage
-      item={item}
-      currentUserId={currentUserId}
-      theme={theme}
-      onJoin={() => {
-        if (!gameId) {
-          Alert.alert("Notice", "Game id not found");
-          return;
-        }
+          onSendCricketJoin?.(gameId);
+        }}
+        onChooseNumber={(n) => {
+          if (!gameId) {
+            Alert.alert("Notice", "Game id not found");
+            return;
+          }
 
-        onSendCricketJoin?.(gameId);
-      }}
-      onPlayNow={() => {
-        if (!gameId) {
-          Alert.alert("Notice", "Game id not found");
-          return;
-        }
-
-        onSendCricketHit?.(gameId);
-      }}
-    />
-  );
-}
+          onSendCricketPlay?.(gameId, n);
+        }}
+      />
+    );
+  }
   const senderRole = item.sender?.role;
   const starColor = getStarColor(senderRole);
 
@@ -1518,7 +1522,232 @@ if (isCricketMessage(item)) {
     </View>
   );
 }
+function PinnedHtmlWebView({
+  html,
+  width,
+  minHeight = 42,
+  textColor = "#333333",
+  textAlign = "center",
+  fontSize = 15,
+  lineHeight = 26,
+}: {
+  html?: string;
+  width: number;
+  minHeight?: number;
+  textColor?: string;
+  textAlign?: "left" | "center" | "right";
+  fontSize?: number;
+  lineHeight?: number;
+}) {
+  const raw = String(html || "").trim();
 
+  const plainText = raw
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const estimateHeight = useMemo(() => {
+    const charsPerLine = Math.max(18, Math.floor(width / (fontSize * 0.65)));
+    const lines = Math.max(1, Math.ceil(plainText.length / charsPerLine));
+
+    return Math.max(
+      minHeight,
+      Math.min(220, lines * lineHeight + 10)
+    );
+  }, [plainText, width, fontSize, lineHeight, minHeight]);
+
+  const [webHeight, setWebHeight] = useState(estimateHeight);
+  const [measured, setMeasured] = useState(false);
+
+  const heightAnim = useRef(new Animated.Value(estimateHeight)).current;
+  const opacityAnim = useRef(new Animated.Value(0.92)).current;
+  const scaleAnim = useRef(new Animated.Value(0.985)).current;
+  const translateYAnim = useRef(new Animated.Value(4)).current;
+
+  const lastHeightRef = useRef(estimateHeight);
+
+  const bodyHtml = /<[a-z][\s\S]*>/i.test(raw)
+    ? raw
+    : `<div>${raw.replace(/\n/g, "<br/>")}</div>`;
+
+  useEffect(() => {
+    lastHeightRef.current = estimateHeight;
+    setWebHeight(estimateHeight);
+    setMeasured(false);
+
+    heightAnim.setValue(estimateHeight);
+    opacityAnim.setValue(0.92);
+    scaleAnim.setValue(0.985);
+    translateYAnim.setValue(4);
+  }, [raw, width, estimateHeight]);
+
+  const animateToHeight = (nextHeight: number) => {
+    const finalHeight = Math.max(Math.ceil(nextHeight), minHeight);
+
+    if (Math.abs(lastHeightRef.current - finalHeight) < 2) {
+      setMeasured(true);
+      return;
+    }
+
+    lastHeightRef.current = finalHeight;
+    setWebHeight(finalHeight);
+    setMeasured(true);
+Animated.parallel([
+  Animated.timing(heightAnim, {
+    toValue: finalHeight,
+    duration: 220,
+    easing: Easing.out(Easing.cubic),
+    useNativeDriver: false,
+  }),
+  Animated.timing(opacityAnim, {
+    toValue: 1,
+    duration: 180,
+    easing: Easing.out(Easing.cubic),
+    useNativeDriver: false,
+  }),
+  Animated.timing(scaleAnim, {
+    toValue: 1,
+    duration: 180,
+    easing: Easing.out(Easing.cubic),
+    useNativeDriver: false,
+  }),
+  Animated.timing(translateYAnim, {
+    toValue: 0,
+    duration: 180,
+    easing: Easing.out(Easing.cubic),
+    useNativeDriver: false,
+  }),
+]).start();
+  };
+
+  return (
+    <Animated.View
+      style={{
+        width,
+        height: heightAnim,
+        overflow: "hidden",
+        opacity: opacityAnim,
+        transform: [
+          { translateY: translateYAnim },
+          { scale: scaleAnim },
+        ],
+      }}
+    >
+      <WebView
+        originWhitelist={["*"]}
+        scrollEnabled={false}
+        nestedScrollEnabled={false}
+        javaScriptEnabled={true}
+        domStorageEnabled={false}
+        automaticallyAdjustContentInsets={false}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+        bounces={false}
+        overScrollMode="never"
+        onMessage={(event) => {
+          const nextHeight = Number(event.nativeEvent.data);
+          if (!Number.isFinite(nextHeight)) return;
+
+          animateToHeight(nextHeight);
+        }}
+        injectedJavaScript={`
+          (function() {
+            function sendHeight() {
+              var body = document.body;
+              var html = document.documentElement;
+
+              var height = Math.max(
+                body.scrollHeight,
+                body.offsetHeight,
+                html.clientHeight,
+                html.scrollHeight,
+                html.offsetHeight
+              );
+
+              window.ReactNativeWebView.postMessage(String(height));
+            }
+
+            if (document.readyState === "complete") {
+              sendHeight();
+            } else {
+              window.addEventListener("load", sendHeight);
+            }
+
+            setTimeout(sendHeight, 30);
+            setTimeout(sendHeight, 100);
+            setTimeout(sendHeight, 220);
+
+            true;
+          })();
+        `}
+        source={{
+          html: `
+            <!DOCTYPE html>
+            <html dir="rtl">
+              <head>
+                <meta charset="utf-8" />
+                <meta
+                  name="viewport"
+                  content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+                />
+                <style>
+                  html, body {
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    color: ${textColor};
+                    text-align: ${textAlign};
+                    font-size: ${fontSize}px;
+                    line-height: ${lineHeight}px;
+                    font-weight: 600;
+                    overflow: hidden;
+                    word-break: break-word;
+                    overflow-wrap: anywhere;
+                  }
+
+                  body {
+                    width: 100%;
+                  }
+
+                  * {
+                    max-width: 100%;
+                    box-sizing: border-box;
+                  }
+
+                  img, video {
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 10px;
+                  }
+
+                  a {
+                    color: ${textColor};
+                    text-decoration: none;
+                  }
+
+                  p, h1, h2, h3, h4, h5, h6 {
+                    margin: 0 0 6px 0;
+                    padding: 0;
+                  }
+                </style>
+              </head>
+
+              <body>
+                ${bodyHtml || "—"}
+              </body>
+            </html>
+          `,
+        }}
+        style={{
+          width,
+          height: webHeight,
+          backgroundColor: "transparent",
+        }}
+      />
+    </Animated.View>
+  );
+}
 /* ================= MAIN SCREEN ================= */
 export default function ChatScreen() {
   const router = useRouter();
@@ -1531,7 +1760,10 @@ export default function ChatScreen() {
   const [showAudioModal, setShowAudioModal] = useState(false);
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
 
-  const styles = useMemo(() => makeScreenStyles(theme, insets.bottom), [theme, insets.bottom]);
+  const styles = useMemo(
+    () => makeScreenStyles(theme, insets.top, insets.bottom),
+    [theme, insets.top, insets.bottom]
+  );
   const bubbleStyles = useMemo(() => makeBubbleStyles(theme), [theme]);
 
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -1602,6 +1834,7 @@ export default function ChatScreen() {
     title: "Uploading…",
     sub: undefined
   });
+  const [showActiveRoomsDrawer, setShowActiveRoomsDrawer] = useState(false);
   const [selectedInviteUser, setSelectedInviteUser] = useState<any>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -1642,40 +1875,40 @@ export default function ChatScreen() {
     setShowAudioModal(true);
   };
   const sendCricketJoin = async (gameId: string) => {
-  try {
-    const content = `!cricket join ${gameId}`;
-    const clientId = `cricket_join_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      const content = `!cricket join ${gameId}`;
+      const clientId = `cricket_join_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        clientId,
-        content,
-        type: "text",
-      })
-    ).unwrap();
-  } catch (e: any) {
-    Alert.alert("Error", e?.message || "Join failed");
-  }
-};
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          clientId,
+          content,
+          type: "text",
+        })
+      ).unwrap();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Join failed");
+    }
+  };
 
-const sendCricketHit = async (gameId: string) => {
-  try {
-    const content = `!cricket hit ${gameId}`;
-    const clientId = `cricket_hit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const sendCricketPlay = async (gameId: string, n: number) => {
+    try {
+      const content = `!cricket play ${gameId} ${n}`;
+      const clientId = `cricket_play_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        clientId,
-        content,
-        type: "text",
-      })
-    ).unwrap();
-  } catch (e: any) {
-    Alert.alert("Error", e?.message || "Play failed");
-  }
-};
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          clientId,
+          content,
+          type: "text",
+        })
+      ).unwrap();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Play failed");
+    }
+  };
   const [giftOverlay, setGiftOverlay] = useState<{
     visible: boolean;
     messageId: string | null;
@@ -2601,17 +2834,17 @@ const sendCricketHit = async (gameId: string) => {
         }
         : undefined,
 
- game:
-  backendType === "game"
-    ? {
-        gameType: String(m?.gameType || "").trim(),
-        title: String(m?.game?.title || m?.content || "").trim(),
-        state: String(m?.game?.state || "").trim(),
-        turnUserId: String(m?.game?.turnUserId || "").trim(),
-        winnerUserId: String(m?.game?.winnerUserId || "").trim(),
-        payload: m?.game?.payload || null,
-      }
-    : undefined,
+      game:
+        backendType === "game"
+          ? {
+            gameType: String(m?.gameType || "").trim(),
+            title: String(m?.game?.title || m?.content || "").trim(),
+            state: String(m?.game?.state || "").trim(),
+            turnUserId: String(m?.game?.turnUserId || "").trim(),
+            winnerUserId: String(m?.game?.winnerUserId || "").trim(),
+            payload: m?.game?.payload || null,
+          }
+          : undefined,
       text: messageText,
       uri: m?.media?.url,
 
@@ -2817,7 +3050,9 @@ const sendCricketHit = async (gameId: string) => {
                 meInRoom?.verificationType || me?.verificationType || "none",
               activeCustomization:
                 meInRoom?.activeCustomization || { badges: [] },
-              inventory: meInRoom?.inventory || [],
+              // inventory: meInRoom?.inventory || [],
+              inventory: Array.isArray(myInventory) ? myInventory : [],
+
               customEmojiBadge:
                 meInRoom?.customEmojiBadge || me?.customEmojiBadge || null,
             }
@@ -2837,6 +3072,8 @@ const sendCricketHit = async (gameId: string) => {
                 isOnline: true,
                 verificationType: me.verificationType,
                 activeCustomization: me.activeCustomization,
+                inventory: Array.isArray(myInventory) ? myInventory : [],
+
                 customEmojiBadge: me.customEmojiBadge,
               }
               : undefined,
@@ -3167,14 +3404,18 @@ const sendCricketHit = async (gameId: string) => {
 
   /* ================= RENDER ================= */
   return (
-    <SafeAreaView style={styles.root}>
+    <View style={styles.root}>
       {/* ================= HEADER ================= */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85}>
-            <Ionicons name="arrow-back" size={22} color={theme.text} />
+          <TouchableOpacity
+            onPress={() => setShowActiveRoomsDrawer(true)}
+            hitSlop={10}
+            style={{ marginRight: 10 }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="albums-outline" size={21} color={theme.text} />
           </TouchableOpacity>
-
           <TouchableOpacity activeOpacity={0.85} onPress={goDetails}>
             <Image source={{ uri: roomAvatar || "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg" }} style={styles.roomAvatar} />
           </TouchableOpacity>
@@ -3191,6 +3432,8 @@ const sendCricketHit = async (gameId: string) => {
         </View>
 
         <View style={styles.headerRight}>
+
+
           <TouchableOpacity onPress={onBoostRoom} hitSlop={10} style={{ marginRight: 10 }} activeOpacity={0.85}>
             <Ionicons name="rocket-outline" size={20} color={theme.text} />
           </TouchableOpacity>
@@ -3200,90 +3443,93 @@ const sendCricketHit = async (gameId: string) => {
           </TouchableOpacity>
         </View>
       </View>
+      <SafeAreaView
+        style={styles.contentSafe}
+        edges={["left", "right", "bottom"]}
+      >
+        {/* ================= ROOM MENU ================= */}
+        <Modal transparent visible={showRoomMenu} animationType="fade" onRequestClose={() => setShowRoomMenu(false)}>
+          <TouchableOpacity activeOpacity={1} style={styles.menuOverlay} onPress={() => setShowRoomMenu(false)}>
+            <View style={styles.menuBox}>
+              <TouchableOpacity style={styles.menuItem} onPress={onRefreshRoom} activeOpacity={0.85}>
+                <Ionicons name="refresh" size={18} color={theme.text} />
+                <Text style={styles.menuText}>Refresh</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowRoomMenu(false);
+                  setInviteUsername("");
+                  setShowInviteModal(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="person-add-outline" size={18} color={theme.text} />
+                <Text style={styles.menuText}>Invite a Friend</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={onOpenUsers} activeOpacity={0.85}>
+                <Ionicons name="people" size={18} color={theme.text} />
+                <Text style={styles.menuText}>Users</Text>
+              </TouchableOpacity>
 
-      {/* ================= ROOM MENU ================= */}
-      <Modal transparent visible={showRoomMenu} animationType="fade" onRequestClose={() => setShowRoomMenu(false)}>
-        <TouchableOpacity activeOpacity={1} style={styles.menuOverlay} onPress={() => setShowRoomMenu(false)}>
-          <View style={styles.menuBox}>
-            <TouchableOpacity style={styles.menuItem} onPress={onRefreshRoom} activeOpacity={0.85}>
-              <Ionicons name="refresh" size={18} color={theme.text} />
-              <Text style={styles.menuText}>Refresh</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setShowRoomMenu(false);
-                setInviteUsername("");
-                setShowInviteModal(true);
-              }}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="person-add-outline" size={18} color={theme.text} />
-              <Text style={styles.menuText}>Invite a Friend</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={onOpenUsers} activeOpacity={0.85}>
-              <Ionicons name="people" size={18} color={theme.text} />
-              <Text style={styles.menuText}>Users</Text>
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.menuItem} onPress={onOpenStats} activeOpacity={0.85}>
+                <Ionicons name="stats-chart" size={18} color={theme.text} />
+                <Text style={styles.menuText}>Stats</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={onOpenStats} activeOpacity={0.85}>
-              <Ionicons name="stats-chart" size={18} color={theme.text} />
-              <Text style={styles.menuText}>Stats</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowRoomMenu(false);
+                  setShowPinModal(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="pin" size={18} color={theme.text} />
+                <Text style={styles.menuText}>Pin Message</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setShowRoomMenu(false);
-                setShowPinModal(true);
-              }}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="pin" size={18} color={theme.text} />
-              <Text style={styles.menuText}>Pin Message</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowRoomMenu(false);
+                  router.push({ pathname: "/room/[id]/settings", params: { id: roomId } });
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="settings-outline" size={18} color={theme.text} />
+                <Text style={styles.menuText}>Setting Room</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setShowRoomMenu(false);
-                router.push({ pathname: "/room/[id]/settings", params: { id: roomId } });
-              }}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="settings-outline" size={18} color={theme.text} />
-              <Text style={styles.menuText}>Setting Room</Text>
-            </TouchableOpacity>
+              <View style={styles.menuDivider} />
 
-            <View style={styles.menuDivider} />
+              <TouchableOpacity style={styles.menuItem} onPress={onLeaveRoom} activeOpacity={0.85}>
+                <Ionicons name="exit-outline" size={18} color={theme.danger} />
+                <Text style={[styles.menuText, { color: theme.danger }]}>Leave Room</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
-            <TouchableOpacity style={styles.menuItem} onPress={onLeaveRoom} activeOpacity={0.85}>
-              <Ionicons name="exit-outline" size={18} color={theme.danger} />
-              <Text style={[styles.menuText, { color: theme.danger }]}>Leave Room</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        {/* ================= USERS MODAL ================= */}
+        <UsersModal
+          visible={showUsersModal}
+          onClose={() => setShowUsersModal(false)}
+          users={usersUI}
+          myUserId={myUserId}
+          onAvatarPress={onAvatarPress}
+          myRole={myRole}
+          onOpenGift={(u) => setGiftPicker({ visible: true, target: u })}
+          onStartChat={(u) => openChat(String(u.id))}
+          onCopyUser={onCopyUser}
+          onChangeRole={onChangeRole}
+          onKickUser={onKickUser}
+          onBanUser={onBanUser}
+          theme={theme}
+        />
 
-      {/* ================= USERS MODAL ================= */}
-      <UsersModal
-        visible={showUsersModal}
-        onClose={() => setShowUsersModal(false)}
-        users={usersUI}
-        myUserId={myUserId}
-        onAvatarPress={onAvatarPress}
-        myRole={myRole}
-        onOpenGift={(u) => setGiftPicker({ visible: true, target: u })}
-        onStartChat={(u) => openChat(String(u.id))}
-        onCopyUser={onCopyUser}
-        onChangeRole={onChangeRole}
-        onKickUser={onKickUser}
-        onBanUser={onBanUser}
-        theme={theme}
-      />
-
-      {/* ================= GLOBAL AUDIO BAR ================= */}
-      {/* {activeAudio && (
+        {/* ================= GLOBAL AUDIO BAR ================= */}
+        {/* {activeAudio && (
         <View style={styles.globalAudioPlayer}>
           <View style={styles.audioIcon}>
             <Ionicons name="musical-notes" size={18} color={theme.primaryText} />
@@ -3328,717 +3574,734 @@ const sendCricketHit = async (gameId: string) => {
           </TouchableOpacity>
         </View>
       )} */}
-      {/* ================= AUDIO MODAL ================= */}
-      <Modal
-        transparent
-        visible={showAudioModal && !!activeAudio}
-        animationType="fade"
-        onRequestClose={() => setShowAudioModal(false)}
-      >
-        <Pressable
-          style={styles.audioModalOverlay}
-          onPress={() => setShowAudioModal(false)}
+        {/* ================= AUDIO MODAL ================= */}
+        <Modal
+          transparent
+          visible={showAudioModal && !!activeAudio}
+          animationType="fade"
+          onRequestClose={() => setShowAudioModal(false)}
         >
-          <Pressable style={styles.audioModalCard} onPress={() => { }}>
-            <View style={styles.audioModalHeader}>
-              <Text style={styles.audioModalTitle}>Voice message</Text>
+          <Pressable
+            style={styles.audioModalOverlay}
+            onPress={() => setShowAudioModal(false)}
+          >
+            <Pressable style={styles.audioModalCard} onPress={() => { }}>
+              <View style={styles.audioModalHeader}>
+                <Text style={styles.audioModalTitle}>Voice message</Text>
 
-              <TouchableOpacity
-                onPress={() => setShowAudioModal(false)}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="close" size={20} color={theme.icon} />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowAudioModal(false)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="close" size={20} color={theme.icon} />
+                </TouchableOpacity>
+              </View>
+
+              {!!activeAudio?.sender?.name && (
+                <Text style={styles.audioModalSender} numberOfLines={1}>
+                  {activeAudio.sender.name}
+                </Text>
+              )}
+
+              {!!activeAudio?.uri && (
+                <View style={{ marginTop: 10 }}>
+                  <VoiceMessagePlayer uri={activeAudio.uri} isMe={false} />
+                </View>
+              )}
+            </Pressable>
+          </Pressable>
+        </Modal>
+        {/* ================= PINNED BAR ================= */}
+        {latestPinned && (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.pinnedBar}
+            onPress={() => setPinPreviewFull(true)}
+          >
+            <View style={styles.pinnedLeft}>
+              <Ionicons name="pin" size={18} color={theme.primary} />
+              <Text style={styles.pinnedTitle}>Pinned</Text>
             </View>
 
-            {!!activeAudio?.sender?.name && (
-              <Text style={styles.audioModalSender} numberOfLines={1}>
-                {activeAudio.sender.name}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.pinnedText} numberOfLines={1}>
+                {clipText(safeDisplayText(latestPinned.text || ""), 80)}
               </Text>
-            )}
+              <Text style={styles.pinnedMeta} numberOfLines={1}>
+                {latestPinned.sender?.name ? `${latestPinned.sender.name} • ` : ""}
+                {latestPinned.time}
+              </Text>
+            </View>
 
-            {!!activeAudio?.uri && (
-              <View style={{ marginTop: 10 }}>
-                <VoiceMessagePlayer uri={activeAudio.uri} isMe={false} />
-              </View>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
-      {/* ================= PINNED BAR ================= */}
-      {latestPinned && (
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.pinnedBar}
-          onPress={() => setPinPreviewFull(true)}
-        >
-          <View style={styles.pinnedLeft}>
-            <Ionicons name="pin" size={18} color={theme.primary} />
-            <Text style={styles.pinnedTitle}>Pinned</Text>
-          </View>
-
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.pinnedText} numberOfLines={1}>
-              {clipText(safeDisplayText(latestPinned.text || ""), 80)}
-            </Text>
-            <Text style={styles.pinnedMeta} numberOfLines={1}>
-              {latestPinned.sender?.name ? `${latestPinned.sender.name} • ` : ""}
-              {latestPinned.time}
-            </Text>
-          </View>
-
-          <Ionicons name="chevron-forward" size={18} color={theme.icon} />
-        </TouchableOpacity>
-      )}
-
-      {/* ================= CHAT ================= */}
-      <FlatList
-        ref={flatListRef}
-        data={uiMessages}
-        inverted
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={<Reanimated.View style={listSpacerAnimatedStyle} />}
-        contentContainerStyle={{ padding: 14, paddingTop: 14 }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item, index }) => {
-          const isMe = Boolean(myUserId) && item.sender?.id === myUserId;
-          const previousMessage = uiMessages[index + 1];
-          const showName =
-            !previousMessage || previousMessage.type === "system" || previousMessage.sender?.id !== item.sender?.id;
-
-          return (
-            <MessageItem
-              item={item}
-              isMe={isMe}
-              showName={showName}
-              currentUserId={myUserId}
-              onOpenAudioModal={openAudioModal}
-              onSendCricketJoin={sendCricketJoin}
-onSendCricketHit={sendCricketHit}
-              onAvatarLongPress={(u) => {
-                if (!u?.id) return;
-                setGiftPicker({ visible: true, target: u });
-              }}
-              onAvatarPress={onAvatarPress}
-
-              onPressImage={(payload) => setPreviewImage(payload)}
-              onTogglePlay={togglePlay}
-              playingId={playingId}
-              progressAnim={progressAnim}
-              onLongPress={() => {
-                setSelectedMessage(item);
-                setShowActions(true);
-              }}
-              onGiftDone={() => markGiftDone(item.id)}
-              theme={theme}
-              bubble={bubbleStyles}
-            />
-          );
-        }}
-      />
-
-      {/* ================= REPLY PREVIEW ================= */}
-      {replyTo && (
-        <View style={styles.replyPreview}>
-          <Text style={{ color: theme.text, fontWeight: "700" }} numberOfLines={1}>
-            Replying to: {replyTo.text || "Media"}
-          </Text>
-          <TouchableOpacity onPress={() => setReplyTo(null)} activeOpacity={0.85}>
-            <Ionicons name="close" size={18} color={theme.text} />
+            <Ionicons name="chevron-forward" size={18} color={theme.icon} />
           </TouchableOpacity>
-        </View>
-      )}
+        )}
 
-      {/* ================= VOICE PREVIEW ================= */}
-      {!!pendingVoiceUri && (
-        <VoiceRecorderPreview
-          uri={pendingVoiceUri}
-          topOffset={insets.top + 56} // عدل الرقم حسب ارتفاع الهيدر عندك
-          onCancel={() => setPendingVoiceUri(null)}
-          onSend={async () => {
-            if (!roomId || !pendingVoiceUri) return;
-            try {
-              setUploading({ visible: true, title: "جاري رفع الصوت…", sub: "يرجى الانتظار" });
+        {/* ================= CHAT ================= */}
+        <FlatList
+          ref={flatListRef}
+          data={uiMessages}
+          inverted
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={<Reanimated.View style={listSpacerAnimatedStyle} />}
+          contentContainerStyle={{ padding: 14, paddingTop: 14 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item, index }) => {
+            const isMe = Boolean(myUserId) && item.sender?.id === myUserId;
+            const previousMessage = uiMessages[index + 1];
+            const showName =
+              !previousMessage || previousMessage.type === "system" || previousMessage.sender?.id !== item.sender?.id;
 
-              const secureUrl = await uploadToCloudinary(pendingVoiceUri, "raw");
+            return (
+              <MessageItem
+                item={item}
+                isMe={isMe}
+                showName={showName}
+                currentUserId={myUserId}
+                onOpenAudioModal={openAudioModal}
+                onSendCricketJoin={sendCricketJoin}
+                onSendCricketPlay={sendCricketPlay}
+                onAvatarLongPress={(u) => {
+                  if (!u?.id) return;
+                  setGiftPicker({ visible: true, target: u });
+                }}
+                onAvatarPress={onAvatarPress}
 
-              await dispatch(
-                sendRoomMessage({
-                  roomId,
-                  content: "🎤 Voice message",
-                  type: "audio",
-                  media: { url: secureUrl }
-                })
-              ).unwrap();
-
-              try {
-                await FileSystem.deleteAsync(pendingVoiceUri, { idempotent: true });
-              } catch { }
-
-              setPendingVoiceUri(null);
-              scrollToBottom();
-            } catch (e: any) {
-              Alert.alert("Error", e?.message || "Failed to send voice");
-            } finally {
-              setUploading({ visible: false, title: "Uploading…", sub: undefined });
-            }
+                onPressImage={(payload) => setPreviewImage(payload)}
+                onTogglePlay={togglePlay}
+                playingId={playingId}
+                progressAnim={progressAnim}
+                onLongPress={() => {
+                  setSelectedMessage(item);
+                  setShowActions(true);
+                }}
+                onGiftDone={() => markGiftDone(item.id)}
+                theme={theme}
+                bubble={bubbleStyles}
+              />
+            );
           }}
         />
-      )}
 
-      {/* ================= INPUT ================= */}
-      <Reanimated.View
-        onLayout={(e) => {
-          setInputBarHeight(e.nativeEvent.layout.height);
-        }}
-        style={[
-          styles.inputBarWrap,
-          inputBarAnimatedStyle,
-        ]}
-      >
-        <View style={styles.inputBar}>
-          <TouchableOpacity onPress={sendImage} disabled={uploading.visible} activeOpacity={0.85}>
-            <Ionicons name="image-outline" size={24} color={theme.text} />
-          </TouchableOpacity>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Type a message"
-            placeholderTextColor={theme.subtleText}
-            value={text}
-            onFocus={() => {
-              setTimeout(() => {
-                flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
-              }, 50);
-            }}
-            onChangeText={setText}
-            multiline
-          />
-
-          {text ? (
-            <TouchableOpacity onPress={sendText} disabled={uploading.visible} activeOpacity={0.85}>
-              <Ionicons name="send" size={22} color={theme.primary} />
+        {/* ================= REPLY PREVIEW ================= */}
+        {replyTo && (
+          <View style={styles.replyPreview}>
+            <Text style={{ color: theme.text, fontWeight: "700" }} numberOfLines={1}>
+              Replying to: {replyTo.text || "Media"}
+            </Text>
+            <TouchableOpacity onPress={() => setReplyTo(null)} activeOpacity={0.85}>
+              <Ionicons name="close" size={18} color={theme.text} />
             </TouchableOpacity>
-          ) : (
-            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-              <TouchableOpacity
-                onPressIn={startRecording}
-                onPressOut={stopRecording}
-                disabled={uploading.visible || !!pendingVoiceUri}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="mic" size={26} color={recording ? theme.danger : theme.text} />
+          </View>
+        )}
+
+        {/* ================= VOICE PREVIEW ================= */}
+        {!!pendingVoiceUri && (
+          <VoiceRecorderPreview
+            uri={pendingVoiceUri}
+            topOffset={insets.top + 56} // عدل الرقم حسب ارتفاع الهيدر عندك
+            onCancel={() => setPendingVoiceUri(null)}
+            onSend={async () => {
+              if (!roomId || !pendingVoiceUri) return;
+              try {
+                setUploading({ visible: true, title: "جاري رفع الصوت…", sub: "يرجى الانتظار" });
+
+                const secureUrl = await uploadToCloudinary(pendingVoiceUri, "raw");
+
+                await dispatch(
+                  sendRoomMessage({
+                    roomId,
+                    content: "🎤 Voice message",
+                    type: "audio",
+                    media: { url: secureUrl }
+                  })
+                ).unwrap();
+
+                try {
+                  await FileSystem.deleteAsync(pendingVoiceUri, { idempotent: true });
+                } catch { }
+
+                setPendingVoiceUri(null);
+                scrollToBottom();
+              } catch (e: any) {
+                Alert.alert("Error", e?.message || "Failed to send voice");
+              } finally {
+                setUploading({ visible: false, title: "Uploading…", sub: undefined });
+              }
+            }}
+          />
+        )}
+
+        {/* ================= INPUT ================= */}
+        <Reanimated.View
+          onLayout={(e) => {
+            setInputBarHeight(e.nativeEvent.layout.height);
+          }}
+          style={[
+            styles.inputBarWrap,
+            inputBarAnimatedStyle,
+          ]}
+        >
+          <View style={styles.inputBar}>
+            <TouchableOpacity onPress={sendImage} disabled={uploading.visible} activeOpacity={0.85}>
+              <Ionicons name="image-outline" size={24} color={theme.text} />
+            </TouchableOpacity>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Type a message"
+              placeholderTextColor={theme.subtleText}
+              value={text}
+              onFocus={() => {
+                setTimeout(() => {
+                  flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+                }, 50);
+              }}
+              onChangeText={setText}
+              multiline
+            />
+
+            {text ? (
+              <TouchableOpacity onPress={sendText} disabled={uploading.visible} activeOpacity={0.85}>
+                <Ionicons name="send" size={22} color={theme.primary} />
               </TouchableOpacity>
-            </Animated.View>
-          )}
-        </View>
-      </Reanimated.View>
-      <Modal
-        transparent
-        visible={showInviteModal}
-        animationType="fade"
-        onRequestClose={() => setShowInviteModal(false)}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.menuOverlay}
-          onPress={() => setShowInviteModal(false)}
+            ) : (
+              <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                <TouchableOpacity
+                  onPressIn={startRecording}
+                  onPressOut={stopRecording}
+                  disabled={uploading.visible || !!pendingVoiceUri}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="mic" size={26} color={recording ? theme.danger : theme.text} />
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+          </View>
+        </Reanimated.View>
+        <Modal
+          transparent
+          visible={showInviteModal}
+          animationType="fade"
+          onRequestClose={() => setShowInviteModal(false)}
         >
           <TouchableOpacity
             activeOpacity={1}
-            style={styles.inviteModalBox}
-            onPress={() => { }}
+            style={styles.menuOverlay}
+            onPress={() => setShowInviteModal(false)}
           >
-            <View style={styles.inviteModalHeader}>
-              <Text style={styles.inviteModalTitle}>Invite a Friend</Text>
-
-              <TouchableOpacity
-                onPress={() => setShowInviteModal(false)}
-                activeOpacity={0.85}
-                style={styles.inviteModalCloseBtn}
-              >
-                <Ionicons name="close" size={20} color={theme.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inviteModalHint}>
-              Enter the username exactly as it appears in the app
-            </Text>
-
-            <View style={styles.inviteInputWrap}>
-              <Ionicons name="person-outline" size={18} color={theme.icon} />
-              <TextInput
-                style={styles.inviteInput}
-                placeholder="Username"
-                placeholderTextColor={theme.subtleText}
-                value={inviteUsername}
-                onChangeText={(val) => {
-                  setInviteUsername(val);
-                  setSelectedInviteUser(null);
-                }}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="search"
-                onSubmitEditing={handleInviteSearch}
-              />
-            </View>
-
             <TouchableOpacity
-              style={[
-                styles.inviteSendBtn,
-                { marginTop: 10, opacity: inviteLoading ? 0.7 : 1 }
-              ]}
-              onPress={handleInviteSearch}
-              activeOpacity={0.85}
-              disabled={inviteLoading}
+              activeOpacity={1}
+              style={styles.inviteModalBox}
+              onPress={() => { }}
             >
-              <Text style={styles.inviteSendText}>
-                {inviteLoading ? "Searching..." : "Search User"}
-              </Text>
-            </TouchableOpacity>
+              <View style={styles.inviteModalHeader}>
+                <Text style={styles.inviteModalTitle}>Invite a Friend</Text>
 
-            {!!inviteSearchResults?.length && (
-              <View style={{ marginTop: 12, gap: 8 }}>
-                {inviteSearchResults.map((user: any) => {
-                  const userId = String(user?._id || user?.id || "");
-                  const isSelected =
-                    String(selectedInviteUser?._id || selectedInviteUser?.id || "") === userId;
-                  const isSending = inviteSendingId === userId;
-
-                  return (
-                    <TouchableOpacity
-                      key={userId}
-                      activeOpacity={0.85}
-                      onPress={() => setSelectedInviteUser(user)}
-                      style={{
-                        borderWidth: 1,
-                        borderColor: isSelected ? theme.primary : theme.border,
-                        backgroundColor: isSelected ? theme.surface2 : theme.card,
-                        borderRadius: 12,
-                        paddingHorizontal: 12,
-                        paddingVertical: 10,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.text, fontWeight: "700" }}>
-                          {user?.username || user?.name || "User"}
-                        </Text>
-                        {!!user?.atUsername && (
-                          <Text style={{ color: theme.mutedText, marginTop: 2 }}>
-                            @{user.atUsername}
-                          </Text>
-                        )}
-                      </View>
-
-                      {isSelected && (
-                        <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
+                <TouchableOpacity
+                  onPress={() => setShowInviteModal(false)}
+                  activeOpacity={0.85}
+                  style={styles.inviteModalCloseBtn}
+                >
+                  <Ionicons name="close" size={20} color={theme.text} />
+                </TouchableOpacity>
               </View>
-            )}
 
-            <View style={styles.inviteActionsRow}>
-              <TouchableOpacity
-                style={styles.inviteCancelBtn}
-                onPress={() => {
-                  setShowInviteModal(false);
-                  setInviteUsername("");
-                  setSelectedInviteUser(null);
-                }}
-                activeOpacity={0.85}
-                disabled={inviteLoading || !!inviteSendingId}
-              >
-                <Text style={styles.inviteCancelText}>Cancel</Text>
-              </TouchableOpacity>
+              <Text style={styles.inviteModalHint}>
+                Enter the username exactly as it appears in the app
+              </Text>
+
+              <View style={styles.inviteInputWrap}>
+                <Ionicons name="person-outline" size={18} color={theme.icon} />
+                <TextInput
+                  style={styles.inviteInput}
+                  placeholder="Username"
+                  placeholderTextColor={theme.subtleText}
+                  value={inviteUsername}
+                  onChangeText={(val) => {
+                    setInviteUsername(val);
+                    setSelectedInviteUser(null);
+                  }}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="search"
+                  onSubmitEditing={handleInviteSearch}
+                />
+              </View>
 
               <TouchableOpacity
                 style={[
                   styles.inviteSendBtn,
-                  {
-                    opacity:
-                      inviteLoading || !!inviteSendingId || !selectedInviteUser ? 0.6 : 1,
-                  },
+                  { marginTop: 10, opacity: inviteLoading ? 0.7 : 1 }
                 ]}
-                onPress={handleInviteUser}
+                onPress={handleInviteSearch}
                 activeOpacity={0.85}
-                disabled={inviteLoading || !!inviteSendingId || !selectedInviteUser}
+                disabled={inviteLoading}
               >
                 <Text style={styles.inviteSendText}>
-                  {inviteSendingId ? "Sending..." : "Send Invite"}
+                  {inviteLoading ? "Searching..." : "Search User"}
                 </Text>
               </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-      {/* ================= ACTIONS MODAL ================= */}
-      <Modal transparent visible={showActions} animationType="fade" onRequestClose={() => setShowActions(false)}>
-        <View style={styles.actionsOverlay}>
-          <View style={styles.actionsBox}>
-            <View style={styles.reactionsRow}>
-              {REACTIONS.map((r) => (
-                <TouchableOpacity key={r} onPress={() => selectedMessage && addReaction(selectedMessage, r)}
-                  activeOpacity={0.85}>
-                  <Text style={{ fontSize: 22 }}>{r}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
 
-            <TouchableOpacity
-              onPress={() => {
-                setReplyTo(selectedMessage);
-                setShowActions(false);
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.action}>Reply</Text>
-            </TouchableOpacity>
+              {!!inviteSearchResults?.length && (
+                <View style={{ marginTop: 12, gap: 8 }}>
+                  {inviteSearchResults.map((user: any) => {
+                    const userId = String(user?._id || user?.id || "");
+                    const isSelected =
+                      String(selectedInviteUser?._id || selectedInviteUser?.id || "") === userId;
+                    const isSending = inviteSendingId === userId;
 
-            {(selectedMessage?.sender?.id === myUserId || canModerate) &&
-              selectedMessage?.type !== "system" &&
-              !selectedMessage?.deletedForEveryone && (
-                <TouchableOpacity onPress={() => selectedMessage && deleteMessage(selectedMessage)}
-                  activeOpacity={0.85}>
-                  <Text style={[styles.action, { color: theme.danger }]}>Delete</Text>
-                </TouchableOpacity>
+                    return (
+                      <TouchableOpacity
+                        key={userId}
+                        activeOpacity={0.85}
+                        onPress={() => setSelectedInviteUser(user)}
+                        style={{
+                          borderWidth: 1,
+                          borderColor: isSelected ? theme.primary : theme.border,
+                          backgroundColor: isSelected ? theme.surface2 : theme.card,
+                          borderRadius: 12,
+                          paddingHorizontal: 12,
+                          paddingVertical: 10,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: theme.text, fontWeight: "700" }}>
+                            {user?.username || user?.name || "User"}
+                          </Text>
+                          {!!user?.atUsername && (
+                            <Text style={{ color: theme.mutedText, marginTop: 2 }}>
+                              @{user.atUsername}
+                            </Text>
+                          )}
+                        </View>
+
+                        {isSelected && (
+                          <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               )}
 
-            <TouchableOpacity onPress={() => setShowActions(false)} activeOpacity={0.85}>
-              <Text style={styles.cancel}>Cancel</Text>
+              <View style={styles.inviteActionsRow}>
+                <TouchableOpacity
+                  style={styles.inviteCancelBtn}
+                  onPress={() => {
+                    setShowInviteModal(false);
+                    setInviteUsername("");
+                    setSelectedInviteUser(null);
+                  }}
+                  activeOpacity={0.85}
+                  disabled={inviteLoading || !!inviteSendingId}
+                >
+                  <Text style={styles.inviteCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.inviteSendBtn,
+                    {
+                      opacity:
+                        inviteLoading || !!inviteSendingId || !selectedInviteUser ? 0.6 : 1,
+                    },
+                  ]}
+                  onPress={handleInviteUser}
+                  activeOpacity={0.85}
+                  disabled={inviteLoading || !!inviteSendingId || !selectedInviteUser}
+                >
+                  <Text style={styles.inviteSendText}>
+                    {inviteSendingId ? "Sending..." : "Send Invite"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ================= IMAGE PREVIEW ================= */}
-      <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
-        <View style={styles.imagePreviewOverlay}>
-          <TouchableOpacity style={styles.imagePreviewClose} onPress={() => setPreviewImage(null)} activeOpacity={0.85}>
-            <Ionicons name="close" size={28} color="#FFF" />
           </TouchableOpacity>
+        </Modal>
+        {/* ================= ACTIONS MODAL ================= */}
+        <Modal transparent visible={showActions} animationType="fade" onRequestClose={() => setShowActions(false)}>
+          <View style={styles.actionsOverlay}>
+            <View style={styles.actionsBox}>
+              <View style={styles.reactionsRow}>
+                {REACTIONS.map((r) => (
+                  <TouchableOpacity key={r} onPress={() => selectedMessage && addReaction(selectedMessage, r)}
+                    activeOpacity={0.85}>
+                    <Text style={{ fontSize: 22 }}>{r}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-          <Image
-            source={typeof previewImage === "string" ? { uri: previewImage } : previewImage!}
-            style={styles.fullImage}
-            resizeMode="contain"
-          />
-        </View>
-      </Modal>
-
-      {/* ================= PIN MODAL ================= */}
-      <Modal
-        transparent
-        visible={showPinModal}
-        animationType="fade"
-        onRequestClose={() => setShowPinModal(false)}
-      >
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
-        >
-          <Pressable style={styles.pinOverlay} onPress={() => setShowPinModal(false)}>
-            <Pressable style={styles.pinSheet} onPress={() => { }}>
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 10 }}
+              <TouchableOpacity
+                onPress={() => {
+                  setReplyTo(selectedMessage);
+                  setShowActions(false);
+                }}
+                activeOpacity={0.85}
               >
-                <View style={styles.pinHeader}>
-                  <Text style={styles.pinTitle}>Pin a message</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowPinModal(false)}
-                    style={styles.pinCloseBtn}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="close" size={20} color={theme.text} />
+                <Text style={styles.action}>Reply</Text>
+              </TouchableOpacity>
+
+              {(selectedMessage?.sender?.id === myUserId || canModerate) &&
+                selectedMessage?.type !== "system" &&
+                !selectedMessage?.deletedForEveryone && (
+                  <TouchableOpacity onPress={() => selectedMessage && deleteMessage(selectedMessage)}
+                    activeOpacity={0.85}>
+                    <Text style={[styles.action, { color: theme.danger }]}>Delete</Text>
                   </TouchableOpacity>
-                </View>
+                )}
 
-                <View style={styles.pinList}>
-                  <Text style={styles.pinLabel}>رسالة التثبيت</Text>
-
-                  <View style={styles.pinInputWrap}>
-                    <Ionicons name="text-outline" size={18} color={theme.icon} />
-                    <TextInput
-                      style={styles.pinInput}
-                      placeholder="اكتب رسالة التثبيت (تقبل HTML مثل <b>...</b> و <br /> )"
-                      placeholderTextColor={theme.subtleText}
-                      value={pinHtml}
-                      onChangeText={setPinHtml}
-                      multiline
-                      textAlignVertical="top"
-                    />
-                  </View>
-
-                  {!!pinHtml.trim() && (
-                    <View style={styles.pinPreviewBox}>
-                      <Text style={styles.pinPreviewTitle}>معاينة</Text>
-                      <RenderHTML
-                        contentWidth={width - 60}
-                        source={{ html: String(pinHtml) }}
-                      />
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.pinActions}>
-                  <TouchableOpacity
-                    style={[styles.pinBtn, styles.pinBtnCancel]}
-                    onPress={() => setShowPinModal(false)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.pinBtnCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.pinBtn, !pinHtml.trim() && styles.pinBtnDisabled]}
-                    disabled={!pinHtml.trim()}
-                    activeOpacity={0.85}
-                    onPress={async () => {
-                      try {
-                        const content = pinHtml.trim();
-                        if (!content) return;
-
-                        const created = await dispatch(
-                          sendRoomMessage({ roomId, content, type: "announcement" })
-                        ).unwrap();
-
-                        const messageId = created?.message?._id;
-
-                        if (!messageId) {
-                          Alert.alert("Error", "لم يتم الحصول على id للرسالة الجديدة.");
-                          return;
-                        }
-
-                        await dispatch(
-                          pinRoomMessage({ roomId, messageId, pinned: true })
-                        ).unwrap();
-
-                        setShowPinModal(false);
-                        setPinHtml("");
-                        Alert.alert("Done", "تم إرسال الرسالة وتثبيتها");
-                      } catch (e: any) {
-                        Alert.alert("Error", e?.message || "Pin failed");
-                      }
-                    }}
-                  >
-                    <Ionicons name="pin" size={16} color={theme.primaryText} />
-                    <Text style={styles.pinBtnText}>Pin</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ================= PIN PREVIEW FULL ================= */}
-      <Modal transparent visible={pinPreviewFull} animationType="fade" onRequestClose={() => setPinPreviewFull(false)}>
-        <Pressable style={styles.fullOverlay} onPress={() => setPinPreviewFull(false)}>
-          <Pressable style={styles.fullBox} onPress={() => { }}>
-            <View style={styles.fullHeader}>
-              <Text style={styles.fullTitle}>Pinned message</Text>
-
-              {latestPinned && canModerate && (
-                <TouchableOpacity onPress={() => unpinMessage(latestPinned.id)} activeOpacity={0.85}>
-                  <Text style={{ color: theme.danger, fontWeight: "900" }}>Unpin</Text>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity onPress={() => setPinPreviewFull(false)} activeOpacity={0.85}>
-                <Ionicons name="close" size={20} color={theme.text} />
+              <TouchableOpacity onPress={() => setShowActions(false)} activeOpacity={0.85}>
+                <Text style={styles.cancel}>Cancel</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </Modal>
 
-            {(() => {
-              const msg = latestPinned;
-              const raw = msg?.text || "";
-              return (
-                <>
-                  <Text style={styles.fullMeta}>
-                    {msg?.sender?.name ? `${msg.sender.name} • ` : ""}
-                    {msg?.time || ""}
-                  </Text>
+        {/* ================= IMAGE PREVIEW ================= */}
+        <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
+          <View style={styles.imagePreviewOverlay}>
+            <TouchableOpacity style={styles.imagePreviewClose} onPress={() => setPreviewImage(null)} activeOpacity={0.85}>
+              <Ionicons name="close" size={28} color="#FFF" />
+            </TouchableOpacity>
 
-                  <RenderHTML
-                    contentWidth={width}
-                    source={{ html: String(raw || "") }}
-                    enableCSSInlineProcessing={true}
+            <Image
+              source={typeof previewImage === "string" ? { uri: previewImage } : previewImage!}
+              style={styles.fullImage}
+              resizeMode="contain"
+            />
+          </View>
+        </Modal>
 
-                  />
-                </>
-              );
-            })()}
-          </Pressable>
-        </Pressable>
-      </Modal>
+        {/* ================= PIN MODAL ================= */}
+        <Modal
+          transparent
+          visible={showPinModal}
+          animationType="fade"
+          onRequestClose={() => setShowPinModal(false)}
+        >
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+          >
+            <Pressable style={styles.pinOverlay} onPress={() => setShowPinModal(false)}>
+              <Pressable style={styles.pinSheet} onPress={() => { }}>
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 10 }}
+                >
+                  <View style={styles.pinHeader}>
+                    <Text style={styles.pinTitle}>Pin a message</Text>
+                    <TouchableOpacity
+                      onPress={() => setShowPinModal(false)}
+                      style={styles.pinCloseBtn}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="close" size={20} color={theme.text} />
+                    </TouchableOpacity>
+                  </View>
 
-      {/* ================= GIFT FULLSCREEN OVERLAY ================= */}
-      {String(giftOverlay.giftKey || "").startsWith("boost") ? (
-        <BoostLottieOverlay
-          visible={giftOverlay.visible}
-          title="🚀 Room Boosted!"
-          subtitle={`${giftOverlay.fromName || "Someone"} boosted the room`}
-          onDone={() => {
-            if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
-            setGiftOverlay({
-              visible: false,
-              messageId: null,
-              giftKey: null,
-              icon: "🎁",
-              count: 45,
-              lottie: undefined,
-              fromName: undefined,
-              toName: undefined,
-            });
-          }}
-        />
-      ) : giftOverlay.lottie ? (
-        <GiftLottieOverlay
-          visible={giftOverlay.visible}
-          source={giftOverlay.lottie}
-          fromName={giftOverlay.fromName}
-          toName={giftOverlay.toName}
-          durationMs={2600}
-          onDone={() => {
-            if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
-            setGiftOverlay({
-              visible: false,
-              messageId: null,
-              giftKey: null,
-              icon: "🎁",
-              count: 45,
-              lottie: undefined,
-              fromName: undefined,
-              toName: undefined,
-            });
-          }}
-        />
-      ) : (
-        <GiftBurstOverlay
-          visible={giftOverlay.visible}
-          icon={giftOverlay.icon}
-          count={giftOverlay.count}
-          fromName={giftOverlay.fromName}
-          toName={giftOverlay.toName}
-          durationMs={2600}
-          onDone={() => {
-            if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
-            setGiftOverlay({
-              visible: false,
-              messageId: null,
-              giftKey: null,
-              icon: "🎁",
-              count: 45,
-              lottie: undefined,
-              fromName: undefined,
-              toName: undefined,
-            });
-          }}
-        />
-      )}
+                  <View style={styles.pinList}>
+                    <Text style={styles.pinLabel}>رسالة التثبيت</Text>
 
-      {/* ================= GIFT PICKER ================= */}
-      <GiftPickerModal
-        visible={giftPicker.visible}
-        target={giftPicker.target}
-        onClose={() => setGiftPicker({ visible: false, target: null })}
-        theme={theme}
-        onPick={async (g) => {
-          try {
-            const target = giftPicker.target;
-            setGiftPicker({ visible: false, target: null });
+                    <View style={styles.pinInputWrap}>
+                      <Ionicons name="text-outline" size={18} color={theme.icon} />
+                      <TextInput
+                        style={styles.pinInput}
+                        placeholder="اكتب رسالة التثبيت (تقبل HTML مثل <b>...</b> و <br /> )"
+                        placeholderTextColor={theme.subtleText}
+                        value={pinHtml}
+                        onChangeText={setPinHtml}
+                        multiline
+                        textAlignVertical="top"
+                      />
+                    </View>
 
-            if (!roomId) return;
+                    {!!pinHtml.trim() && (
+                      <View style={styles.pinPreviewBox}>
+                        <Text style={styles.pinPreviewTitle}>معاينة</Text>
 
-            const isBoost = String(g.key || "").startsWith("boost");
+                        <PinnedHtmlWebView
+                          html={pinHtml}
+                          width={width - 60}
+                          minHeight={36}
+                          textColor={theme.text}
+                          textAlign="center"
+                          fontSize={15}
+                          lineHeight={26}
+                        />
+                      </View>
+                    )}
+                  </View>
 
-            if (!isBoost && !target?.id) {
-              Alert.alert("Error", "Target user not found");
-              return;
-            }
+                  <View style={styles.pinActions}>
+                    <TouchableOpacity
+                      style={[styles.pinBtn, styles.pinBtnCancel]}
+                      onPress={() => setShowPinModal(false)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.pinBtnCancelText}>Cancel</Text>
+                    </TouchableOpacity>
 
-            const tempGift = TEMP_GIFTS.find((x) => x.key === g.key);
-            const giftPrice = Number(tempGift?.price || 0);
+                    <TouchableOpacity
+                      style={[styles.pinBtn, !pinHtml.trim() && styles.pinBtnDisabled]}
+                      disabled={!pinHtml.trim()}
+                      activeOpacity={0.85}
+                      onPress={async () => {
+                        try {
+                          const content = pinHtml.trim();
+                          if (!content) return;
 
-            if (myCoinz < giftPrice) {
-              Alert.alert(
-                "رصيد غير كافٍ",
-                `هذه الهدية تحتاج ${giftPrice} Coinz، بينما رصيدك الحالي ${myCoinz} Coinz.`,
-                [
-                  { text: "إلغاء", style: "cancel" },
-                  {
-                    text: "الذهاب إلى المتجر",
-                    onPress: () => router.push("/store")
-                  }
-                ]
-              );
-              return;
-            }
+                          const created = await dispatch(
+                            sendRoomMessage({ roomId, content, type: "announcement" })
+                          ).unwrap();
 
-            if (giftPrice > 0) {
-              const debitRes = await dispatch(
-                debitMyCoinz({
-                  amount: giftPrice,
-                  reason: `gift:${g.key}`
-                }) as any
-              );
+                          const messageId = created?.message?._id;
 
-              if (!debitMyCoinz.fulfilled.match(debitRes)) {
-                Alert.alert(
-                  "تعذر الخصم",
-                  String((debitRes as any)?.payload || "فشل خصم الرصيد")
+                          if (!messageId) {
+                            Alert.alert("Error", "لم يتم الحصول على id للرسالة الجديدة.");
+                            return;
+                          }
+
+                          await dispatch(
+                            pinRoomMessage({ roomId, messageId, pinned: true })
+                          ).unwrap();
+
+                          setShowPinModal(false);
+                          setPinHtml("");
+                          Alert.alert("Done", "تم إرسال الرسالة وتثبيتها");
+                        } catch (e: any) {
+                          Alert.alert("Error", e?.message || "Pin failed");
+                        }
+                      }}
+                    >
+                      <Ionicons name="pin" size={16} color={theme.primaryText} />
+                      <Text style={styles.pinBtnText}>Pin</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </Pressable>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        {/* ================= PIN PREVIEW FULL ================= */}
+        <Modal transparent visible={pinPreviewFull} animationType="fade" onRequestClose={() => setPinPreviewFull(false)}>
+          <Pressable style={styles.fullOverlay} onPress={() => setPinPreviewFull(false)}>
+            <Pressable style={styles.fullBox} onPress={() => { }}>
+              <View style={styles.fullHeader}>
+                <Text style={styles.fullTitle}>Pinned message</Text>
+
+                {latestPinned && canModerate && (
+                  <TouchableOpacity onPress={() => unpinMessage(latestPinned.id)} activeOpacity={0.85}>
+                    <Text style={{ color: theme.danger, fontWeight: "900" }}>Unpin</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity onPress={() => setPinPreviewFull(false)} activeOpacity={0.85}>
+                  <Ionicons name="close" size={20} color={theme.text} />
+                </TouchableOpacity>
+              </View>
+
+              {(() => {
+                const msg = latestPinned;
+                const raw = msg?.text || "";
+                return (
+                  <>
+                    <Text style={styles.fullMeta}>
+                      {msg?.sender?.name ? `${msg.sender.name} • ` : ""}
+                      {msg?.time || ""}
+                    </Text>
+
+                    <PinnedHtmlWebView
+                      html={raw}
+                      width={width - 56}
+                      minHeight={36}
+                      textColor={theme.text}
+                      textAlign="center"
+                      fontSize={16}
+                      lineHeight={30}
+                    />
+                  </>
                 );
-                await dispatch(getMyInventory() as any);
+              })()}
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* ================= GIFT FULLSCREEN OVERLAY ================= */}
+        {String(giftOverlay.giftKey || "").startsWith("boost") ? (
+          <BoostLottieOverlay
+            visible={giftOverlay.visible}
+            title="🚀 Room Boosted!"
+            subtitle={`${giftOverlay.fromName || "Someone"} boosted the room`}
+            onDone={() => {
+              if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
+              setGiftOverlay({
+                visible: false,
+                messageId: null,
+                giftKey: null,
+                icon: "🎁",
+                count: 45,
+                lottie: undefined,
+                fromName: undefined,
+                toName: undefined,
+              });
+            }}
+          />
+        ) : giftOverlay.lottie ? (
+          <GiftLottieOverlay
+            visible={giftOverlay.visible}
+            source={giftOverlay.lottie}
+            fromName={giftOverlay.fromName}
+            toName={giftOverlay.toName}
+            durationMs={2600}
+            onDone={() => {
+              if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
+              setGiftOverlay({
+                visible: false,
+                messageId: null,
+                giftKey: null,
+                icon: "🎁",
+                count: 45,
+                lottie: undefined,
+                fromName: undefined,
+                toName: undefined,
+              });
+            }}
+          />
+        ) : (
+          <GiftBurstOverlay
+            visible={giftOverlay.visible}
+            icon={giftOverlay.icon}
+            count={giftOverlay.count}
+            fromName={giftOverlay.fromName}
+            toName={giftOverlay.toName}
+            durationMs={2600}
+            onDone={() => {
+              if (giftOverlay.messageId) markGiftDone(giftOverlay.messageId);
+              setGiftOverlay({
+                visible: false,
+                messageId: null,
+                giftKey: null,
+                icon: "🎁",
+                count: 45,
+                lottie: undefined,
+                fromName: undefined,
+                toName: undefined,
+              });
+            }}
+          />
+        )}
+
+        {/* ================= GIFT PICKER ================= */}
+        <GiftPickerModal
+          visible={giftPicker.visible}
+          target={giftPicker.target}
+          onClose={() => setGiftPicker({ visible: false, target: null })}
+          theme={theme}
+          onPick={async (g) => {
+            try {
+              const target = giftPicker.target;
+              setGiftPicker({ visible: false, target: null });
+
+              if (!roomId) return;
+
+              const isBoost = String(g.key || "").startsWith("boost");
+
+              if (!isBoost && !target?.id) {
+                Alert.alert("Error", "Target user not found");
                 return;
               }
 
+              const tempGift = TEMP_GIFTS.find((x) => x.key === g.key);
+              const giftPrice = Number(tempGift?.price || 0);
+
+              if (myCoinz < giftPrice) {
+                Alert.alert(
+                  "رصيد غير كافٍ",
+                  `هذه الهدية تحتاج ${giftPrice} Coinz، بينما رصيدك الحالي ${myCoinz} Coinz.`,
+                  [
+                    { text: "إلغاء", style: "cancel" },
+                    {
+                      text: "الذهاب إلى المتجر",
+                      onPress: () => router.push("/store")
+                    }
+                  ]
+                );
+                return;
+              }
+
+              if (giftPrice > 0) {
+                const debitRes = await dispatch(
+                  debitMyCoinz({
+                    amount: giftPrice,
+                    reason: `gift:${g.key}`
+                  }) as any
+                );
+
+                if (!debitMyCoinz.fulfilled.match(debitRes)) {
+                  Alert.alert(
+                    "تعذر الخصم",
+                    String((debitRes as any)?.payload || "فشل خصم الرصيد")
+                  );
+                  await dispatch(getMyInventory() as any);
+                  return;
+                }
+
+                await dispatch(getMyInventory() as any);
+              }
+
+              const meta = GIFT_META[g.key] || { icon: "🎁", count: 45, lottie: undefined };
+
+              await dispatch(
+                sendRoomMessage({
+                  roomId,
+                  type: "gift",
+                  content: g.key,
+                  gift: {
+                    key: g.key,
+                    icon: meta.icon,
+                    targetId: isBoost ? undefined : target!.id,
+                    targetName: isBoost ? undefined : target!.name,
+                    count: meta.count
+                  }
+                } as any)
+              ).unwrap();
+
+              const toLabel = isBoost ? "Room" : target?.name || "Someone";
+              const announce = `🎁 <b>${myName}</b> sent ${meta.icon} to <b>${toLabel}</b>`;
+
+              await dispatch(
+                sendRoomMessage({
+                  roomId,
+                  content: announce,
+                  type: "announcement"
+                })
+              ).unwrap();
+
+              await dispatch(getMyInventory() as any);
+            } catch (e: any) {
+              Alert.alert("Error", e?.message || "Failed to send gift");
               await dispatch(getMyInventory() as any);
             }
+          }}
+        />
+      </SafeAreaView>
 
-            const meta = GIFT_META[g.key] || { icon: "🎁", count: 45, lottie: undefined };
-
-            await dispatch(
-              sendRoomMessage({
-                roomId,
-                type: "gift",
-                content: g.key,
-                gift: {
-                  key: g.key,
-                  icon: meta.icon,
-                  targetId: isBoost ? undefined : target!.id,
-                  targetName: isBoost ? undefined : target!.name,
-                  count: meta.count
-                }
-              } as any)
-            ).unwrap();
-
-            const toLabel = isBoost ? "Room" : target?.name || "Someone";
-            const announce = `🎁 <b>${myName}</b> sent ${meta.icon} to <b>${toLabel}</b>`;
-
-            await dispatch(
-              sendRoomMessage({
-                roomId,
-                content: announce,
-                type: "announcement"
-              })
-            ).unwrap();
-
-            await dispatch(getMyInventory() as any);
-          } catch (e: any) {
-            Alert.alert("Error", e?.message || "Failed to send gift");
-            await dispatch(getMyInventory() as any);
-          }
-        }}
+      <ActiveRoomsDrawer
+        visible={showActiveRoomsDrawer}
+        onClose={() => setShowActiveRoomsDrawer(false)}
+        currentRoomId={roomId}
+        theme={theme}
       />
-    </SafeAreaView>
+    </View >
   );
 }
 
@@ -4107,17 +4370,18 @@ function makeBubbleStyles(theme: typeof Colors.light) {
     avatarStarLeft: {
       position: "absolute",
       top: -6,
-      right: -10,
+      left: -2,
       fontSize: 14,
       fontWeight: "900",
       textShadowColor: "rgba(0,0,0,0.25)",
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 2
     },
+    
     avatarStarRight: {
       position: "absolute",
       top: -6,
-      right: -10,
+      right: -2,
       fontSize: 14,
       fontWeight: "900",
       textShadowColor: "rgba(0,0,0,0.25)",
@@ -4200,6 +4464,14 @@ function makeBubbleStyles(theme: typeof Colors.light) {
 function makeUsersStyles(theme: typeof Colors.light) {
   return StyleSheet.create({
     overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
+    usersModalAvatar: {
+  width: 34,
+  height: 34,
+  borderRadius: 17,
+  backgroundColor: theme.surface2,
+  borderWidth: 1,
+  borderColor: theme.border,
+},
     sheet: {
       backgroundColor: theme.card,
       borderTopLeftRadius: 18,
@@ -4293,23 +4565,57 @@ function makeUsersStyles(theme: typeof Colors.light) {
   });
 }
 
-function makeScreenStyles(theme: typeof Colors.light, bottomInset: number) {
+function makeScreenStyles(
+  theme: typeof Colors.light,
+  topInset: number,
+  bottomInset: number
+) {
   return StyleSheet.create({
-    root: { flex: 1, backgroundColor: theme.backgroundChat },
+    root: {
+      flex: 1,
+      backgroundColor: theme.backgroundChat,
+    },
+
+    contentSafe: {
+      flex: 1,
+      backgroundColor: theme.backgroundChat,
+    },
 
     header: {
-      height: 56,
+      height: 54 + topInset,
+      paddingTop: topInset,
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
       paddingHorizontal: 12,
       borderBottomWidth: 1,
       borderColor: theme.separator,
-      backgroundColor: theme.card
+      backgroundColor: theme.card,
     },
-    headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 0 },
-    headerRight: { flexDirection: "row", alignItems: "center", gap: 16 },
 
+    headerLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      flex: 1,
+      minWidth: 0,
+    },
+
+    headerRight: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      gap: 8,
+    },
+
+    headerIconBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: -1,
+    },
     roomAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.surface2 },
     roomName: { fontSize: 16, fontWeight: "900", color: theme.text },
     roomMeta: { fontSize: 12, color: theme.mutedText },

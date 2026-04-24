@@ -209,7 +209,7 @@ function getCountryFlag(user?: Partial<ProfileUser> | null) {
   const rawCountry = String((user as any)?.country || "").trim();
   const normalizedCountry = rawCountry.toLowerCase();
 
-  
+
   const matchedCountry = Country.getAllCountries().find(
     (item) =>
       item.name.trim().toLowerCase() === normalizedCountry ||
@@ -745,9 +745,9 @@ export default function ProfileScreen() {
   const displayAge = computeAge(user?.dateOfBirth, (user as any)?.age);
   const displaySince = formatSince((user as any)?.createdAt);
   const displayViews = toDisplay(user?.profileViews);
-const displayFriends = String(
-  useSelector((state: RootState) => state.friends.friends)?.length || 0
-);
+  const displayFriends = String(
+    useSelector((state: RootState) => state.friends.friends)?.length || 0
+  );
   const displayFollowers = toDisplay(user?.followersCount);
   const displayFollowing = toDisplay(user?.followingCount);
   const displayGiftIn = toDisplay((user as any)?.giftsReceivedCount);
@@ -766,7 +766,7 @@ const displayFriends = String(
       ? raw
       : `<div style="text-align:center; color:#333333; font-size:17px; line-height:33px; font-weight:500;">${raw.replace(/\n/g, "<br/>")}</div>`;
 
-    
+
 
     return { html };
   }, [displayBioRaw]);
@@ -933,13 +933,13 @@ const displayFriends = String(
             </View>
           </View>
 
-        <View style={styles.profileBioWrap}>
-  <WebView
-    originWhitelist={["*"]}
-    scrollEnabled={false}
-    nestedScrollEnabled={false}
-    source={{
-      html: `
+          <View style={styles.profileBioWrap}>
+            <WebView
+              originWhitelist={["*"]}
+              scrollEnabled={false}
+              nestedScrollEnabled={false}
+              source={{
+                html: `
         <!DOCTYPE html>
         <html dir="rtl">
           <head>
@@ -969,18 +969,18 @@ const displayFriends = String(
           </body>
         </html>
       `,
-    }}
-    style={{
-      width: W - 36,
-      height: 230,
-      backgroundColor: "transparent",
-    }}
-  />
+              }}
+              style={{
+                width: W - 36,
+                height: 230,
+                backgroundColor: "transparent",
+              }}
+            />
 
-  {!!displayNote && (
-    <Text style={styles.profileNoteText}>{displayNote}</Text>
-  )}
-</View>
+            {!!displayNote && (
+              <Text style={styles.profileNoteText}>{displayNote}</Text>
+            )}
+          </View>
         </ScrollView>
 
         <Pressable style={styles.floatingMicBtn}>

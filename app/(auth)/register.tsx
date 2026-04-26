@@ -4,6 +4,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { register } from "@/redux/slices/authSlice";
 import { AppDispatch, RootState } from "@/redux/store";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -44,7 +45,8 @@ export default function RegisterScreen() {
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
   const s = useMemo(() => makeStyles(theme, isDark), [theme, isDark]);
-
+const [showPassword, setShowPassword] = useState(false);
+const [showConfirm, setShowConfirm] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -337,41 +339,73 @@ export default function RegisterScreen() {
             )}
           </Animated.View>
 
-          <Animated.View style={passStyle}>
-            <TextInput
-              placeholder={t("registerScreen.passwordPH")}
-              placeholderTextColor={theme.subtleText as any}
-              secureTextEntry
-              value={password}
-              onChangeText={onChangePassword}
-              style={[s.input, !!errors.password && s.inputError]}
-              editable={!loading}
-              returnKeyType="next"
-            />
-            {!!errors.password && (
-              <Animated.Text style={[s.fieldError, errorAnimStyle]}>
-                {errors.password}
-              </Animated.Text>
-            )}
-          </Animated.View>
+         <Animated.View style={passStyle}>
+  <View style={[s.passwordBox, !!errors.password && s.inputError]}>
+    <TextInput
+      placeholder={t("registerScreen.passwordPH")}
+      placeholderTextColor={theme.subtleText as any}
+      secureTextEntry={!showPassword}
+      value={password}
+      onChangeText={onChangePassword}
+      style={s.passwordInput}
+      editable={!loading}
+      returnKeyType="next"
+    />
 
-          <Animated.View style={confirmStyle}>
-            <TextInput
-              placeholder={t("registerScreen.confirmPH")}
-              placeholderTextColor={theme.subtleText as any}
-              secureTextEntry
-              value={confirm}
-              onChangeText={onChangeConfirm}
-              style={[s.input, !!errors.confirm && s.inputError]}
-              editable={!loading}
-              returnKeyType="next"
-            />
-            {!!errors.confirm && (
-              <Animated.Text style={[s.fieldError, errorAnimStyle]}>
-                {errors.confirm}
-              </Animated.Text>
-            )}
-          </Animated.View>
+    <TouchableOpacity
+      onPress={() => setShowPassword((v) => !v)}
+      disabled={loading}
+      activeOpacity={0.7}
+      style={s.eyeBtn}
+    >
+      <Ionicons
+        name={showPassword ? "eye-off-outline" : "eye-outline"}
+        size={22}
+        color={theme.mutedText}
+      />
+    </TouchableOpacity>
+  </View>
+
+  {!!errors.password && (
+    <Animated.Text style={[s.fieldError, errorAnimStyle]}>
+      {errors.password}
+    </Animated.Text>
+  )}
+</Animated.View>
+
+        <Animated.View style={confirmStyle}>
+  <View style={[s.passwordBox, !!errors.confirm && s.inputError]}>
+    <TextInput
+      placeholder={t("registerScreen.confirmPH")}
+      placeholderTextColor={theme.subtleText as any}
+      secureTextEntry={!showConfirm}
+      value={confirm}
+      onChangeText={onChangeConfirm}
+      style={s.passwordInput}
+      editable={!loading}
+      returnKeyType="next"
+    />
+
+    <TouchableOpacity
+      onPress={() => setShowConfirm((v) => !v)}
+      disabled={loading}
+      activeOpacity={0.7}
+      style={s.eyeBtn}
+    >
+      <Ionicons
+        name={showConfirm ? "eye-off-outline" : "eye-outline"}
+        size={22}
+        color={theme.mutedText}
+      />
+    </TouchableOpacity>
+  </View>
+
+  {!!errors.confirm && (
+    <Animated.Text style={[s.fieldError, errorAnimStyle]}>
+      {errors.confirm}
+    </Animated.Text>
+  )}
+</Animated.View>
 
           <Animated.View style={captchaStyle}>
             <TextInput
@@ -545,7 +579,29 @@ function makeStyles(theme: any, isDark: boolean) {
       position: "absolute",
       borderRadius: 18,
     },
+passwordBox: {
+  height: 54,
+  borderBottomWidth: 1,
+  borderBottomColor: theme.border,
+  marginBottom: 10,
+  flexDirection: "row",
+  alignItems: "center",
+},
 
+passwordInput: {
+  flex: 1,
+  height: "100%",
+  fontSize: 16,
+  color: theme.text,
+  paddingRight: 8,
+},
+
+eyeBtn: {
+  width: 44,
+  height: 54,
+  alignItems: "center",
+  justifyContent: "center",
+},
     triangle: {
       position: "absolute",
       width: 0,

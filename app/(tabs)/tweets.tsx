@@ -826,7 +826,11 @@ export default function TweetsScreen() {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [optimisticLikes, setOptimisticLikes] = useState<
+    Record<string, { isLiked: boolean; likesCount: number }>
+  >({});
 
+  const pendingLikesRef = useRef<Record<string, boolean>>({});
   const rawFeed = activeTab === "following" ? following : forYou;
 
   const uniqueFeed = useMemo(
@@ -998,7 +1002,61 @@ export default function TweetsScreen() {
       params: { q: cleanHashtag, type: "hashtags" },
     });
   };
+  const handleOptimisticLike = (tweet: any) => {
+    const tweetId = String(tweet?._id || "");
+    if (!tweetId) return;
 
+    // منع الضغط المتكرر السريع على نفس اللايك قبل انتهاء طلب الباك
+    if (pendingLikesRef.current[tweetId]) return;
+
+    const currentOptimistic = optimisticLikes[tweetId];
+
+    const currentIsLiked =
+      currentOptimistic?.isLiked ?? Boolean(tweet?.isLiked);
+
+    const currentLikesCount =
+      currentOptimistic?.likesCount ?? Number(tweet?.likesCount || 0);
+
+    const nextIsLiked = !currentIsLiked;
+    const nextLikesCount = Math.max(
+      0,
+      currentLikesCount + (nextIsLiked ? 1 : -1)
+    );
+
+    // تحديث فوري في الواجهة
+    setOptimisticLikes((prev) => ({
+      ...prev,
+      [tweetId]: {
+        isLiked: nextIsLiked,
+        likesCount: nextLikesCount,
+      },
+    }));
+
+    pendingLikesRef.current[tweetId] = true;
+
+    // الطلب الحقيقي في الخلفية
+    dispatch(toggleLike(tweetId))
+      .then((resultAction: any) => {
+        if (toggleLike.rejected.match(resultAction)) {
+          throw new Error("LIKE_FAILED");
+        }
+
+        // عند النجاح نترك الشكل كما هو؛ لأن الواجهة بالفعل اتحدثت فورًا
+      })
+      .catch(() => {
+        // رجوع للحالة القديمة لو الباك فشل
+        setOptimisticLikes((prev) => ({
+          ...prev,
+          [tweetId]: {
+            isLiked: currentIsLiked,
+            likesCount: currentLikesCount,
+          },
+        }));
+      })
+      .finally(() => {
+        delete pendingLikesRef.current[tweetId];
+      });
+  };
   const renderCount = useRef(0);
   renderCount.current += 1;
 
@@ -1050,6 +1108,13 @@ export default function TweetsScreen() {
         renderItem={({ item }: any) => {
           const isOwnTweet = item?.author?._id === user?._id;
           const canDeleteTweet = isOwnTweet || isAdmin;
+          const optimisticLike = optimisticLikes[String(item?._id || "")];
+
+          const displayIsLiked =
+            optimisticLike?.isLiked ?? Boolean(item?.isLiked);
+
+          const displayLikesCount =
+            optimisticLike?.likesCount ?? Number(item?.likesCount || 0);
           const isFollowing =
             followingMap?.[item?.author?._id] ??
             item?.author?.isFollowing ??
@@ -1235,16 +1300,13 @@ export default function TweetsScreen() {
                   <View style={s.actions}>
                     <Action
                       s={s}
-                      loading={actionLoading === `like-${item._id}`}
-                      icon={item.isLiked ? "heart" : "heart-outline"}
-                      value={item.likesCount}
-                      onPress={async () => {
-                        setActionLoading(`like-${item._id}`);
-                        await dispatch(toggleLike(item._id));
-                        setActionLoading(null);
-                      }}
+                      loading={false}
+                      icon={displayIsLiked ? "heart" : "heart-outline"}
+                      value={displayLikesCount}
+                      color={displayIsLiked ? "#EF4444" : s._iconColor}
+                      textColor={displayIsLiked ? "#EF4444" : undefined}
+                      onPress={() => handleOptimisticLike(item)}
                     />
-
                     <Action
                       s={s}
                       loading={actionLoading === `retweet-${item._id}`}
@@ -1283,7 +1345,7 @@ export default function TweetsScreen() {
           <View style={s.sheet}>
             {sheetMode === "menu" ? (
               <>
-               
+
                 {selectedUser && (
                   <>
                     <Text style={s.sheetTitle}>
@@ -1442,40 +1504,40 @@ export default function TweetsScreen() {
                       </View>
                       <Text style={s.sheetText}>بلاغ عن المستخدم</Text>
                     </TouchableOpacity>
-                     {(isAdmin || selectedTweet?.author?._id === user?._id) && !!selectedTweet?._id && (
-                  <TouchableOpacity
-                    style={s.sheetItem}
-                    activeOpacity={0.9}
-                    onPress={async () => {
-                      try {
-                        setActionLoading(`delete-${selectedTweet._id}`);
-                        await dispatch(deleteTweet(selectedTweet._id));
-                        closeSheet();
-                      } finally {
-                        setActionLoading(null);
-                      }
-                    }}
-                  >
-                    <View
-                      style={[
-                        s.sheetIcon,
-                        {
-                          backgroundColor: isDark
-                            ? "rgba(239,68,68,0.12)"
-                            : "rgba(239,68,68,0.10)",
-                        },
-                      ]}
-                    >
-                      {actionLoading === `delete-${selectedTweet?._id}` ? (
-                        <ActivityIndicator size="small" color="#EF4444" />
-                      ) : (
-                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                      )}
-                    </View>
+                    {(isAdmin || selectedTweet?.author?._id === user?._id) && !!selectedTweet?._id && (
+                      <TouchableOpacity
+                        style={s.sheetItem}
+                        activeOpacity={0.9}
+                        onPress={async () => {
+                          try {
+                            setActionLoading(`delete-${selectedTweet._id}`);
+                            await dispatch(deleteTweet(selectedTweet._id));
+                            closeSheet();
+                          } finally {
+                            setActionLoading(null);
+                          }
+                        }}
+                      >
+                        <View
+                          style={[
+                            s.sheetIcon,
+                            {
+                              backgroundColor: isDark
+                                ? "rgba(239,68,68,0.12)"
+                                : "rgba(239,68,68,0.10)",
+                            },
+                          ]}
+                        >
+                          {actionLoading === `delete-${selectedTweet?._id}` ? (
+                            <ActivityIndicator size="small" color="#EF4444" />
+                          ) : (
+                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                          )}
+                        </View>
 
-                    <Text style={s.sheetText}>حذف التويتة</Text>
-                  </TouchableOpacity>
-                )}
+                        <Text style={s.sheetText}>حذف التويتة</Text>
+                      </TouchableOpacity>
+                    )}
                   </>
                 )}
               </>
@@ -1593,7 +1655,18 @@ export default function TweetsScreen() {
 
 /* ================= Components ================= */
 
-function Action({ icon, value, onPress, loading, s }: any) {
+function Action({
+  icon,
+  value,
+  onPress,
+  loading,
+  s,
+  color,
+  textColor,
+}: any) {
+  const finalIconColor = color || s._iconColor;
+  const finalTextColor = textColor || s.actionValue.color;
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -1602,17 +1675,19 @@ function Action({ icon, value, onPress, loading, s }: any) {
       activeOpacity={0.85}
     >
       {loading ? (
-        <ActivityIndicator size="small" />
+        <ActivityIndicator size="small" color={finalIconColor} />
       ) : (
         <>
-          <Ionicons name={icon} size={18} color={s._iconColor} />
-          <Text style={s.actionValue}>{value}</Text>
+          <Ionicons name={icon} size={18} color={finalIconColor} />
+
+          <Text style={[s.actionValue, { color: finalTextColor }]}>
+            {value}
+          </Text>
         </>
       )}
     </TouchableOpacity>
   );
 }
-
 function TabButton({ title, active, onPress, s }: any) {
   return (
     <TouchableOpacity

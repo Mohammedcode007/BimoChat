@@ -35,6 +35,8 @@ import {
   selectRooms,
   setCurrentRoomUserId
 } from "@/redux/slices/room.slice";
+import { RootState } from "@/redux/store";
+import { useSelector } from "react-redux";
 
 type RoomUI = {
   id: string;
@@ -284,7 +286,18 @@ const didMountSearchRef = useRef(false);
   // ✅ Creating / searching nice loading
   const [creating, setCreating] = useState(false);
   const [searching, setSearching] = useState(false);
-
+const activeRoomId = useSelector(
+  (state: RootState) => state.room.activeRoomId
+);
+const goToRoom = useCallback(
+  (roomId: string) => {
+    router.push({
+      pathname: "/room/[id]",
+      params: { id: roomId },
+    });
+  },
+  [router]
+);
   // ✅ لو فشل join بسبب ban: نخزنها محليًا ونمنع محاولة الدخول + نظهر Badge
   const [bannedByRoomId, setBannedByRoomId] = useState<Record<string, string>>({});
 const myUserId = useAppSelector((state) => state.auth.user?._id);
@@ -517,91 +530,89 @@ useEffect(() => {
     return s.includes("banned") || s.includes("ban") || s.includes("محظور") || s.includes("حظر");
   }, []);
 
- const enterActiveRoomDirect = useCallback(
+const enterActiveRoomDirect = useCallback(
   async (roomId: string) => {
-    try {
-      setError("");
-
-      // ✅ دخول مباشر بدون لودينج
-      router.push({ pathname: "/room/[id]", params: { id: roomId } });
-
-      // ✅ اختياري: تحديث البيانات في الخلفية بدون انتظار
-      dispatch(enterRoomDirect({ roomId, preload: true }))
-        .unwrap()
-        .catch((e: any) => {
-        });
-    } catch (e: any) {
-      const msgStr = String(e?.message || e || "Enter room failed");
-      setError(msgStr);
-    }
-  },
-  [dispatch, router]
-);
-const doJoin = useCallback(
-  async (roomId: string, password?: string) => {
     if (joining) return;
+
+    const room = rooms.find((r) => String(r.id) === String(roomId));
+
+    const alreadyInside =
+      String(activeRoomId || "") === String(roomId) ||
+      Boolean(room?.isActive);
+
+    if (alreadyInside) {
+      setJoining(false);
+      setError("");
+      goToRoom(roomId);
+      return;
+    }
 
     try {
       setJoining(true);
       setError("");
 
-      // ✅ افتح الشاشة فورًا (FAST UX)
-      router.push({ pathname: "/room/[id]", params: { id: roomId } });
+      await dispatch(
+        enterRoomDirect({ roomId, preload: true })
+      ).unwrap();
 
-      // ✅ نفذ join في الخلفية
-      dispatch(
-        joinRoomAndEnter({ roomId, preload: true, password })
-      )
-        .unwrap()
-        .catch((e: any) => {
-          const msgStr = String(e?.message || e || "Join failed");
-
-          if (isBanMessage(msgStr)) {
-            markRoomBanned(roomId, msgStr);
-          }
-        });
-
+      setJoining(false);
+      goToRoom(roomId);
     } catch (e: any) {
-      const msgStr = String(e?.message || e || "Join failed");
+      const msgStr = String(e?.message || e || "Enter room failed");
       setError(msgStr);
-    } finally {
       setJoining(false);
     }
   },
-  [dispatch, router, joining, isBanMessage, markRoomBanned]
+  [dispatch, joining, activeRoomId, rooms, goToRoom]
 );
-// const doJoin = useCallback(
-//   async (roomId: string, password?: string) => {
-//     if (joining) return;
+const doJoin = useCallback(
+  async (roomId: string, password?: string) => {
+    if (joining) return;
 
-//     try {
-//       setJoining(true);
-//       setError("");
+    const room = rooms.find((r) => String(r.id) === String(roomId));
 
-//       // انضم + حمّل أولًا
-//       await dispatch(
-//         joinRoomAndEnter({ roomId, preload: true, password })
-//       ).unwrap();
+    const alreadyInside =
+      String(activeRoomId || "") === String(roomId) ||
+      Boolean(room?.isActive);
 
-//       // بعد النجاح فقط ادخل الشاشة
-//       router.push({ pathname: "/room/[id]", params: { id: roomId } });
-//     } catch (e: any) {
-//       const msgStr = String(e?.message || e || "Join failed");
+    if (alreadyInside) {
+      setJoining(false);
+      setError("");
+      goToRoom(roomId);
+      return;
+    }
 
-//       if (isBanMessage(msgStr)) {
-//         markRoomBanned(roomId, msgStr);
-//         setError("أنت محظور من هذه الغرفة.");
-//       } else {
-//         setError(msgStr);
-//       }
-//     } finally {
-//       setJoining(false);
-//     }
-//   },
-//   [dispatch, router, joining, isBanMessage, markRoomBanned]
-// );
-  // ✅ rooms.tsx
-  // 3) openRoom يبقى كما هو عندك (سيستدعي enterActiveRoomDirect عند room.isActive)
+    try {
+      setJoining(true);
+      setError("");
+
+      await dispatch(
+        joinRoomAndEnter({ roomId, preload: true, password })
+      ).unwrap();
+
+      setJoining(false);
+      goToRoom(roomId);
+    } catch (e: any) {
+      const msgStr = String(e?.message || e || "Join failed");
+
+      if (isBanMessage(msgStr)) {
+        markRoomBanned(roomId, msgStr);
+      }
+
+      setError(msgStr);
+      setJoining(false);
+    }
+  },
+  [
+    dispatch,
+    joining,
+    activeRoomId,
+    rooms,
+    goToRoom,
+    isBanMessage,
+    markRoomBanned,
+  ]
+);
   const openRoom = useCallback(
     async (roomId: string) => {
       const room = accRef.current.get(roomId);

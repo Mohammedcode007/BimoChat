@@ -12,6 +12,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { login } from "@/redux/slices/authSlice";
 import { AppDispatch } from "@/redux/store";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -49,7 +50,7 @@ export default function LoginScreen() {
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const isDark = colorScheme === "dark";
   const s = useMemo(() => makeStyles(theme, isDark), [theme, isDark]);
-
+const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -260,23 +261,40 @@ const USER_ALLOWED = /^[^\s]{1,64}$/;
             )}
           </Animated.View>
 
-          <Animated.View style={passStyle}>
-            <TextInput
-              placeholder={t("loginScreen.passwordPH")}
-              placeholderTextColor={theme.subtleText as any}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              style={[s.input, !!errors.password && s.inputError]}
-              editable={!loading}
-              onSubmitEditing={handleLogin}
-            />
-            {!!errors.password && (
-              <Animated.Text style={[s.fieldError, errorAnimStyle]}>
-                {errors.password}
-              </Animated.Text>
-            )}
-          </Animated.View>
+         <Animated.View style={passStyle}>
+  <View style={[s.passwordBox, !!errors.password && s.inputError]}>
+    <TextInput
+      placeholder={t("loginScreen.passwordPH")}
+      placeholderTextColor={theme.subtleText as any}
+      secureTextEntry={!showPassword}
+      value={password}
+      onChangeText={setPassword}
+      style={s.passwordInput}
+      editable={!loading}
+      onSubmitEditing={handleLogin}
+      returnKeyType="done"
+    />
+
+    <TouchableOpacity
+      onPress={() => setShowPassword((v) => !v)}
+      disabled={loading}
+      activeOpacity={0.7}
+      style={s.eyeBtn}
+    >
+      <Ionicons
+        name={showPassword ? "eye-off-outline" : "eye-outline"}
+        size={22}
+        color={theme.mutedText}
+      />
+    </TouchableOpacity>
+  </View>
+
+  {!!errors.password && (
+    <Animated.Text style={[s.fieldError, errorAnimStyle]}>
+      {errors.password}
+    </Animated.Text>
+  )}
+</Animated.View>
 
           {!!errors.general && (
             <Animated.Text style={[s.error, errorAnimStyle]}>
@@ -342,6 +360,29 @@ function makeStyles(theme: any, isDark: boolean) {
       fontWeight: "800",
       color: theme.text,
     },
+    passwordBox: {
+  height: 54,
+  borderBottomWidth: 1,
+  borderBottomColor: theme.border,
+  marginBottom: 10,
+  flexDirection: "row",
+  alignItems: "center",
+},
+
+passwordInput: {
+  flex: 1,
+  height: "100%",
+  fontSize: 16,
+  color: theme.text,
+  paddingRight: 8,
+},
+
+eyeBtn: {
+  width: 44,
+  height: 54,
+  alignItems: "center",
+  justifyContent: "center",
+},
     subtitle: {
       fontSize: 14,
       color: theme.mutedText,

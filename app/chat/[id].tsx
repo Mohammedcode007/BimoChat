@@ -1,6 +1,7 @@
 
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Audio, ResizeMode, Video } from "expo-av";
+import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -1160,6 +1161,8 @@ useEffect(() => {
     return (
       <Pressable
         onLongPress={() => openMessageActions(item)}
+          onPress={() => copyMessageText(item)}
+
         delayLongPress={250}
         style={[
           styles.messageContainer,
@@ -1336,7 +1339,25 @@ useEffect(() => {
     searchOpen &&
     inputSearchValue.trim().length > 0 &&
     (searchLoading || searchResults.length > 0);
+const copyMessageText = async (item: MessageItem) => {
+  try {
+    const value = String((item as any)?.content || "").trim();
 
+    if (!value) return;
+
+    // لا تنسخ روابط الصور والفيديو والصوت عند الضغط
+    if (
+      item.type === "image" ||
+      item.type === "video" ||
+      item.type === "audio" ||
+      item.type === "file"
+    ) {
+      return;
+    }
+
+    await Clipboard.setStringAsync(value);
+  } catch {}
+};
   return (
     <SafeAreaView
       style={[

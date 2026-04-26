@@ -1,6 +1,7 @@
 
 
 import { getMyInventory, selectMyStore } from "@/redux/slices/storeControl.slice";
+import { getTextDirectionStyle } from "@/utils/textDirection";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Audio, ResizeMode, Video } from "expo-av";
 import * as Clipboard from "expo-clipboard";
@@ -133,13 +134,20 @@ type MessageUI = {
   id: string;
   type: "text" | "image" | "file" | "audio" | "video" | "system" | "gift" | "song" | "game";
   systemType?: "join" | "leave" | "announcement" | "promotion" | "ban" | "role" | "music";
-  music?: {
-    title?: string;
-    channel?: string;
-    audioUrl?: string;
-    thumbnail?: string;
-    youtubeUrl?: string;
-  };
+music?: {
+  title?: string;
+  channel?: string;
+  audioUrl?: string;
+  thumbnail?: string;
+  youtubeUrl?: string;
+
+  playedById?: string;
+  playedByName?: string;
+  playedByAtUsername?: string;
+
+  songCode?: string;
+  loveCommand?: string;
+};
   game?: {
     gameType?: string;
     gameId?: string;
@@ -930,16 +938,16 @@ function UsersModal({
                   </TouchableOpacity>
 
                   <View style={s.centerContent}>
-               <Text
-  style={[
-    s.name,
-    { color: getRoleColor(u.role) }
-  ]}
-  numberOfLines={1}
-  ellipsizeMode="tail"
->
-  {u.name} {isMe ? "(You)" : ""}
-</Text>
+                    <Text
+                      style={[
+                        s.name,
+                        { color: getRoleColor(u.role) }
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {u.name} {isMe ? "(You)" : ""}
+                    </Text>
 
                     <View style={s.inlineBadges}>
                       <CustomEmojiBadgeView badge={u.customEmojiBadge} />
@@ -1066,7 +1074,7 @@ const resolveAvatarSource = (u?: Partial<UserUI> & { activeCustomization?: any }
 
 /* ================= MESSAGE ITEM (Themed) ================= */
 function MessageItem({
-  item,
+   item,
   isMe,
   showName,
   onLongPress,
@@ -1082,7 +1090,8 @@ function MessageItem({
   bubble,
   currentUserId,
   onSendCricketJoin,
-  onSendCricketPlay
+  onSendCricketPlay,
+  onSendSongLove,
 }: {
   item: MessageUI;
   isMe: boolean;
@@ -1101,6 +1110,7 @@ function MessageItem({
   currentUserId: string;
   onSendCricketJoin?: (gameId: string) => void;
   onSendCricketPlay?: (gameId: string, n: number) => void;
+  onSendSongLove?: (songCode: string) => void;
 }) {
   const { width } = useWindowDimensions();
   type CricketMessageUI = MessageUI & {
@@ -1144,59 +1154,253 @@ function MessageItem({
     await Clipboard.setStringAsync(v);
     Alert.alert("Copied", "تم نسخ محتوى الرسالة");
   };
+if (item.type === "song" || (item.type === "system" && item.systemType === "music")) {
+  const audioUrl = String(item.music?.audioUrl || item.uri || "").trim();
 
-  if (item.type === "song" || (item.type === "system" && item.systemType === "music")) {
-    return (
-      <View style={bubble.sysWrap}>
-        <View
-          style={[
-            bubble.sysBubble,
-            {
-              width: Math.min(width - 36, 340),
-              padding: 12,
-              alignItems: "stretch",
-            },
-          ]}
+  const playedByName = String(
+    item.music?.playedByName ||
+      item.sender?.name ||
+      "مستخدم"
+  ).trim();
+
+  const songCode = String(item.music?.songCode || "").trim().toUpperCase();
+  const loveCommand = String(
+    item.music?.loveCommand || (songCode ? `love@${songCode}` : "")
+  ).trim();
+
+  console.log("🎵 SONG MESSAGE UI =====================");
+  console.log("🎵 item.id:", item.id);
+  console.log("🎵 item.type:", item.type);
+  console.log("🎵 item.sender.name:", item.sender?.name);
+  console.log("🎵 item.music:", JSON.stringify(item.music, null, 2));
+  console.log("🎵 audioUrl:", audioUrl);
+  console.log("🎵 playedByName:", playedByName);
+  console.log("🎵 songCode:", songCode);
+  console.log("🎵 loveCommand:", loveCommand);
+  console.log("🎵 SONG MESSAGE UI END =================");
+
+  return (
+    <View style={bubble.sysWrap}>
+      <View
+        style={[
+          bubble.sysBubble,
+          {
+            width: Math.min(width - 36, 340),
+            padding: 12,
+            alignItems: "center",
+          },
+        ]}
+      >
+        <Text
+          style={{
+            color: theme.text,
+            fontWeight: "900",
+            fontSize: 14,
+            textAlign: "center",
+          }}
+          numberOfLines={2}
         >
+          {item.music?.title || item.text || "Audio Track"}
+        </Text>
 
+        <Text
+          style={{
+            color: theme.mutedText,
+            fontSize: 12,
+            marginTop: 6,
+            textAlign: "center",
+            fontWeight: "800",
+          }}
+          numberOfLines={1}
+        >
+          الأغنية من {playedByName}
+        </Text>
 
+        {!!item.music?.channel && (
           <Text
             style={{
-              color: theme.text,
-              fontWeight: "900",
-              fontSize: 14,
+              color: theme.mutedText,
+              fontSize: 12,
+              marginTop: 4,
               textAlign: "center",
             }}
-            numberOfLines={2}
+            numberOfLines={1}
           >
-            {item.music?.title || "Audio Track"}
+            {item.music.channel}
           </Text>
+        )}
 
-          {!!item.music?.channel && (
+        {!!songCode && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={async () => {
+              await Clipboard.setStringAsync(loveCommand);
+              Alert.alert("تم النسخ", `تم نسخ ${loveCommand}`);
+            }}
+            style={{
+              marginTop: 8,
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 999,
+              backgroundColor: theme.surface2,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+          >
             <Text
               style={{
-                color: theme.mutedText,
+                color: theme.text,
                 fontSize: 12,
-                marginTop: 4,
-                textAlign: "center",
+                fontWeight: "900",
               }}
-              numberOfLines={1}
             >
-              {item.music.channel}
+              ID: {songCode}
             </Text>
-          )}
+          </TouchableOpacity>
+        )}
 
-          {!!item.music?.audioUrl && (
-            <View style={{ marginTop: 10 }}>
-              <VoiceMessagePlayer uri={item.music.audioUrl} isMe={false} />
-            </View>
-          )}
+        {!!audioUrl && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() =>
+              onOpenAudioModal({
+                ...item,
+                type: "audio",
+                uri: audioUrl,
+                text: item.music?.title || item.text || "Audio Track",
+              })
+            }
+            style={{
+              marginTop: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 14,
+                color: theme.text,
+                fontWeight: "500",
+              }}
+            >
+              Audio track{" "}
+            </Text>
 
-          <Text style={[bubble.sysTime, { marginTop: 8 }]}>{item.time}</Text>
-        </View>
+            <Text
+              style={{
+                fontSize: 14,
+                color: "#2563EB",
+                fontWeight: "800",
+              }}
+            >
+              Play
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {!!songCode ? (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => onSendSongLove?.(songCode)}
+            style={{
+              marginTop: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 999,
+              backgroundColor: "rgba(239,68,68,0.12)",
+              borderWidth: 1,
+              borderColor: "rgba(239,68,68,0.25)",
+            }}
+          >
+            <Ionicons name="heart" size={16} color="#EF4444" />
+
+            <Text
+              style={{
+                marginLeft: 6,
+                fontSize: 13,
+                color: "#EF4444",
+                fontWeight: "900",
+              }}
+            >
+              للإعجاب اضغط إعجاب
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Text
+            style={{
+              marginTop: 10,
+              color: theme.mutedText,
+              fontSize: 12,
+              fontWeight: "700",
+              textAlign: "center",
+            }}
+          >
+            للإعجاب استخدم أمر الإعجاب الخاص بالأغنية
+          </Text>
+        )}
+
+        <Text style={[bubble.sysTime, { marginTop: 8 }]}>{item.time}</Text>
       </View>
-    );
-  }
+    </View>
+  );
+}
+  // if (item.type === "song" || (item.type === "system" && item.systemType === "music")) {
+  //   return (
+  //     <View style={bubble.sysWrap}>
+  //       <View
+  //         style={[
+  //           bubble.sysBubble,
+  //           {
+  //             width: Math.min(width - 36, 340),
+  //             padding: 12,
+  //             alignItems: "stretch",
+  //           },
+  //         ]}
+  //       >
+
+
+  //         <Text
+  //           style={{
+  //             color: theme.text,
+  //             fontWeight: "900",
+  //             fontSize: 14,
+  //             textAlign: "center",
+  //           }}
+  //           numberOfLines={2}
+  //         >
+  //           {item.music?.title || "Audio Track"}
+  //         </Text>
+
+  //         {!!item.music?.channel && (
+  //           <Text
+  //             style={{
+  //               color: theme.mutedText,
+  //               fontSize: 12,
+  //               marginTop: 4,
+  //               textAlign: "center",
+  //             }}
+  //             numberOfLines={1}
+  //           >
+  //             {item.music.channel}
+  //           </Text>
+  //         )}
+
+  //         {!!item.music?.audioUrl && (
+  //           <View style={{ marginTop: 10 }}>
+  //             <VoiceMessagePlayer uri={item.music.audioUrl} isMe={false} />
+  //           </View>
+  //         )}
+
+  //         <Text style={[bubble.sysTime, { marginTop: 8 }]}>{item.time}</Text>
+  //       </View>
+  //     </View>
+  //   );
+  // }
 
   if (item.type === "system") {
     const isJoin = item.systemType === "join";
@@ -1404,13 +1608,10 @@ function MessageItem({
               <Text
                 style={[
                   bubble.msgText,
+                  getTextDirectionStyle(item.text),
                   resolveMessageTextColor(item.sender)
                     ? { color: resolveMessageTextColor(item.sender) }
                     : null,
-                  isMe && {
-                    textAlign: "right",
-                    writingDirection: "rtl"
-                  }
                 ]}
               >
                 {item.text}
@@ -1593,32 +1794,32 @@ function PinnedHtmlWebView({
     lastHeightRef.current = finalHeight;
     setWebHeight(finalHeight);
     setMeasured(true);
-Animated.parallel([
-  Animated.timing(heightAnim, {
-    toValue: finalHeight,
-    duration: 220,
-    easing: Easing.out(Easing.cubic),
-    useNativeDriver: false,
-  }),
-  Animated.timing(opacityAnim, {
-    toValue: 1,
-    duration: 180,
-    easing: Easing.out(Easing.cubic),
-    useNativeDriver: false,
-  }),
-  Animated.timing(scaleAnim, {
-    toValue: 1,
-    duration: 180,
-    easing: Easing.out(Easing.cubic),
-    useNativeDriver: false,
-  }),
-  Animated.timing(translateYAnim, {
-    toValue: 0,
-    duration: 180,
-    easing: Easing.out(Easing.cubic),
-    useNativeDriver: false,
-  }),
-]).start();
+    Animated.parallel([
+      Animated.timing(heightAnim, {
+        toValue: finalHeight,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(translateYAnim, {
+        toValue: 0,
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+    ]).start();
   };
 
   return (
@@ -1909,6 +2110,32 @@ export default function ChatScreen() {
       Alert.alert("Error", e?.message || "Play failed");
     }
   };
+  const sendSongLove = async (songCode: string) => {
+  try {
+    const code = String(songCode || "").trim().toUpperCase();
+
+    if (!code) {
+      Alert.alert("Notice", "Song ID not found");
+      return;
+    }
+
+    const content = `love@${code}`;
+    const clientId = `song_love_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+
+    await dispatch(
+      sendRoomMessage({
+        roomId,
+        clientId,
+        content,
+        type: "text",
+      })
+    ).unwrap();
+  } catch (e: any) {
+    Alert.alert("Error", e?.message || "Love failed");
+  }
+};
   const [giftOverlay, setGiftOverlay] = useState<{
     visible: boolean;
     messageId: string | null;
@@ -2584,13 +2811,20 @@ export default function ChatScreen() {
 
     if (!title && !audioUrl) return null;
 
-    return {
-      title,
-      channel,
-      audioUrl,
-      thumbnail,
-      youtubeUrl
-    };
+ return {
+  title,
+  channel,
+  audioUrl,
+  thumbnail,
+  youtubeUrl,
+
+  playedById: String(song?.playedById || "").trim(),
+  playedByName: String(song?.playedByName || "").trim(),
+  playedByAtUsername: String(song?.playedByAtUsername || "").trim(),
+
+  songCode: String(song?.songCode || "").trim().toUpperCase(),
+  loveCommand: String(song?.loveCommand || "").trim(),
+};
   }
   const mapReduxToUIMessage = (m: any): MessageUI => {
     logSenderFromMessage(m, "MAP_MESSAGE_USER_DUMP");
@@ -2824,15 +3058,22 @@ export default function ChatScreen() {
 
       type: uiType,
       systemType: isSystem ? (backendType as any) : undefined,
-      music: parsedSong
-        ? {
-          title: parsedSong.title,
-          channel: parsedSong.channel,
-          audioUrl: parsedSong.audioUrl,
-          thumbnail: parsedSong.thumbnail,
-          youtubeUrl: parsedSong.youtubeUrl,
-        }
-        : undefined,
+     music: parsedSong
+  ? {
+      title: parsedSong.title,
+      channel: parsedSong.channel,
+      audioUrl: parsedSong.audioUrl,
+      thumbnail: parsedSong.thumbnail,
+      youtubeUrl: parsedSong.youtubeUrl,
+
+      playedById: parsedSong.playedById,
+      playedByName: parsedSong.playedByName,
+      playedByAtUsername: parsedSong.playedByAtUsername,
+
+      songCode: parsedSong.songCode,
+      loveCommand: parsedSong.loveCommand,
+    }
+  : undefined,
 
       game:
         backendType === "game"
@@ -3574,43 +3815,37 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
       )} */}
-        {/* ================= AUDIO MODAL ================= */}
-        <Modal
-          transparent
-          visible={showAudioModal && !!activeAudio}
-          animationType="fade"
-          onRequestClose={() => setShowAudioModal(false)}
-        >
-          <Pressable
-            style={styles.audioModalOverlay}
-            onPress={() => setShowAudioModal(false)}
-          >
-            <Pressable style={styles.audioModalCard} onPress={() => { }}>
-              <View style={styles.audioModalHeader}>
-                <Text style={styles.audioModalTitle}>Voice message</Text>
+        {/* ================= FIXED AUDIO TOP PLAYER ================= */}
+        {showAudioModal && !!activeAudio?.uri && (
+          <View pointerEvents="box-none" style={styles.fixedAudioLayer}>
+            <View style={styles.fixedAudioCard}>
+              <View style={styles.fixedAudioHeader}>
+                <View style={styles.fixedAudioIcon}>
+                  <Ionicons name="mic" size={16} color="#FFF" />
+                </View>
+
+                <Text style={styles.fixedAudioTitle} numberOfLines={1}>
+                  Voice message
+                </Text>
 
                 <TouchableOpacity
-                  onPress={() => setShowAudioModal(false)}
+                  onPress={() => {
+                    setShowAudioModal(false);
+                    setActiveAudio(null);
+                  }}
                   activeOpacity={0.85}
+                  style={styles.fixedAudioClose}
                 >
-                  <Ionicons name="close" size={20} color={theme.icon} />
+                  <Ionicons name="close" size={18} color={theme.icon} />
                 </TouchableOpacity>
               </View>
 
-              {!!activeAudio?.sender?.name && (
-                <Text style={styles.audioModalSender} numberOfLines={1}>
-                  {activeAudio.sender.name}
-                </Text>
-              )}
-
-              {!!activeAudio?.uri && (
-                <View style={{ marginTop: 10 }}>
-                  <VoiceMessagePlayer uri={activeAudio.uri} isMe={false} />
-                </View>
-              )}
-            </Pressable>
-          </Pressable>
-        </Modal>
+              <View style={styles.fixedAudioPlayer}>
+                <VoiceMessagePlayer uri={activeAudio.uri} isMe={false} />
+              </View>
+            </View>
+          </View>
+        )}
         {/* ================= PINNED BAR ================= */}
         {latestPinned && (
           <TouchableOpacity
@@ -3662,6 +3897,7 @@ export default function ChatScreen() {
                 onOpenAudioModal={openAudioModal}
                 onSendCricketJoin={sendCricketJoin}
                 onSendCricketPlay={sendCricketPlay}
+                onSendSongLove={sendSongLove}
                 onAvatarLongPress={(u) => {
                   if (!u?.id) return;
                   setGiftPicker({ visible: true, target: u });
@@ -4377,7 +4613,7 @@ function makeBubbleStyles(theme: typeof Colors.light) {
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 2
     },
-    
+
     avatarStarRight: {
       position: "absolute",
       top: -6,
@@ -4465,13 +4701,13 @@ function makeUsersStyles(theme: typeof Colors.light) {
   return StyleSheet.create({
     overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
     usersModalAvatar: {
-  width: 34,
-  height: 34,
-  borderRadius: 17,
-  backgroundColor: theme.surface2,
-  borderWidth: 1,
-  borderColor: theme.border,
-},
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: theme.surface2,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
     sheet: {
       backgroundColor: theme.card,
       borderTopLeftRadius: 18,
@@ -4874,6 +5110,67 @@ function makeScreenStyles(
       flexDirection: "row",
       gap: 10,
       marginTop: 14,
+    },
+    fixedAudioLayer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 999,
+      elevation: 999,
+      alignItems: "center",
+      pointerEvents: "box-none",
+    },
+
+    fixedAudioCard: {
+      width: "92%",
+      borderRadius: 18,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      shadowColor: "#000",
+      shadowOpacity: 0.14,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 8,
+    },
+
+    fixedAudioHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+
+    fixedAudioIcon: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: theme.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 8,
+    },
+
+    fixedAudioTitle: {
+      flex: 1,
+      color: theme.text,
+      fontSize: 13,
+      fontWeight: "900",
+    },
+
+    fixedAudioClose: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.surface2,
+    },
+
+    fixedAudioPlayer: {
+      width: "100%",
     },
 
     inviteCancelBtn: {

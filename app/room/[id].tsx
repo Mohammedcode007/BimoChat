@@ -134,20 +134,20 @@ type MessageUI = {
   id: string;
   type: "text" | "image" | "file" | "audio" | "video" | "system" | "gift" | "song" | "game";
   systemType?: "join" | "leave" | "announcement" | "promotion" | "ban" | "role" | "music";
-music?: {
-  title?: string;
-  channel?: string;
-  audioUrl?: string;
-  thumbnail?: string;
-  youtubeUrl?: string;
+  music?: {
+    title?: string;
+    channel?: string;
+    audioUrl?: string;
+    thumbnail?: string;
+    youtubeUrl?: string;
 
-  playedById?: string;
-  playedByName?: string;
-  playedByAtUsername?: string;
+    playedById?: string;
+    playedByName?: string;
+    playedByAtUsername?: string;
 
-  songCode?: string;
-  loveCommand?: string;
-};
+    songCode?: string;
+    loveCommand?: string;
+  };
   game?: {
     gameType?: string;
     gameId?: string;
@@ -1074,7 +1074,7 @@ const resolveAvatarSource = (u?: Partial<UserUI> & { activeCustomization?: any }
 
 /* ================= MESSAGE ITEM (Themed) ================= */
 function MessageItem({
-   item,
+  item,
   isMe,
   showName,
   onLongPress,
@@ -1152,326 +1152,386 @@ function MessageItem({
     if (!v) return;
 
     await Clipboard.setStringAsync(v);
-    Alert.alert("Copied", "تم نسخ محتوى الرسالة");
   };
-if (item.type === "song" || (item.type === "system" && item.systemType === "music")) {
-  const audioUrl = String(item.music?.audioUrl || item.uri || "").trim();
+  if (item.type === "song" || (item.type === "system" && item.systemType === "music")) {
+    const audioUrl = String(item.music?.audioUrl || item.uri || "").trim();
 
-  const playedByName = String(
-    item.music?.playedByName ||
+    const playedByName = String(
+      item.music?.playedByName ||
       item.sender?.name ||
       "مستخدم"
-  ).trim();
+    ).trim();
 
-  const songCode = String(item.music?.songCode || "").trim().toUpperCase();
-  const loveCommand = String(
-    item.music?.loveCommand || (songCode ? `love@${songCode}` : "")
-  ).trim();
-
-  console.log("🎵 SONG MESSAGE UI =====================");
-  console.log("🎵 item.id:", item.id);
-  console.log("🎵 item.type:", item.type);
-  console.log("🎵 item.sender.name:", item.sender?.name);
-  console.log("🎵 item.music:", JSON.stringify(item.music, null, 2));
-  console.log("🎵 audioUrl:", audioUrl);
-  console.log("🎵 playedByName:", playedByName);
-  console.log("🎵 songCode:", songCode);
-  console.log("🎵 loveCommand:", loveCommand);
-  console.log("🎵 SONG MESSAGE UI END =================");
-
-  return (
-    <View style={bubble.sysWrap}>
-      <View
-        style={[
-          bubble.sysBubble,
-          {
-            width: Math.min(width - 36, 340),
-            padding: 12,
-            alignItems: "center",
-          },
-        ]}
-      >
-        <Text
-          style={{
-            color: theme.text,
-            fontWeight: "900",
-            fontSize: 14,
-            textAlign: "center",
-          }}
-          numberOfLines={2}
-        >
-          {item.music?.title || item.text || "Audio Track"}
-        </Text>
-
-        <Text
-          style={{
-            color: theme.mutedText,
-            fontSize: 12,
-            marginTop: 6,
-            textAlign: "center",
-            fontWeight: "800",
-          }}
-          numberOfLines={1}
-        >
-          الأغنية من {playedByName}
-        </Text>
-
-        {!!item.music?.channel && (
-          <Text
-            style={{
-              color: theme.mutedText,
-              fontSize: 12,
-              marginTop: 4,
-              textAlign: "center",
-            }}
-            numberOfLines={1}
-          >
-            {item.music.channel}
-          </Text>
-        )}
-
-        {!!songCode && (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={async () => {
-              await Clipboard.setStringAsync(loveCommand);
-              Alert.alert("تم النسخ", `تم نسخ ${loveCommand}`);
-            }}
-            style={{
-              marginTop: 8,
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-              borderRadius: 999,
-              backgroundColor: theme.surface2,
-              borderWidth: 1,
-              borderColor: theme.border,
-            }}
-          >
-            <Text
-              style={{
-                color: theme.text,
-                fontSize: 12,
-                fontWeight: "900",
-              }}
-            >
-              ID: {songCode}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {!!audioUrl && (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() =>
-              onOpenAudioModal({
-                ...item,
-                type: "audio",
-                uri: audioUrl,
-                text: item.music?.title || item.text || "Audio Track",
-              })
-            }
-            style={{
-              marginTop: 10,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 14,
-                color: theme.text,
-                fontWeight: "500",
-              }}
-            >
-              Audio track{" "}
-            </Text>
-
-            <Text
-              style={{
-                fontSize: 14,
-                color: "#2563EB",
-                fontWeight: "800",
-              }}
-            >
-              Play
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {!!songCode ? (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => onSendSongLove?.(songCode)}
-            style={{
-              marginTop: 10,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: 999,
-              backgroundColor: "rgba(239,68,68,0.12)",
-              borderWidth: 1,
-              borderColor: "rgba(239,68,68,0.25)",
-            }}
-          >
-            <Ionicons name="heart" size={16} color="#EF4444" />
-
-            <Text
-              style={{
-                marginLeft: 6,
-                fontSize: 13,
-                color: "#EF4444",
-                fontWeight: "900",
-              }}
-            >
-              للإعجاب اضغط إعجاب
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <Text
-            style={{
-              marginTop: 10,
-              color: theme.mutedText,
-              fontSize: 12,
-              fontWeight: "700",
-              textAlign: "center",
-            }}
-          >
-            للإعجاب استخدم أمر الإعجاب الخاص بالأغنية
-          </Text>
-        )}
-
-        <Text style={[bubble.sysTime, { marginTop: 8 }]}>{item.time}</Text>
-      </View>
-    </View>
-  );
-}
-  // if (item.type === "song" || (item.type === "system" && item.systemType === "music")) {
-  //   return (
-  //     <View style={bubble.sysWrap}>
-  //       <View
-  //         style={[
-  //           bubble.sysBubble,
-  //           {
-  //             width: Math.min(width - 36, 340),
-  //             padding: 12,
-  //             alignItems: "stretch",
-  //           },
-  //         ]}
-  //       >
+    const songCode = String(item.music?.songCode || "").trim().toUpperCase();
+    const loveCommand = String(
+      item.music?.loveCommand || (songCode ? `love@${songCode}` : "")
+    ).trim();
 
 
-  //         <Text
-  //           style={{
-  //             color: theme.text,
-  //             fontWeight: "900",
-  //             fontSize: 14,
-  //             textAlign: "center",
-  //           }}
-  //           numberOfLines={2}
-  //         >
-  //           {item.music?.title || "Audio Track"}
-  //         </Text>
-
-  //         {!!item.music?.channel && (
-  //           <Text
-  //             style={{
-  //               color: theme.mutedText,
-  //               fontSize: 12,
-  //               marginTop: 4,
-  //               textAlign: "center",
-  //             }}
-  //             numberOfLines={1}
-  //           >
-  //             {item.music.channel}
-  //           </Text>
-  //         )}
-
-  //         {!!item.music?.audioUrl && (
-  //           <View style={{ marginTop: 10 }}>
-  //             <VoiceMessagePlayer uri={item.music.audioUrl} isMe={false} />
-  //           </View>
-  //         )}
-
-  //         <Text style={[bubble.sysTime, { marginTop: 8 }]}>{item.time}</Text>
-  //       </View>
-  //     </View>
-  //   );
-  // }
-
-  if (item.type === "system") {
-    const isJoin = item.systemType === "join";
-    const isLeave = item.systemType === "leave";
-
-    if (isJoin || isLeave) {
-      return (
-        <View
-          style={{
-            alignItems: "center",
-            justifyContent: "center",
-            marginVertical: 6,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-          >
-            {/* 👈 الدخول: الأيقونة في اليسار */}
-            {isJoin && (
-              <Octicons
-                name="sign-in"
-                size={16}
-                color={theme.text}
-                style={{ marginRight: 6 }}
-              />
-            )}
-
-            {/* 👤 الاسم */}
-            <Text
-              style={{
-                color: theme.text,
-                fontSize: 13,
-                fontWeight: "600",
-              }}
-            >
-              {item.text}
-            </Text>
-
-            {/* 👉 الخروج: الأيقونة في اليمين */}
-            {isLeave && (
-              <Feather
-                name="log-out"
-                size={16}
-                color={theme.text}
-                style={{ marginLeft: 6 }}
-              />
-            )}
-          </View>
-        </View>
-      );
-    }
 
     return (
       <View style={bubble.sysWrap}>
-        <View style={[bubble.sysBubble, { width: width - 50 }]}>
-          <PinnedHtmlWebView
-            html={String(item.text || "")}
-            width={width - 70}
-            minHeight={36}
-            textColor={theme.text}
-            textAlign="center"
-            fontSize={14}
-            lineHeight={24}
-          />
+        <View
+          style={[
+            bubble.sysBubble,
+            {
+              width: Math.min(width - 36, 340),
+              padding: 12,
+              alignItems: "center",
+            },
+          ]}
+        >
+          <Text
+            style={{
+              color: theme.text,
+              fontWeight: "900",
+              fontSize: 14,
+              textAlign: "center",
+            }}
+            numberOfLines={2}
+          >
+            {item.music?.title || item.text || "Audio Track"}
+          </Text>
+
+          <Text
+            style={{
+              color: theme.mutedText,
+              fontSize: 12,
+              marginTop: 6,
+              textAlign: "center",
+              fontWeight: "800",
+            }}
+            numberOfLines={1}
+          >
+            الأغنية من {playedByName}
+          </Text>
+
+          {!!item.music?.channel && (
+            <Text
+              style={{
+                color: theme.mutedText,
+                fontSize: 12,
+                marginTop: 4,
+                textAlign: "center",
+              }}
+              numberOfLines={1}
+            >
+              {item.music.channel}
+            </Text>
+          )}
+
+          {!!songCode && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={async () => {
+                await Clipboard.setStringAsync(loveCommand);
+                Alert.alert("تم النسخ", `تم نسخ ${loveCommand}`);
+              }}
+              style={{
+                marginTop: 8,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 999,
+                backgroundColor: theme.surface2,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <Text
+                style={{
+                  color: theme.text,
+                  fontSize: 12,
+                  fontWeight: "900",
+                }}
+              >
+                ID: {songCode}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {!!audioUrl && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() =>
+                onOpenAudioModal({
+                  ...item,
+                  type: "audio",
+                  uri: audioUrl,
+                  text: item.music?.title || item.text || "Audio Track",
+                })
+              }
+              style={{
+                marginTop: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: theme.text,
+                  fontWeight: "500",
+                }}
+              >
+                Audio track{" "}
+              </Text>
+
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: "#2563EB",
+                  fontWeight: "800",
+                }}
+              >
+                Play
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {!!songCode ? (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => onSendSongLove?.(songCode)}
+              style={{
+                marginTop: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 999,
+                backgroundColor: "rgba(239,68,68,0.12)",
+                borderWidth: 1,
+                borderColor: "rgba(239,68,68,0.25)",
+              }}
+            >
+              <Ionicons name="heart" size={16} color="#EF4444" />
+
+              <Text
+                style={{
+                  marginLeft: 6,
+                  fontSize: 13,
+                  color: "#EF4444",
+                  fontWeight: "900",
+                }}
+              >
+                للإعجاب اضغط إعجاب
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <Text
+              style={{
+                marginTop: 10,
+                color: theme.mutedText,
+                fontSize: 12,
+                fontWeight: "700",
+                textAlign: "center",
+              }}
+            >
+              للإعجاب استخدم أمر الإعجاب الخاص بالأغنية
+            </Text>
+          )}
+
+          <Text style={[bubble.sysTime, { marginTop: 8 }]}>{item.time}</Text>
         </View>
       </View>
     );
   }
+
+if (item.type === "system") {
+  const isJoin = item.systemType === "join";
+  const isLeave = item.systemType === "leave";
+
+  const systemText = String(item.text || "").trim();
+
+  const isPrivateMentionStatus =
+    systemText.includes("Private message sent") ||
+    systemText.includes("Private message failed") ||
+    systemText.includes("User @") ||
+    systemText.includes("You cannot send a private mention message");
+
+  if (isJoin || isLeave) {
+    return (
+      <View
+        style={{
+          alignItems: "center",
+          justifyContent: "center",
+          marginVertical: 6,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+          }}
+        >
+          {isJoin && (
+            <Octicons
+              name="sign-in"
+              size={16}
+              color={theme.text}
+              style={{ marginRight: 6 }}
+            />
+          )}
+
+          <Text
+            style={{
+              color: theme.text,
+              fontSize: 13,
+              fontWeight: "600",
+            }}
+          >
+            {item.text}
+          </Text>
+
+          {isLeave && (
+            <Feather
+              name="log-out"
+              size={16}
+              color={theme.text}
+              style={{ marginLeft: 6 }}
+            />
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  // ✅ هذا التعديل خاص برسائل المنشن فقط
+  if (isPrivateMentionStatus) {
+    const isSuccess = systemText.includes("Private message sent");
+
+    const cleanText = systemText
+      .replace(/^✅\s*/, "")
+      .replace(/^❌\s*/, "")
+      .trim();
+
+    return (
+      <View style={bubble.sysWrap}>
+        <View
+          style={[
+            bubble.privateMentionBubble,
+            {
+              borderColor: isSuccess
+                ? "rgba(22,163,74,0.25)"
+                : "rgba(239,68,68,0.25)",
+              backgroundColor: isSuccess
+                ? "rgba(22,163,74,0.08)"
+                : "rgba(239,68,68,0.08)",
+            },
+          ]}
+        >
+          <Ionicons
+            name={isSuccess ? "checkmark-circle" : "close-circle"}
+            size={16}
+            color={isSuccess ? "#16A34A" : "#EF4444"}
+            style={{ marginRight: 6 }}
+          />
+
+          <Text
+            style={[
+              bubble.privateMentionText,
+              {
+                color: isSuccess ? "#166534" : "#991B1B",
+              },
+            ]}
+            numberOfLines={2}
+          >
+            {cleanText}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={bubble.sysWrap}>
+      <View style={[bubble.sysBubble, { width: width - 50 }]}>
+        <PinnedHtmlWebView
+          html={String(item.text || "")}
+          width={width - 70}
+          minHeight={36}
+          textColor={theme.text}
+          textAlign="center"
+          fontSize={14}
+          lineHeight={24}
+        />
+      </View>
+    </View>
+  );
+}
+  // if (item.type === "system") {
+  //   const isJoin = item.systemType === "join";
+  //   const isLeave = item.systemType === "leave";
+
+  //   if (isJoin || isLeave) {
+  //     return (
+  //       <View
+  //         style={{
+  //           alignItems: "center",
+  //           justifyContent: "center",
+  //           marginVertical: 6,
+  //         }}
+  //       >
+  //         <View
+  //           style={{
+  //             flexDirection: "row",
+  //             alignItems: "center",
+  //           }}
+  //         >
+  //           {/* 👈 الدخول: الأيقونة في اليسار */}
+  //           {isJoin && (
+  //             <Octicons
+  //               name="sign-in"
+  //               size={16}
+  //               color={theme.text}
+  //               style={{ marginRight: 6 }}
+  //             />
+  //           )}
+
+  //           {/* 👤 الاسم */}
+  //           <Text
+  //             style={{
+  //               color: theme.text,
+  //               fontSize: 13,
+  //               fontWeight: "600",
+  //             }}
+  //           >
+  //             {item.text}
+  //           </Text>
+
+  //           {/* 👉 الخروج: الأيقونة في اليمين */}
+  //           {isLeave && (
+  //             <Feather
+  //               name="log-out"
+  //               size={16}
+  //               color={theme.text}
+  //               style={{ marginLeft: 6 }}
+  //             />
+  //           )}
+  //         </View>
+  //       </View>
+  //     );
+  //   }
+
+  //   return (
+  //     <View style={bubble.sysWrap}>
+  //       <View style={[bubble.sysBubble, { width: width - 50 }]}>
+  //         <PinnedHtmlWebView
+  //           html={String(item.text || "")}
+  //           width={width - 70}
+  //           minHeight={36}
+  //           textColor={theme.text}
+  //           textAlign="center"
+  //           fontSize={14}
+  //           lineHeight={24}
+  //         />
+  //       </View>
+  //     </View>
+  //   );
+  // }
   if (isCricketMessage(item)) {
     const gameId = String(item.game?.gameId || item.game?.payload?.gameId || "").trim();
     return (
@@ -1501,28 +1561,42 @@ if (item.type === "song" || (item.type === "system" && item.systemType === "musi
   const senderRole = item.sender?.role;
   const starColor = getStarColor(senderRole);
 
+  const shouldShowAvatarAndName = showName && !!item.sender?.name;
+
+  const avatarBorderColor = resolveUsernameColor(item.sender) || theme.border;
+
+  const avatarStyle = [
+    bubble.avatar,
+    {
+      borderColor: avatarBorderColor,
+      borderWidth: resolveUsernameColor(item.sender) ? 2 : 2,
+    },
+  ];
   return (
     <View style={[bubble.row, isMe ? bubble.rowMe : bubble.rowOther]}>
       {!isMe && (
-        <Pressable
-          style={bubble.avatarWrapLeft}
-          onPress={() => onAvatarPress(item.sender)}
-          onLongPress={() => onAvatarLongPress(item.sender)}
-          delayLongPress={350}
-        >
-          <Image
-            source={
-              resolveAvatarSource(item.sender) || {
-                uri: "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg",
-              }
-            }
-            style={[bubble.avatar]}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            transition={0}
-          />
-          {shouldShowStar(senderRole) && <Text style={[bubble.avatarStarLeft, { color: starColor }]}>★</Text>}
-        </Pressable>
+        shouldShowAvatarAndName ? (
+          <Pressable
+            style={bubble.avatarWrapLeft}
+            onPress={() => onAvatarPress(item.sender)}
+            onLongPress={() => onAvatarLongPress(item.sender)}
+            delayLongPress={350}
+          >
+            <Image
+              source={{ uri: resolveAvatarSource(item.sender) }}
+              style={avatarStyle}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={0}
+            />
+
+            {shouldShowStar(senderRole) && (
+              <Text style={[bubble.avatarStarLeft, { color: starColor }]}>★</Text>
+            )}
+          </Pressable>
+        ) : (
+          <View style={bubble.avatarSpacerLeft} />
+        )
       )}
 
       <TouchableOpacity
@@ -1533,7 +1607,7 @@ if (item.type === "song" || (item.type === "system" && item.systemType === "musi
         }}
         style={[bubble.bubble, isMe ? bubble.bubbleMe : bubble.bubbleOther]}
       >
-        {showName && !!item.sender?.name && (
+        {shouldShowAvatarAndName && (
           <View style={bubble.nameWrap}>
             {/* <View style={bubble.nameRow}>
               <Text style={bubble.senderName} numberOfLines={1}>
@@ -1564,7 +1638,7 @@ if (item.type === "song" || (item.type === "system" && item.systemType === "musi
                 onLongPress={() => copyUserNameOnly(item.sender)}
 
               >
-                {item.sender.name}
+                {item?.sender?.name}
               </Text>
             </View>
             <View style={bubble.nameUnderline} />
@@ -1585,16 +1659,16 @@ if (item.type === "song" || (item.type === "system" && item.systemType === "musi
                 </View>
 
                 {item.replyTo.type !== "text" ? (
-                  <Text style={bubble.replyText} numberOfLines={1}>
+                  <Text style={bubble.replyText} numberOfLines={2}>
                     {item.replyTo.type === "image"
-                      ? "📷 Image"
+                      ? `📷 ${stripHtmlToText(String(item.replyTo.text || "")) || "Image"}`
                       : item.replyTo.type === "video"
-                        ? "🎬 Video"
+                        ? `🎬 ${stripHtmlToText(String(item.replyTo.text || "")) || "Video"}`
                         : item.replyTo.type === "audio"
-                          ? "🎤 Voice"
+                          ? `🎤 ${stripHtmlToText(String(item.replyTo.text || "")) || "Voice"}`
                           : item.replyTo.type === "file"
-                            ? "📄 File"
-                            : "Message"}
+                            ? `📄 ${stripHtmlToText(String(item.replyTo.text || "")) || "File"}`
+                            : stripHtmlToText(String(item.replyTo.text || "")) || "—"}
                   </Text>
                 ) : (
                   <Text style={bubble.replyText} numberOfLines={2}>
@@ -1700,25 +1774,28 @@ if (item.type === "song" || (item.type === "system" && item.systemType === "musi
       </TouchableOpacity>
 
       {isMe && (
-        <Pressable
-          style={bubble.avatarWrapRight}
-          onPress={() => onAvatarPress(item.sender)}
-          onLongPress={() => onAvatarLongPress(item.sender)}
-          delayLongPress={350}
-        >
-          <Image
-            source={
-              resolveAvatarSource(item.sender) || {
-                uri: "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg",
-              }
-            }
-            style={bubble.avatar}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            transition={0}
-          />
-          {shouldShowStar(senderRole) && <Text style={[bubble.avatarStarRight, { color: starColor }]}>★</Text>}
-        </Pressable>
+        shouldShowAvatarAndName ? (
+          <Pressable
+            style={bubble.avatarWrapRight}
+            onPress={() => onAvatarPress(item.sender)}
+            onLongPress={() => onAvatarLongPress(item.sender)}
+            delayLongPress={350}
+          >
+            <Image
+              source={{ uri: resolveAvatarSource(item.sender) }}
+              style={avatarStyle}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={0}
+            />
+
+            {shouldShowStar(senderRole) && (
+              <Text style={[bubble.avatarStarRight, { color: starColor }]}>★</Text>
+            )}
+          </Pressable>
+        ) : (
+          <View style={bubble.avatarSpacerRight} />
+        )
       )}
     </View>
   );
@@ -2111,31 +2188,31 @@ export default function ChatScreen() {
     }
   };
   const sendSongLove = async (songCode: string) => {
-  try {
-    const code = String(songCode || "").trim().toUpperCase();
+    try {
+      const code = String(songCode || "").trim().toUpperCase();
 
-    if (!code) {
-      Alert.alert("Notice", "Song ID not found");
-      return;
+      if (!code) {
+        Alert.alert("Notice", "Song ID not found");
+        return;
+      }
+
+      const content = `love@${code}`;
+      const clientId = `song_love_${Date.now()}_${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          clientId,
+          content,
+          type: "text",
+        })
+      ).unwrap();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Love failed");
     }
-
-    const content = `love@${code}`;
-    const clientId = `song_love_${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
-
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        clientId,
-        content,
-        type: "text",
-      })
-    ).unwrap();
-  } catch (e: any) {
-    Alert.alert("Error", e?.message || "Love failed");
-  }
-};
+  };
   const [giftOverlay, setGiftOverlay] = useState<{
     visible: boolean;
     messageId: string | null;
@@ -2811,20 +2888,20 @@ export default function ChatScreen() {
 
     if (!title && !audioUrl) return null;
 
- return {
-  title,
-  channel,
-  audioUrl,
-  thumbnail,
-  youtubeUrl,
+    return {
+      title,
+      channel,
+      audioUrl,
+      thumbnail,
+      youtubeUrl,
 
-  playedById: String(song?.playedById || "").trim(),
-  playedByName: String(song?.playedByName || "").trim(),
-  playedByAtUsername: String(song?.playedByAtUsername || "").trim(),
+      playedById: String(song?.playedById || "").trim(),
+      playedByName: String(song?.playedByName || "").trim(),
+      playedByAtUsername: String(song?.playedByAtUsername || "").trim(),
 
-  songCode: String(song?.songCode || "").trim().toUpperCase(),
-  loveCommand: String(song?.loveCommand || "").trim(),
-};
+      songCode: String(song?.songCode || "").trim().toUpperCase(),
+      loveCommand: String(song?.loveCommand || "").trim(),
+    };
   }
   const mapReduxToUIMessage = (m: any): MessageUI => {
     logSenderFromMessage(m, "MAP_MESSAGE_USER_DUMP");
@@ -2925,7 +3002,13 @@ export default function ChatScreen() {
           clientId: raw?.clientId ? String(raw.clientId) : undefined,
           serverId: raw?._id ? String(raw._id) : undefined,
           type: uiT,
-          text: String(raw?.content || "Media message"),
+          text: String(
+            raw?.content ||
+            raw?.text ||
+            raw?.message ||
+            raw?.media?.url ||
+            "Media message"
+          ),
           uri: raw?.media?.url,
           sender: {
             id: String(raw?.sender?._id || raw?.senderId || "unknown"),
@@ -3058,22 +3141,22 @@ export default function ChatScreen() {
 
       type: uiType,
       systemType: isSystem ? (backendType as any) : undefined,
-     music: parsedSong
-  ? {
-      title: parsedSong.title,
-      channel: parsedSong.channel,
-      audioUrl: parsedSong.audioUrl,
-      thumbnail: parsedSong.thumbnail,
-      youtubeUrl: parsedSong.youtubeUrl,
+      music: parsedSong
+        ? {
+          title: parsedSong.title,
+          channel: parsedSong.channel,
+          audioUrl: parsedSong.audioUrl,
+          thumbnail: parsedSong.thumbnail,
+          youtubeUrl: parsedSong.youtubeUrl,
 
-      playedById: parsedSong.playedById,
-      playedByName: parsedSong.playedByName,
-      playedByAtUsername: parsedSong.playedByAtUsername,
+          playedById: parsedSong.playedById,
+          playedByName: parsedSong.playedByName,
+          playedByAtUsername: parsedSong.playedByAtUsername,
 
-      songCode: parsedSong.songCode,
-      loveCommand: parsedSong.loveCommand,
-    }
-  : undefined,
+          songCode: parsedSong.songCode,
+          loveCommand: parsedSong.loveCommand,
+        }
+        : undefined,
 
       game:
         backendType === "game"
@@ -3270,7 +3353,7 @@ export default function ChatScreen() {
           clientId,
           type: "text",
           content,
-          replyTo: replyTo?.id,
+          replyTo: replyTo?.serverId || replyTo?.id,
           mentions: [],
           sender: currentUserId,
           senderSnapshot: meInRoom
@@ -3291,9 +3374,7 @@ export default function ChatScreen() {
                 meInRoom?.verificationType || me?.verificationType || "none",
               activeCustomization:
                 meInRoom?.activeCustomization || { badges: [] },
-              // inventory: meInRoom?.inventory || [],
               inventory: Array.isArray(myInventory) ? myInventory : [],
-
               customEmojiBadge:
                 meInRoom?.customEmojiBadge || me?.customEmojiBadge || null,
             }
@@ -3314,7 +3395,6 @@ export default function ChatScreen() {
                 verificationType: me.verificationType,
                 activeCustomization: me.activeCustomization,
                 inventory: Array.isArray(myInventory) ? myInventory : [],
-
                 customEmojiBadge: me.customEmojiBadge,
               }
               : undefined,
@@ -3333,7 +3413,7 @@ export default function ChatScreen() {
           clientId,
           content,
           type: "text",
-          replyTo: replyTo?.id,
+          replyTo: replyTo?.serverId || replyTo?.id,
         })
       ).unwrap();
     } catch (e: any) {
@@ -3688,6 +3768,34 @@ export default function ChatScreen() {
         style={styles.contentSafe}
         edges={["left", "right", "bottom"]}
       >
+        {/* ================= FIXED REPLY PREVIEW TOP ================= */}
+        {replyTo && (
+          <View pointerEvents="box-none" style={styles.fixedReplyLayer}>
+            <View style={styles.fixedReplyCard}>
+              <View style={styles.fixedReplyIcon}>
+                <Ionicons name="return-up-back-outline" size={16} color="#FFF" />
+              </View>
+
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.fixedReplyTitle} numberOfLines={1}>
+                  Replying to {replyTo.sender?.name || "User"}
+                </Text>
+
+                <Text style={styles.fixedReplyText} numberOfLines={1}>
+                  {stripHtmlToText(String(replyTo.text || "")) || "Media"}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setReplyTo(null)}
+                activeOpacity={0.85}
+                style={styles.fixedReplyClose}
+              >
+                <Ionicons name="close" size={18} color={theme.icon} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
         {/* ================= ROOM MENU ================= */}
         <Modal transparent visible={showRoomMenu} animationType="fade" onRequestClose={() => setShowRoomMenu(false)}>
           <TouchableOpacity activeOpacity={1} style={styles.menuOverlay} onPress={() => setShowRoomMenu(false)}>
@@ -3879,7 +3987,10 @@ export default function ChatScreen() {
           inverted
           keyExtractor={(item) => item.id}
           ListHeaderComponent={<Reanimated.View style={listSpacerAnimatedStyle} />}
-          contentContainerStyle={{ padding: 14, paddingTop: 14 }}
+          contentContainerStyle={{
+            padding: 14,
+            paddingTop: replyTo ? 78 : 14,
+          }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           renderItem={({ item, index }) => {
@@ -3920,17 +4031,7 @@ export default function ChatScreen() {
           }}
         />
 
-        {/* ================= REPLY PREVIEW ================= */}
-        {replyTo && (
-          <View style={styles.replyPreview}>
-            <Text style={{ color: theme.text, fontWeight: "700" }} numberOfLines={1}>
-              Replying to: {replyTo.text || "Media"}
-            </Text>
-            <TouchableOpacity onPress={() => setReplyTo(null)} activeOpacity={0.85}>
-              <Ionicons name="close" size={18} color={theme.text} />
-            </TouchableOpacity>
-          </View>
-        )}
+
 
         {/* ================= VOICE PREVIEW ================= */}
         {!!pendingVoiceUri && (
@@ -4174,6 +4275,11 @@ export default function ChatScreen() {
 
               <TouchableOpacity
                 onPress={() => {
+                  if (!selectedMessage?.serverId) {
+                    Alert.alert("انتظر قليلًا", "لا يمكن الرد على الرسالة قبل وصولها للسيرفر.");
+                    return;
+                  }
+
                   setReplyTo(selectedMessage);
                   setShowActions(false);
                 }}
@@ -4549,6 +4655,19 @@ function makeBubbleStyles(theme: typeof Colors.light) {
       marginBottom: 5,
       alignItems: "flex-start", // 👈 هذا هو الحل
     },
+    avatarSpacerLeft: {
+      width: 48,
+      height: 20,
+      marginRight: 8,
+      flexShrink: 0,
+    },
+
+    avatarSpacerRight: {
+      width: 48,
+      height: 20,
+      marginLeft: 8,
+      flexShrink: 0,
+    },
 
     rowOther: {
       justifyContent: "flex-start",
@@ -4684,16 +4803,49 @@ function makeBubbleStyles(theme: typeof Colors.light) {
       borderColor: theme.border
     },
 
-    sysWrap: { width: "100%", alignItems: "center", marginVertical: 6 },
-    sysBubble: {
-      backgroundColor: theme.primarySoft,
-      borderColor: theme.border,
-      borderWidth: 1,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      borderRadius: 14
-    },
-    sysTime: { fontSize: 11, color: theme.mutedText, textAlign: "center", marginTop: 4 }
+sysWrap: {
+  width: "100%",
+  alignItems: "center",
+  marginVertical: 6,
+},
+
+sysBubble: {
+  backgroundColor: theme.primarySoft,
+  borderColor: theme.border,
+  borderWidth: 1,
+  paddingHorizontal: 10,
+  paddingVertical: 8,
+  borderRadius: 14,
+},
+
+// ✅ خاص برسائل نجاح/فشل المنشن فقط
+privateMentionBubble: {
+  maxWidth: "88%",
+  minHeight: 34,
+  paddingHorizontal: 12,
+  paddingVertical: 7,
+  borderRadius: 999,
+  borderWidth: 1,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+privateMentionText: {
+  flexShrink: 1,
+  fontSize: 13,
+  fontWeight: "800",
+  lineHeight: 18,
+  writingDirection: "ltr",
+  textAlign: "left",
+},
+
+sysTime: {
+  fontSize: 11,
+  color: theme.mutedText,
+  textAlign: "center",
+  marginTop: 4,
+},
   });
 }
 
@@ -4996,7 +5148,67 @@ function makeScreenStyles(
     menuItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
     menuText: { fontSize: 14, color: theme.text, fontWeight: "900" },
     menuDivider: { height: 1, backgroundColor: theme.separator, marginVertical: 6 },
+    fixedReplyLayer: {
+      position: "absolute",
+      top: 8,
+      left: 0,
+      right: 0,
+      zIndex: 950,
+      elevation: 950,
+      alignItems: "center",
+      pointerEvents: "box-none",
+    },
 
+    fixedReplyCard: {
+      width: "92%",
+      minHeight: 52,
+      borderRadius: 16,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      flexDirection: "row",
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.12,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 5 },
+      elevation: 7,
+    },
+
+    fixedReplyIcon: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: theme.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 8,
+    },
+
+    fixedReplyTitle: {
+      color: theme.text,
+      fontSize: 12,
+      fontWeight: "900",
+    },
+
+    fixedReplyText: {
+      marginTop: 2,
+      color: theme.mutedText,
+      fontSize: 12,
+      fontWeight: "700",
+    },
+
+    fixedReplyClose: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.surface2,
+      marginLeft: 8,
+    },
     globalAudioPlayer: {
       flexDirection: "row",
       alignItems: "center",

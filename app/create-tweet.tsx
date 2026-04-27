@@ -196,15 +196,16 @@ export default function CreateTweetScreen() {
         uploadedUrls = await Promise.all(uploadPromises);
       }
 
-      await dispatch(
-        createTweet({
-          content: content.trim(),
-          media: uploadedUrls,
-        })
-      );
+ await dispatch(
+  createTweet({
+    content: content.trim(),
+    media: uploadedUrls,
+  })
+).unwrap();
 
-      setProgress(100);
-      router.back();
+
+setProgress(100);
+router.back();
     } catch (error) {
       Alert.alert("Error", "Upload failed");
     } finally {

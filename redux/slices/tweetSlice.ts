@@ -198,7 +198,18 @@ export const createTweet = createAsyncThunk(
   "tweets/create",
   async (data: any) => {
     const res = await api.post("/tweets", data);
-    return res.data as Tweet;
+
+    const tweet = res.data?.tweet || res.data;
+
+    return {
+      ...tweet,
+      likesCount: tweet?.likesCount ?? 0,
+      retweetsCount: tweet?.retweetsCount ?? 0,
+      repliesCount: tweet?.repliesCount ?? 0,
+      isLiked: tweet?.isLiked ?? false,
+      isRetweeted: tweet?.isRetweeted ?? false,
+      isBookmarked: tweet?.isBookmarked ?? false,
+    } as Tweet;
   }
 );
 
@@ -393,10 +404,35 @@ const tweetSlice = createSlice({
   extraReducers: (builder) => {
     /* ================= CREATE ================= */
 
-    builder.addCase(createTweet.fulfilled, (state, action) => {
-      state.forYou.unshift(action.payload);
-      state.following.unshift(action.payload);
-    });
+builder.addCase(createTweet.fulfilled, (state, action) => {
+  const tweet = action.payload;
+
+  if (!tweet?._id) return;
+
+  const authorIsReady =
+    tweet.author &&
+    typeof tweet.author === "object" &&
+    String(tweet.author.username || "").trim();
+
+  if (!authorIsReady) {
+    return;
+  }
+
+  const existsForYou = state.forYou.some((t) => t._id === tweet._id);
+  if (!existsForYou) {
+    state.forYou.unshift(tweet);
+  }
+
+  const existsFollowing = state.following.some((t) => t._id === tweet._id);
+  if (!existsFollowing) {
+    state.following.unshift(tweet);
+  }
+
+  const existsProfile = state.profileTweets.some((t) => t._id === tweet._id);
+  if (!existsProfile) {
+    state.profileTweets.unshift(tweet);
+  }
+});
         builder.addCase(getTweetLikesUsers.pending, (state) => {
       state.likesUsersLoading = true;
       state.likesUsers = [];

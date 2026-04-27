@@ -378,7 +378,7 @@ const [badgePickerType, setBadgePickerType] = useState<"lottie" | "image">("lott
   const categoryCards: CategoryCard[] = useMemo(
     () => [
       { key: "avatarFrame", title: t("storeScreen.tabs.avatarFrame"), subtitle: t("storeScreen.prettyType.avatarFrame") },
-      { key: "avatarGif", title: t("storeScreen.tabs.avatarGif"), subtitle: t("storeScreen.prettyType.avatarGif") },
+      // { key: "avatarGif", title: t("storeScreen.tabs.avatarGif"), subtitle: t("storeScreen.prettyType.avatarGif") },
       { key: "usernameColor", title: t("storeScreen.tabs.usernameColor"), subtitle: t("storeScreen.prettyType.usernameColor") },
       { key: "messageTextColor", title: t("storeScreen.tabs.messageTextColor"), subtitle: t("storeScreen.prettyType.messageTextColor") },
       { key: "badge", title: t("storeScreen.tabs.badge"), subtitle: t("storeScreen.prettyType.badge") },
@@ -420,18 +420,7 @@ const imageBadgeItems = useMemo(() => {
     return !hasLottie && hasImage;
   });
 
-  console.log(
-    "IMAGE_BADGE_ITEMS",
-    list.map((x: any) => ({
-      id: String(x?._id || ""),
-      key: String(x?.key || ""),
-      name: String(x?.name || ""),
-      type: String(x?.type || ""),
-      previewUrl: String(x?.meta?.previewUrl || x?.previewUrl || ""),
-      iconUrl: String(x?.meta?.iconUrl || x?.iconUrl || ""),
-      lottieUrl: String(x?.meta?.lottieUrl || ""),
-    }))
-  );
+
 
   return list;
 }, [badgeItems]);

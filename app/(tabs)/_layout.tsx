@@ -1,8 +1,4 @@
 
-import { Redirect, Tabs, useRouter, useSegments } from "expo-router";
-import React, { useEffect, useMemo, useRef } from "react";
-import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
-
 import AppHeader from "@/components/AppHeader";
 import {
   consumeBackgroundReminderTrigger,
@@ -11,9 +7,13 @@ import {
 } from "@/components/backgroundReminder";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { fetchChats, fetchTotalUnread } from "@/redux/slices/chatSlice";
 import { fetchMyFullUser } from "@/redux/slices/userSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Redirect, Tabs, useRouter, useSegments } from "expo-router";
+import React, { useEffect, useMemo, useRef } from "react";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -60,6 +60,9 @@ export default function TabLayout() {
   const router = useRouter();
   const segments = useSegments();
   const token = useSelector((state: RootState) => state.auth.token);
+  const totalUnread = useSelector(
+    (state: RootState) => state.chat.totalUnread
+  );
   const me = useSelector((state: RootState) => state.user.me);
   const hasCheckedBackgroundReminderRef = useRef(false);
 
@@ -73,6 +76,8 @@ export default function TabLayout() {
     if (token && !me) {
       dispatch(fetchMyFullUser());
     }
+    dispatch(fetchChats() as any);
+    dispatch(fetchTotalUnread() as any);
   }, [dispatch, token, me]);
 
   useEffect(() => {
@@ -97,7 +102,7 @@ export default function TabLayout() {
           await consumeBackgroundReminderTrigger();
           router.push("/background-activity" as any);
         }
-      } catch (error) {}
+      } catch (error) { }
     };
 
     checkBackgroundReminder();
@@ -166,13 +171,28 @@ export default function TabLayout() {
               tabBarItemStyle: {
                 paddingVertical: 2,
               },
-              tabBarIcon: ({ focused, color, size }) => (
-                <Ionicons
-                  name={focused ? config.activeIcon : config.icon}
-                  size={size ?? 22}
-                  color={color}
-                />
-              ),
+              tabBarIcon: ({ focused, color, size }) => {
+                const isChatsTab = route.name === "chats";
+                const unread = Number(totalUnread || 0);
+
+                return (
+                  <View style={s.tabIconWrap}>
+                    <Ionicons
+                      name={focused ? config.activeIcon : config.icon}
+                      size={size ?? 22}
+                      color={color}
+                    />
+
+                    {isChatsTab && unread > 0 && (
+                      <View style={s.unreadBadge}>
+                        <Text style={s.unreadBadgeText}>
+                          {unread > 99 ? "99+" : unread}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              },
               title: config.title,
               tabBarLabel: config.label,
             };
@@ -199,6 +219,35 @@ function makeStyles(theme: any) {
     loaderWrap: {
       justifyContent: "center",
       alignItems: "center",
+    },
+    tabIconWrap: {
+      width: 30,
+      height: 30,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    unreadBadge: {
+      position: "absolute",
+      top: -5,
+      right: -8,
+      minWidth: 17,
+      height: 17,
+      borderRadius: 9,
+      paddingHorizontal: 4,
+      backgroundColor: "#EF4444",
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1.5,
+      borderColor: theme.background || "#FFFFFF",
+    },
+
+    unreadBadgeText: {
+      color: "#FFFFFF",
+      fontSize: 10,
+      fontWeight: "800",
+      includeFontPadding: false,
+      textAlign: "center",
     },
   });
 }

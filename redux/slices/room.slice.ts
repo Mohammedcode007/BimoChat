@@ -180,6 +180,26 @@ export type RoomUser = {
     expiresAt?: string | null;
   } | null;
 };
+
+// export type RoomMessageType =
+//   | "text"
+//   | "image"
+//   | "video"
+//   | "audio"
+//   | "file"
+//   | "system"
+//   | "announcement"
+//   | "join"
+//   | "leave"
+//   | "gif"
+//   | "sticker"
+//   | "promotion"
+//   | "role"
+//   | "invitation"
+//   | "ban"
+//   | "gift"
+//   | "song"
+//   | "game";
 export type RoomMessageType =
   | "text"
   | "image"
@@ -190,8 +210,6 @@ export type RoomMessageType =
   | "announcement"
   | "join"
   | "leave"
-  | "gif"
-  | "sticker"
   | "promotion"
   | "role"
   | "invitation"
@@ -207,34 +225,40 @@ export type RoomGameType =
   | "xo"
   | "cards";
 export type RoomMessageSender = RoomUser | string | null;
+export type RoomReactionUser = string | UserPublicSnapshot;
 
+export type RoomReaction = {
+  user: RoomReactionUser;
+  emoji: string;
+  createdAt: string;
+};
 export type RoomMessage = {
   _id: string;
   room: string;
   gift?: GiftPayload;
   clientId?: string;
   invitation?: InvitationPayload;
-song?: {
-  title?: string;
-  audioUrl?: string;
-  youtubeUrl?: string;
-  thumbnail?: string;
-  channelTitle?: string;
-  provider?: string;
-  filename?: string;
-  expiresInMs?: number;
-};
+  song?: {
+    title?: string;
+    audioUrl?: string;
+    youtubeUrl?: string;
+    thumbnail?: string;
+    channelTitle?: string;
+    provider?: string;
+    filename?: string;
+    expiresInMs?: number;
+  };
 
-gameType?: RoomGameType;
+  gameType?: RoomGameType;
 
-game?: {
-  gameId?: string;
-  title?: string;
-  state?: string;
-  turnUserId?: string;
-  winnerUserId?: string;
-  payload?: any;
-};
+  game?: {
+    gameId?: string;
+    title?: string;
+    state?: string;
+    turnUserId?: string;
+    winnerUserId?: string;
+    payload?: any;
+  };
   optimistic?: boolean; // اختياري
   failed?: boolean;     // اختياري
   sender?: RoomMessageSender;
@@ -262,8 +286,8 @@ game?: {
   isPinned?: boolean;
   isHighlighted?: boolean;
 
-  reactions?: { user: string; emoji: string; createdAt: string }[];
-
+  reactions?: RoomReaction[];
+  reactionCount?: number;
   deletedForEveryone?: boolean;
 
   createdAt: string;
@@ -437,16 +461,24 @@ const dedupeMessages = (list: RoomMessage[]) => {
 const upsertMessageByClientIdOrId = (list: RoomMessage[], incoming: RoomMessage) => {
   if (incoming?.clientId) {
     const idx = list.findIndex((m) => m?.clientId && m.clientId === incoming.clientId);
+
     if (idx >= 0) {
-      list[idx] = { ...list[idx], ...incoming };
+      list[idx] = mergeMessagePreserveReactions(list[idx], incoming);
       dedupeMessages(list);
       return;
     }
   }
 
-  const idxById = list.findIndex((m) => m?._id && incoming?._id && m._id === incoming._id);
+  const idxById = list.findIndex((m) => {
+    return (
+      String((m as any)?._id || "") === String((incoming as any)?._id || "") ||
+      String((m as any)?.serverId || "") === String((incoming as any)?._id || "") ||
+      String((m as any)?.id || "") === String((incoming as any)?._id || "")
+    );
+  });
+
   if (idxById >= 0) {
-    list[idxById] = { ...list[idxById], ...incoming };
+    list[idxById] = mergeMessagePreserveReactions(list[idxById], incoming);
     dedupeMessages(list);
     return;
   }
@@ -459,15 +491,119 @@ const errMsg = (e: any, fallback: string) => e?.response?.data?.message || e?.me
 const dataOf = (res: any) => res?.data?.data ?? res?.data;
 
 const toStr = (x: any) => (x === null || x === undefined ? "" : String(x));
+const getReactionUserId = (r: any) => {
+  return String(
+    r?.userId ||
+    r?.senderId ||
+    (typeof r?.user === "string" ? r.user : "") ||
+    r?.user?._id ||
+    r?.user?.id ||
+    ""
+  ).trim();
+};
 
+const hasReactionUserObject = (r: any) => {
+  return Boolean(r?.user && typeof r.user === "object");
+};
+
+const mergeReactionsWithExistingUsers = (
+  incoming: RoomReaction[] = [],
+  existing: RoomReaction[] = []
+): RoomReaction[] => {
+  const existingByUserId = new Map<string, RoomReaction>();
+
+  for (const oldReaction of existing || []) {
+    const uid = getReactionUserId(oldReaction);
+    if (uid) existingByUserId.set(uid, oldReaction);
+  }
+
+  return (incoming || []).map((newReaction: any) => {
+    const uid = getReactionUserId(newReaction);
+    const oldReaction = uid ? existingByUserId.get(uid) : undefined;
+
+    const incomingHasUserObj = hasReactionUserObject(newReaction);
+    const oldHasUserObj = hasReactionUserObject(oldReaction);
+
+    // ✅ لو التحديث الجديد جاء user كـ ID فقط
+    // ونفس المستخدم كان عندنا قبل كـ object، نحافظ على بياناته
+    if (!incomingHasUserObj && oldHasUserObj) {
+      return {
+        ...newReaction,
+        user: oldReaction!.user,
+      };
+    }
+
+    return newReaction;
+  });
+};
+const mergeMessagePreserveReactions = (
+  oldMsg: RoomMessage,
+  incomingMsg: RoomMessage
+): RoomMessage => {
+  const oldReactions = Array.isArray((oldMsg as any)?.reactions)
+    ? (oldMsg as any).reactions
+    : [];
+
+  const incomingReactions = Array.isArray((incomingMsg as any)?.reactions)
+    ? (incomingMsg as any).reactions
+    : [];
+
+  const oldReactionCount = Number(
+    (oldMsg as any)?.reactionCount ||
+      (oldMsg as any)?.reactionsCount ||
+      oldReactions.length ||
+      0
+  );
+
+  const incomingReactionCount = Number(
+    (incomingMsg as any)?.reactionCount ||
+      (incomingMsg as any)?.reactionsCount ||
+      0
+  );
+
+  const merged: any = {
+    ...oldMsg,
+    ...incomingMsg,
+  };
+
+  /**
+   * ✅ لو الرسالة القديمة في Redux فيها reactions
+   * والرسالة الجديدة جاية بدون reactions
+   * لا تسمح للرسالة الجديدة تمسح الرياكشن.
+   */
+  if (
+    oldReactions.length > 0 &&
+    incomingReactions.length === 0 &&
+    incomingReactionCount === 0
+  ) {
+    merged.reactions = oldReactions;
+    merged.reactionCount = oldReactionCount;
+  }
+
+  return merged as RoomMessage;
+};
 const findRoomIdByMessageId = (
   messagesByRoom: Record<string, RoomMessage[]>,
   messageId: string
 ) => {
+  const mid = String(messageId || "");
+
   for (const rid of Object.keys(messagesByRoom)) {
     const list = messagesByRoom[rid] || [];
-    if (list.some((m) => m?._id === messageId)) return rid;
+
+    if (
+      list.some((m: any) => {
+        return (
+          String(m?._id || "") === mid ||
+          String(m?.serverId || "") === mid ||
+          String(m?.id || "") === mid
+        );
+      })
+    ) {
+      return rid;
+    }
   }
+
   return undefined;
 };
 const DEBUG_DUP = true;
@@ -930,15 +1066,37 @@ export const toggleRoomReaction = createAsyncThunk<
   {
     roomId: string;
     messageId: string;
-    reactions: { user: string; emoji: string; createdAt: string }[];
+    reactions: RoomReaction[];
+    reactionCount: number;
   },
   { roomId: string; messageId: string; emoji: string },
   { state: RootState }
 >("room/toggleRoomReaction", async ({ roomId, messageId, emoji }, thunkAPI) => {
   try {
-    const res = await api.post(`/rooms/${roomId}/messages/${messageId}/reaction`, { emoji });
-    const reactions = dataOf(res);
-    return { roomId, messageId, reactions: Array.isArray(reactions) ? reactions : [] };
+    const res = await api.post(
+      `/rooms/${roomId}/messages/${messageId}/reaction`,
+      { emoji }
+    );
+
+    const data = dataOf(res);
+
+    const reactions: RoomReaction[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.reactions)
+        ? data.reactions
+        : [];
+
+    const reactionCount =
+      typeof data?.reactionCount === "number"
+        ? data.reactionCount
+        : reactions.length;
+
+    return {
+      roomId,
+      messageId,
+      reactions,
+      reactionCount,
+    };
   } catch (e: any) {
     return thunkAPI.rejectWithValue(errMsg(e, "Reaction failed"));
   }
@@ -1623,7 +1781,11 @@ const roomSlice = createSlice({
         );
 
         if (idxOpt >= 0) {
-          list[idxOpt] = { ...list[idxOpt], ...message, optimistic: false, failed: false };
+list[idxOpt] = mergeMessagePreserveReactions(list[idxOpt], {
+  ...message,
+  optimistic: false,
+  failed: false,
+});
           dedupeMessages(list);
           return;
         }
@@ -1658,7 +1820,9 @@ const roomSlice = createSlice({
       if (!list) return;
 
       const idx = list.findIndex((m) => m._id === message._id);
-      if (idx >= 0) list[idx] = { ...list[idx], ...message };
+if (idx >= 0) {
+  list[idx] = mergeMessagePreserveReactions(list[idx], message);
+}
     },
 
     /**
@@ -1673,7 +1837,9 @@ const roomSlice = createSlice({
       if (!list) return;
 
       const idx = list.findIndex((m) => m._id === message._id);
-      if (idx >= 0) list[idx] = { ...list[idx], ...message };
+if (idx >= 0) {
+  list[idx] = mergeMessagePreserveReactions(list[idx], message);
+}
     },
 
     /**
@@ -1702,31 +1868,69 @@ const roomSlice = createSlice({
      * room:reaction:update
      * يدعم وصول payload بدون roomId
      */
-    socketReactionUpdate: (
-      state,
-      action: PayloadAction<{
-        roomId?: string;
-        messageId: string;
-        reactions: { user: string; emoji: string; createdAt: string }[];
-      }>
-    ) => {
-      const { messageId, reactions } = action.payload;
+  socketReactionUpdate: (
+  state,
+  action: PayloadAction<{
+    roomId?: string;
+    messageId: string;
+    reactions: RoomReaction[];
+    reactionCount?: number;
+  }>
+) => {
+  const messageId = String(action.payload.messageId || "");
 
-      const roomId =
-        action.payload.roomId ||
-        findRoomIdByMessageId(state.messagesByRoom, messageId) ||
-        state.activeRoomId;
+  const incomingReactions = Array.isArray(action.payload.reactions)
+    ? action.payload.reactions
+    : [];
 
-      if (!roomId) return;
+  const roomId =
+    action.payload.roomId ||
+    findRoomIdByMessageId(state.messagesByRoom, messageId) ||
+    state.activeRoomId;
 
-      const list = state.messagesByRoom[roomId];
-      if (!list) return;
+  if (!roomId || !messageId) return;
 
-      const msg = list.find((m) => m._id === messageId);
-      if (!msg) return;
+  const list = state.messagesByRoom[roomId];
+  if (!list) return;
 
-      msg.reactions = reactions;
-    },
+  const msg = list.find((m: any) => {
+    return (
+      String(m?._id || "") === messageId ||
+      String(m?.serverId || "") === messageId ||
+      String(m?.id || "") === messageId
+    );
+  });
+
+  if (!msg) return;
+
+  const oldReactions = Array.isArray((msg as any)?.reactions)
+    ? (msg as any).reactions
+    : [];
+
+  const incomingReactionCount =
+    typeof action.payload.reactionCount === "number"
+      ? action.payload.reactionCount
+      : incomingReactions.length;
+
+  /**
+   * ✅ حماية:
+   * لا تسمح لتحديث فاضي يمسح رياكشن موجود.
+   */
+  if (
+    oldReactions.length > 0 &&
+    incomingReactions.length === 0 &&
+    incomingReactionCount === 0
+  ) {
+    return;
+  }
+
+  msg.reactions = mergeReactionsWithExistingUsers(
+    incomingReactions,
+    oldReactions
+  );
+
+  msg.reactionCount = incomingReactionCount;
+},
 
     /**
      * room:kicked
@@ -2010,8 +2214,32 @@ const roomSlice = createSlice({
             return true;
           });
 
+          for (const incoming of filtered as any[]) {
+            const incomingId = String(incoming?._id || "");
+            const incomingClientId = String(incoming?.clientId || "");
 
-          list.push(...filtered);
+            const old = list.find((m: any) => {
+              return (
+                String(m?._id || "") === incomingId ||
+                (!!incomingClientId && String(m?.clientId || "") === incomingClientId)
+              );
+            });
+
+            const oldReactions = Array.isArray(old?.reactions) ? old.reactions : [];
+            const incomingReactions = Array.isArray(incoming?.reactions)
+              ? incoming.reactions
+              : [];
+
+            if (old && oldReactions.length > 0 && incomingReactions.length === 0) {
+              list.push({
+                ...incoming,
+                reactions: oldReactions,
+                reactionCount: old.reactionCount || oldReactions.length,
+              });
+            } else {
+              list.push(incoming);
+            }
+          }
         } else {
           const seen = new Set<string>();
           const out: typeof messages = [];
@@ -2030,9 +2258,48 @@ const roomSlice = createSlice({
             }
 
             seen.add(key);
-            out.push(m);
-          }
 
+            const old = list.find((oldMsg: any) => {
+              return (
+                String(oldMsg?._id || "") === id ||
+                (!!cid && String(oldMsg?.clientId || "") === cid)
+              );
+            });
+
+            const incomingReactions = Array.isArray((m as any)?.reactions)
+              ? (m as any).reactions
+              : [];
+
+            const oldReactions = Array.isArray((old as any)?.reactions)
+              ? (old as any).reactions
+              : [];
+
+            const incomingReactionCount = Number(
+              (m as any)?.reactionCount || (m as any)?.reactionsCount || 0
+            );
+
+            const oldReactionCount = Number(
+              (old as any)?.reactionCount ||
+              (old as any)?.reactionsCount ||
+              oldReactions.length ||
+              0
+            );
+
+            if (
+              old &&
+              oldReactions.length > 0 &&
+              incomingReactions.length === 0 &&
+              incomingReactionCount === 0
+            ) {
+              out.push({
+                ...m,
+                reactions: oldReactions,
+                reactionCount: oldReactionCount,
+              });
+            } else {
+              out.push(m);
+            }
+          }
 
           state.messagesByRoom[roomId] = out;
         }
@@ -2041,6 +2308,38 @@ const roomSlice = createSlice({
       .addCase(fetchRoomMessages.rejected, (state, action) => {
         state.loadingMessages = false;
         state.error = (action.payload as any) || "Failed to fetch messages";
+      })
+    .addCase(toggleRoomReaction.fulfilled, (state, action) => {
+  state.mutatingRoom = false;
+
+  const { roomId, messageId, reactions, reactionCount } = action.payload;
+
+  const list = state.messagesByRoom[roomId];
+  if (!list) return;
+
+  const msg = list.find((m: any) => {
+    return (
+      String(m?._id || "") === String(messageId) ||
+      String(m?.serverId || "") === String(messageId) ||
+      String(m?.id || "") === String(messageId)
+    );
+  });
+
+  if (!msg) return;
+
+  msg.reactions = mergeReactionsWithExistingUsers(
+    Array.isArray(reactions) ? reactions : [],
+    msg.reactions || []
+  );
+
+  msg.reactionCount =
+    typeof reactionCount === "number"
+      ? reactionCount
+      : msg.reactions.length;
+})
+      .addCase(toggleRoomReaction.rejected, (state, action) => {
+        state.mutatingRoom = false;
+        state.error = (action.payload as any) || "Reaction failed";
       })
 
       .addCase(fetchRoomsByType.pending, (state) => {
@@ -2170,13 +2469,6 @@ const roomSlice = createSlice({
             }
           }
 
-          if (action.type.startsWith(toggleRoomReaction.typePrefix)) {
-            state.mutatingRoom = false;
-            const { roomId, messageId, reactions } = action.payload || {};
-            const list = state.messagesByRoom[roomId];
-            const msg = list?.find((m) => m._id === messageId);
-            if (msg) msg.reactions = reactions;
-          }
         }
       )
       .addMatcher(
@@ -2258,7 +2550,7 @@ export const {
   socketRoomBoostUpdate,
   socketRoomDeleted,
   clearKickedFlag,
-    setCurrentRoomUserId, // ✅ أضف هذا
+  setCurrentRoomUserId, // ✅ أضف هذا
 
   clearBannedFlag,
   socketRoomKicked,

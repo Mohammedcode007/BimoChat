@@ -6,7 +6,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { logout, toggleInvisible } from '@/redux/slices/authSlice';
 import { resetChatState } from '@/redux/slices/chatSlice';
 import { setTabBarHidden } from '@/redux/slices/ui.slice';
-import { fetchMyFullUser, selectMe, selectUserUpdating, updateMyProfileSettings } from '@/redux/slices/userSlice';
+import { fetchMyFullUser, resetUserState, selectMe, selectUserUpdating, updateMyProfileSettings } from '@/redux/slices/userSlice';
 import { AppDispatch, RootState } from '@/redux/store';
 import {
   getNotificationSoundEnabled,
@@ -90,12 +90,28 @@ const handleToggleFriendsOnlyMessages = async (value: boolean) => {
     await setNotificationSoundEnabled(value);
   };
 
+  // const handleLogout = async () => {
+  //   showTabBar();
+  //   await dispatch(logout());
+  //   dispatch(resetChatState());
+  //   dispatch(setTabBarHidden(false));
+  // };
   const handleLogout = async () => {
-    showTabBar();
-    await dispatch(logout());
-    dispatch(resetChatState());
-    dispatch(setTabBarHidden(false));
-  };
+  showTabBar();
+
+  await dispatch(logout()).unwrap();
+
+  // ✅ امسح بيانات المستخدم القديمة من Redux
+  dispatch(resetUserState());
+
+  // ✅ امسح بيانات الشات القديمة
+  dispatch(resetChatState());
+
+  dispatch(setTabBarHidden(false));
+
+  // // اختياري لكن أفضل
+  // router.replace('/login');
+};
 
   return (
     <ScrollView

@@ -166,6 +166,16 @@ type MessageUI = {
   time: string;
   replyTo?: MessageUI;
   reaction?: Reaction;
+
+  reactions?: {
+    emoji: Reaction;
+    userId: string;
+    username: string;
+    avatar?: string;
+    avatarGif?: string;
+  }[];
+
+  reactionCount?: number;
   gift?: {
     key: string;
     icon?: string;
@@ -177,7 +187,152 @@ type MessageUI = {
 };
 
 const REACTIONS: Reaction[] = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+const normalizeMessageReactions = (m: any) => {
+  console.log("🟡 normalizeMessageReactions MESSAGE:", {
+    messageId: m?._id,
+    room: m?.room,
+    rawReactions: m?.reactions,
+    reactionUsers: m?.reactionUsers,
+    metaReactions: m?.meta?.reactions,
+    reactionCount: m?.reactionCount,
+    reactionsCount: m?.reactionsCount,
+  });
 
+  const raw =
+    Array.isArray(m?.reactions)
+      ? m.reactions
+      : Array.isArray(m?.reactionUsers)
+        ? m.reactionUsers
+        : Array.isArray(m?.meta?.reactions)
+          ? m.meta.reactions
+          : [];
+
+  const reactions = raw
+    .map((r: any, index: number) => {
+      console.log("🔵 RAW REACTION ITEM:", {
+        index,
+        reaction: r,
+        userType: typeof r?.user,
+        user: r?.user,
+        userUsername: r?.user?.username,
+        rootUsername: r?.username,
+        rootName: r?.name,
+      });
+
+      const emoji = String(r?.emoji || r?.reaction || "").trim() as Reaction;
+
+      const userObj =
+        r?.user && typeof r.user === "object"
+          ? r.user
+          : r?.sender && typeof r.sender === "object"
+            ? r.sender
+            : r?.createdBy && typeof r.createdBy === "object"
+              ? r.createdBy
+              : r?.userSnapshot && typeof r.userSnapshot === "object"
+                ? r.userSnapshot
+                : null;
+
+      const userId = String(
+        r?.userId ||
+        r?.senderId ||
+        (typeof r?.user === "string" ? r.user : "") ||
+        userObj?._id ||
+        userObj?.id ||
+        ""
+      ).trim();
+
+      const username = String(
+        r?.username ||
+        r?.name ||
+        r?.displayName ||
+        userObj?.username ||
+        userObj?.name ||
+        userObj?.displayName ||
+        userObj?.atUsername ||
+        "مستخدم"
+      ).trim();
+
+      const avatar = String(
+        r?.avatar ||
+        userObj?.avatar ||
+        ""
+      ).trim();
+
+      const avatarGif = String(
+        r?.avatarGif ||
+        userObj?.avatarGif ||
+        userObj?.activeCustomization?.avatarGif ||
+        ""
+      ).trim();
+
+      console.log("🟢 NORMALIZED REACTION ITEM:", {
+        index,
+        emoji,
+        userId,
+        username,
+        avatar,
+        avatarGif,
+        hasUserObj: Boolean(userObj),
+        userObj,
+      });
+
+      if (!emoji || !REACTIONS.includes(emoji)) return null;
+
+      return {
+        emoji,
+        userId,
+        username,
+        avatar,
+        avatarGif,
+      };
+    })
+    .filter(Boolean) as {
+      emoji: Reaction;
+      userId: string;
+      username: string;
+      avatar?: string;
+      avatarGif?: string;
+    }[];
+
+  const fallbackEmoji = String(
+    m?.reaction ||
+    m?.myReaction ||
+    m?.meta?.reaction ||
+    ""
+  ).trim() as Reaction;
+
+  if (!reactions.length && fallbackEmoji && REACTIONS.includes(fallbackEmoji)) {
+    console.log("🟠 REACTION FALLBACK USED:", {
+      messageId: m?._id,
+      fallbackEmoji,
+      reactionCount: Number(m?.reactionCount || m?.reactionsCount || 1),
+    });
+
+    return {
+      reactions: [],
+      firstReactionEmoji: fallbackEmoji,
+      reactionCount: Number(m?.reactionCount || m?.reactionsCount || 1),
+    };
+  }
+
+  const firstReactionEmoji = reactions[0]?.emoji;
+  const reactionCount =
+    reactions.length ||
+    Number(m?.reactionCount || m?.reactionsCount || 0);
+
+  console.log("✅ NORMALIZED REACTIONS FINAL:", {
+    messageId: m?._id,
+    firstReactionEmoji,
+    reactionCount,
+    reactions,
+  });
+
+  return {
+    reactions,
+    firstReactionEmoji,
+    reactionCount,
+  };
+};
 /* ================= BADGES ================= */
 type BadgeKey = string;
 
@@ -1071,7 +1226,272 @@ const resolveAvatarSource = (u?: Partial<UserUI> & { activeCustomization?: any }
 
   return gif || avatar || "https://i.pinimg.com/736x/a9/5e/7a/a95e7a415633a614613e757bac4246ed.jpg";
 };
+function ReactionDetailsModal({
+  visible,
+  message,
+  onClose,
+  theme,
+}: {
+  visible: boolean;
+  message: MessageUI | null;
+  onClose: () => void;
+  theme: typeof Colors.light;
+}) {
+  const reactions = Array.isArray(message?.reactions) ? message!.reactions! : [];
 
+  const grouped = REACTIONS
+    .map((emoji) => ({
+      emoji,
+      users: reactions.filter((r) => r.emoji === emoji),
+    }))
+    .filter((x) => x.users.length > 0);
+
+  const total = reactions.length || Number(message?.reactionCount || 0);
+
+  const [activeEmoji, setActiveEmoji] = useState<Reaction | "all">("all");
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const firstEmoji = grouped[0]?.emoji;
+    setActiveEmoji(firstEmoji || "all");
+  }, [visible, message?.id, reactions.length]);
+
+  const visibleUsers =
+    activeEmoji === "all"
+      ? reactions
+      : reactions.filter((r) => r.emoji === activeEmoji);
+
+  const uniqueUsers = visibleUsers.filter((u, index, arr) => {
+    const id = String(u.userId || u.username || index);
+    return (
+      arr.findIndex((x) => String(x.userId || x.username) === id) === index
+    );
+  });
+
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable
+        onPress={onClose}
+        style={{
+          flex: 1,
+          backgroundColor: "rgba(0,0,0,0.45)",
+          justifyContent: "flex-end",
+        }}
+      >
+        <Pressable
+          onPress={() => {}}
+          style={{
+            backgroundColor: theme.card,
+            borderTopLeftRadius: 22,
+            borderTopRightRadius: 22,
+            paddingHorizontal: 16,
+            paddingTop: 14,
+            paddingBottom: 22,
+            borderWidth: 1,
+            borderColor: theme.border,
+            maxHeight: "70%",
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 12,
+            }}
+          >
+            <View>
+              <Text
+                style={{
+                  color: theme.text,
+                  fontSize: 16,
+                  fontWeight: "900",
+                }}
+              >
+                Reactions
+              </Text>
+
+              <Text
+                style={{
+                  color: theme.mutedText,
+                  fontSize: 12,
+                  fontWeight: "700",
+                  marginTop: 3,
+                }}
+              >
+                Total: {total}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={onClose}
+              activeOpacity={0.85}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 14,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: theme.surface2,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <Ionicons name="close" size={20} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+
+          {grouped.length > 0 ? (
+            <>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingBottom: 10,
+                  gap: 8,
+                }}
+              >
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setActiveEmoji("all")}
+                  style={{
+                    paddingHorizontal: 12,
+                    height: 36,
+                    borderRadius: 999,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "row",
+                    backgroundColor:
+                      activeEmoji === "all" ? theme.tint : theme.surface2,
+                    borderWidth: 1,
+                    borderColor:
+                      activeEmoji === "all" ? theme.tint : theme.border,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: activeEmoji === "all" ? "#FFFFFF" : theme.text,
+                      fontSize: 13,
+                      fontWeight: "900",
+                    }}
+                  >
+                    All {total}
+                  </Text>
+                </TouchableOpacity>
+
+                {grouped.map((group) => {
+                  const active = activeEmoji === group.emoji;
+
+                  return (
+                    <TouchableOpacity
+                      key={group.emoji}
+                      activeOpacity={0.85}
+                      onPress={() => setActiveEmoji(group.emoji)}
+                      style={{
+                        paddingHorizontal: 12,
+                        height: 36,
+                        borderRadius: 999,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexDirection: "row",
+                        backgroundColor: active ? theme.tint : theme.surface2,
+                        borderWidth: 1,
+                        borderColor: active ? theme.tint : theme.border,
+                      }}
+                    >
+                      <Text style={{ fontSize: 16 }}>{group.emoji}</Text>
+
+                      <Text
+                        style={{
+                          marginLeft: 6,
+                          color: active ? "#FFFFFF" : theme.text,
+                          fontSize: 13,
+                          fontWeight: "900",
+                        }}
+                      >
+                        {group.users.length}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: theme.separator,
+                  marginBottom: 8,
+                }}
+              />
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {uniqueUsers.map((u, index) => (
+                  <View
+                    key={`${u.emoji}-${u.userId || u.username || index}`}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 11,
+                      borderBottomWidth: 1,
+                      borderBottomColor: theme.separator,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        width: 34,
+                        fontSize: 18,
+                        textAlign: "center",
+                      }}
+                    >
+                      {u.emoji}
+                    </Text>
+
+                    <Text
+                      style={{
+                        flex: 1,
+                        color: theme.text,
+                        fontSize: 14,
+                        fontWeight: "900",
+                      }}
+                      numberOfLines={1}
+                    >
+                      {u.username || "مستخدم"}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </>
+          ) : (
+            <View
+              style={{
+                paddingVertical: 24,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: theme.mutedText,
+                  fontSize: 13,
+                  fontWeight: "800",
+                  textAlign: "center",
+                }}
+              >
+                لا توجد تفاصيل مستخدمين متاحة لهذا الرياكشن.
+              </Text>
+            </View>
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
 /* ================= MESSAGE ITEM (Themed) ================= */
 function MessageItem({
   item,
@@ -1092,6 +1512,7 @@ function MessageItem({
   onSendCricketJoin,
   onSendCricketPlay,
   onSendSongLove,
+  onOpenReactionDetails,
 }: {
   item: MessageUI;
   isMe: boolean;
@@ -1111,6 +1532,7 @@ function MessageItem({
   onSendCricketJoin?: (gameId: string) => void;
   onSendCricketPlay?: (gameId: string, n: number) => void;
   onSendSongLove?: (songCode: string) => void;
+  onOpenReactionDetails?: (message: MessageUI) => void;
 }) {
   const { width } = useWindowDimensions();
   type CricketMessageUI = MessageUI & {
@@ -1340,128 +1762,128 @@ function MessageItem({
     );
   }
 
-if (item.type === "system") {
-  const isJoin = item.systemType === "join";
-  const isLeave = item.systemType === "leave";
+  if (item.type === "system") {
+    const isJoin = item.systemType === "join";
+    const isLeave = item.systemType === "leave";
 
-  const systemText = String(item.text || "").trim();
+    const systemText = String(item.text || "").trim();
 
-  const isPrivateMentionStatus =
-    systemText.includes("Private message sent") ||
-    systemText.includes("Private message failed") ||
-    systemText.includes("User @") ||
-    systemText.includes("You cannot send a private mention message");
+    const isPrivateMentionStatus =
+      systemText.includes("Private message sent") ||
+      systemText.includes("Private message failed") ||
+      systemText.includes("User @") ||
+      systemText.includes("You cannot send a private mention message");
 
-  if (isJoin || isLeave) {
-    return (
-      <View
-        style={{
-          alignItems: "center",
-          justifyContent: "center",
-          marginVertical: 6,
-        }}
-      >
+    if (isJoin || isLeave) {
+      return (
         <View
           style={{
-            flexDirection: "row",
             alignItems: "center",
+            justifyContent: "center",
+            marginVertical: 6,
           }}
         >
-          {isJoin && (
-            <Octicons
-              name="sign-in"
-              size={16}
-              color={theme.text}
-              style={{ marginRight: 6 }}
-            />
-          )}
-
-          <Text
+          <View
             style={{
-              color: theme.text,
-              fontSize: 13,
-              fontWeight: "600",
+              flexDirection: "row",
+              alignItems: "center",
             }}
           >
-            {item.text}
-          </Text>
+            {isJoin && (
+              <Octicons
+                name="sign-in"
+                size={16}
+                color={theme.text}
+                style={{ marginRight: 6 }}
+              />
+            )}
 
-          {isLeave && (
-            <Feather
-              name="log-out"
-              size={16}
-              color={theme.text}
-              style={{ marginLeft: 6 }}
-            />
-          )}
+            <Text
+              style={{
+                color: theme.text,
+                fontSize: 13,
+                fontWeight: "600",
+              }}
+            >
+              {item.text}
+            </Text>
+
+            {isLeave && (
+              <Feather
+                name="log-out"
+                size={16}
+                color={theme.text}
+                style={{ marginLeft: 6 }}
+              />
+            )}
+          </View>
         </View>
-      </View>
-    );
-  }
+      );
+    }
 
-  // ✅ هذا التعديل خاص برسائل المنشن فقط
-  if (isPrivateMentionStatus) {
-    const isSuccess = systemText.includes("Private message sent");
+    // ✅ هذا التعديل خاص برسائل المنشن فقط
+    if (isPrivateMentionStatus) {
+      const isSuccess = systemText.includes("Private message sent");
 
-    const cleanText = systemText
-      .replace(/^✅\s*/, "")
-      .replace(/^❌\s*/, "")
-      .trim();
+      const cleanText = systemText
+        .replace(/^✅\s*/, "")
+        .replace(/^❌\s*/, "")
+        .trim();
+
+      return (
+        <View style={bubble.sysWrap}>
+          <View
+            style={[
+              bubble.privateMentionBubble,
+              {
+                borderColor: isSuccess
+                  ? "rgba(22,163,74,0.25)"
+                  : "rgba(239,68,68,0.25)",
+                backgroundColor: isSuccess
+                  ? "rgba(22,163,74,0.08)"
+                  : "rgba(239,68,68,0.08)",
+              },
+            ]}
+          >
+            <Ionicons
+              name={isSuccess ? "checkmark-circle" : "close-circle"}
+              size={16}
+              color={isSuccess ? "#16A34A" : "#EF4444"}
+              style={{ marginRight: 6 }}
+            />
+
+            <Text
+              style={[
+                bubble.privateMentionText,
+                {
+                  color: isSuccess ? "#166534" : "#991B1B",
+                },
+              ]}
+              numberOfLines={2}
+            >
+              {cleanText}
+            </Text>
+          </View>
+        </View>
+      );
+    }
 
     return (
       <View style={bubble.sysWrap}>
-        <View
-          style={[
-            bubble.privateMentionBubble,
-            {
-              borderColor: isSuccess
-                ? "rgba(22,163,74,0.25)"
-                : "rgba(239,68,68,0.25)",
-              backgroundColor: isSuccess
-                ? "rgba(22,163,74,0.08)"
-                : "rgba(239,68,68,0.08)",
-            },
-          ]}
-        >
-          <Ionicons
-            name={isSuccess ? "checkmark-circle" : "close-circle"}
-            size={16}
-            color={isSuccess ? "#16A34A" : "#EF4444"}
-            style={{ marginRight: 6 }}
+        <View style={[bubble.sysBubble, { width: width - 50 }]}>
+          <PinnedHtmlWebView
+            html={String(item.text || "")}
+            width={width - 70}
+            minHeight={36}
+            textColor={theme.text}
+            textAlign="center"
+            fontSize={14}
+            lineHeight={24}
           />
-
-          <Text
-            style={[
-              bubble.privateMentionText,
-              {
-                color: isSuccess ? "#166534" : "#991B1B",
-              },
-            ]}
-            numberOfLines={2}
-          >
-            {cleanText}
-          </Text>
         </View>
       </View>
     );
   }
-
-  return (
-    <View style={bubble.sysWrap}>
-      <View style={[bubble.sysBubble, { width: width - 50 }]}>
-        <PinnedHtmlWebView
-          html={String(item.text || "")}
-          width={width - 70}
-          minHeight={36}
-          textColor={theme.text}
-          textAlign="center"
-          fontSize={14}
-          lineHeight={24}
-        />
-      </View>
-    </View>
-  );
-}
   // if (item.type === "system") {
   //   const isJoin = item.systemType === "join";
   //   const isLeave = item.systemType === "leave";
@@ -1765,14 +2187,26 @@ if (item.type === "system") {
             ) : null}
           </>
         )}
-
-        {item.reaction && (
-          <View style={bubble.reaction}>
-            <Text>{item.reaction}</Text>
-          </View>
-        )}
+      
       </TouchableOpacity>
+{item.reaction && (
+  <TouchableOpacity
+    activeOpacity={0.85}
+    onPress={() => onOpenReactionDetails?.(item)}
+    style={[
+      bubble.reactionOutside,
+      isMe ? bubble.reactionOutsideMe : bubble.reactionOutsideOther,
+    ]}
+  >
+    <Text style={bubble.reactionEmoji}>{item.reaction}</Text>
 
+    {Number(item.reactionCount || 0) > 1 && (
+      <Text style={bubble.reactionCount}>
+        {item.reactionCount}
+      </Text>
+    )}
+  </TouchableOpacity>
+)}
       {isMe && (
         shouldShowAvatarAndName ? (
           <Pressable
@@ -2127,7 +2561,20 @@ export default function ChatScreen() {
   const { searchResults: inviteSearchResults, loading: inviteSearchLoading } =
     useAppSelector((state) => state.friends);
   const [previewImage, setPreviewImage] = useState<string | ImageSourcePropType | null>(null);
+  const [reactionDetailsMessage, setReactionDetailsMessage] =
+    useState<MessageUI | null>(null);
 
+  const [showReactionDetails, setShowReactionDetails] = useState(false);
+
+  const openReactionDetails = (message: MessageUI) => {
+    setReactionDetailsMessage(message);
+    setShowReactionDetails(true);
+  };
+
+  const closeReactionDetails = () => {
+    setShowReactionDetails(false);
+    setReactionDetailsMessage(null);
+  };
   const [showRoomMenu, setShowRoomMenu] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
 
@@ -3130,7 +3577,7 @@ export default function ChatScreen() {
 
     const giftTargetId = giftPayload?.targetId ? String(giftPayload.targetId) : undefined;
     const giftTargetName = giftPayload?.targetName ? String(giftPayload.targetName) : undefined;
-
+    const reactionInfo = normalizeMessageReactions(m);
     return {
       // ✅ أهم سطر: id ثابت للـ FlatList
       id: stableId,
@@ -3188,7 +3635,12 @@ export default function ChatScreen() {
           : undefined,
 
       replyTo: uiReplyTo,
-      reaction: uiReaction,
+      reaction: reactionInfo.firstReactionEmoji
+        ? (reactionInfo.firstReactionEmoji as Reaction)
+        : uiReaction,
+
+      reactions: reactionInfo.reactions,
+      reactionCount: reactionInfo.reactionCount,
       deletedForEveryone: Boolean(m?.deletedForEveryone),
       time
     };
@@ -4008,6 +4460,7 @@ export default function ChatScreen() {
                 onOpenAudioModal={openAudioModal}
                 onSendCricketJoin={sendCricketJoin}
                 onSendCricketPlay={sendCricketPlay}
+                onOpenReactionDetails={openReactionDetails}
                 onSendSongLove={sendSongLove}
                 onAvatarLongPress={(u) => {
                   if (!u?.id) return;
@@ -4643,6 +5096,12 @@ export default function ChatScreen() {
         currentRoomId={roomId}
         theme={theme}
       />
+      <ReactionDetailsModal
+        visible={showReactionDetails}
+        message={reactionDetailsMessage}
+        onClose={closeReactionDetails}
+        theme={theme}
+      />
     </View >
   );
 }
@@ -4791,61 +5250,90 @@ function makeBubbleStyles(theme: typeof Colors.light) {
     replyTag: { fontSize: 11, fontWeight: "800", color: theme.mutedText },
     replyText: { fontSize: 12, color: theme.mutedText, lineHeight: 16 },
 
-    reaction: {
-      position: "absolute",
-      bottom: -10,
-      right: 10,
-      backgroundColor: theme.card,
-      borderRadius: 12,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderWidth: 1,
-      borderColor: theme.border
-    },
-
-sysWrap: {
-  width: "100%",
-  alignItems: "center",
-  marginVertical: 6,
-},
-
-sysBubble: {
-  backgroundColor: theme.primarySoft,
-  borderColor: theme.border,
-  borderWidth: 1,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  borderRadius: 14,
-},
-
-// ✅ خاص برسائل نجاح/فشل المنشن فقط
-privateMentionBubble: {
-  maxWidth: "88%",
-  minHeight: 34,
-  paddingHorizontal: 12,
-  paddingVertical: 7,
+reactionOutside: {
+  position: "absolute",
+  bottom: -13,
+  minWidth: 30,
+  height: 24,
   borderRadius: 999,
+  paddingHorizontal: 8,
+  backgroundColor: theme.card,
   borderWidth: 1,
+  borderColor: theme.border,
   flexDirection: "row",
   alignItems: "center",
   justifyContent: "center",
+  shadowColor: "#000",
+  shadowOpacity: 0.12,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 4,
+  zIndex: 20,
 },
 
-privateMentionText: {
-  flexShrink: 1,
-  fontSize: 13,
-  fontWeight: "800",
-  lineHeight: 18,
-  writingDirection: "ltr",
-  textAlign: "left",
+reactionOutsideMe: {
+  right: 54,
 },
 
-sysTime: {
+reactionOutsideOther: {
+  left: 54,
+},
+
+reactionEmoji: {
+  fontSize: 14,
+  marginRight: 4,
+},
+
+reactionCount: {
   fontSize: 11,
-  color: theme.mutedText,
-  textAlign: "center",
-  marginTop: 4,
+  fontWeight: "900",
+  color: theme.text,
 },
+
+
+    sysWrap: {
+      width: "100%",
+      alignItems: "center",
+      marginVertical: 6,
+    },
+
+    sysBubble: {
+      backgroundColor: theme.primarySoft,
+      borderColor: theme.border,
+      borderWidth: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 14,
+    },
+
+    // ✅ خاص برسائل نجاح/فشل المنشن فقط
+    privateMentionBubble: {
+      maxWidth: "88%",
+      minHeight: 34,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 999,
+      borderWidth: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    privateMentionText: {
+      flexShrink: 1,
+      fontSize: 13,
+      fontWeight: "800",
+      lineHeight: 18,
+      writingDirection: "ltr",
+      textAlign: "left",
+    },
+
+    sysTime: {
+      fontSize: 11,
+      color: theme.mutedText,
+      textAlign: "center",
+      marginTop: 4,
+    },
   });
 }
 

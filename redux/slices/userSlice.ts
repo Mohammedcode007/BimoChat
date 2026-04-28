@@ -360,6 +360,9 @@ const userSlice = createSlice({
       state.loadingProfile = false;
       state.errorProfile = null;
     },
+      resetUserState() {
+      return initialState;
+    },
   },
   extraReducers: (builder) => {
     // ===== change email =====
@@ -497,6 +500,8 @@ export const {
   clearUserErrors,
   clearProfile,
   clearBlockStatus,
+    resetUserState,
+
 } = userSlice.actions;
 export default userSlice.reducer;
 

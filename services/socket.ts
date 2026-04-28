@@ -109,15 +109,36 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
   isListenersAttached = true;
 
   // ✅ helper: find roomId by messageId if backend doesn't send roomId
-  const findRoomIdByMessageId = (messageId: string) => {
-    const byRoom = getState().room?.messagesByRoom || {};
-    for (const rid of Object.keys(byRoom)) {
-      const list = byRoom[rid] || [];
-      if (list.some((m: any) => m?._id === messageId)) return rid;
-    }
-    return undefined;
-  };
+  // const findRoomIdByMessageId = (messageId: string) => {
+  //   const byRoom = getState().room?.messagesByRoom || {};
+  //   for (const rid of Object.keys(byRoom)) {
+  //     const list = byRoom[rid] || [];
+  //     if (list.some((m: any) => m?._id === messageId)) return rid;
+  //   }
+  //   return undefined;
+  // };
+const findRoomIdByMessageId = (messageId: string) => {
+  const byRoom = getState().room?.messagesByRoom || {};
+  const mid = String(messageId || "");
 
+  for (const rid of Object.keys(byRoom)) {
+    const list = byRoom[rid] || [];
+
+    if (
+      list.some((m: any) => {
+        return (
+          String(m?._id || "") === mid ||
+          String(m?.serverId || "") === mid ||
+          String(m?.id || "") === mid
+        );
+      })
+    ) {
+      return rid;
+    }
+  }
+
+  return undefined;
+};
   /* ================= CLEAN OLD LISTENERS ================= */
 
   socket.removeAllListeners("chat:new");
@@ -375,14 +396,26 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
       data?.roomId || findRoomIdByMessageId(messageId) || getState().room?.activeRoomId;
 
     if (!roomId) return;
-
-    dispatch(
-      socketReactionUpdate({
-        roomId,
-        messageId,
-        reactions: Array.isArray(data.reactions) ? data.reactions : []
-      })
-    );
+dispatch(
+  socketReactionUpdate({
+    roomId,
+    messageId: String(messageId),
+    reactions: Array.isArray(data?.reactions) ? data.reactions : [],
+    reactionCount:
+      typeof data?.reactionCount === "number"
+        ? data.reactionCount
+        : Array.isArray(data?.reactions)
+          ? data.reactions.length
+          : 0,
+  })
+);
+    // dispatch(
+    //   socketReactionUpdate({
+    //     roomId,
+    //     messageId,
+    //     reactions: Array.isArray(data.reactions) ? data.reactions : []
+    //   })
+    // );
   });
 
   socket.on("room:error", (err) => {

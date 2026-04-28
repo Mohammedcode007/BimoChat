@@ -1205,6 +1205,24 @@ export default function TweetsScreen() {
                         activeOpacity={0.9}
                       >
                         {actionLoading === `follow-${item.author._id}` ? (
+                          <ActivityIndicator
+                            color={isFollowing ? theme.text : theme.tint}
+                            size="small"
+                          />
+                        ) : (
+                          <Ionicons
+                            name={isFollowing ? "checkmark-circle-outline" : "person-add-outline"}
+                            size={18}
+                            color={
+                              isFollowing
+                                ? isDark
+                                  ? "#FFFFFF"
+                                  : "#111827"
+                                : theme.tint
+                            }
+                          />
+                        )}
+                        {/* {actionLoading === `follow-${item.author._id}` ? (
                           <ActivityIndicator color="#FFF" size="small" />
                         ) : (
                           <Text
@@ -1223,7 +1241,7 @@ export default function TweetsScreen() {
                               ? t("tweetsScreen.following")
                               : t("tweetsScreen.follow")}
                           </Text>
-                        )}
+                        )} */}
                       </TouchableOpacity>
                     )}
 
@@ -1978,7 +1996,7 @@ function makeStyles(theme: any, isDark: boolean) {
       fontSize: 14,
       fontWeight: "900",
       color: theme.text,
-      maxWidth: 190,
+      maxWidth: 230,
     },
 
     handle: {
@@ -2218,19 +2236,18 @@ function makeStyles(theme: any, isDark: boolean) {
     },
 
     followBtn: {
-      paddingHorizontal: 12,
-      paddingVertical: 7,
+      width: 34,
+      height: 34,
       borderRadius: 999,
-      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
     },
 
     followBtnOff: {
-      backgroundColor: theme.surface2,
       borderColor: theme.tint,
     },
 
     followBtnOn: {
-      backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "#dbdfe8",
       borderColor: theme.border,
     },
 

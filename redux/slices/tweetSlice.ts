@@ -179,7 +179,61 @@ function ensureCommentDefaults(comment: Comment): Comment {
     replies: (comment.replies ?? []).map(ensureCommentDefaults),
   };
 }
+function normalizeCommentResponse(data: any): Comment {
+  const rawComment = data?.comment || data?.reply || data;
 
+  const user = rawComment?.user;
+
+  return ensureCommentDefaults({
+    ...rawComment,
+
+    user:
+      user && typeof user === "object"
+        ? {
+          ...user,
+
+          username:
+            user.username ||
+            user.displayName ||
+            user.atUsername ||
+            "user",
+
+          atUsername:
+            user.atUsername ||
+            user.username ||
+            "",
+
+          avatar:
+            user.avatar ||
+            user.avatarUrl ||
+            user.profileImage ||
+            "",
+
+          displayBadges:
+            Array.isArray(user.displayBadges) && user.displayBadges.length > 0
+              ? user.displayBadges
+              : Array.isArray(user.activeCustomization?.badges) &&
+                user.activeCustomization.badges.length > 0
+                ? user.activeCustomization.badges
+                : user.badges || [],
+
+          displayVerificationType:
+            user.displayVerificationType ||
+            user.activeCustomization?.verificationType ||
+            user.verificationType ||
+            "none",
+        }
+        : {
+          _id: typeof user === "string" ? user : "",
+          username: "user",
+          atUsername: "",
+          avatar: "",
+          isVerified: false,
+          displayBadges: [],
+          displayVerificationType: "none",
+        },
+  } as Comment);
+}
 function updateTweetInArray(
   arr: Tweet[],
   tweetId: string,
@@ -313,7 +367,13 @@ export const addComment = createAsyncThunk(
   "tweets/comment",
   async ({ tweetId, content }: { tweetId: string; content: string }) => {
     const res = await api.post(`/tweets/${tweetId}/comment`, { content });
-    return { tweetId, comment: res.data as Comment };
+
+    const comment = normalizeCommentResponse(res.data);
+
+    return {
+      tweetId,
+      comment,
+    };
   }
 );
 
@@ -345,9 +405,12 @@ export const replyToComment = createAsyncThunk(
     const res = await api.post(`/tweets/comments/${commentId}/reply`, {
       content,
     });
+
+    const reply = normalizeCommentResponse(res.data);
+
     return {
       commentId,
-      reply: res.data as Comment,
+      reply,
     };
   }
 );
@@ -384,13 +447,139 @@ const tweetSlice = createSlice({
       state.following = [];
       state.hasMore = true;
     },
+    addOptimisticComment: (state, action) => {
+      const comment = ensureCommentDefaults(action.payload);
+
+      const exists = state.comments.some((c) => c._id === comment._id);
+      if (!exists) {
+        state.comments.unshift(comment);
+      }
+
+      if (state.currentTweet) {
+        state.currentTweet.repliesCount = (state.currentTweet.repliesCount || 0) + 1;
+      }
+
+      updateTweetInArray(state.forYou, comment.tweet || '', (tweet) => {
+        tweet.repliesCount = (tweet.repliesCount || 0) + 1;
+      });
+
+      updateTweetInArray(state.following, comment.tweet || '', (tweet) => {
+        tweet.repliesCount = (tweet.repliesCount || 0) + 1;
+      });
+
+      updateTweetInArray(state.profileTweets, comment.tweet || '', (tweet) => {
+        tweet.repliesCount = (tweet.repliesCount || 0) + 1;
+      });
+    },
+
+    addOptimisticReply: (state, action) => {
+      const { parentCommentId, reply } = action.payload;
+      const safeReply = ensureCommentDefaults(reply);
+
+      appendReplyToTree(state.comments, parentCommentId, safeReply);
+
+      if (state.currentTweet) {
+        state.currentTweet.repliesCount = (state.currentTweet.repliesCount || 0) + 1;
+      }
+
+      updateTweetInArray(state.forYou, safeReply.tweet || '', (tweet) => {
+        tweet.repliesCount = (tweet.repliesCount || 0) + 1;
+      });
+
+      updateTweetInArray(state.following, safeReply.tweet || '', (tweet) => {
+        tweet.repliesCount = (tweet.repliesCount || 0) + 1;
+      });
+
+      updateTweetInArray(state.profileTweets, safeReply.tweet || '', (tweet) => {
+        tweet.repliesCount = (tweet.repliesCount || 0) + 1;
+      });
+    },
+
+    removeOptimisticComment: (state, action) => {
+      const tempId = action.payload;
+
+      const removeFromTree = (arr: Comment[]): boolean => {
+        const index = arr.findIndex((c) => c._id === tempId);
+
+        if (index !== -1) {
+          const removed = arr[index];
+          arr.splice(index, 1);
+
+          if (removed?.parentComment) {
+            updateCommentInTree(state.comments, removed.parentComment, (parent) => {
+              parent.repliesCount = Math.max(0, (parent.repliesCount || 0) - 1);
+            });
+          }
+
+          if (state.currentTweet) {
+            state.currentTweet.repliesCount = Math.max(
+              0,
+              (state.currentTweet.repliesCount || 0) - 1
+            );
+          }
+
+          updateTweetInArray(state.forYou, removed.tweet || '', (tweet) => {
+            tweet.repliesCount = Math.max(0, (tweet.repliesCount || 0) - 1);
+          });
+
+          updateTweetInArray(state.following, removed.tweet || '', (tweet) => {
+            tweet.repliesCount = Math.max(0, (tweet.repliesCount || 0) - 1);
+          });
+
+          updateTweetInArray(state.profileTweets, removed.tweet || '', (tweet) => {
+            tweet.repliesCount = Math.max(0, (tweet.repliesCount || 0) - 1);
+          });
+
+          return true;
+        }
+
+        for (const comment of arr) {
+          if (comment.replies?.length) {
+            const found = removeFromTree(comment.replies);
+            if (found) return true;
+          }
+        }
+
+        return false;
+      };
+
+      removeFromTree(state.comments);
+    },
+
+    replaceOptimisticComment: (state, action) => {
+      const { tempId, realComment } = action.payload;
+      const safeRealComment = ensureCommentDefaults(realComment);
+
+      const replaceInTree = (arr: Comment[]): boolean => {
+        const index = arr.findIndex((c) => c._id === tempId);
+
+        if (index !== -1) {
+          arr[index] = {
+            ...safeRealComment,
+            replies: arr[index].replies || safeRealComment.replies || [],
+          };
+          return true;
+        }
+
+        for (const comment of arr) {
+          if (comment.replies?.length) {
+            const found = replaceInTree(comment.replies);
+            if (found) return true;
+          }
+        }
+
+        return false;
+      };
+
+      replaceInTree(state.comments);
+    },
     clearProfileTweets: (state) => {
-  state.profileTweets = [];
-  state.loadingProfileTweets = false;
-  state.profileTweetsError = null;
-  state.profileTweetsHasMore = true;
-},
-        clearLikesUsers: (state) => {
+      state.profileTweets = [];
+      state.loadingProfileTweets = false;
+      state.profileTweetsError = null;
+      state.profileTweetsHasMore = true;
+    },
+    clearLikesUsers: (state) => {
       state.likesUsers = [];
       state.likesUsersLoading = false;
     },
@@ -404,36 +593,36 @@ const tweetSlice = createSlice({
   extraReducers: (builder) => {
     /* ================= CREATE ================= */
 
-builder.addCase(createTweet.fulfilled, (state, action) => {
-  const tweet = action.payload;
+    builder.addCase(createTweet.fulfilled, (state, action) => {
+      const tweet = action.payload;
 
-  if (!tweet?._id) return;
+      if (!tweet?._id) return;
 
-  const authorIsReady =
-    tweet.author &&
-    typeof tweet.author === "object" &&
-    String(tweet.author.username || "").trim();
+      const authorIsReady =
+        tweet.author &&
+        typeof tweet.author === "object" &&
+        String(tweet.author.username || "").trim();
 
-  if (!authorIsReady) {
-    return;
-  }
+      if (!authorIsReady) {
+        return;
+      }
 
-  const existsForYou = state.forYou.some((t) => t._id === tweet._id);
-  if (!existsForYou) {
-    state.forYou.unshift(tweet);
-  }
+      const existsForYou = state.forYou.some((t) => t._id === tweet._id);
+      if (!existsForYou) {
+        state.forYou.unshift(tweet);
+      }
 
-  const existsFollowing = state.following.some((t) => t._id === tweet._id);
-  if (!existsFollowing) {
-    state.following.unshift(tweet);
-  }
+      const existsFollowing = state.following.some((t) => t._id === tweet._id);
+      if (!existsFollowing) {
+        state.following.unshift(tweet);
+      }
 
-  const existsProfile = state.profileTweets.some((t) => t._id === tweet._id);
-  if (!existsProfile) {
-    state.profileTweets.unshift(tweet);
-  }
-});
-        builder.addCase(getTweetLikesUsers.pending, (state) => {
+      const existsProfile = state.profileTweets.some((t) => t._id === tweet._id);
+      if (!existsProfile) {
+        state.profileTweets.unshift(tweet);
+      }
+    });
+    builder.addCase(getTweetLikesUsers.pending, (state) => {
       state.likesUsersLoading = true;
       state.likesUsers = [];
     });
@@ -653,26 +842,17 @@ builder.addCase(createTweet.fulfilled, (state, action) => {
       state.error = action.error.message || "Failed to load comments";
     });
 
-    builder.addCase(addComment.fulfilled, (state, action) => {
-      const safeComment = ensureCommentDefaults(action.payload.comment);
-      state.comments.unshift(safeComment);
+   builder.addCase(addComment.fulfilled, (state, action) => {
+  const safeComment = normalizeCommentResponse(action.payload.comment);
 
-      const updateReplies = (arr: Tweet[]) => {
-        const tweet = arr.find((t) => t._id === action.payload.tweetId);
-        if (tweet) tweet.repliesCount += 1;
-      };
+  if (!safeComment?._id) return;
 
-      updateReplies(state.forYou);
-      updateReplies(state.following);
-            updateReplies(state.profileTweets);
+  const exists = state.comments.some((c) => c._id === safeComment._id);
 
-      if (
-        state.currentTweet &&
-        state.currentTweet._id === action.payload.tweetId
-      ) {
-        state.currentTweet.repliesCount += 1;
-      }
-    });
+  if (!exists) {
+    state.comments.unshift(safeComment);
+  }
+});
 
     /* ================= COMMENT LIKE ================= */
 
@@ -700,32 +880,40 @@ builder.addCase(createTweet.fulfilled, (state, action) => {
 
     /* ================= REPLY TO COMMENT ================= */
 
-    builder.addCase(replyToComment.fulfilled, (state, action) => {
-      const { commentId, reply } = action.payload;
-      const safeReply = ensureCommentDefaults(reply);
+  builder.addCase(replyToComment.fulfilled, (state, action) => {
+  const { commentId, reply } = action.payload;
+  const safeReply = normalizeCommentResponse(reply);
 
-      appendReplyToTree(state.comments, commentId, safeReply);
+  if (!safeReply?._id) return;
 
-      if (state.currentTweet) {
-        state.currentTweet.repliesCount += 1;
+  const alreadyExists = (() => {
+    let found = false;
+
+    const search = (arr: Comment[]) => {
+      for (const c of arr) {
+        if (c._id === safeReply._id) {
+          found = true;
+          return;
+        }
+
+        if (c.replies?.length) {
+          search(c.replies);
+          if (found) return;
+        }
       }
+    };
 
-      const updateReplies = (arr: Tweet[]) => {
-        const tweetId = safeReply.tweet;
-        if (!tweetId) return;
+    search(state.comments);
+    return found;
+  })();
 
-        const tweet = arr.find((t) => t._id === tweetId);
-        if (tweet) tweet.repliesCount += 1;
-      };
-
-      updateReplies(state.forYou);
-      updateReplies(state.following);
-            updateReplies(state.profileTweets);
-    });
-
+  if (!alreadyExists) {
+    appendReplyToTree(state.comments, commentId, safeReply);
+  }
+});
     /* ================= DELETE ================= */
 
-     builder.addCase(deleteTweet.fulfilled, (state, action) => {
+    builder.addCase(deleteTweet.fulfilled, (state, action) => {
       state.forYou = state.forYou.filter((t) => t._id !== action.payload);
       state.following = state.following.filter((t) => t._id !== action.payload);
       state.profileTweets = state.profileTweets.filter((t) => t._id !== action.payload);
@@ -750,7 +938,7 @@ builder.addCase(createTweet.fulfilled, (state, action) => {
 
       update(state.forYou);
       update(state.following);
-            update(state.profileTweets);
+      update(state.profileTweets);
 
       if (state.currentTweet && state.currentTweet.author._id === targetId) {
         const current = state.currentTweet.author.isFollowing ?? false;
@@ -789,6 +977,10 @@ export const {
   resetTweets,
   clearCurrentTweet,
   clearComments,
+  addOptimisticComment,
+  addOptimisticReply,
+  removeOptimisticComment,
+  replaceOptimisticComment,
   clearLikesUsers,
   clearProfileTweets,
 } = tweetSlice.actions;

@@ -3,6 +3,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useHideTabBarOnScroll } from '@/hooks/useHideTabBarOnScroll';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useAppSelector } from '@/redux/hooks';
 import { logout, toggleInvisible } from '@/redux/slices/authSlice';
 import { resetChatState } from '@/redux/slices/chatSlice';
 import { setTabBarHidden } from '@/redux/slices/ui.slice';
@@ -42,6 +43,26 @@ const [friendsOnlyMessages, setFriendsOnlyMessages] = React.useState(false);
   const dispatch = useDispatch<AppDispatch>();
 const me = useSelector(selectMe);
 const updatingUser = useSelector(selectUserUpdating);
+
+const currentUser = useAppSelector((state: RootState) => {
+  return (
+    (state as any)?.auth?.user ||
+    (state as any)?.user?.user ||
+    (state as any)?.user?.currentUser ||
+    (state as any)?.auth?.currentUser ||
+    null
+  );
+});
+
+
+const role = String(
+  currentUser?.role ||
+    currentUser?.accountType ||
+    currentUser?.type ||
+    ""
+).toLowerCase();
+
+const isAdmin = role === "admin";
   useEffect(() => {
     loadLocalSettings();
   }, []);
@@ -237,6 +258,14 @@ const handleToggleFriendsOnlyMessages = async (value: boolean) => {
           arrow
           onPress={() => router.push('/terms-conditions')}
         />
+{isAdmin && (
+  <Row
+    icon="shield-checkmark-outline"
+    text="DASHBOAED "
+    arrow
+    onPress={() => router.push("/admin/block-control" as any)}
+  />
+)}
       </Section>
 
       {/* ===== Logout ===== */}

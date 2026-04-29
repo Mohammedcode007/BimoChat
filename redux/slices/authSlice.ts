@@ -219,11 +219,17 @@ export const register = createAsyncThunk(
         accountType: (accountType || null) as AccountType,
         sessions,
       };
-    } catch (err: any) {
-      return thunkAPI.rejectWithValue(
-        err.response?.data?.message || "Registration failed"
-      );
-    }
+} catch (err: any) {
+  const data = err?.response?.data;
+
+  return thunkAPI.rejectWithValue({
+    status: err?.response?.status,
+    code: data?.code,
+    scope: data?.scope,
+    message: data?.message_ar || data?.message || "Registration failed",
+    reason: data?.reason || "",
+  });
+}
   }
 );
 
@@ -255,9 +261,17 @@ export const login = createAsyncThunk(
         accountType: (accountType || null) as AccountType,
         sessions,
       };
-    } catch (err: any) {
-      return thunkAPI.rejectWithValue(err.response?.data?.message || "Login failed");
-    }
+   } catch (err: any) {
+  const data = err?.response?.data;
+
+  return thunkAPI.rejectWithValue({
+    status: err?.response?.status,
+    code: data?.code,
+    scope: data?.scope,
+    message: data?.message_ar || data?.message || "Login failed",
+    reason: data?.reason || "",
+  });
+}
   }
 );
 
@@ -535,10 +549,16 @@ const authSlice = createSlice({
         state.sessions = action.payload.sessions;
         state.isLoggedIn = true;
       })
-      .addCase(register.rejected, (state, action) => {
-        state.loading = false;
-        state.error = (action.payload as string) || "Registration failed";
-      })
+   .addCase(register.rejected, (state, action) => {
+  state.loading = false;
+
+  const payload: any = action.payload;
+
+  state.error =
+    typeof payload === "string"
+      ? payload
+      : payload?.message || "Registration failed";
+})
 
       /* =========================
          LOGIN
@@ -556,10 +576,16 @@ const authSlice = createSlice({
         state.sessions = action.payload.sessions;
         state.isLoggedIn = true;
       })
-      .addCase(login.rejected, (state, action) => {
-        state.loading = false;
-        state.error = (action.payload as string) || "Login failed";
-      })
+   .addCase(login.rejected, (state, action) => {
+  state.loading = false;
+
+  const payload: any = action.payload;
+
+  state.error =
+    typeof payload === "string"
+      ? payload
+      : payload?.message || "Login failed";
+})
 
       /* =========================
          LOGOUT

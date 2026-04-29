@@ -530,6 +530,7 @@ useEffect(() => {
     return s.includes("banned") || s.includes("ban") || s.includes("محظور") || s.includes("حظر");
   }, []);
 
+
 const enterActiveRoomDirect = useCallback(
   async (roomId: string) => {
     if (joining) return;

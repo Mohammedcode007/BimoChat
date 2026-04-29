@@ -159,72 +159,187 @@ const [showConfirm, setShowConfirm] = useState(false);
   };
 
   /* ================= REGISTER ================= */
+  // const handleRegister = async () => {
+  //   if (loading) return;
+
+  //   const v = validate(username, password, confirm, captchaInput);
+
+  //   if (v.captcha) {
+  //     refreshCaptcha();
+  //   }
+
+  //   if (v.username || v.password || v.confirm || v.captcha) {
+  //     setErrors(v);
+  //     triggerErrorAnim();
+  //     Toast.show({
+  //       type: "error",
+  //       text1: t("common.error"),
+  //       text2: t("registerScreen.toasts.checkInputs"),
+  //     });
+  //     return;
+  //   }
+
+  //   clearErrors();
+
+  //   try {
+  //     const result = await dispatch(
+  //       register({
+  //         username: username.trim().toLowerCase(),
+  //         password,
+  //       })
+  //     );
+
+  //     if (register.fulfilled.match(result)) {
+  //       Toast.show({
+  //         type: "success",
+  //         text1: t("common.success"),
+  //         text2: t("registerScreen.toasts.registerSuccess"),
+  //       });
+  //       router.replace("/(auth)/choose-location");
+  //     } else {
+  //       const msg =
+  //         (result.payload as string) || t("registerScreen.errors.registerFailed");
+
+  //       setErrors({ general: msg });
+  //       triggerErrorAnim();
+
+  //       Toast.show({
+  //         type: "error",
+  //         text1: t("registerScreen.toasts.registerFailedTitle"),
+  //         text2: msg,
+  //       });
+
+  //       refreshCaptcha();
+  //     }
+  //   } catch {
+  //     setErrors({ general: t("registerScreen.errors.unexpected") });
+  //     triggerErrorAnim();
+
+  //     Toast.show({
+  //       type: "error",
+  //       text1: t("common.error"),
+  //       text2: t("registerScreen.errors.unexpected"),
+  //     });
+
+  //     refreshCaptcha();
+  //   }
+  // };
+
   const handleRegister = async () => {
-    if (loading) return;
+  if (loading) return;
 
-    const v = validate(username, password, confirm, captchaInput);
+  const v = validate(username, password, confirm, captchaInput);
 
-    if (v.captcha) {
-      refreshCaptcha();
-    }
+  if (v.captcha) {
+    refreshCaptcha();
+  }
 
-    if (v.username || v.password || v.confirm || v.captcha) {
-      setErrors(v);
-      triggerErrorAnim();
+  if (v.username || v.password || v.confirm || v.captcha) {
+    setErrors(v);
+    triggerErrorAnim();
+
+    Toast.show({
+      type: "error",
+      text1: t("common.error"),
+      text2: t("registerScreen.toasts.checkInputs"),
+    });
+
+    return;
+  }
+
+  clearErrors();
+
+  try {
+    const result = await dispatch(
+      register({
+        // لا تستخدم toLowerCase هنا حتى لا تكسر العربي/الإيموجي
+        username: username.trim(),
+        password,
+      })
+    );
+
+    if (register.fulfilled.match(result)) {
       Toast.show({
-        type: "error",
-        text1: t("common.error"),
-        text2: t("registerScreen.toasts.checkInputs"),
+        type: "success",
+        text1: t("common.success"),
+        text2: t("registerScreen.toasts.registerSuccess"),
       });
+
+      router.replace("/(auth)/choose-location");
       return;
     }
 
-    clearErrors();
+    const payload: any = result.payload;
 
-    try {
-      const result = await dispatch(
-        register({
-          username: username.trim().toLowerCase(),
-          password,
-        })
-      );
+    const isBlocked =
+      String(payload?.code || "").toUpperCase() === "BLOCKED";
 
-      if (register.fulfilled.match(result)) {
-        Toast.show({
-          type: "success",
-          text1: t("common.success"),
-          text2: t("registerScreen.toasts.registerSuccess"),
-        });
-        router.replace("/(auth)/choose-location");
-      } else {
-        const msg =
-          (result.payload as string) || t("registerScreen.errors.registerFailed");
+    if (isBlocked) {
+      router.replace({
+        pathname: "/(auth)/blocked",
+        params: {
+          scope: String(payload?.scope || "app"),
+          message: String(
+            payload?.message ||
+              "هذا الحساب أو هذا الجهاز محظور من استخدام التطبيق."
+          ),
+          reason: String(payload?.reason || ""),
+        },
+      } as any);
 
-        setErrors({ general: msg });
-        triggerErrorAnim();
-
-        Toast.show({
-          type: "error",
-          text1: t("registerScreen.toasts.registerFailedTitle"),
-          text2: msg,
-        });
-
-        refreshCaptcha();
-      }
-    } catch {
-      setErrors({ general: t("registerScreen.errors.unexpected") });
-      triggerErrorAnim();
-
-      Toast.show({
-        type: "error",
-        text1: t("common.error"),
-        text2: t("registerScreen.errors.unexpected"),
-      });
-
-      refreshCaptcha();
+      return;
     }
-  };
 
+    const msg =
+      typeof payload === "string"
+        ? payload
+        : payload?.message || t("registerScreen.errors.registerFailed");
+
+    setErrors({ general: msg });
+    triggerErrorAnim();
+
+    Toast.show({
+      type: "error",
+      text1: t("registerScreen.toasts.registerFailedTitle"),
+      text2: msg,
+    });
+
+    refreshCaptcha();
+  } catch (error: any) {
+    const data = error?.response?.data || error;
+
+    const isBlocked =
+      String(data?.code || "").toUpperCase() === "BLOCKED";
+
+    if (isBlocked) {
+      router.replace({
+        pathname: "/(auth)/blocked",
+        params: {
+          scope: String(data?.scope || "app"),
+          message: String(
+            data?.message_ar ||
+              data?.message ||
+              "هذا الحساب أو هذا الجهاز محظور من استخدام التطبيق."
+          ),
+          reason: String(data?.reason || ""),
+        },
+      } as any);
+
+      return;
+    }
+
+    setErrors({ general: t("registerScreen.errors.unexpected") });
+    triggerErrorAnim();
+
+    Toast.show({
+      type: "error",
+      text1: t("common.error"),
+      text2: t("registerScreen.errors.unexpected"),
+    });
+
+    refreshCaptcha();
+  }
+};
   /* ================= Animated Styles ================= */
   const userStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: userX.value }],

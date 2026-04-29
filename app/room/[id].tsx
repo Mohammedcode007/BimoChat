@@ -5,6 +5,7 @@ import { getTextDirectionStyle } from "@/utils/textDirection";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Audio, ResizeMode, Video } from "expo-av";
 import * as Clipboard from "expo-clipboard";
+import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -85,6 +86,7 @@ import BoostLottieOverlay from "@/components/BoostLottieOverlay";
 import LottieBadge from "@/components/LottieBadge";
 import ActiveRoomsDrawer from "@/components/room/ActiveRoomsDrawer";
 import CricketGameMessage from "@/components/room/CricketGameMessage";
+import { STICKER_PACKS, StickerItem } from "@/data/roomStickers";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { createChat, setActiveChat } from "@/redux/slices/chatSlice";
 import { searchUsers } from "@/redux/slices/friendSlice";
@@ -159,6 +161,8 @@ type MessageUI = {
   };
   text?: string;
   uri?: string;
+  mediaMimeType?: string;
+  mediaFileName?: string;
   clientId?: string;       // ✅ للـ optimistic
   serverId?: string;       // ✅ اختياري لو تحب تمييز _id صراحةً
 
@@ -850,6 +854,462 @@ function GiftBurstOverlay({
     </View>
   );
 }
+
+
+function MediaPickerModal({
+  visible,
+  onClose,
+  onPickImage,
+  onPickGif,
+  onPickSticker,
+  theme,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onPickImage: () => void;
+  onPickGif: () => void;
+  onPickSticker: () => void;
+  theme: typeof Colors.light;
+}) {
+  const Option = ({
+    icon,
+    color,
+    onPress,
+  }: {
+    icon: keyof typeof Ionicons.glyphMap;
+    color: string;
+    onPress: () => void;
+  }) => (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => {
+        onClose();
+        requestAnimationFrame(onPress);
+      }}
+      style={{
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: theme.card,
+        borderWidth: 1,
+        borderColor: theme.border,
+        shadowColor: "#000",
+        shadowOpacity: 0.16,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 5,
+      }}
+    >
+      <Ionicons name={icon} size={23} color={color} />
+    </TouchableOpacity>
+  );
+
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable
+        onPress={onClose}
+        style={{
+          flex: 1,
+          backgroundColor: "transparent",
+          justifyContent: "flex-end",
+        }}
+      >
+        <View
+          pointerEvents="box-none"
+          style={{
+            paddingHorizontal: 14,
+            paddingBottom: 72,
+            alignItems: "flex-start",
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              paddingHorizontal: 10,
+              paddingVertical: 8,
+              borderRadius: 999,
+              backgroundColor: "rgba(0,0,0,0.08)",
+            }}
+          >
+            <Option
+              icon="image-outline"
+              color="#2563EB"
+              onPress={onPickImage}
+            />
+
+            <Option
+              icon="film-outline"
+              color="#A855F7"
+              onPress={onPickGif}
+            />
+
+            <Option
+              icon="happy-outline"
+              color="#F59E0B"
+              onPress={onPickSticker}
+            />
+          </View>
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
+function UploadingOverlay({
+  visible,
+  title,
+  sub,
+  seconds,
+  previewUri,
+  kind,
+  theme,
+}: {
+  visible: boolean;
+  title: string;
+  sub?: string;
+  seconds: number;
+  previewUri?: string;
+  kind?: "image" | "gif" | "sticker";
+  theme: typeof Colors.light;
+}) {
+  if (!visible) return null;
+
+  const label =
+    kind === "gif" ? "GIF" : kind === "sticker" ? "Sticker" : "Image";
+
+  return (
+    <View
+      pointerEvents="auto"
+      style={{
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(0,0,0,0.34)",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+        paddingHorizontal: 24,
+      }}
+    >
+      <View
+        style={{
+          width: "100%",
+          maxWidth: 320,
+          borderRadius: 24,
+          padding: 16,
+          backgroundColor: theme.card,
+          borderWidth: 1,
+          borderColor: theme.border,
+          alignItems: "center",
+        }}
+      >
+        {!!previewUri ? (
+          <View
+            style={{
+              width: 128,
+              height: 128,
+              borderRadius: 22,
+              overflow: "hidden",
+              backgroundColor: theme.surface2,
+              borderWidth: 1,
+              borderColor: theme.border,
+              marginBottom: 14,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Image
+              source={{ uri: previewUri }}
+              style={{ width: "100%", height: "100%" }}
+              contentFit={kind === "image" ? "cover" : "contain"}
+              cachePolicy="memory-disk"
+            />
+          </View>
+        ) : (
+          <View
+            style={{
+              width: 86,
+              height: 86,
+              borderRadius: 24,
+              backgroundColor: theme.surface2,
+              borderWidth: 1,
+              borderColor: theme.border,
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 14,
+            }}
+          >
+            <Ionicons
+              name={kind === "gif" ? "film-outline" : kind === "sticker" ? "happy-outline" : "image-outline"}
+              size={34}
+              color={theme.text}
+            />
+          </View>
+        )}
+
+        <Text
+          style={{
+            color: theme.text,
+            fontSize: 16,
+            fontWeight: "900",
+            textAlign: "center",
+          }}
+        >
+          {title}
+        </Text>
+
+        <Text
+          style={{
+            color: theme.mutedText,
+            fontSize: 12,
+            fontWeight: "800",
+            textAlign: "center",
+            marginTop: 6,
+          }}
+        >
+          {sub || `Uploading ${label}...`}
+        </Text>
+
+        <Text
+          style={{
+            color: theme.tint,
+            fontSize: 13,
+            fontWeight: "900",
+            marginTop: 10,
+          }}
+        >
+          {seconds} ثانية
+        </Text>
+
+        <View
+          style={{
+            width: "100%",
+            height: 5,
+            borderRadius: 999,
+            overflow: "hidden",
+            backgroundColor: theme.surface2,
+            marginTop: 14,
+          }}
+        >
+          <Animated.View
+            style={{
+              width: "55%",
+              height: "100%",
+              borderRadius: 999,
+              backgroundColor: theme.tint,
+            }}
+          />
+        </View>
+      </View>
+    </View>
+  );
+}
+function StickerPickerModal({
+  visible,
+  onClose,
+  onPick,
+  theme,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onPick: (item: StickerItem) => void;
+  theme: typeof Colors.light;
+}) {
+  const [activePackId, setActivePackId] = useState(
+    STICKER_PACKS[0]?.id || ""
+  );
+
+  const activePack =
+    STICKER_PACKS.find((pack) => pack.id === activePackId) ||
+    STICKER_PACKS[0];
+
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      
+      <Pressable
+        style={{
+          flex: 1,
+          backgroundColor: "rgba(0,0,0,0.28)",
+          justifyContent: "flex-end",
+        }}
+        onPress={onClose}
+      >
+        <Pressable
+          onPress={() => {}}
+          style={{
+            backgroundColor: theme.card,
+            borderTopLeftRadius: 22,
+            borderTopRightRadius: 22,
+            paddingTop: 10,
+            paddingBottom: 16,
+            borderWidth: 1,
+            borderColor: theme.border,
+            height: 330,
+          }}
+        >
+          {/* شريط صغير أعلى المودل */}
+          <View
+            style={{
+              width: 42,
+              height: 5,
+              borderRadius: 999,
+              backgroundColor: theme.border,
+              alignSelf: "center",
+              marginBottom: 10,
+            }}
+          />
+
+          {/* Header بسيط */}
+          <View
+            style={{
+              paddingHorizontal: 14,
+              marginBottom: 8,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Text
+              style={{
+                color: theme.text,
+                fontSize: 15,
+                fontWeight: "900",
+              }}
+            >
+              Stickers
+            </Text>
+
+            <TouchableOpacity
+              onPress={onClose}
+              activeOpacity={0.85}
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: theme.surface2,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <Ionicons name="close" size={19} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Packs مثل LINE */}
+          <View
+            style={{
+              borderTopWidth: 1,
+              borderBottomWidth: 1,
+              borderColor: theme.separator,
+              paddingVertical: 7,
+              marginBottom: 10,
+            }}
+          >
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 12,
+                gap: 8,
+              }}
+            >
+              {STICKER_PACKS.map((pack) => {
+                const active = pack.id === activePackId;
+
+                return (
+                  <TouchableOpacity
+                    key={pack.id}
+                    activeOpacity={0.85}
+                    onPress={() => setActivePackId(pack.id)}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 14,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: active ? theme.tint : theme.surface2,
+                      borderWidth: 1,
+                      borderColor: active ? theme.tint : theme.border,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 23,
+                      }}
+                    >
+                      {pack.icon}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Grid الاستيكرات */}
+          <FlatList
+            data={activePack?.stickers || []}
+            keyExtractor={(item) => item.id}
+            numColumns={4}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: 12,
+              paddingBottom: 8,
+              gap: 8,
+            }}
+            columnWrapperStyle={{
+              gap: 8,
+            }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  onClose();
+                  requestAnimationFrame(() => onPick(item));
+                }}
+                style={{
+                  flex: 1,
+                  aspectRatio: 1,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: theme.surface2,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  overflow: "hidden",
+                  padding: 6,
+                }}
+              >
+                <Image
+                  source={{ uri: item.url }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                  }}
+                  contentFit="contain"
+                  cachePolicy="memory-disk"
+                  transition={0}
+                />
+              </TouchableOpacity>
+            )}
+          />
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
 function GiftLottieOverlay({
   visible,
   source,
@@ -1285,7 +1745,7 @@ function ReactionDetailsModal({
         }}
       >
         <Pressable
-          onPress={() => {}}
+          onPress={() => { }}
           style={{
             backgroundColor: theme.card,
             borderTopLeftRadius: 22,
@@ -2132,13 +2592,38 @@ function MessageItem({
                 );
               })()
             ) : null}
-
+            {/* 
             {item.type === "image" && item.uri ? (
               <TouchableOpacity activeOpacity={0.9} onPress={() => onPressImage(item.uri!)}>
                 <Image source={{ uri: item.uri }} style={bubble.media} />
               </TouchableOpacity>
-            ) : null}
+            ) : null} */}
+            {item.type === "image" && item.uri ? (
+              (() => {
+                const mime = String(item.mediaMimeType || "").toLowerCase();
+                const uri = String(item.uri || "").toLowerCase();
 
+                const isStickerOrGif =
+                  mime === "image/gif" ||
+                  mime === "image/webp" ||
+                  uri.endsWith(".gif") ||
+                  uri.endsWith(".webp");
+
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => onPressImage(item.uri!)}
+                  >
+                    <Image
+                      source={{ uri: item.uri }}
+                      style={isStickerOrGif ? bubble.stickerMedia : bubble.media}
+                      contentFit={isStickerOrGif ? "contain" : "cover"}
+                      cachePolicy="memory-disk"
+                    />
+                  </TouchableOpacity>
+                );
+              })()
+            ) : null}
             {item.type === "video" && item.uri ? (
               <View style={bubble.videoWrapper}>
                 <Video source={{ uri: item.uri }} style={bubble.video} useNativeControls resizeMode={ResizeMode.CONTAIN} isLooping={false} />
@@ -2187,26 +2672,26 @@ function MessageItem({
             ) : null}
           </>
         )}
-      
-      </TouchableOpacity>
-{item.reaction && (
-  <TouchableOpacity
-    activeOpacity={0.85}
-    onPress={() => onOpenReactionDetails?.(item)}
-    style={[
-      bubble.reactionOutside,
-      isMe ? bubble.reactionOutsideMe : bubble.reactionOutsideOther,
-    ]}
-  >
-    <Text style={bubble.reactionEmoji}>{item.reaction}</Text>
 
-    {Number(item.reactionCount || 0) > 1 && (
-      <Text style={bubble.reactionCount}>
-        {item.reactionCount}
-      </Text>
-    )}
-  </TouchableOpacity>
-)}
+      </TouchableOpacity>
+      {item.reaction && (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => onOpenReactionDetails?.(item)}
+          style={[
+            bubble.reactionOutside,
+            isMe ? bubble.reactionOutsideMe : bubble.reactionOutsideOther,
+          ]}
+        >
+          <Text style={bubble.reactionEmoji}>{item.reaction}</Text>
+
+          {Number(item.reactionCount || 0) > 1 && (
+            <Text style={bubble.reactionCount}>
+              {item.reactionCount}
+            </Text>
+          )}
+        </TouchableOpacity>
+      )}
       {isMe && (
         shouldShowAvatarAndName ? (
           <Pressable
@@ -2471,11 +2956,12 @@ export default function ChatScreen() {
   const { colorScheme, themePreference, setThemePreference } = useColorScheme();
   const [showAudioModal, setShowAudioModal] = useState(false);
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
-
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const styles = useMemo(
     () => makeScreenStyles(theme, insets.top, insets.bottom),
     [theme, insets.top, insets.bottom]
   );
+  
   const bubbleStyles = useMemo(() => makeBubbleStyles(theme), [theme]);
 
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -2541,11 +3027,37 @@ export default function ChatScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
 
-  const [uploading, setUploading] = useState<{ visible: boolean; title: string; sub?: string }>({
-    visible: false,
-    title: "Uploading…",
-    sub: undefined
-  });
+const [uploading, setUploading] = useState<{
+  visible: boolean;
+  title: string;
+  sub?: string;
+  startedAt?: number;
+  previewUri?: string;
+  kind?: "image" | "gif" | "sticker";
+}>({
+  visible: false,
+  title: "Uploading…",
+  sub: undefined,
+  startedAt: undefined,
+  previewUri: undefined,
+  kind: undefined,
+});
+useEffect(() => {
+  if (!uploading.visible || !uploading.startedAt) {
+    setUploadSeconds(0);
+    return;
+  }
+
+  const timer = setInterval(() => {
+    setUploadSeconds(
+      Math.max(0, Math.floor((Date.now() - uploading.startedAt!) / 1000))
+    );
+  }, 500);
+
+  return () => clearInterval(timer);
+}, [uploading.visible, uploading.startedAt]);
+const [uploadSeconds, setUploadSeconds] = useState(0);
+const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [showActiveRoomsDrawer, setShowActiveRoomsDrawer] = useState(false);
   const [selectedInviteUser, setSelectedInviteUser] = useState<any>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
@@ -3025,6 +3537,7 @@ export default function ChatScreen() {
       setInviteSendingId(null);
     }
   };
+
   useEffect(() => {
     if (!roomId) return;
 
@@ -3457,6 +3970,8 @@ export default function ChatScreen() {
             "Media message"
           ),
           uri: raw?.media?.url,
+          mediaMimeType: String(raw?.media?.mimeType || ""),
+          mediaFileName: String(raw?.media?.fileName || ""),
           sender: {
             id: String(raw?.sender?._id || raw?.senderId || "unknown"),
             name: String(raw?.sender?.username || raw?.senderUsername || "User"),
@@ -3501,6 +4016,8 @@ export default function ChatScreen() {
           type: uiT,
           text: String(ref?.content || "Media message"),
           uri: ref?.media?.url,
+          mediaMimeType: String(ref?.media?.mimeType || ""),
+mediaFileName: String(ref?.media?.fileName || ""),
           sender: {
             id: refSenderId || "unknown",
             name: refSenderName,
@@ -3618,7 +4135,8 @@ export default function ChatScreen() {
           : undefined,
       text: messageText,
       uri: m?.media?.url,
-
+mediaMimeType: String(m?.media?.mimeType || ""),
+  mediaFileName: String(m?.media?.fileName || ""),
       // في announcement كنت تخفي sender عندك — نفس السلوك
       sender:
         uiType === "audio" || uiType === "song" || uiType === "game"
@@ -3873,40 +4391,170 @@ export default function ChatScreen() {
     }
   };
 
-  const sendImage = async () => {
-    if (!roomId) return;
+const sendImage = async () => {
+  if (!roomId) return;
 
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.85
+  const res = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    quality: 0.85,
+    allowsEditing: false,
+  });
+
+  if (res.canceled) return;
+
+  const asset = res.assets?.[0];
+  const localUri = asset?.uri;
+  if (!localUri) return;
+
+  try {
+    setUploading({
+      visible: true,
+      title: "جاري رفع الصورة…",
+      sub: "يتم تجهيز الصورة وإرسالها",
+      startedAt: Date.now(),
+      previewUri: localUri,
+      kind: "image",
     });
 
-    if (res.canceled) return;
-    const localUri = res.assets?.[0]?.uri;
+    const secureUrl = await uploadToCloudinary(localUri, "image");
+
+    await dispatch(
+      sendRoomMessage({
+        roomId,
+        content: "📷 Image",
+        type: "image",
+        media: {
+          url: secureUrl,
+          mimeType: asset?.mimeType || "image/jpeg",
+          fileName: asset?.fileName || "image.jpg",
+        },
+      })
+    ).unwrap();
+
+    scrollToBottom();
+  } catch (e: any) {
+    Alert.alert("Error", e?.message || "Upload failed");
+  } finally {
+    setUploading({
+      visible: false,
+      title: "Uploading…",
+      sub: undefined,
+      startedAt: undefined,
+      previewUri: undefined,
+      kind: undefined,
+    });
+  }
+};
+const sendSticker = async (sticker: StickerItem) => {
+  if (!roomId) return;
+
+  const url = String(sticker?.url || "").trim();
+  if (!url) return;
+
+  try {
+    const clientId = `sticker:${Date.now()}:${Math.random()
+      .toString(16)
+      .slice(2)}`;
+
+    setShowStickerPicker(false);
+
+    setUploading({
+      visible: true,
+      title: "جاري إرسال الستيكار…",
+      sub: sticker.title || "Sticker",
+      startedAt: Date.now(),
+      previewUri: url,
+      kind: "sticker",
+    });
+
+    await dispatch(
+      sendRoomMessage({
+        roomId,
+        clientId,
+        content: sticker.title || "Sticker",
+        type: "image",
+        media: {
+          url,
+          mimeType: sticker.mimeType || "image/gif",
+          fileName: `${sticker.id || "sticker"}.gif`,
+        },
+      })
+    ).unwrap();
+
+    scrollToBottom();
+  } catch (e: any) {
+    Alert.alert("Error", e?.message || "Sticker send failed");
+  } finally {
+    setUploading({
+      visible: false,
+      title: "Uploading…",
+      sub: undefined,
+      startedAt: undefined,
+      previewUri: undefined,
+      kind: undefined,
+    });
+  }
+};
+ const sendGifFromDevice = async () => {
+  if (!roomId) return;
+
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["image/gif"],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+
+    if (result.canceled) return;
+
+    const asset = result.assets?.[0];
+    const localUri = asset?.uri;
+
     if (!localUri) return;
 
-    try {
-      setUploading({ visible: true, title: "جاري رفع الصورة…", sub: "يرجى الانتظار" });
-      const secureUrl = await uploadToCloudinary(localUri, "image");
+    const clientId = `gif:${Date.now()}:${Math.random()
+      .toString(16)
+      .slice(2)}`;
 
-      await dispatch(
-        sendRoomMessage({
-          roomId,
-          content: "📷 Image",
-          type: "image",
-          media: { url: secureUrl }
-        })
-      ).unwrap();
+    setUploading({
+      visible: true,
+      title: "جاري رفع GIF…",
+      sub: asset?.name ? `يتم رفع ${asset.name}` : "يتم رفع GIF وإرساله",
+      startedAt: Date.now(),
+      previewUri: localUri,
+      kind: "gif",
+    });
 
-      scrollToBottom();
-    } catch (e: any) {
-      Alert.alert("Error", e?.message || "Upload failed");
-    } finally {
-      setUploading({ visible: false, title: "Uploading…", sub: undefined });
-    }
-  };
+    const secureUrl = await uploadToCloudinary(localUri, "image");
 
+    await dispatch(
+      sendRoomMessage({
+        roomId,
+        clientId,
+        content: "GIF",
+        type: "image",
+        media: {
+          url: secureUrl,
+          mimeType: "image/gif",
+          fileName: asset?.name || "animation.gif",
+        },
+      })
+    ).unwrap();
 
+    scrollToBottom();
+  } catch (e: any) {
+    Alert.alert("Error", e?.message || "GIF upload failed");
+  } finally {
+    setUploading({
+      visible: false,
+      title: "Uploading…",
+      sub: undefined,
+      startedAt: undefined,
+      previewUri: undefined,
+      kind: undefined,
+    });
+  }
+};
 
 
   /* ================= RECORDING ================= */
@@ -4431,7 +5079,43 @@ export default function ChatScreen() {
             <Ionicons name="chevron-forward" size={18} color={theme.icon} />
           </TouchableOpacity>
         )}
+   {/* ================= VOICE PREVIEW ================= */}
+        {!!pendingVoiceUri && (
+          <VoiceRecorderPreview
+            uri={pendingVoiceUri}
+            topOffset={insets.top + 56} // عدل الرقم حسب ارتفاع الهيدر عندك
+            onCancel={() => setPendingVoiceUri(null)}
+            onSend={async () => {
+              if (!roomId || !pendingVoiceUri) return;
+              try {
+                setUploading({ visible: true, title: "جاري رفع الصوت…", sub: "يرجى الانتظار" });
 
+                const secureUrl = await uploadToCloudinary(pendingVoiceUri, "raw");
+
+                await dispatch(
+                  sendRoomMessage({
+                    roomId,
+                    content: "🎤 Voice message",
+                    type: "audio",
+                    media: { url: secureUrl }
+                  })
+                ).unwrap();
+
+                try {
+                  await FileSystem.deleteAsync(pendingVoiceUri, { idempotent: true });
+                } catch { }
+
+                setPendingVoiceUri(null);
+                scrollToBottom();
+              } catch (e: any) {
+                Alert.alert("Error", e?.message || "Failed to send voice");
+              } finally {
+                setUploading({ visible: false, title: "Uploading…", sub: undefined });
+              }
+            }}
+          />
+        )}
+        
         {/* ================= CHAT ================= */}
         <FlatList
           ref={flatListRef}
@@ -4486,42 +5170,7 @@ export default function ChatScreen() {
 
 
 
-        {/* ================= VOICE PREVIEW ================= */}
-        {!!pendingVoiceUri && (
-          <VoiceRecorderPreview
-            uri={pendingVoiceUri}
-            topOffset={insets.top + 56} // عدل الرقم حسب ارتفاع الهيدر عندك
-            onCancel={() => setPendingVoiceUri(null)}
-            onSend={async () => {
-              if (!roomId || !pendingVoiceUri) return;
-              try {
-                setUploading({ visible: true, title: "جاري رفع الصوت…", sub: "يرجى الانتظار" });
-
-                const secureUrl = await uploadToCloudinary(pendingVoiceUri, "raw");
-
-                await dispatch(
-                  sendRoomMessage({
-                    roomId,
-                    content: "🎤 Voice message",
-                    type: "audio",
-                    media: { url: secureUrl }
-                  })
-                ).unwrap();
-
-                try {
-                  await FileSystem.deleteAsync(pendingVoiceUri, { idempotent: true });
-                } catch { }
-
-                setPendingVoiceUri(null);
-                scrollToBottom();
-              } catch (e: any) {
-                Alert.alert("Error", e?.message || "Failed to send voice");
-              } finally {
-                setUploading({ visible: false, title: "Uploading…", sub: undefined });
-              }
-            }}
-          />
-        )}
+     
 
         {/* ================= INPUT ================= */}
         <Reanimated.View
@@ -4534,9 +5183,23 @@ export default function ChatScreen() {
           ]}
         >
           <View style={styles.inputBar}>
-            <TouchableOpacity onPress={sendImage} disabled={uploading.visible} activeOpacity={0.85}>
-              <Ionicons name="image-outline" size={24} color={theme.text} />
-            </TouchableOpacity>
+           <TouchableOpacity
+  onPress={() => setShowMediaPicker(true)}
+  disabled={uploading.visible}
+  activeOpacity={0.85}
+  style={{
+    width: 42,
+    height: 42,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.surface2,
+    borderWidth: 1,
+    borderColor: theme.border,
+  }}
+>
+  <Ionicons name="add-circle-outline" size={25} color={theme.text} />
+</TouchableOpacity>
 
             <TextInput
               style={styles.input}
@@ -5102,6 +5765,30 @@ export default function ChatScreen() {
         onClose={closeReactionDetails}
         theme={theme}
       />
+      <StickerPickerModal
+        visible={showStickerPicker}
+        onClose={() => setShowStickerPicker(false)}
+        onPick={sendSticker}
+        theme={theme}
+      />
+      <MediaPickerModal
+  visible={showMediaPicker}
+  onClose={() => setShowMediaPicker(false)}
+  onPickImage={sendImage}
+  onPickGif={sendGifFromDevice}
+  onPickSticker={() => setShowStickerPicker(true)}
+  theme={theme}
+/>
+
+<UploadingOverlay
+  visible={uploading.visible}
+  title={uploading.title}
+  sub={uploading.sub}
+  seconds={uploadSeconds}
+  previewUri={uploading.previewUri}
+  kind={uploading.kind}
+  theme={theme}
+/>
     </View >
   );
 }
@@ -5191,7 +5878,14 @@ function makeBubbleStyles(theme: typeof Colors.light) {
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 2
     },
-
+stickerMedia: {
+  width: 190,
+  height: 190,
+  maxWidth: 220,
+  borderRadius: 18,
+  backgroundColor: "transparent",
+  marginTop: 6,
+},
     avatarStarRight: {
       position: "absolute",
       top: -6,
@@ -5250,45 +5944,45 @@ function makeBubbleStyles(theme: typeof Colors.light) {
     replyTag: { fontSize: 11, fontWeight: "800", color: theme.mutedText },
     replyText: { fontSize: 12, color: theme.mutedText, lineHeight: 16 },
 
-reactionOutside: {
-  position: "absolute",
-  bottom: -13,
-  minWidth: 30,
-  height: 24,
-  borderRadius: 999,
-  paddingHorizontal: 8,
-  backgroundColor: theme.card,
-  borderWidth: 1,
-  borderColor: theme.border,
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "center",
-  shadowColor: "#000",
-  shadowOpacity: 0.12,
-  shadowRadius: 6,
-  shadowOffset: { width: 0, height: 2 },
-  elevation: 4,
-  zIndex: 20,
-},
+    reactionOutside: {
+      position: "absolute",
+      bottom: -13,
+      minWidth: 30,
+      height: 24,
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.12,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 4,
+      zIndex: 20,
+    },
 
-reactionOutsideMe: {
-  right: 54,
-},
+    reactionOutsideMe: {
+      right: 54,
+    },
 
-reactionOutsideOther: {
-  left: 54,
-},
+    reactionOutsideOther: {
+      left: 54,
+    },
 
-reactionEmoji: {
-  fontSize: 14,
-  marginRight: 4,
-},
+    reactionEmoji: {
+      fontSize: 14,
+      marginRight: 4,
+    },
 
-reactionCount: {
-  fontSize: 11,
-  fontWeight: "900",
-  color: theme.text,
-},
+    reactionCount: {
+      fontSize: 11,
+      fontWeight: "900",
+      color: theme.text,
+    },
 
 
     sysWrap: {
@@ -5456,7 +6150,13 @@ function makeScreenStyles(
       flex: 1,
       backgroundColor: theme.backgroundChat,
     },
-
+    stickerMedia: {
+      width: 150,
+      height: 150,
+      borderRadius: 14,
+      backgroundColor: "transparent",
+      marginTop: 6,
+    },
     header: {
       height: 54 + topInset,
       paddingTop: topInset,

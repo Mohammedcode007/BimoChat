@@ -127,66 +127,174 @@ const USER_ALLOWED = /^[^\s]{1,64}$/;
 
     return next;
   };
+const handleLogin = async () => {
+  if (loading) return;
 
-  const handleLogin = async () => {
-    if (loading) return;
+  const v = validate(username, password);
 
-    const v = validate(username, password);
+  if (v.username || v.password) {
+    setErrors(v);
+    triggerErrorAnim();
 
-    if (v.username || v.password) {
-      setErrors(v);
-      triggerErrorAnim();
+    Toast.show({
+      type: "error",
+      text1: t("common.error"),
+      text2: t("loginScreen.toasts.checkInputs"),
+    });
+
+    return;
+  }
+
+  setLoading(true);
+  clearErrors();
+
+  try {
+    const resultAction = await dispatch(
+      login({
+        // الأفضل لا تستخدم toLowerCase هنا حتى لا تكسر الأسماء العربية/الإيموجي
+        username: username.trim(),
+        password,
+      })
+    );
+
+    if (login.fulfilled.match(resultAction)) {
       Toast.show({
-        type: "error",
-        text1: t("common.error"),
-        text2: t("loginScreen.toasts.checkInputs"),
+        type: "success",
+        text1: t("common.success"),
+        text2: t("loginScreen.toasts.loginSuccess"),
       });
+
       return;
     }
 
-    setLoading(true);
-    clearErrors();
+    const payload: any = resultAction.payload;
 
-    try {
-      const resultAction = await dispatch(
-        login({
-          username: username.trim().toLowerCase(),
-          password,
-        })
-      );
+    const isBlocked =
+      String(payload?.code || "").toUpperCase() === "BLOCKED";
 
-      if (login.fulfilled.match(resultAction)) {
-        Toast.show({
-          type: "success",
-          text1: t("common.success"),
-          text2: t("loginScreen.toasts.loginSuccess"),
-        });
-      } else {
-        const msg =
-          (resultAction.payload as string) || t("loginScreen.errors.invalidCredentials");
+    if (isBlocked) {
+      router.replace({
+        pathname: "/(auth)/blocked",
+        params: {
+          scope: String(payload?.scope || "app"),
+          message: String(
+            payload?.message ||
+              "هذا الحساب أو هذا الجهاز محظور من استخدام التطبيق."
+          ),
+          reason: String(payload?.reason || ""),
+        },
+      } as any);
 
-        setErrors({ general: msg });
-        triggerErrorAnim();
-
-        Toast.show({
-          type: "error",
-          text1: t("loginScreen.toasts.loginFailed"),
-          text2: msg,
-        });
-      }
-    } catch {
-      setErrors({ general: t("loginScreen.errors.unexpected") });
-      triggerErrorAnim();
-
-      Toast.show({
-        type: "error",
-        text1: t("common.error"),
-        text2: t("loginScreen.errors.unexpected"),
-      });
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
+
+    const msg =
+      typeof payload === "string"
+        ? payload
+        : payload?.message || t("loginScreen.errors.invalidCredentials");
+
+    setErrors({ general: msg });
+    triggerErrorAnim();
+
+    Toast.show({
+      type: "error",
+      text1: t("loginScreen.toasts.loginFailed"),
+      text2: msg,
+    });
+  } catch (error: any) {
+    const data = error?.response?.data || error;
+
+    const isBlocked =
+      String(data?.code || "").toUpperCase() === "BLOCKED";
+
+    if (isBlocked) {
+      router.replace({
+        pathname: "/(auth)/blocked",
+        params: {
+          scope: String(data?.scope || "app"),
+          message: String(
+            data?.message_ar ||
+              data?.message ||
+              "هذا الحساب أو هذا الجهاز محظور من استخدام التطبيق."
+          ),
+          reason: String(data?.reason || ""),
+        },
+      } as any);
+
+      return;
+    }
+
+    setErrors({ general: t("loginScreen.errors.unexpected") });
+    triggerErrorAnim();
+
+    Toast.show({
+      type: "error",
+      text1: t("common.error"),
+      text2: t("loginScreen.errors.unexpected"),
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+  // const handleLogin = async () => {
+  //   if (loading) return;
+
+  //   const v = validate(username, password);
+
+  //   if (v.username || v.password) {
+  //     setErrors(v);
+  //     triggerErrorAnim();
+  //     Toast.show({
+  //       type: "error",
+  //       text1: t("common.error"),
+  //       text2: t("loginScreen.toasts.checkInputs"),
+  //     });
+  //     return;
+  //   }
+
+  //   setLoading(true);
+  //   clearErrors();
+
+  //   try {
+  //     const resultAction = await dispatch(
+  //       login({
+  //         username: username.trim().toLowerCase(),
+  //         password,
+  //       })
+  //     );
+
+  //     if (login.fulfilled.match(resultAction)) {
+  //       Toast.show({
+  //         type: "success",
+  //         text1: t("common.success"),
+  //         text2: t("loginScreen.toasts.loginSuccess"),
+  //       });
+  //     } else {
+  //       const msg =
+  //         (resultAction.payload as string) || t("loginScreen.errors.invalidCredentials");
+
+  //       setErrors({ general: msg });
+  //       triggerErrorAnim();
+
+  //       Toast.show({
+  //         type: "error",
+  //         text1: t("loginScreen.toasts.loginFailed"),
+  //         text2: msg,
+  //       });
+  //     }
+  //   } catch {
+  //     setErrors({ general: t("loginScreen.errors.unexpected") });
+  //     triggerErrorAnim();
+
+  //     Toast.show({
+  //       type: "error",
+  //       text1: t("common.error"),
+  //       text2: t("loginScreen.errors.unexpected"),
+  //     });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   /* ================= Animated Styles ================= */
 

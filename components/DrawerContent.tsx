@@ -3,6 +3,8 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { logout } from "@/redux/slices/authSlice";
+import { resetChatState } from "@/redux/slices/chatSlice";
+import { resetUserState } from "@/redux/slices/userSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import { disconnectSocket } from "@/services/socket";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -46,10 +48,10 @@ export default function DrawerContent({ onClose }: DrawerContentProps) {
   const pathname = usePathname();
   const dispatch = useDispatch<AppDispatch>();
 
-const authUser = useSelector((state: RootState) => state.auth.user);
-const me = useSelector((state: RootState) => state.user.me);
+  const authUser = useSelector((state: RootState) => state.auth.user);
+  const me = useSelector((state: RootState) => state.user.me);
 
-const user = me || authUser;  const unreadCount = useSelector(
+  const user = me || authUser; const unreadCount = useSelector(
     (state: RootState) => state.notification.unreadCount
   );
 
@@ -83,6 +85,10 @@ const user = me || authUser;  const unreadCount = useSelector(
               try {
                 disconnectSocket();
                 dispatch(logout());
+                dispatch(resetUserState());
+
+                // ✅ امسح بيانات الشات القديمة
+                dispatch(resetChatState());
                 router.replace("/login");
               } catch (e) {
               }
@@ -115,10 +121,10 @@ const user = me || authUser;  const unreadCount = useSelector(
                 ? "rgba(255,215,0,0.10)"
                 : "rgba(212,175,55,0.12)"
               : pressed
-              ? isDark
-                ? "rgba(255,255,255,0.05)"
-                : "rgba(0,0,0,0.04)"
-              : "transparent",
+                ? isDark
+                  ? "rgba(255,255,255,0.05)"
+                  : "rgba(0,0,0,0.04)"
+                : "transparent",
             borderColor: active
               ? isDark
                 ? "rgba(255,215,0,0.30)"

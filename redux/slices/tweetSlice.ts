@@ -57,17 +57,36 @@ export interface TweetLinkPreview {
 
 export interface Tweet {
   _id: string;
+
+  /**
+   * tweet = تويتة عادية
+   * retweet = عنصر ريتويت في التايملاين
+   */
+  feedType?: "tweet" | "retweet";
+
+  /**
+   * خاص بالريتويت
+   */
+  retweetId?: string;
+  retweetedAt?: string;
+  feedCreatedAt?: string;
+  retweetedBy?: Author | null;
+  originalAuthor?: Author | null;
+
   author: Author;
   content: string;
   media?: TweetMediaItem[];
   linkPreview?: TweetLinkPreview;
+
   likesCount: number;
   retweetsCount: number;
   repliesCount: number;
   viewsCount?: number;
+
   isLiked?: boolean;
   isRetweeted?: boolean;
   isBookmarked?: boolean;
+
   createdAt: string;
   updatedAt?: string;
 }
@@ -234,16 +253,128 @@ function normalizeCommentResponse(data: any): Comment {
         },
   } as Comment);
 }
+function normalizeAuthor(user: any): Author {
+  if (!user || typeof user !== "object") {
+    return {
+      _id: "",
+      username: "user",
+      atUsername: "",
+      avatar: "",
+      isVerified: false,
+      displayBadges: [],
+      displayVerificationType: "none",
+    };
+  }
+
+  return {
+    ...user,
+
+    _id: String(user._id || ""),
+
+    username:
+      user.username ||
+      user.displayName ||
+      user.name ||
+      user.atUsername ||
+      "user",
+
+    atUsername:
+      user.atUsername ||
+      user.username ||
+      "",
+
+    avatar:
+      user.avatar ||
+      user.avatarUrl ||
+      user.profileImage ||
+      "",
+
+    isVerified: user.isVerified ?? false,
+
+    displayBadges:
+      Array.isArray(user.displayBadges) && user.displayBadges.length > 0
+        ? user.displayBadges
+        : Array.isArray(user.activeCustomization?.badges) &&
+          user.activeCustomization.badges.length > 0
+          ? user.activeCustomization.badges
+          : user.badges || [],
+
+    displayVerificationType:
+      user.displayVerificationType ||
+      user.activeCustomization?.verificationType ||
+      user.verificationType ||
+      "none",
+
+    badges: user.badges || [],
+    verificationType: user.verificationType || "none",
+    activeCustomization: user.activeCustomization || {},
+  };
+}
+
+function normalizeTweetResponse(item: any): Tweet {
+  return {
+    ...item,
+
+    _id: String(item?._id || ""),
+
+    feedType: item?.feedType || "tweet",
+
+    retweetId: item?.retweetId ? String(item.retweetId) : undefined,
+    retweetedAt: item?.retweetedAt,
+    feedCreatedAt: item?.feedCreatedAt,
+
+    retweetedBy: item?.retweetedBy
+      ? normalizeAuthor(item.retweetedBy)
+      : null,
+
+    originalAuthor: item?.originalAuthor
+      ? normalizeAuthor(item.originalAuthor)
+      : item?.author
+        ? normalizeAuthor(item.author)
+        : null,
+
+    author: normalizeAuthor(item?.author),
+
+    content: String(item?.content || ""),
+
+    media: Array.isArray(item?.media) ? item.media : [],
+
+    likesCount: item?.likesCount ?? 0,
+    retweetsCount: item?.retweetsCount ?? 0,
+    repliesCount: item?.repliesCount ?? 0,
+    viewsCount: item?.viewsCount ?? 0,
+
+    isLiked: item?.isLiked ?? false,
+    isRetweeted: item?.isRetweeted ?? false,
+    isBookmarked: item?.isBookmarked ?? false,
+
+    createdAt: item?.createdAt || item?.feedCreatedAt || new Date().toISOString(),
+    updatedAt: item?.updatedAt,
+  };
+}
+
+function normalizeFeedResponse(data: any): Tweet[] {
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.tweets)
+        ? data.tweets
+        : [];
+
+  return list.map(normalizeTweetResponse).filter((tweet: { _id: any; }) => !!tweet._id);
+}
 function updateTweetInArray(
   arr: Tweet[],
   tweetId: string,
   updater: (tweet: Tweet) => void
 ) {
-  const tweet = arr.find((t) => t._id === tweetId);
-  if (!tweet) return;
-  updater(tweet);
+  arr.forEach((tweet) => {
+    if (tweet._id === tweetId) {
+      updater(tweet);
+    }
+  });
 }
-
 /* =========================================================
    ASYNC ACTIONS
 ========================================================= */
@@ -255,15 +386,10 @@ export const createTweet = createAsyncThunk(
 
     const tweet = res.data?.tweet || res.data;
 
-    return {
+    return normalizeTweetResponse({
       ...tweet,
-      likesCount: tweet?.likesCount ?? 0,
-      retweetsCount: tweet?.retweetsCount ?? 0,
-      repliesCount: tweet?.repliesCount ?? 0,
-      isLiked: tweet?.isLiked ?? false,
-      isRetweeted: tweet?.isRetweeted ?? false,
-      isBookmarked: tweet?.isBookmarked ?? false,
-    } as Tweet;
+      feedType: "tweet",
+    });
   }
 );
 
@@ -271,7 +397,11 @@ export const getForYouFeed = createAsyncThunk(
   "tweets/getForYou",
   async ({ page = 1 }: { page?: number }) => {
     const res = await api.get(`/tweets/feed/foryou?page=${page}&limit=10`);
-    return { tweets: res.data as Tweet[], page };
+
+    return {
+      tweets: normalizeFeedResponse(res.data),
+      page,
+    };
   }
 );
 export const getUserTweets = createAsyncThunk(
@@ -285,21 +415,15 @@ export const getUserTweets = createAsyncThunk(
 
       const data = res.data;
 
-      if (Array.isArray(data)) {
-        return {
-          tweets: data as Tweet[],
-          page,
-          hasMore: data.length === 10,
-        };
-      }
+      const tweets = normalizeFeedResponse(data);
 
       return {
-        tweets: (data.tweets || []) as Tweet[],
-        page: data.page ?? page,
+        tweets,
+        page: data?.page ?? page,
         hasMore:
-          typeof data.hasMore === "boolean"
+          typeof data?.hasMore === "boolean"
             ? data.hasMore
-            : (data.tweets || []).length === 10,
+            : tweets.length === 10,
       };
     } catch (e: any) {
       return rejectWithValue(
@@ -312,7 +436,11 @@ export const getFollowingFeed = createAsyncThunk(
   "tweets/getFollowing",
   async ({ page = 1 }: { page?: number }) => {
     const res = await api.get(`/tweets/feed/following?page=${page}&limit=10`);
-    return { tweets: res.data as Tweet[], page };
+
+    return {
+      tweets: normalizeFeedResponse(res.data),
+      page,
+    };
   }
 );
 export const getTweetLikesUsers = createAsyncThunk(
@@ -335,10 +463,9 @@ export const getSingleTweet = createAsyncThunk(
   "tweets/getSingle",
   async (tweetId: string) => {
     const res = await api.get(`/tweets/${tweetId}`);
-    return res.data as Tweet;
+    return normalizeTweetResponse(res.data?.tweet || res.data);
   }
 );
-
 export const toggleLike = createAsyncThunk(
   "tweets/toggleLike",
   async (tweetId: string) => {
@@ -842,17 +969,17 @@ const tweetSlice = createSlice({
       state.error = action.error.message || "Failed to load comments";
     });
 
-   builder.addCase(addComment.fulfilled, (state, action) => {
-  const safeComment = normalizeCommentResponse(action.payload.comment);
+    builder.addCase(addComment.fulfilled, (state, action) => {
+      const safeComment = normalizeCommentResponse(action.payload.comment);
 
-  if (!safeComment?._id) return;
+      if (!safeComment?._id) return;
 
-  const exists = state.comments.some((c) => c._id === safeComment._id);
+      const exists = state.comments.some((c) => c._id === safeComment._id);
 
-  if (!exists) {
-    state.comments.unshift(safeComment);
-  }
-});
+      if (!exists) {
+        state.comments.unshift(safeComment);
+      }
+    });
 
     /* ================= COMMENT LIKE ================= */
 
@@ -880,37 +1007,37 @@ const tweetSlice = createSlice({
 
     /* ================= REPLY TO COMMENT ================= */
 
-  builder.addCase(replyToComment.fulfilled, (state, action) => {
-  const { commentId, reply } = action.payload;
-  const safeReply = normalizeCommentResponse(reply);
+    builder.addCase(replyToComment.fulfilled, (state, action) => {
+      const { commentId, reply } = action.payload;
+      const safeReply = normalizeCommentResponse(reply);
 
-  if (!safeReply?._id) return;
+      if (!safeReply?._id) return;
 
-  const alreadyExists = (() => {
-    let found = false;
+      const alreadyExists = (() => {
+        let found = false;
 
-    const search = (arr: Comment[]) => {
-      for (const c of arr) {
-        if (c._id === safeReply._id) {
-          found = true;
-          return;
-        }
+        const search = (arr: Comment[]) => {
+          for (const c of arr) {
+            if (c._id === safeReply._id) {
+              found = true;
+              return;
+            }
 
-        if (c.replies?.length) {
-          search(c.replies);
-          if (found) return;
-        }
+            if (c.replies?.length) {
+              search(c.replies);
+              if (found) return;
+            }
+          }
+        };
+
+        search(state.comments);
+        return found;
+      })();
+
+      if (!alreadyExists) {
+        appendReplyToTree(state.comments, commentId, safeReply);
       }
-    };
-
-    search(state.comments);
-    return found;
-  })();
-
-  if (!alreadyExists) {
-    appendReplyToTree(state.comments, commentId, safeReply);
-  }
-});
+    });
     /* ================= DELETE ================= */
 
     builder.addCase(deleteTweet.fulfilled, (state, action) => {

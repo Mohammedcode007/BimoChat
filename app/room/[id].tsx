@@ -1136,7 +1136,7 @@ function StickerPickerModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      
+
       <Pressable
         style={{
           flex: 1,
@@ -1146,7 +1146,7 @@ function StickerPickerModal({
         onPress={onClose}
       >
         <Pressable
-          onPress={() => {}}
+          onPress={() => { }}
           style={{
             backgroundColor: theme.card,
             borderTopLeftRadius: 22,
@@ -2010,6 +2010,12 @@ function MessageItem({
   function isCricketMessage(item: MessageUI): item is CricketMessageUI {
     return item.type === "game" && item.game?.gameType === "cricket";
   }
+  function isSugarLuckMessage(item: MessageUI) {
+    return item.type === "game" && item.game?.gameType === "luck";
+  }
+  function isDuelMessage(item: MessageUI) {
+  return item.type === "game" && item.game?.gameType === "duel";
+}
   const copyUserNameOnly = async (user?: UserUI) => {
     const name = String(user?.name || "").trim();
     if (!name) return;
@@ -2414,6 +2420,300 @@ function MessageItem({
   //     </View>
   //   );
   // }
+  if (isSugarLuckMessage(item)) {
+    const title = String(item.game?.title || "سُــــــكَّــــــر").trim();
+    const state = String(item.game?.state || "").trim();
+    const pointsChange = Number(item.game?.payload?.pointsChange || 0);
+
+    const isWin =
+      state.includes("win") ||
+      state === "mega_win" ||
+      pointsChange > 0;
+
+    const isLoss =
+      state.includes("loss") ||
+      pointsChange < 0;
+
+    const accentColor = isWin
+      ? "#22C55E"
+      : isLoss
+        ? "#EF4444"
+        : "#F59E0B";
+
+    return (
+      <View style={bubble.sysWrap}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onLongPress={onLongPress}
+          style={[
+            bubble.sysBubble,
+            {
+              width: Math.min(width - 36, 360),
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              borderWidth: 1,
+              borderColor: `${accentColor}55`,
+              backgroundColor:
+                theme.background === "#000" || String(theme.background).toLowerCase().includes("000")
+                  ? "rgba(255,255,255,0.06)"
+                  : "rgba(0,0,0,0.04)",
+            },
+          ]}
+        >
+          <View
+            style={{
+              alignSelf: "stretch",
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 8,
+            }}
+          >
+            <Ionicons name="game-controller-outline" size={17} color={accentColor} />
+
+            <Text
+              style={{
+                marginLeft: 6,
+                color: accentColor,
+                fontSize: 14,
+                fontWeight: "900",
+                textAlign: "center",
+              }}
+              numberOfLines={1}
+            >
+              سُــــــكَّــــــر
+            </Text>
+          </View>
+
+          {!!title && (
+            <Text
+              style={{
+                color: theme.text,
+                fontSize: 14,
+                fontWeight: "900",
+                textAlign: "center",
+                marginBottom: 6,
+              }}
+            >
+              {title}
+            </Text>
+          )}
+
+          <Text
+            style={[
+              {
+                color: theme.text,
+                fontSize: 13,
+                lineHeight: 22,
+                fontWeight: "800",
+              },
+              getTextDirectionStyle(item.text || ""),
+            ]}
+          >
+            {item.text}
+          </Text>
+
+          {typeof item.game?.payload?.player?.points !== "undefined" && (
+            <View
+              style={{
+                marginTop: 10,
+                alignSelf: "center",
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 999,
+                backgroundColor: `${accentColor}18`,
+                borderWidth: 1,
+                borderColor: `${accentColor}45`,
+              }}
+            >
+              <Text
+                style={{
+                  color: accentColor,
+                  fontSize: 12,
+                  fontWeight: "900",
+                }}
+              >
+                الرصيد: {item.game.payload.player.points} نقطة وهمية
+              </Text>
+            </View>
+          )}
+
+          <Text style={[bubble.sysTime, { marginTop: 8 }]}>
+            {item.time}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+if (isDuelMessage(item)) {
+  const title = String(item.game?.title || "لعبة ضرب").trim();
+  const state = String(item.game?.state || "").trim();
+  const payload = item.game?.payload || {};
+
+  const rawAnimationUrl = String(
+    payload?.animation?.lottieUrl ||
+      payload?.lottieUrl ||
+      item.uri ||
+      ""
+  ).trim();
+
+  const animationUrl = rawAnimationUrl.replace(
+    "http://localhost:5000",
+    "https://te-bot.site"
+  );
+
+  const animationKey = String(
+    payload?.animation?.key ||
+      payload?.command ||
+      ""
+  ).trim();
+
+  const phase = String(payload?.phase || state || "").trim();
+
+  console.log("🥊 [DUEL FRONT DISPLAY]", {
+    id: item.id,
+    title,
+    state,
+    phase,
+    rawAnimationUrl,
+    animationUrl,
+    animationKey,
+    payload,
+  });
+
+  return (
+    <View style={bubble.sysWrap}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onLongPress={onLongPress}
+        style={[
+          bubble.sysBubble,
+          {
+            width: Math.min(width - 36, 360),
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+            borderWidth: 1,
+            borderColor: "rgba(245,158,11,0.35)",
+            backgroundColor:
+              theme.background === "#000" ||
+              String(theme.background).toLowerCase().includes("000")
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(0,0,0,0.04)",
+          },
+        ]}
+      >
+        <View
+          style={{
+            alignSelf: "stretch",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 8,
+          }}
+        >
+          <Ionicons
+            name="game-controller-outline"
+            size={17}
+            color="#F59E0B"
+          />
+
+          <Text
+            style={{
+              marginLeft: 6,
+              color: "#F59E0B",
+              fontSize: 14,
+              fontWeight: "900",
+              textAlign: "center",
+            }}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+        </View>
+
+        {!!animationUrl ? (
+          <View
+            style={{
+              width: 180,
+              height: 180,
+              alignSelf: "center",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 8,
+            }}
+          >
+            <LottieView
+              source={{ uri: animationUrl }}
+              autoPlay
+              loop
+              resizeMode="contain"
+              style={{
+                width: 180,
+                height: 180,
+              }}
+            />
+          </View>
+        ) : (
+          <View
+            style={{
+              width: 96,
+              height: 96,
+              alignSelf: "center",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 8,
+              borderRadius: 24,
+              backgroundColor: theme.surface2,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+          >
+            <Text style={{ fontSize: 44 }}>
+              {animationKey === "slap"
+                ? "✋"
+                : animationKey === "box"
+                  ? "🥊"
+                  : "💥"}
+            </Text>
+          </View>
+        )}
+
+        <Text
+          style={[
+            {
+              color: theme.text,
+              fontSize: 13,
+              lineHeight: 22,
+              fontWeight: "800",
+              textAlign: "center",
+            },
+            getTextDirectionStyle(item.text || ""),
+          ]}
+        >
+          {item.text}
+        </Text>
+
+        {!!phase && (
+          <Text
+            style={{
+              marginTop: 8,
+              color: theme.mutedText,
+              fontSize: 11,
+              fontWeight: "800",
+              textAlign: "center",
+            }}
+          >
+            {phase}
+          </Text>
+        )}
+
+        <Text style={[bubble.sysTime, { marginTop: 8 }]}>
+          {item.time}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
   if (isCricketMessage(item)) {
     const gameId = String(item.game?.gameId || item.game?.payload?.gameId || "").trim();
     return (
@@ -2961,7 +3261,7 @@ export default function ChatScreen() {
     () => makeScreenStyles(theme, insets.top, insets.bottom),
     [theme, insets.top, insets.bottom]
   );
-  
+
   const bubbleStyles = useMemo(() => makeBubbleStyles(theme), [theme]);
 
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -3027,37 +3327,37 @@ export default function ChatScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
 
-const [uploading, setUploading] = useState<{
-  visible: boolean;
-  title: string;
-  sub?: string;
-  startedAt?: number;
-  previewUri?: string;
-  kind?: "image" | "gif" | "sticker";
-}>({
-  visible: false,
-  title: "Uploading…",
-  sub: undefined,
-  startedAt: undefined,
-  previewUri: undefined,
-  kind: undefined,
-});
-useEffect(() => {
-  if (!uploading.visible || !uploading.startedAt) {
-    setUploadSeconds(0);
-    return;
-  }
+  const [uploading, setUploading] = useState<{
+    visible: boolean;
+    title: string;
+    sub?: string;
+    startedAt?: number;
+    previewUri?: string;
+    kind?: "image" | "gif" | "sticker";
+  }>({
+    visible: false,
+    title: "Uploading…",
+    sub: undefined,
+    startedAt: undefined,
+    previewUri: undefined,
+    kind: undefined,
+  });
+  useEffect(() => {
+    if (!uploading.visible || !uploading.startedAt) {
+      setUploadSeconds(0);
+      return;
+    }
 
-  const timer = setInterval(() => {
-    setUploadSeconds(
-      Math.max(0, Math.floor((Date.now() - uploading.startedAt!) / 1000))
-    );
-  }, 500);
+    const timer = setInterval(() => {
+      setUploadSeconds(
+        Math.max(0, Math.floor((Date.now() - uploading.startedAt!) / 1000))
+      );
+    }, 500);
 
-  return () => clearInterval(timer);
-}, [uploading.visible, uploading.startedAt]);
-const [uploadSeconds, setUploadSeconds] = useState(0);
-const [showMediaPicker, setShowMediaPicker] = useState(false);
+    return () => clearInterval(timer);
+  }, [uploading.visible, uploading.startedAt]);
+  const [uploadSeconds, setUploadSeconds] = useState(0);
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [showActiveRoomsDrawer, setShowActiveRoomsDrawer] = useState(false);
   const [selectedInviteUser, setSelectedInviteUser] = useState<any>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
@@ -4017,7 +4317,7 @@ const [showMediaPicker, setShowMediaPicker] = useState(false);
           text: String(ref?.content || "Media message"),
           uri: ref?.media?.url,
           mediaMimeType: String(ref?.media?.mimeType || ""),
-mediaFileName: String(ref?.media?.fileName || ""),
+          mediaFileName: String(ref?.media?.fileName || ""),
           sender: {
             id: refSenderId || "unknown",
             name: refSenderName,
@@ -4040,7 +4340,22 @@ mediaFileName: String(ref?.media?.fileName || ""),
     const isAudioMedia =
       !!mediaUrl &&
       (mediaMime.startsWith("audio/") || systemTypeRaw === "room_music_audio");
-
+console.log("📩 [ROOM SERVER MESSAGE RAW]", {
+  id: m?._id,
+  clientId: m?.clientId,
+  room: m?.room,
+  type: m?.type,
+  systemType: m?.systemType,
+  gameType: m?.gameType || m?.game?.gameType,
+  content: m?.content,
+  media: m?.media,
+  music: m?.music,
+  game: m?.game,
+  gift: m?.gift || m?.meta?.gift,
+  sender: m?.sender,
+  createdAt: m?.createdAt,
+  fullMessage: m,
+});
     let uiType: MessageUI["type"] = "text";
     let resolvedSystemType: MessageUI["systemType"] | undefined = undefined;
 
@@ -4125,7 +4440,8 @@ mediaFileName: String(ref?.media?.fileName || ""),
       game:
         backendType === "game"
           ? {
-            gameType: String(m?.gameType || "").trim(),
+            gameType: String(m?.gameType || m?.game?.gameType || "").trim(),
+            gameId: String(m?.game?.gameId || "").trim(),
             title: String(m?.game?.title || m?.content || "").trim(),
             state: String(m?.game?.state || "").trim(),
             turnUserId: String(m?.game?.turnUserId || "").trim(),
@@ -4135,8 +4451,8 @@ mediaFileName: String(ref?.media?.fileName || ""),
           : undefined,
       text: messageText,
       uri: m?.media?.url,
-mediaMimeType: String(m?.media?.mimeType || ""),
-  mediaFileName: String(m?.media?.fileName || ""),
+      mediaMimeType: String(m?.media?.mimeType || ""),
+      mediaFileName: String(m?.media?.fileName || ""),
       // في announcement كنت تخفي sender عندك — نفس السلوك
       sender:
         uiType === "audio" || uiType === "song" || uiType === "game"
@@ -4391,170 +4707,170 @@ mediaMimeType: String(m?.media?.mimeType || ""),
     }
   };
 
-const sendImage = async () => {
-  if (!roomId) return;
+  const sendImage = async () => {
+    if (!roomId) return;
 
-  const res = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    quality: 0.85,
-    allowsEditing: false,
-  });
-
-  if (res.canceled) return;
-
-  const asset = res.assets?.[0];
-  const localUri = asset?.uri;
-  if (!localUri) return;
-
-  try {
-    setUploading({
-      visible: true,
-      title: "جاري رفع الصورة…",
-      sub: "يتم تجهيز الصورة وإرسالها",
-      startedAt: Date.now(),
-      previewUri: localUri,
-      kind: "image",
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      allowsEditing: false,
     });
 
-    const secureUrl = await uploadToCloudinary(localUri, "image");
+    if (res.canceled) return;
 
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        content: "📷 Image",
-        type: "image",
-        media: {
-          url: secureUrl,
-          mimeType: asset?.mimeType || "image/jpeg",
-          fileName: asset?.fileName || "image.jpg",
-        },
-      })
-    ).unwrap();
-
-    scrollToBottom();
-  } catch (e: any) {
-    Alert.alert("Error", e?.message || "Upload failed");
-  } finally {
-    setUploading({
-      visible: false,
-      title: "Uploading…",
-      sub: undefined,
-      startedAt: undefined,
-      previewUri: undefined,
-      kind: undefined,
-    });
-  }
-};
-const sendSticker = async (sticker: StickerItem) => {
-  if (!roomId) return;
-
-  const url = String(sticker?.url || "").trim();
-  if (!url) return;
-
-  try {
-    const clientId = `sticker:${Date.now()}:${Math.random()
-      .toString(16)
-      .slice(2)}`;
-
-    setShowStickerPicker(false);
-
-    setUploading({
-      visible: true,
-      title: "جاري إرسال الستيكار…",
-      sub: sticker.title || "Sticker",
-      startedAt: Date.now(),
-      previewUri: url,
-      kind: "sticker",
-    });
-
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        clientId,
-        content: sticker.title || "Sticker",
-        type: "image",
-        media: {
-          url,
-          mimeType: sticker.mimeType || "image/gif",
-          fileName: `${sticker.id || "sticker"}.gif`,
-        },
-      })
-    ).unwrap();
-
-    scrollToBottom();
-  } catch (e: any) {
-    Alert.alert("Error", e?.message || "Sticker send failed");
-  } finally {
-    setUploading({
-      visible: false,
-      title: "Uploading…",
-      sub: undefined,
-      startedAt: undefined,
-      previewUri: undefined,
-      kind: undefined,
-    });
-  }
-};
- const sendGifFromDevice = async () => {
-  if (!roomId) return;
-
-  try {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ["image/gif"],
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
-
-    if (result.canceled) return;
-
-    const asset = result.assets?.[0];
+    const asset = res.assets?.[0];
     const localUri = asset?.uri;
-
     if (!localUri) return;
 
-    const clientId = `gif:${Date.now()}:${Math.random()
-      .toString(16)
-      .slice(2)}`;
+    try {
+      setUploading({
+        visible: true,
+        title: "جاري رفع الصورة…",
+        sub: "يتم تجهيز الصورة وإرسالها",
+        startedAt: Date.now(),
+        previewUri: localUri,
+        kind: "image",
+      });
 
-    setUploading({
-      visible: true,
-      title: "جاري رفع GIF…",
-      sub: asset?.name ? `يتم رفع ${asset.name}` : "يتم رفع GIF وإرساله",
-      startedAt: Date.now(),
-      previewUri: localUri,
-      kind: "gif",
-    });
+      const secureUrl = await uploadToCloudinary(localUri, "image");
 
-    const secureUrl = await uploadToCloudinary(localUri, "image");
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          content: "📷 Image",
+          type: "image",
+          media: {
+            url: secureUrl,
+            mimeType: asset?.mimeType || "image/jpeg",
+            fileName: asset?.fileName || "image.jpg",
+          },
+        })
+      ).unwrap();
 
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        clientId,
-        content: "GIF",
-        type: "image",
-        media: {
-          url: secureUrl,
-          mimeType: "image/gif",
-          fileName: asset?.name || "animation.gif",
-        },
-      })
-    ).unwrap();
+      scrollToBottom();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Upload failed");
+    } finally {
+      setUploading({
+        visible: false,
+        title: "Uploading…",
+        sub: undefined,
+        startedAt: undefined,
+        previewUri: undefined,
+        kind: undefined,
+      });
+    }
+  };
+  const sendSticker = async (sticker: StickerItem) => {
+    if (!roomId) return;
 
-    scrollToBottom();
-  } catch (e: any) {
-    Alert.alert("Error", e?.message || "GIF upload failed");
-  } finally {
-    setUploading({
-      visible: false,
-      title: "Uploading…",
-      sub: undefined,
-      startedAt: undefined,
-      previewUri: undefined,
-      kind: undefined,
-    });
-  }
-};
+    const url = String(sticker?.url || "").trim();
+    if (!url) return;
+
+    try {
+      const clientId = `sticker:${Date.now()}:${Math.random()
+        .toString(16)
+        .slice(2)}`;
+
+      setShowStickerPicker(false);
+
+      setUploading({
+        visible: true,
+        title: "جاري إرسال الستيكار…",
+        sub: sticker.title || "Sticker",
+        startedAt: Date.now(),
+        previewUri: url,
+        kind: "sticker",
+      });
+
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          clientId,
+          content: sticker.title || "Sticker",
+          type: "image",
+          media: {
+            url,
+            mimeType: sticker.mimeType || "image/gif",
+            fileName: `${sticker.id || "sticker"}.gif`,
+          },
+        })
+      ).unwrap();
+
+      scrollToBottom();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Sticker send failed");
+    } finally {
+      setUploading({
+        visible: false,
+        title: "Uploading…",
+        sub: undefined,
+        startedAt: undefined,
+        previewUri: undefined,
+        kind: undefined,
+      });
+    }
+  };
+  const sendGifFromDevice = async () => {
+    if (!roomId) return;
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/gif"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+      const localUri = asset?.uri;
+
+      if (!localUri) return;
+
+      const clientId = `gif:${Date.now()}:${Math.random()
+        .toString(16)
+        .slice(2)}`;
+
+      setUploading({
+        visible: true,
+        title: "جاري رفع GIF…",
+        sub: asset?.name ? `يتم رفع ${asset.name}` : "يتم رفع GIF وإرساله",
+        startedAt: Date.now(),
+        previewUri: localUri,
+        kind: "gif",
+      });
+
+      const secureUrl = await uploadToCloudinary(localUri, "image");
+
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          clientId,
+          content: "GIF",
+          type: "image",
+          media: {
+            url: secureUrl,
+            mimeType: "image/gif",
+            fileName: asset?.name || "animation.gif",
+          },
+        })
+      ).unwrap();
+
+      scrollToBottom();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "GIF upload failed");
+    } finally {
+      setUploading({
+        visible: false,
+        title: "Uploading…",
+        sub: undefined,
+        startedAt: undefined,
+        previewUri: undefined,
+        kind: undefined,
+      });
+    }
+  };
 
 
   /* ================= RECORDING ================= */
@@ -5079,7 +5395,7 @@ const sendSticker = async (sticker: StickerItem) => {
             <Ionicons name="chevron-forward" size={18} color={theme.icon} />
           </TouchableOpacity>
         )}
-   {/* ================= VOICE PREVIEW ================= */}
+        {/* ================= VOICE PREVIEW ================= */}
         {!!pendingVoiceUri && (
           <VoiceRecorderPreview
             uri={pendingVoiceUri}
@@ -5115,7 +5431,7 @@ const sendSticker = async (sticker: StickerItem) => {
             }}
           />
         )}
-        
+
         {/* ================= CHAT ================= */}
         <FlatList
           ref={flatListRef}
@@ -5170,7 +5486,7 @@ const sendSticker = async (sticker: StickerItem) => {
 
 
 
-     
+
 
         {/* ================= INPUT ================= */}
         <Reanimated.View
@@ -5183,23 +5499,23 @@ const sendSticker = async (sticker: StickerItem) => {
           ]}
         >
           <View style={styles.inputBar}>
-           <TouchableOpacity
-  onPress={() => setShowMediaPicker(true)}
-  disabled={uploading.visible}
-  activeOpacity={0.85}
-  style={{
-    width: 42,
-    height: 42,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.surface2,
-    borderWidth: 1,
-    borderColor: theme.border,
-  }}
->
-  <Ionicons name="add-circle-outline" size={25} color={theme.text} />
-</TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowMediaPicker(true)}
+              disabled={uploading.visible}
+              activeOpacity={0.85}
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 16,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: theme.surface2,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <Ionicons name="add-circle-outline" size={25} color={theme.text} />
+            </TouchableOpacity>
 
             <TextInput
               style={styles.input}
@@ -5772,23 +6088,23 @@ const sendSticker = async (sticker: StickerItem) => {
         theme={theme}
       />
       <MediaPickerModal
-  visible={showMediaPicker}
-  onClose={() => setShowMediaPicker(false)}
-  onPickImage={sendImage}
-  onPickGif={sendGifFromDevice}
-  onPickSticker={() => setShowStickerPicker(true)}
-  theme={theme}
-/>
+        visible={showMediaPicker}
+        onClose={() => setShowMediaPicker(false)}
+        onPickImage={sendImage}
+        onPickGif={sendGifFromDevice}
+        onPickSticker={() => setShowStickerPicker(true)}
+        theme={theme}
+      />
 
-<UploadingOverlay
-  visible={uploading.visible}
-  title={uploading.title}
-  sub={uploading.sub}
-  seconds={uploadSeconds}
-  previewUri={uploading.previewUri}
-  kind={uploading.kind}
-  theme={theme}
-/>
+      <UploadingOverlay
+        visible={uploading.visible}
+        title={uploading.title}
+        sub={uploading.sub}
+        seconds={uploadSeconds}
+        previewUri={uploading.previewUri}
+        kind={uploading.kind}
+        theme={theme}
+      />
     </View >
   );
 }
@@ -5878,14 +6194,14 @@ function makeBubbleStyles(theme: typeof Colors.light) {
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 2
     },
-stickerMedia: {
-  width: 190,
-  height: 190,
-  maxWidth: 220,
-  borderRadius: 18,
-  backgroundColor: "transparent",
-  marginTop: 6,
-},
+    stickerMedia: {
+      width: 190,
+      height: 190,
+      maxWidth: 220,
+      borderRadius: 18,
+      backgroundColor: "transparent",
+      marginTop: 6,
+    },
     avatarStarRight: {
       position: "absolute",
       top: -6,

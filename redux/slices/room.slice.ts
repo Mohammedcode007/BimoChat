@@ -223,7 +223,9 @@ export type RoomGameType =
   | "chess"
   | "quiz"
   | "xo"
-  | "cards";
+  | "duel"
+  | "cards"
+  | "luck";
 export type RoomMessageSender = RoomUser | string | null;
 export type RoomReactionUser = string | UserPublicSnapshot;
 

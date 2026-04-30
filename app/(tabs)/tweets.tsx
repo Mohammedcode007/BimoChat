@@ -17,6 +17,7 @@ import {
 } from "@/redux/slices/tweetSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import { timeAgo } from "@/utils/helpFunctions";
+import { getTextDirectionStyle } from "@/utils/textDirection";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ResizeMode, Video } from "expo-av";
 import { useRouter } from "expo-router";
@@ -344,9 +345,10 @@ function renderTweetRichText(
   if (!text) return null;
 
   const parts = parseRichText(text);
+  const directionStyle = getTextDirectionStyle(text);
 
   return (
-    <Text style={s.text}>
+    <Text style={[s.text, directionStyle]}>
       {parts.map((part, index) => {
         if (!part.value) return null;
 
@@ -419,15 +421,30 @@ function ExpandableTweetText({
       ? `${text.slice(0, previewLength).trim()}...`
       : text;
 
+  const directionStyle = getTextDirectionStyle(displayedText);
+
+  const isRtl = directionStyle.writingDirection === "rtl";
+
   return (
-    <View style={{ marginTop: 8 }}>
+    <View
+      style={{
+        marginTop: 8,
+        alignSelf: "stretch",
+        alignItems: isRtl ? "flex-end" : "flex-start",
+      }}
+    >
       {renderTweetRichText(displayedText, s, onPressMention, onPressHashtag)}
 
       {shouldTruncate && (
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => setExpanded((prev) => !prev)}
-          style={s.readMoreBtn}
+          style={[
+            s.readMoreBtn,
+            {
+              alignSelf: isRtl ? "flex-end" : "flex-start",
+            },
+          ]}
         >
           <Text style={s.readMoreText}>
             {expanded ? "عرض أقل" : "عرض المزيد"}
@@ -833,14 +850,21 @@ export default function TweetsScreen() {
   const pendingLikesRef = useRef<Record<string, boolean>>({});
   const rawFeed = activeTab === "following" ? following : forYou;
 
+  const getFeedItemKey = (item: any) => {
+    if (item?.feedType === "retweet") {
+      return `retweet-${item?.retweetId || item?._id}-${item?.retweetedBy?._id || ""}`;
+    }
+
+    return `tweet-${item?._id}`;
+  };
+
   const uniqueFeed = useMemo(
     () =>
       Array.from(
-        new Map((rawFeed || []).map((item: any) => [item._id, item])).values()
+        new Map((rawFeed || []).map((item: any) => [getFeedItemKey(item), item])).values()
       ),
     [rawFeed]
   );
-
   useEffect(() => {
     if (activeTab === "following") {
       setFollowingPage(1);
@@ -958,9 +982,8 @@ export default function TweetsScreen() {
         const resultAction = await dispatch(getFollowingFeed({ page: nextPage }));
 
         if (getFollowingFeed.fulfilled.match(resultAction)) {
-          const newItems = resultAction.payload || [];
+          const newItems = resultAction.payload?.tweets || [];
 
-          // لو رجع بيانات فعلًا زوّد الصفحة
           if (Array.isArray(newItems) && newItems.length > 0) {
             setFollowingPage(nextPage);
           }
@@ -970,7 +993,7 @@ export default function TweetsScreen() {
         const resultAction = await dispatch(getForYouFeed({ page: nextPage }));
 
         if (getForYouFeed.fulfilled.match(resultAction)) {
-          const newItems = resultAction.payload || [];
+          const newItems = resultAction.payload?.tweets || [];
 
           if (Array.isArray(newItems) && newItems.length > 0) {
             setForYouPage(nextPage);
@@ -1080,7 +1103,7 @@ export default function TweetsScreen() {
       <FlatList
         data={uniqueFeed}
         extraData={language}
-        keyExtractor={(item: any) => String(item?._id ?? item?.id)}
+        keyExtractor={(item: any) => getFeedItemKey(item)}
         initialNumToRender={6}
         maxToRenderPerBatch={4}
         windowSize={5}
@@ -1130,7 +1153,19 @@ export default function TweetsScreen() {
           const isBlockedByMe = item?.author?.relationshipStatus === "blocked_by_me";
           const blockedMe = item?.author?.relationshipStatus === "blocked_me";
           const isBlocked = isBlockedByMe || blockedMe;
+          const isRetweetItem = item?.feedType === "retweet";
 
+          const retweetedByName =
+            item?.retweetedBy?.username ||
+            item?.retweetedBy?.displayName ||
+            item?.retweetedBy?.atUsername ||
+            "Someone";
+
+          const originalAuthorName =
+            item?.originalAuthor?.username ||
+            item?.author?.username ||
+            item?.originalAuthor?.displayName ||
+            "Someone";
           return (
             <Swipeable
               renderRightActions={() =>
@@ -1159,70 +1194,83 @@ export default function TweetsScreen() {
                 ) : null
               }
             >
-              <View style={s.card}>
-                <TouchableOpacity
-                  onPress={() =>
-                    router.push({
-                      pathname: "/profile/[id]",
-                      params: { id: item.author._id },
-                    })
-                  }
-                  activeOpacity={0.85}
-                >
-                  <Image source={{ uri: avatarUri }} style={s.avatar} />
-                </TouchableOpacity>
+              <View style={s.cardWrap}>
+                {isRetweetItem && (
+                  <View style={s.retweetHeader}>
+                    <Ionicons name="repeat-outline" size={14} color={theme.mutedText} />
 
-                <View style={{ flex: 1 }}>
-                  <View style={s.row}>
-                    <View style={{ flex: 1 }}>
-                      <View style={s.nameRow}>
-                        <Text style={s.name} numberOfLines={1}>
-                          {item.author.username}
-                        </Text>
+                    <Text style={s.retweetHeaderText} numberOfLines={1}>
+                      {retweetedByName} retweeted {originalAuthorName}
+                    </Text>
+                  </View>
+                )}
 
-                        <UserBadges author={item.author} s={s} />
+                <View style={s.card}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      router.push({
+                        pathname: "/profile/[id]",
+                        params: { id: item.author._id },
+                      })
+                    }
+                    activeOpacity={0.85}
+                  >
+                    <Image source={{ uri: avatarUri }} style={s.avatar} />
+                  </TouchableOpacity>
 
-                        <Text style={s.dot}>•</Text>
-                        <Text style={s.time}>{timeAgo(item.createdAt)}</Text>
-                      </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={s.row}>
+                      <View style={{ flex: 1 }}>
+                        <View style={s.nameRow}>
+                          <Text style={s.name} numberOfLines={1}>
+                            {item.author.username}
+                          </Text>
 
-                      {/* <Text style={s.handle} numberOfLines={1}>
+                          <UserBadges author={item.author} s={s} />
+
+                          <Text style={s.dot}>•</Text>
+                          <Text style={s.time}>
+                            {timeAgo(item.feedType === "retweet" ? item.retweetedAt || item.feedCreatedAt || item.createdAt : item.createdAt)}
+                          </Text>
+                        </View>
+
+                        {/* <Text style={s.handle} numberOfLines={1}>
                         {item.author.atUsername}
                       </Text> */}
-                    </View>
+                      </View>
 
-                    {!isOwnTweet && (
-                      <TouchableOpacity
-                        style={[
-                          s.followBtn,
-                          isFollowing ? s.followBtnOn : s.followBtnOff,
-                        ]}
-                        onPress={async () => {
-                          setActionLoading(`follow-${item.author._id}`);
-                          await dispatch(toggleFollow(item.author._id));
-                          setActionLoading(null);
-                        }}
-                        activeOpacity={0.9}
-                      >
-                        {actionLoading === `follow-${item.author._id}` ? (
-                          <ActivityIndicator
-                            color={isFollowing ? theme.text : theme.tint}
-                            size="small"
-                          />
-                        ) : (
-                          <Ionicons
-                            name={isFollowing ? "checkmark-circle-outline" : "person-add-outline"}
-                            size={18}
-                            color={
-                              isFollowing
-                                ? isDark
-                                  ? "#FFFFFF"
-                                  : "#111827"
-                                : theme.tint
-                            }
-                          />
-                        )}
-                        {/* {actionLoading === `follow-${item.author._id}` ? (
+                      {!isOwnTweet && (
+                        <TouchableOpacity
+                          style={[
+                            s.followBtn,
+                            isFollowing ? s.followBtnOn : s.followBtnOff,
+                          ]}
+                          onPress={async () => {
+                            setActionLoading(`follow-${item.author._id}`);
+                            await dispatch(toggleFollow(item.author._id));
+                            setActionLoading(null);
+                          }}
+                          activeOpacity={0.9}
+                        >
+                          {actionLoading === `follow-${item.author._id}` ? (
+                            <ActivityIndicator
+                              color={isFollowing ? theme.text : theme.tint}
+                              size="small"
+                            />
+                          ) : (
+                            <Ionicons
+                              name={isFollowing ? "checkmark-circle-outline" : "person-add-outline"}
+                              size={18}
+                              color={
+                                isFollowing
+                                  ? isDark
+                                    ? "#FFFFFF"
+                                    : "#111827"
+                                  : theme.tint
+                              }
+                            />
+                          )}
+                          {/* {actionLoading === `follow-${item.author._id}` ? (
                           <ActivityIndicator color="#FFF" size="small" />
                         ) : (
                           <Text
@@ -1242,10 +1290,10 @@ export default function TweetsScreen() {
                               : t("tweetsScreen.follow")}
                           </Text>
                         )} */}
-                      </TouchableOpacity>
-                    )}
+                        </TouchableOpacity>
+                      )}
 
-                    {/* {!isOwnTweet && !isBlocked && (
+                      {/* {!isOwnTweet && !isBlocked && (
                       <TouchableOpacity
                         style={[
                           s.followBtn,
@@ -1261,42 +1309,51 @@ export default function TweetsScreen() {
                         ...
                       </TouchableOpacity>
                     )} */}
+                      <TouchableOpacity
+                        onPress={() => openSheet(item)}
+                        style={s.moreBtn}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons
+                          name="ellipsis-vertical"
+                          size={18}
+                          color={theme.icon}
+                        />
+                      </TouchableOpacity>
+
+                    </View>
+
                     <TouchableOpacity
-                      onPress={() => openSheet(item)}
-                      style={s.moreBtn}
-                      activeOpacity={0.85}
+                      activeOpacity={0.9}
+                      onPress={() => openTweet(item)}
                     >
-                      <Ionicons
-                        name="ellipsis-vertical"
-                        size={18}
-                        color={theme.icon}
+                      <ExpandableTweetText
+                        text={item.content}
+                        s={s}
+                        onPressMention={handleMentionPress}
+                        onPressHashtag={handleHashtagPress}
                       />
                     </TouchableOpacity>
 
-                  </View>
+                    {Array.isArray(item.media) && item.media.length > 0 && (
+                      <TweetMediaGrid
+                        media={item.media}
+                        s={s}
+                        onPressImage={openImagePreview}
+                      />
+                    )}
 
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => openTweet(item)}
-                  >
-                    <ExpandableTweetText
-                      text={item.content}
-                      s={s}
-                      onPressMention={handleMentionPress}
-                      onPressHashtag={handleHashtagPress}
-                    />
-                  </TouchableOpacity>
-
-                  {Array.isArray(item.media) && item.media.length > 0 && (
-                    <TweetMediaGrid
-                      media={item.media}
-                      s={s}
-                      onPressImage={openImagePreview}
-                    />
-                  )}
-
-                  {!Array.isArray(item.media) || item.media.length === 0 ? (
-                    detectedUrl ? (
+                    {!Array.isArray(item.media) || item.media.length === 0 ? (
+                      detectedUrl ? (
+                        <View style={{ marginTop: 10 }}>
+                          <LinkPreviewCard
+                            url={detectedUrl}
+                            preview={linkPreview}
+                            s={s}
+                          />
+                        </View>
+                      ) : null
+                    ) : detectedUrl ? (
                       <View style={{ marginTop: 10 }}>
                         <LinkPreviewCard
                           url={detectedUrl}
@@ -1304,49 +1361,44 @@ export default function TweetsScreen() {
                           s={s}
                         />
                       </View>
-                    ) : null
-                  ) : detectedUrl ? (
-                    <View style={{ marginTop: 10 }}>
-                      <LinkPreviewCard
-                        url={detectedUrl}
-                        preview={linkPreview}
+                    ) : null}
+
+                    <View style={s.actions}>
+                      <Action
                         s={s}
+                        loading={false}
+                        icon={displayIsLiked ? "heart" : "heart-outline"}
+                        value={displayLikesCount}
+                        color={displayIsLiked ? "#EF4444" : s._iconColor}
+                        textColor={displayIsLiked ? "#EF4444" : undefined}
+                        onPress={() => handleOptimisticLike(item)}
+                      />
+                      <Action
+                        s={s}
+                        loading={actionLoading === `retweet-${item._id}`}
+                        icon="repeat-outline"
+                        value={item.retweetsCount}
+                        color={item.isRetweeted ? "#22C55E" : s._iconColor}
+                        textColor={item.isRetweeted ? "#22C55E" : undefined}
+                        onPress={async () => {
+                          setActionLoading(`retweet-${item._id}`);
+                          await dispatch(toggleRetweet(item._id));
+                          setActionLoading(null);
+                        }}
+                      />
+
+                      <Action
+                        s={s}
+                        loading={false}
+                        icon="chatbubble-outline"
+                        value={item.repliesCount}
+                        onPress={() => openTweet(item)}
                       />
                     </View>
-                  ) : null}
-
-                  <View style={s.actions}>
-                    <Action
-                      s={s}
-                      loading={false}
-                      icon={displayIsLiked ? "heart" : "heart-outline"}
-                      value={displayLikesCount}
-                      color={displayIsLiked ? "#EF4444" : s._iconColor}
-                      textColor={displayIsLiked ? "#EF4444" : undefined}
-                      onPress={() => handleOptimisticLike(item)}
-                    />
-                    <Action
-                      s={s}
-                      loading={actionLoading === `retweet-${item._id}`}
-                      icon="repeat-outline"
-                      value={item.retweetsCount}
-                      onPress={async () => {
-                        setActionLoading(`retweet-${item._id}`);
-                        await dispatch(toggleRetweet(item._id));
-                        setActionLoading(null);
-                      }}
-                    />
-
-                    <Action
-                      s={s}
-                      loading={false}
-                      icon="chatbubble-outline"
-                      value={item.repliesCount}
-                      onPress={() => openTweet(item)}
-                    />
                   </View>
                 </View>
               </View>
+
             </Swipeable>
           );
         }}
@@ -1963,9 +2015,8 @@ function makeStyles(theme: any, isDark: boolean) {
       flexDirection: "row",
       gap: 10,
       paddingHorizontal: 12,
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.separator,
+      paddingTop: 10,
+      paddingBottom: 12,
       backgroundColor: theme.background,
     },
 
@@ -2049,7 +2100,6 @@ function makeStyles(theme: any, isDark: boolean) {
 
     readMoreBtn: {
       marginTop: 6,
-      alignSelf: "flex-start",
     },
 
     readMoreText: {
@@ -2077,7 +2127,29 @@ function makeStyles(theme: any, isDark: boolean) {
       flexDirection: "row",
       gap: 8,
     },
+    cardWrap: {
+      borderBottomWidth: 1,
+      borderBottomColor: theme.separator,
+      backgroundColor: theme.background,
+    },
 
+    retweetHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingLeft: 66,
+      paddingRight: 12,
+      paddingTop: 10,
+      paddingBottom: 2,
+      backgroundColor: theme.background,
+    },
+
+    retweetHeaderText: {
+      flex: 1,
+      fontSize: 12,
+      fontWeight: "900",
+      color: theme.mutedText,
+    },
     grid2Item: {
       flex: 1,
       height: 220,

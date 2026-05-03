@@ -4,10 +4,10 @@ import { useDrawer } from "@/context/DrawerContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { RootState } from "@/redux/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Image } from "expo-image";
 import { router, usePathname } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -96,7 +96,7 @@ export default function AppHeader() {
   };
   return (
     <View style={[s.wrap, { paddingTop: insets.top }]}>
-  
+
       <View style={s.container}>
 
 
@@ -115,10 +115,13 @@ export default function AppHeader() {
             <Image
               source={
                 user?.avatar
-                  ? { uri: user.avatar }
+                  ? { uri: String(user.avatar) }
                   : require("@/assets/images/default-avatar.png")
               }
               style={s.avatar}
+              contentFit="cover"
+              transition={0}
+              cachePolicy="memory-disk"
             />
             <View style={s.onlineDot} />
           </View>

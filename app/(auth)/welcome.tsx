@@ -6,7 +6,6 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { loginWithGoogle } from "@/redux/slices/authSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import { signInWithGoogle } from "@/services/googleAuth";
-import AntDesign from "@expo/vector-icons/AntDesign";
 import Feather from "@expo/vector-icons/Feather";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -270,7 +269,7 @@ export default function WelcomeScreen() {
           </View>
 
           <View style={styles.bottomArea}>
-            <Pressable
+            {/* <Pressable
               style={[styles.mainButton, loading && { opacity: 0.8 }]}
               onPress={goToGoogle}
               disabled={loading}
@@ -281,7 +280,7 @@ export default function WelcomeScreen() {
               <Text style={styles.mainButtonText}>
                 {t("welcomeScreen.googleLogin")}
               </Text>
-            </Pressable>
+            </Pressable> */}
 
             <Pressable style={styles.mainButton} onPress={goToPhone}>
               <View style={styles.buttonRightIcon}>

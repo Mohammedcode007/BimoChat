@@ -14,12 +14,11 @@ import {
   getSingleTweet,
   getTweetLikesUsers,
   removeOptimisticComment,
-  replaceOptimisticComment,
   replyToComment,
   toggleBookmark,
   toggleCommentLike,
   toggleLike,
-  toggleRetweet,
+  toggleRetweet
 } from '@/redux/slices/tweetSlice';
 import { AppDispatch, RootState } from '@/redux/store';
 import { Ionicons } from '@expo/vector-icons';
@@ -174,104 +173,94 @@ export default function TweetDetailsScreen() {
     setShowLikesModal(false);
     dispatch(clearLikesUsers());
   };
- const handleAddComment = () => {
-  const content = commentText.trim();
-  if (!content) return;
+  const handleAddComment = () => {
+    const content = commentText.trim();
+    if (!content) return;
 
-  const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-  const optimisticUser = {
-    _id: user?._id || user?.id || '',
-    username: user?.username || user?.displayName || user?.atUsername || 'user',
-    atUsername: user?.atUsername || user?.username || '',
-    avatar: user?.avatar || user?.avatarUrl || user?.profileImage || '',
-  };
+    const optimisticUser = {
+      _id: user?._id || user?.id || '',
+      username: user?.username || user?.displayName || user?.atUsername || 'user',
+      atUsername: user?.atUsername || user?.username || '',
+      avatar: user?.avatar || user?.avatarUrl || user?.profileImage || '',
+    };
 
-  const optimisticComment: CommentItem = {
-    _id: tempId,
-    tweet: id as string,
-    content,
-    user: optimisticUser,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    likesCount: 0,
-    repliesCount: 0,
-    isLiked: false,
-    parentComment: replyingTo?._id || null,
-    replies: [],
-  };
+    const parentCommentId = replyingTo?._id || null;
 
-  const parentCommentId = replyingTo?._id || null;
+    const optimisticComment: CommentItem = {
+      _id: tempId,
+      tweet: id as string,
+      content,
+      user: optimisticUser,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      likesCount: 0,
+      repliesCount: 0,
+      isLiked: false,
+      parentComment: parentCommentId,
+      replies: [],
+    };
 
-  // يظهر فورًا في الواجهة
-  if (parentCommentId) {
+    if (parentCommentId) {
+      dispatch(
+        addOptimisticReply({
+          parentCommentId,
+          reply: optimisticComment as any,
+        })
+      );
+    } else {
+      dispatch(addOptimisticComment(optimisticComment as any));
+    }
+
+    setCommentText('');
+    setReplyingTo(null);
+
+    setTimeout(() => {
+      flatListRef.current?.scrollToOffset?.({
+        offset: 0,
+        animated: true,
+      });
+    }, 80);
+
+    if (parentCommentId) {
+      dispatch(
+        replyToComment({
+          commentId: parentCommentId,
+          content,
+        })
+      )
+        .unwrap()
+        .then(() => {
+          // مهم: السيرفر/الـ slice أضاف الرد الحقيقي بالفعل
+          // لذلك نحذف المؤقت فقط حتى لا يظهر مرتين
+          dispatch(removeOptimisticComment(tempId));
+        })
+        .catch((error: any) => {
+          console.log('reply background error:', error);
+          dispatch(removeOptimisticComment(tempId));
+        });
+
+      return;
+    }
+
     dispatch(
-      addOptimisticReply({
-        parentCommentId,
-        reply: optimisticComment as any,
-      })
-    );
-  } else {
-    dispatch(addOptimisticComment(optimisticComment as any));
-  }
-
-  // امسح الإدخال فورًا
-  setCommentText('');
-  setReplyingTo(null);
-
-  setTimeout(() => {
-    flatListRef.current?.scrollToOffset?.({
-      offset: 0,
-      animated: true,
-    });
-  }, 80);
-
-  // السيرفر يعمل في الخلفية
-  if (parentCommentId) {
-    dispatch(
-      replyToComment({
-        commentId: parentCommentId,
+      addComment({
+        tweetId: id as string,
         content,
       })
     )
       .unwrap()
-      .then((res: any) => {
-        dispatch(
-          replaceOptimisticComment({
-            tempId,
-            realComment: res?.reply || res,
-          })
-        );
+      .then(() => {
+        // مهم: السيرفر/الـ slice أضاف الكومنت الحقيقي بالفعل
+        // لذلك نحذف المؤقت فقط حتى لا يظهر مرتين
+        dispatch(removeOptimisticComment(tempId));
       })
       .catch((error: any) => {
-        console.log('reply background error:', error);
+        console.log('comment background error:', error);
         dispatch(removeOptimisticComment(tempId));
       });
-
-    return;
-  }
-
-  dispatch(
-    addComment({
-      tweetId: id as string,
-      content,
-    })
-  )
-    .unwrap()
-    .then((res: any) => {
-      dispatch(
-        replaceOptimisticComment({
-          tempId,
-          realComment: res?.comment || res,
-        })
-      );
-    })
-    .catch((error: any) => {
-      console.log('comment background error:', error);
-      dispatch(removeOptimisticComment(tempId));
-    });
-};
-
+  };
   const handleShare = async () => {
     await Share.share({
       message: currentTweet?.content || '',
@@ -387,15 +376,15 @@ export default function TweetDetailsScreen() {
     const isRepliesLoaded = loadedReplies.length > 0;
     const isLoadingReplies = !!loadingRepliesMap[item._id];
     const isReplyLevel = depth > 0;
-const commentUser = item.user || {};
+    const commentUser = item.user || {};
 
-const commentUsername =
-  commentUser.username ||
-  commentUser.atUsername ||
-  t('tweetDetailsScreen.user');
+    const commentUsername =
+      commentUser.username ||
+      commentUser.atUsername ||
+      t('tweetDetailsScreen.user');
 
-const commentAtUsername =
-  commentUser.atUsername || commentUser.username || '';
+    const commentAtUsername =
+      commentUser.atUsername || commentUser.username || '';
     return (
       <View key={item._id}>
         <View
@@ -444,19 +433,19 @@ const commentAtUsername =
                 {commentUsername}
               </Text>
 
-         {!!commentAtUsername && (
-  <Text
-    style={[
-      styles.replyHandle,
-      { color: subtle as any, textAlign: isRTL ? 'right' : 'left' },
-    ]}
-    numberOfLines={1}
-  >
-    {commentAtUsername.startsWith('@')
-      ? commentAtUsername
-      : `@${commentAtUsername}`}
-  </Text>
-)}
+              {!!commentAtUsername && (
+                <Text
+                  style={[
+                    styles.replyHandle,
+                    { color: subtle as any, textAlign: isRTL ? 'right' : 'left' },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {commentAtUsername.startsWith('@')
+                    ? commentAtUsername
+                    : `@${commentAtUsername}`}
+                </Text>
+              )}
             </View>
 
             <Text
@@ -490,32 +479,32 @@ const commentAtUsername =
                 <Text style={[styles.replyMiniText, { color: theme.mutedText }]}>0</Text>
               </TouchableOpacity>
 
-         <View style={styles.replyMiniBtn}>
-  <TouchableOpacity
-    activeOpacity={0.85}
-    onPress={() => dispatch(toggleCommentLike(item._id))}
-  >
-    <Ionicons
-      name={item.isLiked ? 'heart' : 'heart-outline'}
-      size={16}
-      color={item.isLiked ? '#EF4444' : theme.mutedText}
-    />
-  </TouchableOpacity>
+              <View style={styles.replyMiniBtn}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => dispatch(toggleCommentLike(item._id))}
+                >
+                  <Ionicons
+                    name={item.isLiked ? 'heart' : 'heart-outline'}
+                    size={16}
+                    color={item.isLiked ? '#EF4444' : theme.mutedText}
+                  />
+                </TouchableOpacity>
 
-  <TouchableOpacity
-    activeOpacity={0.85}
-    onPress={() => openCommentLikes(item._id)}
-  >
-    <Text
-      style={[
-        styles.replyMiniText,
-        { color: item.isLiked ? '#EF4444' : theme.mutedText },
-      ]}
-    >
-      {formatCount(item.likesCount)}
-    </Text>
-  </TouchableOpacity>
-</View>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => openCommentLikes(item._id)}
+                >
+                  <Text
+                    style={[
+                      styles.replyMiniText,
+                      { color: item.isLiked ? '#EF4444' : theme.mutedText },
+                    ]}
+                  >
+                    {formatCount(item.likesCount)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity activeOpacity={0.85} style={styles.replyMiniBtn}>
                 <Ionicons name="share-social-outline" size={16} color={theme.mutedText} />
                 <Text style={[styles.replyMiniText, { color: theme.mutedText }]}>0</Text>
@@ -990,17 +979,15 @@ const commentAtUsername =
                   ]}
                   numberOfLines={1}
                 >
-       {language === 'ar'
-  ? `الرد على ${
-      replyingTo.user?.username ||
-      replyingTo.user?.atUsername ||
-      t('tweetDetailsScreen.user')
-    }`
-  : `Replying to ${
-      replyingTo.user?.username ||
-      replyingTo.user?.atUsername ||
-      t('tweetDetailsScreen.user')
-    }`}
+                  {language === 'ar'
+                    ? `الرد على ${replyingTo.user?.username ||
+                    replyingTo.user?.atUsername ||
+                    t('tweetDetailsScreen.user')
+                    }`
+                    : `Replying to ${replyingTo.user?.username ||
+                    replyingTo.user?.atUsername ||
+                    t('tweetDetailsScreen.user')
+                    }`}
                 </Text>
               </View>
 
@@ -1060,25 +1047,25 @@ const commentAtUsername =
                 }}
               />
 
-            <TouchableOpacity
-  onPress={handleAddComment}
-  activeOpacity={0.85}
-  style={[
-    styles.sendBtn,
-    {
-      backgroundColor: commentText.trim()
-        ? theme.primary
-        : theme.surface2,
-    },
-  ]}
-  disabled={!commentText.trim()}
->
-  <Ionicons
-    name="send"
-    size={18}
-    color={commentText.trim() ? theme.primaryText : theme.mutedText}
-  />
-</TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleAddComment}
+                activeOpacity={0.85}
+                style={[
+                  styles.sendBtn,
+                  {
+                    backgroundColor: commentText.trim()
+                      ? theme.primary
+                      : theme.surface2,
+                  },
+                ]}
+                disabled={!commentText.trim()}
+              >
+                <Ionicons
+                  name="send"
+                  size={18}
+                  color={commentText.trim() ? theme.primaryText : theme.mutedText}
+                />
+              </TouchableOpacity>
             </View>
           </View>
         </Animated.View>
@@ -1171,7 +1158,7 @@ const commentAtUsername =
           </Pressable>
         </Pressable>
       </Modal>
-            <Modal visible={showLikesModal} transparent animationType="fade">
+      <Modal visible={showLikesModal} transparent animationType="fade">
         <Pressable style={styles.modalOverlay} onPress={closeLikesModal}>
           <Pressable
             style={[

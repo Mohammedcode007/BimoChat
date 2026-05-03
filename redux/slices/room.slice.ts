@@ -225,7 +225,25 @@ export type RoomGameType =
   | "xo"
   | "duel"
   | "cards"
-  | "luck";
+  | "luck"
+  | "bomb";
+  export type BombColor = "red" | "green" | "blue";
+
+export type BombColorPayload = {
+  game?: "bomb_color";
+  challengeId?: string;
+
+  attackerId?: string;
+  attackerName?: string;
+
+  targetId?: string;
+  targetName?: string;
+
+  stake?: number;
+
+  colors?: string[];
+  expiresAt?: number | string | null;
+};
 export type RoomMessageSender = RoomUser | string | null;
 export type RoomReactionUser = string | UserPublicSnapshot;
 
@@ -252,15 +270,22 @@ export type RoomMessage = {
   };
 
   gameType?: RoomGameType;
-
-  game?: {
-    gameId?: string;
-    title?: string;
-    state?: string;
-    turnUserId?: string;
-    winnerUserId?: string;
-    payload?: any;
-  };
+game?: {
+  gameId?: string;
+  title?: string;
+  state?: string;
+  turnUserId?: string;
+  winnerUserId?: string;
+  payload?: any | BombColorPayload;
+};
+  // game?: {
+  //   gameId?: string;
+  //   title?: string;
+  //   state?: string;
+  //   turnUserId?: string;
+  //   winnerUserId?: string;
+  //   payload?: any;
+  // };
   optimistic?: boolean; // اختياري
   failed?: boolean;     // اختياري
   sender?: RoomMessageSender;
@@ -973,6 +998,15 @@ export const enterRoomDirect = createAsyncThunk<
     return thunkAPI.rejectWithValue(errMsg(e, "Enter room failed"));
   }
 });
+const bombColorToMessageText = (color: BombColor) => {
+  if (color === "red") return "أحمر";
+  if (color === "green") return "أخضر";
+  return "أزرق";
+};
+
+const createClientId = (prefix = "msg") => {
+  return `${prefix}:${Date.now()}:${Math.random().toString(16).slice(2, 8)}`;
+};
 /* ================= MESSAGES ================= */
 
 export const sendRoomMessage = createAsyncThunk<
@@ -1012,6 +1046,49 @@ export const sendRoomMessage = createAsyncThunk<
     return thunkAPI.rejectWithValue(errMsg(e, "Send failed"));
   }
 });
+export const sendBombColorAnswer = createAsyncThunk<
+  { roomId: string; message: RoomMessage },
+  {
+    roomId: string;
+    color: BombColor;
+    challengeId?: string;
+  },
+  { state: RootState }
+>(
+  "room/sendBombColorAnswer",
+  async ({ roomId, color, challengeId }, thunkAPI) => {
+    try {
+      const content = bombColorToMessageText(color);
+
+      const result = await thunkAPI
+        .dispatch(
+          sendRoomMessage({
+            roomId,
+            clientId: createClientId("bomb-answer"),
+            type: "text",
+            content,
+
+            // اختياري فقط للتمييز في الفرونت
+            gameType: "bomb",
+            game: {
+              title: "Bomb Color",
+              state: "answer",
+              payload: {
+                game: "bomb_color",
+                challengeId: challengeId || "",
+                chosenColor: color,
+              },
+            },
+          })
+        )
+        .unwrap();
+
+      return result;
+    } catch (e: any) {
+      return thunkAPI.rejectWithValue(errMsg(e, "Bomb answer failed"));
+    }
+  }
+);
 export const fetchRoomMessages = createAsyncThunk<
   { roomId: string; messages: RoomMessage[]; append: boolean },
   { roomId: string; pagination?: Pagination; append?: boolean },

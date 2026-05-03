@@ -199,6 +199,55 @@ export const fetchMyFullUser = createAsyncThunk<UserFull, void, { rejectValue: s
     }
   }
 );
+export const createPaidAccount = createAsyncThunk<
+  {
+    success: boolean;
+    cost: number;
+    credentials: { username: string; password: string };
+    user: any;
+  },
+  { username: string; password: string },
+  { rejectValue: string }
+>(
+  "user/createPaidAccount",
+  async ({ username, password }, { rejectWithValue }) => {
+    try {
+      console.log("🟡 [createPaidAccount thunk] START", {
+        username,
+        passwordLength: String(password || "").length,
+      });
+
+      const res = await api.post("/auth/coinz/create-account", {
+        username,
+        password,
+      });
+
+      console.log("✅ [createPaidAccount thunk] SUCCESS", {
+        status: res.status,
+        data: res.data,
+      });
+
+      return res.data;
+    } catch (e: any) {
+      console.log("❌ [createPaidAccount thunk] FAILED", {
+        message: e?.message,
+        status: e?.response?.status,
+        data: e?.response?.data,
+        url: e?.config?.url,
+        baseURL: e?.config?.baseURL,
+        method: e?.config?.method,
+      });
+
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        e?.message ||
+        "Failed to create account";
+
+      return rejectWithValue(String(msg));
+    }
+  }
+);
 // ✅ POST /auth/register  (بدون حفظ token/user)
 export const registerNoLogin = createAsyncThunk<
   { credentials: { username: string; password: string } },

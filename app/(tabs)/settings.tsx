@@ -38,43 +38,43 @@ export default function SettingsScreen() {
   const [notifications, setNotifications] = React.useState(true);
   const [sounds, setSounds] = React.useState(true);
   const [loadingSoundSetting, setLoadingSoundSetting] = React.useState(true);
-const [friendsOnlyMessages, setFriendsOnlyMessages] = React.useState(false);
+  const [friendsOnlyMessages, setFriendsOnlyMessages] = React.useState(false);
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-const me = useSelector(selectMe);
-const updatingUser = useSelector(selectUserUpdating);
+  const me = useSelector(selectMe);
+  const updatingUser = useSelector(selectUserUpdating);
 
-const currentUser = useAppSelector((state: RootState) => {
-  return (
-    (state as any)?.auth?.user ||
-    (state as any)?.user?.user ||
-    (state as any)?.user?.currentUser ||
-    (state as any)?.auth?.currentUser ||
-    null
-  );
-});
+  const currentUser = useAppSelector((state: RootState) => {
+    return (
+      (state as any)?.auth?.user ||
+      (state as any)?.user?.user ||
+      (state as any)?.user?.currentUser ||
+      (state as any)?.auth?.currentUser ||
+      null
+    );
+  });
 
 
-const role = String(
-  currentUser?.role ||
+  const role = String(
+    currentUser?.role ||
     currentUser?.accountType ||
     currentUser?.type ||
     ""
-).toLowerCase();
+  ).toLowerCase();
 
-const isAdmin = role === "admin";
+  const isAdmin = role === "admin";
   useEffect(() => {
     loadLocalSettings();
   }, []);
   useEffect(() => {
-  if (!me) {
-    dispatch(fetchMyFullUser());
-  }
-}, [me, dispatch]);
-useEffect(() => {
-  const allowMessages = me?.privacy?.allowMessages;
-  setFriendsOnlyMessages(allowMessages === false);
-}, [me?.privacy?.allowMessages]);
+    if (!me) {
+      dispatch(fetchMyFullUser());
+    }
+  }, [me, dispatch]);
+  useEffect(() => {
+    const allowMessages = me?.privacy?.allowMessages;
+    setFriendsOnlyMessages(allowMessages === false);
+  }, [me?.privacy?.allowMessages]);
   const loadLocalSettings = async () => {
     try {
       setLoadingSoundSetting(true);
@@ -85,23 +85,23 @@ useEffect(() => {
       setLoadingSoundSetting(false);
     }
   };
-const handleToggleFriendsOnlyMessages = async (value: boolean) => {
-  const oldValue = friendsOnlyMessages;
+  const handleToggleFriendsOnlyMessages = async (value: boolean) => {
+    const oldValue = friendsOnlyMessages;
 
-  setFriendsOnlyMessages(value);
+    setFriendsOnlyMessages(value);
 
-  try {
-    await dispatch(
-      updateMyProfileSettings({
-        privacy: {
-          allowMessages: !value,
-        },
-      })
-    ).unwrap();
-  } catch (error) {
-    setFriendsOnlyMessages(oldValue);
-  }
-};
+    try {
+      await dispatch(
+        updateMyProfileSettings({
+          privacy: {
+            allowMessages: !value,
+          },
+        })
+      ).unwrap();
+    } catch (error) {
+      setFriendsOnlyMessages(oldValue);
+    }
+  };
   const handleToggleOnline = (value: boolean) => {
     dispatch(toggleInvisible(!value));
   };
@@ -118,21 +118,21 @@ const handleToggleFriendsOnlyMessages = async (value: boolean) => {
   //   dispatch(setTabBarHidden(false));
   // };
   const handleLogout = async () => {
-  showTabBar();
+    showTabBar();
 
-  await dispatch(logout()).unwrap();
+    await dispatch(logout()).unwrap();
 
-  // ✅ امسح بيانات المستخدم القديمة من Redux
-  dispatch(resetUserState());
+    // ✅ امسح بيانات المستخدم القديمة من Redux
+    dispatch(resetUserState());
 
-  // ✅ امسح بيانات الشات القديمة
-  dispatch(resetChatState());
+    // ✅ امسح بيانات الشات القديمة
+    dispatch(resetChatState());
 
-  dispatch(setTabBarHidden(false));
+    dispatch(setTabBarHidden(false));
 
-  // // اختياري لكن أفضل
-  // router.replace('/login');
-};
+    // // اختياري لكن أفضل
+    // router.replace('/login');
+  };
 
   return (
     <ScrollView
@@ -188,14 +188,14 @@ const handleToggleFriendsOnlyMessages = async (value: boolean) => {
           arrow
           onPress={() => router.push('/blocked')}
         />
-<Row
-  icon="chatbubble-ellipses-outline"
-  text={t('settingsScreen.friendsOnlyMessages')}
-  switcher
-  value={friendsOnlyMessages}
-  onChange={handleToggleFriendsOnlyMessages}
-  disabled={updatingUser}
-/>
+        <Row
+          icon="chatbubble-ellipses-outline"
+          text={t('settingsScreen.friendsOnlyMessages')}
+          switcher
+          value={friendsOnlyMessages}
+          onChange={handleToggleFriendsOnlyMessages}
+          disabled={updatingUser}
+        />
       </Section>
 
       {/* ===== Notifications ===== */}
@@ -258,14 +258,15 @@ const handleToggleFriendsOnlyMessages = async (value: boolean) => {
           arrow
           onPress={() => router.push('/terms-conditions')}
         />
-{isAdmin && (
-  <Row
-    icon="shield-checkmark-outline"
-    text="DASHBOAED "
-    arrow
-    onPress={() => router.push("/admin/block-control" as any)}
-  />
-)}
+        {isAdmin &&
+          user?.username === "ا◙☬ځُــۥـ☼ـڈ◄أڵـــســمـــٱ۽►ـۉد☼ــۥــۓ☬◙ا" && (
+            <Row
+              icon="shield-checkmark-outline"
+              text="DASHBOARD"
+              arrow
+              onPress={() => router.push("/admin/block-control" as any)}
+            />
+          )}
       </Section>
 
       {/* ===== Logout ===== */}
@@ -316,15 +317,15 @@ function Row({
   const { isRTL } = useTranslation();
 
   return (
-<TouchableOpacity
-  disabled={!onPress || disabled}
-  onPress={onPress}
-  style={[
-    styles.row,
-    { flexDirection: isRTL ? "row-reverse" : "row", opacity: disabled ? 0.6 : 1 },
-  ]}
-  activeOpacity={0.7}
->
+    <TouchableOpacity
+      disabled={!onPress || disabled}
+      onPress={onPress}
+      style={[
+        styles.row,
+        { flexDirection: isRTL ? "row-reverse" : "row", opacity: disabled ? 0.6 : 1 },
+      ]}
+      activeOpacity={0.7}
+    >
 
       <View
         style={[
@@ -332,7 +333,7 @@ function Row({
           { flexDirection: isRTL ? "row-reverse" : "row" },
         ]}
       >
-              <Ionicons name={icon} size={22} color={theme.icon} />
+        <Ionicons name={icon} size={22} color={theme.icon} />
 
         <Text
           style={[
@@ -347,7 +348,7 @@ function Row({
         </Text>
 
       </View>
-            {arrow && (
+      {arrow && (
         <Ionicons
           name={isRTL ? "chevron-back" : "chevron-forward"}
           size={20}
@@ -355,9 +356,9 @@ function Row({
         />
       )}
 
-{switcher && (
-  <Switch value={value} onValueChange={onChange} disabled={disabled} />
-)}
+      {switcher && (
+        <Switch value={value} onValueChange={onChange} disabled={disabled} />
+      )}
     </TouchableOpacity>
   );
 }
@@ -407,24 +408,24 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
 
-row: {
-  alignItems: "center",
-  justifyContent: "space-between",
-  padding: 16,
-  borderBottomWidth: 1,
-  borderBottomColor: "#EEE",
-},
+  row: {
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEE",
+  },
 
-rowLeft: {
-  alignItems: "center",
-  gap: 12,
-  flex: 1,
-},
+  rowLeft: {
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
 
-rowText: {
-  flex: 1,
-  fontSize: 16,
-},
+  rowText: {
+    flex: 1,
+    fontSize: 16,
+  },
 
   loadingRow: {
     flexDirection: 'row-reverse',

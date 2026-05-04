@@ -299,6 +299,42 @@ export const logout = createAsyncThunk("auth/logout", async (_, thunkAPI) => {
   }
 });
 
+export const leaveAllActiveRooms = createAsyncThunk<
+  {
+    success: boolean;
+    leftRooms: number;
+    roomIds: string[];
+    message?: string;
+  },
+  void,
+  { rejectValue: string }
+>(
+  "room/leaveAllActiveRooms",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.post("/rooms/leave-all-active");
+
+      const data = res.data?.data || res.data;
+
+      return {
+        success: Boolean(data?.success ?? res.data?.success ?? true),
+        leftRooms: Number(data?.leftRooms || 0),
+        roomIds: Array.isArray(data?.roomIds)
+          ? data.roomIds.map(String)
+          : [],
+        message: String(res.data?.message || data?.message || ""),
+      };
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        e?.message ||
+        "Failed to leave active rooms";
+
+      return rejectWithValue(String(msg));
+    }
+  }
+);
 /* =====================================================
    TOGGLE INVISIBLE
 ===================================================== */

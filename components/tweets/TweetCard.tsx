@@ -180,7 +180,7 @@ export function TweetCard({
                 </View>
               </View>
 
-              {!isOwnTweet && (
+              {/* {!isOwnTweet && (
                 <TouchableOpacity
                   style={[
                     s.followBtn,
@@ -212,7 +212,7 @@ export function TweetCard({
                     />
                   )}
                 </TouchableOpacity>
-              )}
+              )} */}
 
               <TouchableOpacity
                 onPress={() => onOpenSheet(item)}

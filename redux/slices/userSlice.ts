@@ -54,14 +54,20 @@ export type UpdateLocationPayload = {
   country?: string;
   city?: string;
 };
-
+export type MarkRelatedNotificationsPayload = {
+  relatedChat?: string;
+  relatedTweet?: string;
+  relatedMessage?: string;
+  relatedRoom?: string;
+  types?: string[];
+};
 export type UserFull = {
   _id: string;
 
   username: string;
   atUsername: string;
   email?: string;
-
+friendsCount?: number;
   role: UserRole;
 
   isOnline: boolean;
@@ -178,10 +184,18 @@ const initialState: SliceState = {
 
 // Helpers: backend may return {success,data} OR {data} OR direct object
 const pickUserFromApi = (res: any): UserFull => {
-  const u = res?.data?.data ?? res?.data ?? res;
-  return u as UserFull;
-};
+  const u =
+    res?.data?.user ??
+    res?.data?.data ??
+    res?.data?.profileUser ??
+    res?.data ??
+    res;
 
+  return {
+    ...(u as UserFull),
+    friendsCount: Number((u as any)?.friendsCount ?? 0),
+  };
+};
 /* =========================
    ✅ Thunks
 ========================= */
@@ -196,6 +210,37 @@ export const fetchMyFullUser = createAsyncThunk<UserFull, void, { rejectValue: s
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || "Failed to load user";
       return rejectWithValue(msg);
+    }
+  }
+);
+// PATCH /notifications/mark-related-read
+export const markRelatedNotificationsAsRead = createAsyncThunk<
+  {
+    success: boolean;
+    matchedCount: number;
+    modifiedCount: number;
+  },
+  MarkRelatedNotificationsPayload,
+  { rejectValue: string }
+>(
+  "user/markRelatedNotificationsAsRead",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const res = await api.patch("/notifications/mark-related-read", payload);
+
+      return {
+        success: Boolean(res.data?.success),
+        matchedCount: Number(res.data?.matchedCount || 0),
+        modifiedCount: Number(res.data?.modifiedCount || 0),
+      };
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        e?.message ||
+        "Failed to mark related notifications as read";
+
+      return rejectWithValue(String(msg));
     }
   }
 );

@@ -4,8 +4,9 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useHideTabBarOnScroll } from '@/hooks/useHideTabBarOnScroll';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAppSelector } from '@/redux/hooks';
-import { logout, toggleInvisible } from '@/redux/slices/authSlice';
+import { leaveAllActiveRooms, logout, toggleInvisible } from '@/redux/slices/authSlice';
 import { resetChatState } from '@/redux/slices/chatSlice';
+import { resetRoomState, setActiveRoom } from '@/redux/slices/room.slice';
 import { setTabBarHidden } from '@/redux/slices/ui.slice';
 import { fetchMyFullUser, resetUserState, selectMe, selectUserUpdating, updateMyProfileSettings } from '@/redux/slices/userSlice';
 import { AppDispatch, RootState } from '@/redux/store';
@@ -13,6 +14,7 @@ import {
   getNotificationSoundEnabled,
   setNotificationSoundEnabled,
 } from '@/services/localSettings.service';
+import { disconnectSocket } from '@/services/socket';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
@@ -111,28 +113,84 @@ export default function SettingsScreen() {
     await setNotificationSoundEnabled(value);
   };
 
-  // const handleLogout = async () => {
-  //   showTabBar();
-  //   await dispatch(logout());
-  //   dispatch(resetChatState());
-  //   dispatch(setTabBarHidden(false));
-  // };
-  const handleLogout = async () => {
+const handleLogout = async () => {
+  try {
     showTabBar();
 
+
+
+    /**
+     * 1) اخرج من كل الغرف أولًا قبل فصل السوكيت وقبل مسح التوكن
+     */
+    try {
+      await dispatch(leaveAllActiveRooms()).unwrap();
+    } catch (e) {
+      // لا تمنع تسجيل الخروج لو فشل طلب الخروج من الغرف
+    }
+
+    /**
+     * 2) نظف بيانات الغرف محليًا حتى لا تظهر رسائل قديمة بعد تسجيل الدخول مرة أخرى
+     */
+    dispatch(setActiveRoom(undefined));
+    dispatch(resetRoomState());
+
+    /**
+     * 3) افصل السوكيت بعد تسجيل الخروج من الغرف في الباك
+     */
+    disconnectSocket();
+
+    /**
+     * 4) سجل خروج بعد ذلك
+     */
     await dispatch(logout()).unwrap();
 
-    // ✅ امسح بيانات المستخدم القديمة من Redux
+    /**
+     * 5) امسح بيانات المستخدم والشات القديمة من Redux
+     */
     dispatch(resetUserState());
-
-    // ✅ امسح بيانات الشات القديمة
     dispatch(resetChatState());
 
     dispatch(setTabBarHidden(false));
 
-    // // اختياري لكن أفضل
-    // router.replace('/login');
-  };
+    router.replace("/login");
+  } catch (e) {
+    /**
+     * fallback:
+     * حتى لو حصل خطأ، نظف محليًا واخرج المستخدم من الواجهة
+     */
+   
+
+    dispatch(setActiveRoom(undefined));
+    dispatch(resetRoomState());
+    dispatch(resetUserState());
+    dispatch(resetChatState());
+    dispatch(setTabBarHidden(false));
+
+    disconnectSocket();
+
+    try {
+      await dispatch(logout()).unwrap();
+    } catch {}
+
+    router.replace("/login");
+  }
+};
+  // const handleLogout = async () => {
+  //   showTabBar();
+
+  //   await dispatch(logout()).unwrap();
+
+  //   // ✅ امسح بيانات المستخدم القديمة من Redux
+  //   dispatch(resetUserState());
+
+  //   // ✅ امسح بيانات الشات القديمة
+  //   dispatch(resetChatState());
+
+  //   dispatch(setTabBarHidden(false));
+
+  //   // // اختياري لكن أفضل
+  //   // router.replace('/login');
+  // };
 
   return (
     <ScrollView

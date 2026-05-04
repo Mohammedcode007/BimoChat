@@ -17,7 +17,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import DrawerContent from "./DrawerContent";
 
 const { width } = Dimensions.get("window");
 const DRAWER_WIDTH = Math.min(width * 0.70, 300);
@@ -142,7 +141,6 @@ export default function ModernDrawer({ children }: ModernDrawerProps) {
                   ]}
                 />
 
-                <DrawerContent onClose={closeDrawer} />
               </View>
             </Animated.View>
           </>

@@ -2,7 +2,6 @@
 
 import { AppTheme, Colors, ThemeName } from "@/constants/theme";
 import { useTranslation } from "@/hooks/useTranslation";
-import { getFriends } from "@/redux/slices/friendSlice";
 import { fetchUserProfile } from "@/redux/slices/userSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -726,18 +725,7 @@ export default function ProfileScreen() {
     if (!clean) return;
     await Clipboard.setStringAsync(clean);
   };
-  useEffect(() => {
-    const loadAll = async () => {
-      try {
-        await Promise.all([
-          dispatch(getFriends()).unwrap(),
-        ]);
-      } catch (e) {
-      }
-    };
 
-    loadAll();
-  }, [dispatch]);
 
   const displayCountryName = toDisplay(user?.country || copy.unspecified);
   const displayCountryFlag = getCountryFlag(user);
@@ -745,9 +733,8 @@ export default function ProfileScreen() {
   const displayAge = computeAge(user?.dateOfBirth, (user as any)?.age);
   const displaySince = formatSince((user as any)?.createdAt);
   const displayViews = toDisplay(user?.profileViews);
-  const displayFriends = String(
-    useSelector((state: RootState) => state.friends.friends)?.length || 0
-  );
+const displayFriends = toDisplay(user?.friendsCount ?? 0);
+
   const displayFollowers = toDisplay(user?.followersCount);
   const displayFollowing = toDisplay(user?.followingCount);
   const displayGiftIn = toDisplay((user as any)?.giftsReceivedCount);

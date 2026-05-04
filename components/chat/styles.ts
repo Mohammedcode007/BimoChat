@@ -14,7 +14,54 @@ export const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     zIndex: 20,
   },
+actionsOverlay: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.25)",
+  justifyContent: "flex-end",
+  paddingHorizontal: 12,
+  paddingBottom: 20,
+},
 
+actionsBox: {
+  width: "100%",
+  borderWidth: 1,
+  borderRadius: 22,
+  paddingVertical: 8,
+  overflow: "hidden",
+  elevation: 10,
+
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.18,
+  shadowRadius: 16,
+},
+
+actionsItem: {
+  minHeight: 52,
+  paddingHorizontal: 16,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+},
+
+actionsText: {
+  fontSize: 15,
+  fontWeight: "800",
+},
+
+actionsCancel: {
+  minHeight: 48,
+  marginTop: 4,
+  borderTopWidth: StyleSheet.hairlineWidth,
+  borderTopColor: "rgba(148,163,184,0.25)",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+actionsCancelText: {
+  fontSize: 15,
+  fontWeight: "900",
+},
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
@@ -419,7 +466,23 @@ replyPreviewText: {
   fontWeight: "400",
   includeFontPadding: false,
 },
+scrollToBottomBtn: {
+  position: "absolute",
+  right: 18,
+  width: 44,
+  height: 44,
+  borderRadius: 22,
+  alignItems: "center",
+  justifyContent: "center",
+  borderWidth: 1,
+  zIndex: 100,
+  elevation: 8,
 
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.18,
+  shadowRadius: 8,
+},
 highlightText: {
   backgroundColor: "#FDE68A",
   color: "#111827",

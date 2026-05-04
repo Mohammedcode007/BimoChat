@@ -2491,16 +2491,16 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActionSheetIOS,
   ActivityIndicator,
   Alert,
   FlatList,
   ListRenderItem,
+  Modal,
   Platform,
   Pressable,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 import { useKeyboardHandler } from "react-native-keyboard-controller";
@@ -2550,6 +2550,7 @@ import { unblockUser } from "@/redux/slices/friendSlice";
 import {
   fetchBlockStatus,
   fetchUserProfile,
+  markRelatedNotificationsAsRead,
 } from "@/redux/slices/userSlice";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -2588,6 +2589,7 @@ export default function ChatScreen() {
 
   const keyboardHeight = useSharedValue(0);
   const flatListRef = useRef<FlatList<any>>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const typingTimeout = useRef<any>(null);
   const searchTimeout = useRef<any>(null);
@@ -2616,7 +2618,8 @@ export default function ChatScreen() {
   >(null);
 
   const [replyToMessage, setReplyToMessage] = useState<ReplyState>(null);
-
+const [actionsVisible, setActionsVisible] = useState(false);
+const [actionsMessage, setActionsMessage] = useState<MessageItem | null>(null);
   useKeyboardHandler(
     {
       onMove: (e) => {
@@ -2743,7 +2746,20 @@ export default function ChatScreen() {
       setRel("none");
     }
   }, [blockStatus?.blockedByMe, blockStatus?.blockedMe]);
+const markChatNotificationsAsRead = async () => {
+  try {
+    if (!chatId) return;
 
+    await dispatch(
+      markRelatedNotificationsAsRead({
+        relatedChat: chatId,
+        types: ["message", "mention", "room_invite"],
+      }) as any
+    ).unwrap?.();
+  } catch (e) {
+    // لا تعطل فتح المحادثة لو فشل تصفير الإشعارات
+  }
+};
   useEffect(() => {
     if (!chatId) return;
     if (!currentUser?._id) return;
@@ -2754,6 +2770,7 @@ export default function ChatScreen() {
       try {
         dispatch(setActiveChat(chatId));
         joinChatRoom(chatId);
+await markChatNotificationsAsRead();
 
         const cached = await loadMessagesFromCache(currentUser._id!, chatId);
 
@@ -3021,7 +3038,14 @@ export default function ChatScreen() {
 
     await scrollToMessageIfLoaded(item._id);
   };
+  const scrollToBottom = () => {
+    flatListRef.current?.scrollToOffset({
+      offset: 0,
+      animated: true,
+    });
 
+    setShowScrollToBottom(false);
+  };
   const closeSearch = () => {
     setSearchOpen(false);
     setSelectedSearchIndex(0);
@@ -3259,92 +3283,63 @@ export default function ChatScreen() {
     }
   };
 
-  const openMessageActions = (item: MessageItem) => {
-    const isMe = String(item.sender) === String(currentUser?._id);
+ const closeMessageActions = () => {
+  setActionsVisible(false);
+  setActionsMessage(null);
+};
 
-    const options = ["Reply", "Delete for me"];
+const openMessageActions = (item: MessageItem) => {
+  setActionsMessage(item);
+  setActionsVisible(true);
+};
 
-    const actions: Array<() => void> = [
-      () => {
-        setReplyToMessage({
-          _id: item._id,
-          content: item.content,
-          type: item.type,
-          sender: String(item.sender),
-          media: item.media,
-        });
-      },
-      () => {
-        Alert.alert("حذف الرسالة", "هل تريد حذف الرسالة لديك فقط؟", [
-          { text: "إلغاء", style: "cancel" },
-          {
-            text: "حذف",
-            style: "destructive",
-            onPress: () => handleDeleteMessage(item._id, "me"),
-          },
-        ]);
-      },
-    ];
+const handleReplyFromActions = () => {
+  if (!actionsMessage) return;
 
-    if (isMe) {
-      options.push("Delete for everyone");
+  setReplyToMessage({
+    _id: actionsMessage._id,
+    content: actionsMessage.content,
+    type: actionsMessage.type,
+    sender: String(actionsMessage.sender),
+    media: actionsMessage.media,
+  });
 
-      actions.push(() => {
-        Alert.alert("حذف للجميع", "هل تريد حذف الرسالة لدى الجميع؟", [
-          { text: "إلغاء", style: "cancel" },
-          {
-            text: "حذف",
-            style: "destructive",
-            onPress: () => handleDeleteMessage(item._id, "everyone"),
-          },
-        ]);
-      });
-    }
+  closeMessageActions();
+};
 
-    options.push("Cancel");
+const handleDeleteForMeFromActions = () => {
+  if (!actionsMessage) return;
 
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options,
-          cancelButtonIndex: options.length - 1,
-          destructiveButtonIndex: isMe ? ([1, 2] as any) : 1,
-        },
-        (buttonIndex) => {
-          if (buttonIndex < actions.length) {
-            actions[buttonIndex]();
-          }
-        }
-      );
+  const messageId = actionsMessage._id;
 
-      return;
-    }
+  closeMessageActions();
 
-    Alert.alert("خيارات الرسالة", "اختر الإجراء المطلوب", [
-      {
-        text: "Reply",
-        onPress: actions[0],
-      },
-      {
-        text: "Delete for me",
-        style: "destructive",
-        onPress: actions[1],
-      },
-      ...(isMe
-        ? [
-          {
-            text: "Delete for everyone",
-            style: "destructive" as const,
-            onPress: actions[2],
-          },
-        ]
-        : []),
-      {
-        text: "إلغاء",
-        style: "cancel",
-      },
-    ]);
-  };
+  Alert.alert("حذف الرسالة", "هل تريد حذف الرسالة لديك فقط؟", [
+    { text: "إلغاء", style: "cancel" },
+    {
+      text: "حذف",
+      style: "destructive",
+      onPress: () => handleDeleteMessage(messageId, "me"),
+    },
+  ]);
+};
+
+const handleDeleteForEveryoneFromActions = () => {
+  if (!actionsMessage) return;
+
+  const messageId = actionsMessage._id;
+
+  closeMessageActions();
+
+  Alert.alert("حذف للجميع", "هل تريد حذف الرسالة لدى الجميع؟", [
+    { text: "إلغاء", style: "cancel" },
+    {
+      text: "حذف",
+      style: "destructive",
+      onPress: () => handleDeleteMessage(messageId, "everyone"),
+    },
+  ]);
+};
 
   const findMessageById = (messageId?: string) => {
     if (!messageId) return null;
@@ -3352,20 +3347,35 @@ export default function ChatScreen() {
     return messages.find((m: { _id: string }) => m._id === messageId) || null;
   };
 
-const renderHighlightedText = (
-  content: string,
-  query: string,
-  isMe: boolean,
-  isActiveResult: boolean
-) => {
-  const textValue = String(content || "");
-  const q = String(query || "").trim();
+  const renderHighlightedText = (
+    content: string,
+    query: string,
+    isMe: boolean,
+    isActiveResult: boolean
+  ) => {
+    const textValue = String(content || "");
+    const q = String(query || "").trim();
 
-  const baseTextStyle = isMe
-    ? styles.meText
-    : [styles.otherText, { color: isDark ? "#E5E7EB" : "#111827" }];
+    const baseTextStyle = isMe
+      ? styles.meText
+      : [styles.otherText, { color: isDark ? "#E5E7EB" : "#111827" }];
 
-  if (!q) {
+    if (!q) {
+      return (
+        <Text
+          allowFontScaling={false}
+          maxFontSizeMultiplier={1}
+          selectable={false}
+          style={baseTextStyle}
+        >
+          {textValue}
+        </Text>
+      );
+    }
+
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = textValue.split(new RegExp(`(${escaped})`, "gi"));
+
     return (
       <Text
         allowFontScaling={false}
@@ -3373,53 +3383,38 @@ const renderHighlightedText = (
         selectable={false}
         style={baseTextStyle}
       >
-        {textValue}
-      </Text>
-    );
-  }
+        {parts.map((part, index) => {
+          const matched = part.toLowerCase() === q.toLowerCase();
 
-  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const parts = textValue.split(new RegExp(`(${escaped})`, "gi"));
+          if (!matched) {
+            return (
+              <Text
+                key={`${part}-${index}`}
+                allowFontScaling={false}
+                maxFontSizeMultiplier={1}
+              >
+                {part}
+              </Text>
+            );
+          }
 
-  return (
-    <Text
-      allowFontScaling={false}
-      maxFontSizeMultiplier={1}
-      selectable={false}
-      style={baseTextStyle}
-    >
-      {parts.map((part, index) => {
-        const matched = part.toLowerCase() === q.toLowerCase();
-
-        if (!matched) {
           return (
             <Text
               key={`${part}-${index}`}
               allowFontScaling={false}
               maxFontSizeMultiplier={1}
+              style={[
+                styles.highlightText,
+                isActiveResult && styles.highlightTextActive,
+              ]}
             >
               {part}
             </Text>
           );
-        }
-
-        return (
-          <Text
-            key={`${part}-${index}`}
-            allowFontScaling={false}
-            maxFontSizeMultiplier={1}
-            style={[
-              styles.highlightText,
-              isActiveResult && styles.highlightTextActive,
-            ]}
-          >
-            {part}
-          </Text>
-        );
-      })}
-    </Text>
-  );
-};
+        })}
+      </Text>
+    );
+  };
 
   const renderReplyBlock = (item: any, isMe: boolean) => {
     const replyId =
@@ -3456,35 +3451,35 @@ const renderHighlightedText = (
           },
         ]}
       >
-  <Text
-  numberOfLines={1}
-  allowFontScaling={false}
-  maxFontSizeMultiplier={1}
-  style={[
-    styles.replyPreviewTitle,
-    { color: isMe ? "#FFF" : "#6D5DF6" },
-  ]}
->
-  Reply
-</Text>
+        <Text
+          numberOfLines={1}
+          allowFontScaling={false}
+          maxFontSizeMultiplier={1}
+          style={[
+            styles.replyPreviewTitle,
+            { color: isMe ? "#FFF" : "#6D5DF6" },
+          ]}
+        >
+          Reply
+        </Text>
 
-<Text
-  numberOfLines={2}
-  allowFontScaling={false}
-  maxFontSizeMultiplier={1}
-  style={[
-    styles.replyPreviewText,
-    {
-      color: isMe
-        ? "rgba(255,255,255,0.92)"
-        : isDark
-          ? "#CBD5E1"
-          : "#374151",
-    },
-  ]}
->
-  {getReplyPreviewText(previewSource)}
-</Text>
+        <Text
+          numberOfLines={2}
+          allowFontScaling={false}
+          maxFontSizeMultiplier={1}
+          style={[
+            styles.replyPreviewText,
+            {
+              color: isMe
+                ? "rgba(255,255,255,0.92)"
+                : isDark
+                  ? "#CBD5E1"
+                  : "#374151",
+            },
+          ]}
+        >
+          {getReplyPreviewText(previewSource)}
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -3536,28 +3531,28 @@ const renderHighlightedText = (
       ]}
     >
       {!searchOpen ? (
- <ChatHeader
-  isDark={isDark}
-  otherUser={otherUser}
-  typingUsers={typingUsers}
-  blockedByMe={blockedByMe}
-  blockedMe={blockedMe}
-  onBack={() => router.back()}
-  onProfilePress={() => {
-    const userId = String(otherUser?._id || "");
-    if (!userId) return;
+        <ChatHeader
+          isDark={isDark}
+          otherUser={otherUser}
+          typingUsers={typingUsers}
+          blockedByMe={blockedByMe}
+          blockedMe={blockedMe}
+          onBack={() => router.back()}
+          onProfilePress={() => {
+            const userId = String(otherUser?._id || "");
+            if (!userId) return;
 
-    router.push({
-      pathname: "/profile/[id]",
-      params: { id: userId },
-    });
-  }}
-  onSearchPress={() => {
-    setSearchOpen(true);
-    setMenuOpen(false);
-  }}
-  onMenuPress={() => setMenuOpen((v) => !v)}
-/>
+            router.push({
+              pathname: "/profile/[id]",
+              params: { id: userId },
+            });
+          }}
+          onSearchPress={() => {
+            setSearchOpen(true);
+            setMenuOpen(false);
+          }}
+          onMenuPress={() => setMenuOpen((v) => !v)}
+        />
       ) : (
         <SearchHeader
           isDark={isDark}
@@ -3624,12 +3619,21 @@ const renderHighlightedText = (
         data={messages}
         inverted
         onEndReached={loadMore}
+        onEndReachedThreshold={0.2}
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          const y = event.nativeEvent.contentOffset.y;
+
+          // لأن FlatList inverted:
+          // y = 0 يعني أنت في آخر المحادثة
+          // كلما زاد y يعني المستخدم طلع لفوق
+          setShowScrollToBottom(y > 220);
+        }}
         initialNumToRender={14}
         maxToRenderPerBatch={10}
         windowSize={7}
         updateCellsBatchingPeriod={50}
         removeClippedSubviews={Platform.OS === "android"}
-        onEndReachedThreshold={0.2}
         ListHeaderComponent={<Animated.View style={listSpacerAnimatedStyle} />}
         ListFooterComponent={
           loading && hasMore ? (
@@ -3649,7 +3653,26 @@ const renderHighlightedText = (
         showsVerticalScrollIndicator={false}
         onScrollToIndexFailed={() => { }}
       />
-
+      {showScrollToBottom && (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={scrollToBottom}
+          style={[
+            styles.scrollToBottomBtn,
+            {
+              bottom: Math.max(insets.bottom, 8) + 78,
+              backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
+              borderColor: isDark ? "#374151" : "#E5E7EB",
+            },
+          ]}
+        >
+          <Ionicons
+            name="chevron-down"
+            size={24}
+            color={isDark ? "#E5E7EB" : "#111827"}
+          />
+        </TouchableOpacity>
+      )}
       <ChatInputBar
         isDark={isDark}
         isBlocked={isBlocked}
@@ -3686,7 +3709,86 @@ const renderHighlightedText = (
         imagePreview={imagePreview}
         onClose={() => setImagePreview(null)}
       />
+<Modal
+  visible={actionsVisible}
+  transparent
+  animationType="fade"
+  statusBarTranslucent
+  onRequestClose={closeMessageActions}
+>
+  <Pressable style={styles.actionsOverlay} onPress={closeMessageActions}>
+    <Pressable
+      style={[
+        styles.actionsBox,
+        {
+          backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
+          borderColor: isDark ? "#1F2937" : "#E5E7EB",
+        },
+      ]}
+      onPress={() => {}}
+    >
+      <TouchableOpacity
+        style={styles.actionsItem}
+        activeOpacity={0.85}
+        onPress={handleReplyFromActions}
+      >
+        <Ionicons
+          name="return-up-back-outline"
+          size={20}
+          color={isDark ? "#E5E7EB" : "#111827"}
+        />
+        <Text
+          style={[
+            styles.actionsText,
+            { color: isDark ? "#E5E7EB" : "#111827" },
+          ]}
+        >
+          Reply
+        </Text>
+      </TouchableOpacity>
 
+      <TouchableOpacity
+        style={styles.actionsItem}
+        activeOpacity={0.85}
+        onPress={handleDeleteForMeFromActions}
+      >
+        <Ionicons name="trash-outline" size={20} color="#EF4444" />
+        <Text style={[styles.actionsText, { color: "#EF4444" }]}>
+          Delete for me
+        </Text>
+      </TouchableOpacity>
+
+      {actionsMessage &&
+        String(actionsMessage.sender) === String(currentUser?._id) && (
+          <TouchableOpacity
+            style={styles.actionsItem}
+            activeOpacity={0.85}
+            onPress={handleDeleteForEveryoneFromActions}
+          >
+            <Ionicons name="trash-bin-outline" size={20} color="#EF4444" />
+            <Text style={[styles.actionsText, { color: "#EF4444" }]}>
+              Delete for everyone
+            </Text>
+          </TouchableOpacity>
+        )}
+
+      <TouchableOpacity
+        style={styles.actionsCancel}
+        activeOpacity={0.85}
+        onPress={closeMessageActions}
+      >
+        <Text
+          style={[
+            styles.actionsCancelText,
+            { color: isDark ? "#CBD5E1" : "#374151" },
+          ]}
+        >
+          إلغاء
+        </Text>
+      </TouchableOpacity>
+    </Pressable>
+  </Pressable>
+</Modal>
       {menuOpen && (
         <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
           <Pressable

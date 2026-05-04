@@ -2,7 +2,6 @@
 
 import { toastConfig } from '@/components/AppToastConfig';
 import GlobalNotificationListener from '@/components/GlobalNotificationListener';
-import ModernDrawer from '@/components/ModernDrawer';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { checkAuth } from '@/redux/slices/authSlice';
@@ -193,12 +192,10 @@ const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
   }
   return (
     <>
-      <ModernDrawer>
     <RootStack />
     <GlobalNotificationListener />
     <Toast config={toastConfig} topOffset={55} />
     <StatusBar style="auto" />
-  </ModernDrawer>
     </>
   );
 }

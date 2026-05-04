@@ -7414,7 +7414,7 @@ export default function ChatScreen() {
   const flatListRef = useRef<any>(null);
   const keyboardHeight = useSharedValue(0);
   const [inputBarHeight, setInputBarHeight] = useState(0);
-
+const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   useKeyboardHandler(
     {
       onMove: (e) => {
@@ -7840,11 +7840,16 @@ export default function ChatScreen() {
 
   const safeDisplayText = (content: string) => stripHtmlToText(content) || "—";
 
-  const scrollToBottom = () => {
-    try {
-      flatListRef.current?.scrollToOffset?.({ offset: 0, animated: true });
-    } catch { }
-  };
+ const scrollToBottom = () => {
+  try {
+    flatListRef.current?.scrollToOffset?.({
+      offset: 0,
+      animated: true,
+    });
+
+    setShowScrollToBottom(false);
+  } catch {}
+};
   const hidePinnedBar = () => {
     Animated.parallel([
       Animated.timing(pinnedTranslateX, {
@@ -9744,6 +9749,15 @@ export default function ChatScreen() {
           data={uiMessages}
           inverted
           keyExtractor={(item) => item.id}
+          scrollEventThrottle={16}
+onScroll={(event) => {
+  const y = event.nativeEvent.contentOffset.y;
+
+  // لأن القائمة inverted:
+  // y = 0 يعني أنت في آخر المحادثة
+  // كلما زاد y يعني المستخدم طلع لفوق
+  setShowScrollToBottom(y > 220);
+}}
           ListHeaderComponent={<Reanimated.View style={listSpacerAnimatedStyle} />}
           contentContainerStyle={{
             padding: 14,
@@ -9798,7 +9812,31 @@ export default function ChatScreen() {
         />
 
 
-
+{showScrollToBottom && (
+  <TouchableOpacity
+    activeOpacity={0.85}
+    onPress={scrollToBottom}
+    style={[
+      styles.scrollToBottomBtn,
+      {
+        bottom:
+          Math.max(insets.bottom, 8) +
+          Math.max(inputBarHeight || 0, 72) +
+          14,
+        backgroundColor:
+          colorScheme === "dark" ? "#1F2937" : "#FFFFFF",
+        borderColor:
+          colorScheme === "dark" ? "#374151" : "#E5E7EB",
+      },
+    ]}
+  >
+    <Ionicons
+      name="chevron-down"
+      size={24}
+      color={colorScheme === "dark" ? "#E5E7EB" : "#111827"}
+    />
+  </TouchableOpacity>
+)}
 
 
         {/* ================= INPUT ================= */}

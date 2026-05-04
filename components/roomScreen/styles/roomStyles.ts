@@ -160,7 +160,23 @@ export function makeScreenStyles(
       alignItems: "center",
       gap: 6,
     },
+scrollToBottomBtn: {
+  position: "absolute",
+  right: 18,
+  width: 44,
+  height: 44,
+  borderRadius: 22,
+  alignItems: "center",
+  justifyContent: "center",
+  borderWidth: 1,
+  zIndex: 999,
+  elevation: 10,
 
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.18,
+  shadowRadius: 8,
+},
     pinnedTitle: {
       fontSize: 13,
       fontWeight: "900",

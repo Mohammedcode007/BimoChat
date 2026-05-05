@@ -2550,7 +2550,7 @@
 //                   fontWeight: "900",
 //                 }}
 //               >
-//                 الرصيد: {item.game.payload.player.points} نقطة وهمية
+//                 الرصيد: {item.game.payload.player.points} نقطة  
 //               </Text>
 //             </View>
 //           )}
@@ -7196,28 +7196,28 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
-  Animated,
-  FlatList,
-  ImageSourcePropType,
-  Keyboard,
-  KeyboardAvoidingView,
-  Linking,
-  Modal,
-  PanResponder,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    Alert,
+    Animated,
+    FlatList,
+    ImageSourcePropType,
+    Keyboard,
+    KeyboardAvoidingView,
+    Linking,
+    Modal,
+    PanResponder,
+    Platform,
+    Pressable,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { useKeyboardHandler } from "react-native-keyboard-controller";
 import Reanimated, {
-  useAnimatedStyle,
-  useSharedValue,
+    useAnimatedStyle,
+    useSharedValue,
 } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSelector } from "react-redux";
@@ -7234,47 +7234,47 @@ import { createChat, setActiveChat } from "@/redux/slices/chatSlice";
 import { searchUsers } from "@/redux/slices/friendSlice";
 import { setMessages } from "@/redux/slices/messageSlice";
 import {
-  clearBannedFlag,
-  clearKickedFlag,
-  fetchRoomMessages,
-  fetchRoomsByType,
-  fetchRoomStats,
-  fetchRoomUsers,
-  inviteToRoom,
-  leaveRoomAndExit,
-  optimisticAddRoomMessage,
-  pinRoomMessage,
-  selectBannedFlag,
-  selectKickedFlag,
-  selectRoomActiveCount,
-  selectRoomAvatarById,
-  selectRoomLoadingMessages,
-  selectRoomMessages,
-  selectRoomNameById,
-  selectRoomUsers,
-  sendBombColorAnswer,
-  sendRoomMessage,
-  socketRoleSetFailed,
-  socketRoleSetRequested,
-  socketRoleSetSucceeded,
+    clearBannedFlag,
+    clearKickedFlag,
+    fetchRoomMessages,
+    fetchRoomsByType,
+    fetchRoomStats,
+    fetchRoomUsers,
+    inviteToRoom,
+    leaveRoomAndExit,
+    optimisticAddRoomMessage,
+    pinRoomMessage,
+    selectBannedFlag,
+    selectKickedFlag,
+    selectRoomActiveCount,
+    selectRoomAvatarById,
+    selectRoomLoadingMessages,
+    selectRoomMessages,
+    selectRoomNameById,
+    selectRoomUsers,
+    sendBombColorAnswer,
+    sendRoomMessage,
+    socketRoleSetFailed,
+    socketRoleSetRequested,
+    socketRoleSetSucceeded,
 } from "@/redux/slices/room.slice";
 import { boostRoom } from "@/redux/slices/roomControl.slice";
 import { debitMyCoinz } from "@/redux/slices/userSlice";
 import { RootState } from "@/redux/store";
 import api from "@/services/api";
 import {
-  banRoomUserSocket,
-  deleteRoomSocketMessage,
-  joinRoomSocket,
-  kickRoomUserSocket,
-  setRoomUserRoleSocket,
-  toggleRoomReaction as toggleRoomReactionSocket,
+    banRoomUserSocket,
+    deleteRoomSocketMessage,
+    joinRoomSocket,
+    kickRoomUserSocket,
+    setRoomUserRoleSocket,
+    toggleRoomReaction as toggleRoomReactionSocket,
 } from "@/services/socket";
 import { uploadToCloudinary } from "@/services/upload.service";
 import {
-  addManySeenGiftIds,
-  addSeenGiftId,
-  getSeenGiftIds,
+    addManySeenGiftIds,
+    addSeenGiftId,
+    getSeenGiftIds,
 } from "@/storage/roomGiftSeen";
 
 import GiftBurstOverlay from "@/components/roomScreen/GiftBurstOverlay";

@@ -579,7 +579,7 @@ return (
                   fontWeight: "900",
                 }}
               >
-                الرصيد: {item.game.payload.player.points} نقطة وهمية
+                الرصيد: {item.game.payload.player.points} نقطة  
               </Text>
             </View>
           )}

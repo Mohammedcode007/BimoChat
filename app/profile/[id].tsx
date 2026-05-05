@@ -2,8 +2,12 @@
 
 import { AppTheme, Colors, ThemeName } from "@/constants/theme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { createChat, setActiveChat } from "@/redux/slices/chatSlice";
+import { blockUser, cancelFriendRequest, sendFriendRequest, unblockUser } from "@/redux/slices/friendSlice";
+import { setMessages } from "@/redux/slices/messageSlice";
 import { fetchUserProfile } from "@/redux/slices/userSlice";
 import { AppDispatch, RootState } from "@/redux/store";
+import api from "@/services/api";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Country } from "country-state-city";
 import * as Clipboard from "expo-clipboard";
@@ -12,6 +16,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   I18nManager,
   Modal,
@@ -419,6 +424,67 @@ const makeStyles = () =>
       height: "100%",
       borderRadius: AVATAR / 2,
     },
+    profileActionsRow: {
+      marginTop: 14,
+      marginBottom: 10,
+      width: "100%",
+      paddingHorizontal: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+    },
+
+    profileActionBtn: {
+      minHeight: 42,
+      borderRadius: 999,
+      paddingHorizontal: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7,
+    },
+
+    profileActionPrimary: {
+      backgroundColor: "#111827",
+    },
+
+    profileActionLight: {
+      backgroundColor: "#ffffff",
+      borderWidth: 1,
+      borderColor: "rgba(0,0,0,0.10)",
+    },
+
+    profileIconDangerBtn: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: "#ffffff",
+      borderWidth: 1,
+      borderColor: "rgba(239,68,68,0.24)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    profileActionPrimaryText: {
+      color: "#fff",
+      fontSize: 13,
+      fontWeight: "900",
+    },
+
+    profileActionLightText: {
+      color: "#111827",
+      fontSize: 13,
+      fontWeight: "900",
+    },
+
+    profileActionPressed: {
+      opacity: 0.75,
+    },
+
+    profileActionDisabled: {
+      opacity: 0.45,
+    },
 
     profileAvatarFallback: {
       alignItems: "center",
@@ -707,17 +773,23 @@ export default function ProfileScreen() {
   );
 
   const profileUser = useSelector((s: RootState) => (s.user as any).profileUser) as ProfileUser | null;
+  const authUser = useSelector((s: RootState) => (s.auth as any).user);
   const loadingProfile = useSelector((s: RootState) => (s.user as any).loadingProfile);
   const errorProfile = useSelector((s: RootState) => (s.user as any).errorProfile);
 
   const [previewUri, setPreviewUri] = useState<string | null>(null);
-
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [creatingChatId, setCreatingChatId] = useState<string | null>(null);
+  const [localRelationshipStatus, setLocalRelationshipStatus] =
+  useState<RelationshipStatus | null>(null);
   useEffect(() => {
     if (id) {
       dispatch(fetchUserProfile(String(id)));
     }
   }, [id, dispatch]);
-
+useEffect(() => {
+  setLocalRelationshipStatus(null);
+}, [id]);
   const user = profileUser;
 
   const handleCopy = async (value: string) => {
@@ -725,7 +797,185 @@ export default function ProfileScreen() {
     if (!clean) return;
     await Clipboard.setStringAsync(clean);
   };
+  const isMyProfile =
+    !!authUser?._id && !!user?._id && String(authUser._id) === String(user._id);
 
+const relationshipStatus = String(
+  localRelationshipStatus || user?.relationshipStatus || "none"
+) as RelationshipStatus;
+
+  const isBlockedByMe = relationshipStatus === "blocked_by_me";
+  const blockedMe = relationshipStatus === "blocked_me";
+  const isBlocked = isBlockedByMe || blockedMe;
+
+  const reloadProfile = async () => {
+    if (!id) return;
+    await dispatch(fetchUserProfile(String(id)));
+  };
+
+  const openChat = async () => {
+    if (!user?._id || creatingChatId) return;
+
+    if (isBlocked) {
+      Alert.alert("تنبيه", "لا يمكن فتح دردشة مع هذا المستخدم بسبب الحظر.");
+      return;
+    }
+
+    try {
+      setCreatingChatId(String(user._id));
+
+      const chat = await dispatch(createChat(String(user._id))).unwrap();
+
+      dispatch(setActiveChat(chat._id));
+
+      const messagesRes = await api.get(`/messages/${chat._id}?page=1`);
+
+      dispatch(
+        setMessages({
+          chatId: chat._id,
+          messages: messagesRes.data,
+        })
+      );
+
+      router.push(`/chat/${chat._id}`);
+    } catch (e: any) {
+      Alert.alert("خطأ", e?.message || "فشل فتح الدردشة");
+    } finally {
+      setCreatingChatId(null);
+    }
+  };
+const handleAddOrCancelFriend = async () => {
+  if (!user?._id) return;
+
+  if (isBlocked) {
+    Alert.alert("تنبيه", "لا يمكن إضافة هذا المستخدم بسبب الحظر.");
+    return;
+  }
+
+  const targetUserId = String(user._id || "").trim();
+
+  if (!targetUserId) {
+    Alert.alert("خطأ", "معرّف المستخدم غير موجود");
+    return;
+  }
+
+  const previousStatus = relationshipStatus;
+
+  try {
+    setActionLoading(`friend-${targetUserId}`);
+
+    let resultAction: any = null;
+
+    if (relationshipStatus === "pending_sent") {
+      // تحديث فوري للزر إلى إضافة صديق
+      setLocalRelationshipStatus("none");
+
+      resultAction = await dispatch(cancelFriendRequest(targetUserId) as any);
+    } else if (relationshipStatus === "none") {
+      // تحديث فوري للزر إلى إلغاء الطلب
+      setLocalRelationshipStatus("pending_sent");
+
+      resultAction = await dispatch(sendFriendRequest(targetUserId) as any);
+    } else {
+      return;
+    }
+
+    console.log(
+      "🧾 [Friend action result]",
+      JSON.stringify(resultAction, null, 2)
+    );
+
+    const requestStatus = String(resultAction?.meta?.requestStatus || "");
+
+    if (requestStatus === "rejected") {
+      const msg =
+        resultAction?.payload?.message ||
+        resultAction?.payload ||
+        resultAction?.error?.message ||
+        "فشل تنفيذ العملية";
+
+      // لو الطلب فشل، رجّع الزر لحالته القديمة
+      setLocalRelationshipStatus(previousStatus);
+
+      throw new Error(String(msg));
+    }
+
+    // تحديث من الباك في الخلفية، ولو فشل لا نعتبر العملية فشلت
+    try {
+      await reloadProfile();
+    } catch (reloadError) {
+      console.log("⚠️ reloadProfile failed after friend action:", reloadError);
+    }
+  } catch (e: any) {
+    console.log("❌ Friend action failed:", e);
+
+    Alert.alert("خطأ", e?.message || "فشل تنفيذ العملية");
+  } finally {
+    setActionLoading(null);
+  }
+};
+
+  const handleToggleBlock = async () => {
+    if (!user?._id) return;
+
+    const title = isBlockedByMe ? "فك الحظر" : "حظر المستخدم";
+    const message = isBlockedByMe
+      ? "هل تريد فك الحظر عن هذا المستخدم؟"
+      : "هل تريد حظر هذا المستخدم؟ لن يتمكن من التفاعل معك.";
+
+    Alert.alert(title, message, [
+      {
+        text: "إلغاء",
+        style: "cancel",
+      },
+      {
+        text: isBlockedByMe ? "فك الحظر" : "حظر",
+        style: isBlockedByMe ? "default" : "destructive",
+        onPress: async () => {
+          try {
+            setActionLoading(`block-${user._id}`);
+
+            if (isBlockedByMe) {
+              await dispatch(unblockUser(String(user._id))).unwrap?.();
+            } else {
+              await dispatch(blockUser(String(user._id))).unwrap?.();
+            }
+
+            await reloadProfile();
+          } catch (e: any) {
+            Alert.alert("خطأ", e?.message || "فشل تنفيذ العملية");
+          } finally {
+            setActionLoading(null);
+          }
+        },
+      },
+    ]);
+  };
+
+  const renderFriendActionText = () => {
+    if (relationshipStatus === "accepted") return "صديق";
+    if (relationshipStatus === "pending_sent") return "إلغاء الطلب";
+    if (relationshipStatus === "pending_received") return "طلب بانتظار الرد";
+    if (relationshipStatus === "blocked_by_me") return "محظور";
+    if (relationshipStatus === "blocked_me") return "قام بحظرك";
+    return "إضافة صديق";
+  };
+
+  const renderFriendActionIcon = () => {
+    if (relationshipStatus === "accepted") return "checkmark-circle-outline";
+    if (relationshipStatus === "pending_sent") return "close-circle-outline";
+    if (relationshipStatus === "pending_received") return "time-outline";
+    if (relationshipStatus === "blocked_by_me") return "ban-outline";
+    if (relationshipStatus === "blocked_me") return "alert-circle-outline";
+    return "person-add-outline";
+  };
+
+  const canPressFriend =
+    relationshipStatus === "none" || relationshipStatus === "pending_sent";
+
+  const friendLoading = actionLoading === `friend-${user?._id}`;
+  const blockLoading = actionLoading === `block-${user?._id}`;
+  const chatLoading = creatingChatId === String(user?._id || "");
 
   const displayCountryName = toDisplay(user?.country || copy.unspecified);
   const displayCountryFlag = getCountryFlag(user);
@@ -733,7 +983,7 @@ export default function ProfileScreen() {
   const displayAge = computeAge(user?.dateOfBirth, (user as any)?.age);
   const displaySince = formatSince((user as any)?.createdAt);
   const displayViews = toDisplay(user?.profileViews);
-const displayFriends = toDisplay(user?.friendsCount ?? 0);
+  const displayFriends = toDisplay(user?.friendsCount ?? 0);
 
   const displayFollowers = toDisplay(user?.followersCount);
   const displayFollowing = toDisplay(user?.followingCount);
@@ -867,7 +1117,73 @@ const displayFriends = toDisplay(user?.friendsCount ?? 0);
                 </View>
               ) : null}
             </View>
+            {!isMyProfile && (
+              <View style={styles.profileActionsRow}>
+                <Pressable
+                  onPress={openChat}
+                  disabled={chatLoading || isBlocked}
+                  style={({ pressed }) => [
+                    styles.profileActionBtn,
+                    styles.profileActionPrimary,
+                    (pressed || chatLoading) && styles.profileActionPressed,
+                    isBlocked && styles.profileActionDisabled,
+                  ]}
+                >
+                  {chatLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Ionicons name="chatbubble-ellipses-outline" size={17} color="#fff" />
+                  )}
 
+                  <Text style={styles.profileActionPrimaryText}>دردشة</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={handleAddOrCancelFriend}
+                  disabled={!canPressFriend || friendLoading}
+                  style={({ pressed }) => [
+                    styles.profileActionBtn,
+                    styles.profileActionLight,
+                    (pressed || friendLoading) && styles.profileActionPressed,
+                    !canPressFriend && styles.profileActionDisabled,
+                  ]}
+                >
+                  {friendLoading ? (
+                    <ActivityIndicator size="small" color="#111827" />
+                  ) : (
+                    <Ionicons
+                      name={renderFriendActionIcon() as any}
+                      size={17}
+                      color="#111827"
+                    />
+                  )}
+
+                  <Text style={styles.profileActionLightText}>
+                    {renderFriendActionText()}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={handleToggleBlock}
+                  disabled={blockLoading || blockedMe}
+                  style={({ pressed }) => [
+                    styles.profileIconDangerBtn,
+                    (pressed || blockLoading) && styles.profileActionPressed,
+                    blockedMe && styles.profileActionDisabled,
+                  ]}
+                >
+                  {blockLoading ? (
+                    <ActivityIndicator size="small" color="#EF4444" />
+                  ) : (
+                    <Ionicons
+                      name={isBlockedByMe ? "lock-open-outline" : "ban-outline"}
+                      size={20}
+                      color="#EF4444"
+                    />
+                  )}
+                </Pressable>
+              </View>
+            )}
             <Pressable
               onPress={() => handleCopy(displayName)}
               style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}

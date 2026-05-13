@@ -506,7 +506,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Animated, {
+import {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
@@ -691,7 +691,7 @@ const handleConfirmLogout = async () => {
 
         <View style={s.rightActions}>
           {/* Theme Button */}
-          <View style={s.themeMenuWrap}>
+          {/* <View style={s.themeMenuWrap}>
             <Pressable
               onPress={toggleThemeMenu}
               android_ripple={{ color: "rgba(255,255,255,0.12)", radius: 22 }}
@@ -783,7 +783,7 @@ const handleConfirmLogout = async () => {
                 </Animated.View>
               </>
             )}
-          </View>
+          </View> */}
 
           {/* Notifications Button */}
           <Pressable

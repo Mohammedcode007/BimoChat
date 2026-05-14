@@ -1,4 +1,3 @@
-import VoiceMessagePlayer from "@/components/VoiceMessagePlayer";
 import { formatTime } from "@/utils/helpFunctions";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ResizeMode, Video } from "expo-av";
@@ -32,6 +31,9 @@ function MessageBubble({
   onCopy,
   onImagePreview,
   onJoinRoom,
+  onPlayAudio,
+  activeAudioUri,
+  activeAudioPlaying,
   renderReplyBlock,
   renderHighlightedText,
 }: MessageBubbleProps) {
@@ -153,44 +155,98 @@ function MessageBubble({
               </View>
             )}
           </View>
-        ) : item.type === "audio" && mediaUri ? (
-          <View style={{ minWidth: 190 }}>
-            <VoiceMessagePlayer uri={mediaUri} isMe={isMe} />
+       ) : item.type === "audio" && mediaUri ? (
+  <View style={{ minWidth: 160 }}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingVertical: 2,
+      }}
+    >
+      <Text
+        allowFontScaling={false}
+        maxFontSizeMultiplier={1}
+        numberOfLines={1}
+        style={{
+          fontSize: 13,
+          fontWeight: "700",
+          color: isMe ? "#FFFFFF" : isDark ? "#E5E7EB" : "#111827",
+        }}
+      >
+        Voice message
+      </Text>
 
-            {showMediaLoading && (
-              <View
-                style={[
-                  styles.audioLoadingBox,
-                  {
-                    backgroundColor: isMe
-                      ? "rgba(255,255,255,0.12)"
-                      : isDark
-                        ? "rgba(255,255,255,0.06)"
-                        : "#E5E7EB",
-                  },
-                ]}
-              >
-                <ActivityIndicator
-                  size="small"
-                  color={isMe ? "#FFF" : "#6D5DF6"}
-                />
+      <TouchableOpacity
+        activeOpacity={0.8}
+        disabled={showMediaLoading}
+        onPress={() => onPlayAudio(mediaUri)}
+        style={{
+          paddingHorizontal: 6,
+          paddingVertical: 2,
+          borderRadius: 8,
+          backgroundColor: isMe
+            ? "rgba(255,255,255,0.18)"
+            : isDark
+              ? "rgba(255,255,255,0.08)"
+              : "#EEF2FF",
+        }}
+      >
+        <Text
+          allowFontScaling={false}
+          maxFontSizeMultiplier={1}
+          style={{
+            fontSize: 13,
+            fontWeight: "900",
+            color:
+              activeAudioUri === mediaUri && activeAudioPlaying
+                ? "#22C55E"
+                : isMe
+                  ? "#FFFFFF"
+                  : "#6D5DF6",
+          }}
+        >
+          {activeAudioUri === mediaUri && activeAudioPlaying ? "Playing" : "Play"}
+        </Text>
+      </TouchableOpacity>
+    </View>
 
-                <Text
-                  style={{
-                    marginTop: 6,
-                    fontSize: 12,
-                    fontWeight: "700",
-                    color: isMe ? "#FFF" : isDark ? "#E5E7EB" : "#111827",
-                  }}
-                >
-                  {mediaStatus === "uploading"
-                    ? "جاري رفع الصوت..."
-                    : "جاري الإرسال..."}
-                </Text>
-              </View>
-            )}
-          </View>
-        ) : (
+    {showMediaLoading && (
+      <View
+        style={[
+          styles.audioLoadingBox,
+          {
+            marginTop: 8,
+            backgroundColor: isMe
+              ? "rgba(255,255,255,0.12)"
+              : isDark
+                ? "rgba(255,255,255,0.06)"
+                : "#E5E7EB",
+          },
+        ]}
+      >
+        <ActivityIndicator
+          size="small"
+          color={isMe ? "#FFF" : "#6D5DF6"}
+        />
+
+        <Text
+          style={{
+            marginTop: 6,
+            fontSize: 12,
+            fontWeight: "700",
+            color: isMe ? "#FFF" : isDark ? "#E5E7EB" : "#111827",
+          }}
+        >
+          {mediaStatus === "uploading"
+            ? "جاري رفع الصوت..."
+            : "جاري الإرسال..."}
+        </Text>
+      </View>
+    )}
+  </View>
+) : (
           renderHighlightedText(
             item.content,
             inputSearchValue,

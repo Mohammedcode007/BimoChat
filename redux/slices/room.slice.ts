@@ -57,9 +57,7 @@ export type RoomDetails = {
 
     level: number;
     xp: number;
-    boostLevel: number;
     boostPoints: number;
-    boostExpiresAt?: string | null;
 
     isVerified: boolean;
     tags: string[];
@@ -227,7 +225,7 @@ export type RoomGameType =
   | "cards"
   | "luck"
   | "bomb";
-  export type BombColor = "red" | "green" | "blue";
+export type BombColor = "red" | "green" | "blue";
 
 export type BombColorPayload = {
   game?: "bomb_color";
@@ -270,14 +268,14 @@ export type RoomMessage = {
   };
 
   gameType?: RoomGameType;
-game?: {
-  gameId?: string;
-  title?: string;
-  state?: string;
-  turnUserId?: string;
-  winnerUserId?: string;
-  payload?: any | BombColorPayload;
-};
+  game?: {
+    gameId?: string;
+    title?: string;
+    state?: string;
+    turnUserId?: string;
+    winnerUserId?: string;
+    payload?: any | BombColorPayload;
+  };
   // game?: {
   //   gameId?: string;
   //   title?: string;
@@ -348,8 +346,9 @@ export type RoomItem = {
   level?: number;
   xp?: number;
 
-  boostLevel?: number;
-  boostExpiresAt?: string;
+  boostPoints?: number;
+  isFavorite?: boolean;
+  favoriteCreatedAt?: string;
 
   createdAt?: string;
   updatedAt?: string;
@@ -362,9 +361,7 @@ export type RoomStats = {
   messagesCount: number;
   level: number;
   xp: number;
-  boostLevel: number;
-
-  boostExpiresAt?: string;
+  boostPoints: number;
 };
 
 type Pagination = { limit?: number; before?: string };
@@ -379,6 +376,8 @@ type RoomState = {
   kickedByRoom: Record<string, { at: number; message?: string }>;
   bannedByRoom: Record<string, { at: number; reason?: string }>;
   usersByRoom: Record<string, RoomUser[]>;
+  favoriteRooms: RoomItem[];
+  loadingFavoriteRooms: boolean;
   messagesByRoom: Record<string, RoomMessage[]>;
   bannedUsersByRoom: Record<string, RoomBannedEntry[]>;
   loadingRooms: boolean;
@@ -403,6 +402,8 @@ const initialState: RoomState = {
   loadingDetails: false,
   loadingRooms: false,
   bannedUsersByRoom: {},
+  favoriteRooms: [],
+  loadingFavoriteRooms: false,
   loadingUsers: false,
   loadingMessages: false,
   kickedByRoom: {} as Record<string, { at: number; message?: string }>,
@@ -516,7 +517,19 @@ const upsertMessageByClientIdOrId = (list: RoomMessage[], incoming: RoomMessage)
 const errMsg = (e: any, fallback: string) => e?.response?.data?.message || e?.message || fallback;
 
 const dataOf = (res: any) => res?.data?.data ?? res?.data;
+const sortRoomsByBoost = (rooms: RoomItem[]) => {
+  rooms.sort((a, b) => {
+    const bpA = Number(a.boostPoints || 0);
+    const bpB = Number(b.boostPoints || 0);
 
+    if (bpB !== bpA) return bpB - bpA;
+
+    const ca = new Date(a.createdAt || 0).getTime();
+    const cb = new Date(b.createdAt || 0).getTime();
+
+    return cb - ca;
+  });
+};
 const toStr = (x: any) => (x === null || x === undefined ? "" : String(x));
 const getReactionUserId = (r: any) => {
   return String(
@@ -577,15 +590,15 @@ const mergeMessagePreserveReactions = (
 
   const oldReactionCount = Number(
     (oldMsg as any)?.reactionCount ||
-      (oldMsg as any)?.reactionsCount ||
-      oldReactions.length ||
-      0
+    (oldMsg as any)?.reactionsCount ||
+    oldReactions.length ||
+    0
   );
 
   const incomingReactionCount = Number(
     (incomingMsg as any)?.reactionCount ||
-      (incomingMsg as any)?.reactionsCount ||
-      0
+    (incomingMsg as any)?.reactionsCount ||
+    0
   );
 
   const merged: any = {
@@ -1236,7 +1249,93 @@ export const fetchRoomsByType = createAsyncThunk<
     return thunkAPI.rejectWithValue(errMsg(e, "Fetch rooms failed"));
   }
 });
+export const fetchFavoriteRooms = createAsyncThunk<
+  { items: RoomItem[]; page?: number; limit?: number; total?: number; pages?: number },
+  { page?: number; limit?: number } | undefined,
+  { state: RootState }
+>("room/fetchFavoriteRooms", async (payload, thunkAPI) => {
+  try {
+    const page = payload?.page || 1;
+    const limit = payload?.limit || 30;
 
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+
+    const res = await api.get(`/rooms/favorites?${params.toString()}`);
+    const data = dataOf(res);
+
+    const items: RoomItem[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.items)
+        ? data.items
+        : [];
+
+    return {
+      items,
+      page: data?.page,
+      limit: data?.limit,
+      total: data?.total,
+      pages: data?.pages,
+    };
+  } catch (e: any) {
+    return thunkAPI.rejectWithValue(errMsg(e, "Failed to fetch favorite rooms"));
+  }
+});
+
+export const addRoomToFavorites = createAsyncThunk<
+  { roomId: string; isFavorite: boolean },
+  { roomId: string },
+  { state: RootState }
+>("room/addRoomToFavorites", async ({ roomId }, thunkAPI) => {
+  try {
+    const res = await api.post(`/rooms/${roomId}/favorite`);
+    const data = dataOf(res);
+
+    return {
+      roomId: String(data?.roomId || roomId),
+      isFavorite: true,
+    };
+  } catch (e: any) {
+    return thunkAPI.rejectWithValue(errMsg(e, "Failed to add room to favorites"));
+  }
+});
+
+export const removeRoomFromFavorites = createAsyncThunk<
+  { roomId: string; isFavorite: boolean },
+  { roomId: string },
+  { state: RootState }
+>("room/removeRoomFromFavorites", async ({ roomId }, thunkAPI) => {
+  try {
+    const res = await api.delete(`/rooms/${roomId}/favorite`);
+    const data = dataOf(res);
+
+    return {
+      roomId: String(data?.roomId || roomId),
+      isFavorite: false,
+    };
+  } catch (e: any) {
+    return thunkAPI.rejectWithValue(errMsg(e, "Failed to remove room from favorites"));
+  }
+});
+
+export const toggleRoomFavorite = createAsyncThunk<
+  { roomId: string; isFavorite: boolean },
+  { roomId: string },
+  { state: RootState }
+>("room/toggleRoomFavorite", async ({ roomId }, thunkAPI) => {
+  try {
+    const res = await api.patch(`/rooms/${roomId}/favorite/toggle`);
+    const data = dataOf(res);
+
+    return {
+      roomId: String(data?.roomId || roomId),
+      isFavorite: Boolean(data?.isFavorite),
+    };
+  } catch (e: any) {
+    return thunkAPI.rejectWithValue(errMsg(e, "Failed to toggle favorite room"));
+  }
+});
 export const searchRooms = createAsyncThunk<
   { q: string; items: RoomItem[]; type?: RoomType },
   { q: string; type?: RoomType; limit?: number },
@@ -1433,12 +1532,27 @@ export const addXP = createAsyncThunk<any, { roomId: string; amount: number }, {
 
 /* ================= BOOST ================= */
 
-export const boostRoom = createAsyncThunk<RoomItem, { roomId: string; level: number; hours: number }, { state: RootState }>(
+export type BoostRoomResult = {
+  roomId: string;
+  boostPoints: number;
+  room?: RoomItem;
+};
+export const boostRoom = createAsyncThunk<
+  BoostRoomResult,
+  { roomId: string },
+  { state: RootState }
+>(
   "room/boostRoom",
-  async ({ roomId, level, hours }, thunkAPI) => {
+  async ({ roomId }, thunkAPI) => {
     try {
-      const res = await api.post(`/rooms/${roomId}/boost`, { level, hours });
-      return dataOf(res);
+      const res = await api.post(`/rooms/${roomId}/boost`);
+      const data = dataOf(res);
+
+      return {
+        roomId: String(data?.roomId || data?.room?._id || roomId),
+        boostPoints: Number(data?.boostPoints || data?.room?.boostPoints || 0),
+        room: data?.room,
+      };
     } catch (e: any) {
       return thunkAPI.rejectWithValue(errMsg(e, "Boost failed"));
     }
@@ -1716,8 +1830,13 @@ const roomSlice = createSlice({
       if (!updated?._id) return;
 
       const idx = state.rooms.findIndex((r) => r._id === updated._id);
-      if (idx >= 0) state.rooms[idx] = { ...state.rooms[idx], ...updated };
-      else state.rooms.unshift(updated);
+    if (idx >= 0) {
+  state.rooms[idx] = { ...state.rooms[idx], ...updated };
+} else {
+  state.rooms.unshift(updated);
+}
+
+sortRoomsByBoost(state.rooms);
 
       if (state.activeCountByRoom[updated._id] === undefined) {
         state.activeCountByRoom[updated._id] = 0;
@@ -1784,33 +1903,42 @@ const roomSlice = createSlice({
     /**
      * room:boost:update
      */
-    socketRoomBoostUpdate: (
-      state,
-      action: PayloadAction<{ roomId: string; boostLevel: number; boostExpiresAt?: string }>
-    ) => {
-      const { roomId, boostLevel, boostExpiresAt } = action.payload;
-      const room = state.rooms.find((r) => r._id === roomId);
-      if (room) {
-        room.boostLevel = Number(boostLevel) || 0;
-        if (boostExpiresAt) room.boostExpiresAt = boostExpiresAt;
-      }
-    },
+socketRoomBoostUpdate: (
+  state,
+  action: PayloadAction<{ roomId: string; boostPoints: number }>
+) => {
+  const { roomId, boostPoints } = action.payload;
+
+  const room = state.rooms.find((r) => r._id === roomId);
+  if (room) {
+    room.boostPoints = Number(boostPoints) || 0;
+  }
+
+  const favoriteRoom = state.favoriteRooms.find((r) => r._id === roomId);
+  if (favoriteRoom) {
+    favoriteRoom.boostPoints = Number(boostPoints) || 0;
+  }
+
+  sortRoomsByBoost(state.rooms);
+  sortRoomsByBoost(state.favoriteRooms);
+},
 
     /**
      * room:deleted
      */
-    socketRoomDeleted: (state, action: PayloadAction<{ roomId: string }>) => {
-      const { roomId } = action.payload;
+socketRoomDeleted: (state, action: PayloadAction<{ roomId: string }>) => {
+  const { roomId } = action.payload;
 
-      state.rooms = state.rooms.filter((r) => r._id !== roomId);
-      delete state.usersByRoom[roomId];
-      delete state.messagesByRoom[roomId];
-      delete state.activeCountByRoom[roomId];
-      delete state.detailsByRoom[roomId];
+  state.rooms = state.rooms.filter((r) => r._id !== roomId);
+  state.favoriteRooms = state.favoriteRooms.filter((r) => r._id !== roomId);
 
-      if (state.activeRoomId === roomId) state.activeRoomId = undefined;
-    },
+  delete state.usersByRoom[roomId];
+  delete state.messagesByRoom[roomId];
+  delete state.activeCountByRoom[roomId];
+  delete state.detailsByRoom[roomId];
 
+  if (state.activeRoomId === roomId) state.activeRoomId = undefined;
+},
     /**
      * room:user:joined / room:user:left
      *
@@ -1860,11 +1988,11 @@ const roomSlice = createSlice({
         );
 
         if (idxOpt >= 0) {
-list[idxOpt] = mergeMessagePreserveReactions(list[idxOpt], {
-  ...message,
-  optimistic: false,
-  failed: false,
-});
+          list[idxOpt] = mergeMessagePreserveReactions(list[idxOpt], {
+            ...message,
+            optimistic: false,
+            failed: false,
+          });
           dedupeMessages(list);
           return;
         }
@@ -1899,9 +2027,9 @@ list[idxOpt] = mergeMessagePreserveReactions(list[idxOpt], {
       if (!list) return;
 
       const idx = list.findIndex((m) => m._id === message._id);
-if (idx >= 0) {
-  list[idx] = mergeMessagePreserveReactions(list[idx], message);
-}
+      if (idx >= 0) {
+        list[idx] = mergeMessagePreserveReactions(list[idx], message);
+      }
     },
 
     /**
@@ -1916,9 +2044,9 @@ if (idx >= 0) {
       if (!list) return;
 
       const idx = list.findIndex((m) => m._id === message._id);
-if (idx >= 0) {
-  list[idx] = mergeMessagePreserveReactions(list[idx], message);
-}
+      if (idx >= 0) {
+        list[idx] = mergeMessagePreserveReactions(list[idx], message);
+      }
     },
 
     /**
@@ -1947,69 +2075,69 @@ if (idx >= 0) {
      * room:reaction:update
      * يدعم وصول payload بدون roomId
      */
-  socketReactionUpdate: (
-  state,
-  action: PayloadAction<{
-    roomId?: string;
-    messageId: string;
-    reactions: RoomReaction[];
-    reactionCount?: number;
-  }>
-) => {
-  const messageId = String(action.payload.messageId || "");
+    socketReactionUpdate: (
+      state,
+      action: PayloadAction<{
+        roomId?: string;
+        messageId: string;
+        reactions: RoomReaction[];
+        reactionCount?: number;
+      }>
+    ) => {
+      const messageId = String(action.payload.messageId || "");
 
-  const incomingReactions = Array.isArray(action.payload.reactions)
-    ? action.payload.reactions
-    : [];
+      const incomingReactions = Array.isArray(action.payload.reactions)
+        ? action.payload.reactions
+        : [];
 
-  const roomId =
-    action.payload.roomId ||
-    findRoomIdByMessageId(state.messagesByRoom, messageId) ||
-    state.activeRoomId;
+      const roomId =
+        action.payload.roomId ||
+        findRoomIdByMessageId(state.messagesByRoom, messageId) ||
+        state.activeRoomId;
 
-  if (!roomId || !messageId) return;
+      if (!roomId || !messageId) return;
 
-  const list = state.messagesByRoom[roomId];
-  if (!list) return;
+      const list = state.messagesByRoom[roomId];
+      if (!list) return;
 
-  const msg = list.find((m: any) => {
-    return (
-      String(m?._id || "") === messageId ||
-      String(m?.serverId || "") === messageId ||
-      String(m?.id || "") === messageId
-    );
-  });
+      const msg = list.find((m: any) => {
+        return (
+          String(m?._id || "") === messageId ||
+          String(m?.serverId || "") === messageId ||
+          String(m?.id || "") === messageId
+        );
+      });
 
-  if (!msg) return;
+      if (!msg) return;
 
-  const oldReactions = Array.isArray((msg as any)?.reactions)
-    ? (msg as any).reactions
-    : [];
+      const oldReactions = Array.isArray((msg as any)?.reactions)
+        ? (msg as any).reactions
+        : [];
 
-  const incomingReactionCount =
-    typeof action.payload.reactionCount === "number"
-      ? action.payload.reactionCount
-      : incomingReactions.length;
+      const incomingReactionCount =
+        typeof action.payload.reactionCount === "number"
+          ? action.payload.reactionCount
+          : incomingReactions.length;
 
-  /**
-   * ✅ حماية:
-   * لا تسمح لتحديث فاضي يمسح رياكشن موجود.
-   */
-  if (
-    oldReactions.length > 0 &&
-    incomingReactions.length === 0 &&
-    incomingReactionCount === 0
-  ) {
-    return;
-  }
+      /**
+       * ✅ حماية:
+       * لا تسمح لتحديث فاضي يمسح رياكشن موجود.
+       */
+      if (
+        oldReactions.length > 0 &&
+        incomingReactions.length === 0 &&
+        incomingReactionCount === 0
+      ) {
+        return;
+      }
 
-  msg.reactions = mergeReactionsWithExistingUsers(
-    incomingReactions,
-    oldReactions
-  );
+      msg.reactions = mergeReactionsWithExistingUsers(
+        incomingReactions,
+        oldReactions
+      );
 
-  msg.reactionCount = incomingReactionCount;
-},
+      msg.reactionCount = incomingReactionCount;
+    },
 
     /**
      * room:kicked
@@ -2134,8 +2262,7 @@ if (idx >= 0) {
         if (idx >= 0) {
           const normalizedRoom: Partial<RoomItem> = {
             ...details.room,
-            // ✅ منع null
-            boostExpiresAt: details.room.boostExpiresAt ?? undefined,
+            boostPoints: Number(details.room.boostPoints || 0),
           };
 
           state.rooms[idx] = { ...state.rooms[idx], ...normalizedRoom };
@@ -2210,6 +2337,7 @@ if (idx >= 0) {
         const room = state.rooms.find((r) => r._id === stats.roomId);
         if (room) {
           room.messagesCount = Number(stats.messagesCount) || room.messagesCount;
+          room.boostPoints = Number(stats.boostPoints || 0);
         }
       })
       .addCase(fetchRoomStats.rejected, (state, action) => {
@@ -2388,34 +2516,34 @@ if (idx >= 0) {
         state.loadingMessages = false;
         state.error = (action.payload as any) || "Failed to fetch messages";
       })
-    .addCase(toggleRoomReaction.fulfilled, (state, action) => {
-  state.mutatingRoom = false;
+      .addCase(toggleRoomReaction.fulfilled, (state, action) => {
+        state.mutatingRoom = false;
 
-  const { roomId, messageId, reactions, reactionCount } = action.payload;
+        const { roomId, messageId, reactions, reactionCount } = action.payload;
 
-  const list = state.messagesByRoom[roomId];
-  if (!list) return;
+        const list = state.messagesByRoom[roomId];
+        if (!list) return;
 
-  const msg = list.find((m: any) => {
-    return (
-      String(m?._id || "") === String(messageId) ||
-      String(m?.serverId || "") === String(messageId) ||
-      String(m?.id || "") === String(messageId)
-    );
-  });
+        const msg = list.find((m: any) => {
+          return (
+            String(m?._id || "") === String(messageId) ||
+            String(m?.serverId || "") === String(messageId) ||
+            String(m?.id || "") === String(messageId)
+          );
+        });
 
-  if (!msg) return;
+        if (!msg) return;
 
-  msg.reactions = mergeReactionsWithExistingUsers(
-    Array.isArray(reactions) ? reactions : [],
-    msg.reactions || []
-  );
+        msg.reactions = mergeReactionsWithExistingUsers(
+          Array.isArray(reactions) ? reactions : [],
+          msg.reactions || []
+        );
 
-  msg.reactionCount =
-    typeof reactionCount === "number"
-      ? reactionCount
-      : msg.reactions.length;
-})
+        msg.reactionCount =
+          typeof reactionCount === "number"
+            ? reactionCount
+            : msg.reactions.length;
+      })
       .addCase(toggleRoomReaction.rejected, (state, action) => {
         state.mutatingRoom = false;
         state.error = (action.payload as any) || "Reaction failed";
@@ -2437,7 +2565,50 @@ if (idx >= 0) {
         state.loadingRooms = false;
         state.error = (action.payload as any) || "Fetch rooms failed";
       })
+      .addCase(fetchFavoriteRooms.pending, (state) => {
+        state.loadingFavoriteRooms = true;
+        state.error = undefined;
+      })
+      .addCase(fetchFavoriteRooms.fulfilled, (state, action) => {
+        state.loadingFavoriteRooms = false;
+      state.favoriteRooms = action.payload.items.map((room) => ({
+  ...room,
+  isFavorite: true,
+}));
 
+sortRoomsByBoost(state.favoriteRooms);
+      })
+      .addCase(fetchFavoriteRooms.rejected, (state, action) => {
+        state.loadingFavoriteRooms = false;
+        state.error = (action.payload as any) || "Failed to fetch favorite rooms";
+      })
+
+      .addCase(addRoomToFavorites.fulfilled, (state, action) => {
+        const { roomId } = action.payload;
+
+        const room = state.rooms.find((r) => r._id === roomId);
+        if (room) room.isFavorite = true;
+      })
+
+      .addCase(removeRoomFromFavorites.fulfilled, (state, action) => {
+        const { roomId } = action.payload;
+
+        const room = state.rooms.find((r) => r._id === roomId);
+        if (room) room.isFavorite = false;
+
+        state.favoriteRooms = state.favoriteRooms.filter((r) => r._id !== roomId);
+      })
+
+      .addCase(toggleRoomFavorite.fulfilled, (state, action) => {
+        const { roomId, isFavorite } = action.payload;
+
+        const room = state.rooms.find((r) => r._id === roomId);
+        if (room) room.isFavorite = isFavorite;
+
+        if (!isFavorite) {
+          state.favoriteRooms = state.favoriteRooms.filter((r) => r._id !== roomId);
+        }
+      })
       .addCase(createRoom.pending, (state) => {
         state.loadingRooms = true;
         state.error = undefined;
@@ -2471,7 +2642,35 @@ if (idx >= 0) {
         state.loadingRooms = false;
         state.error = (action.payload as any) || "Search failed";
       })
+    .addCase(boostRoom.fulfilled, (state, action) => {
+  state.mutatingRoom = false;
 
+  const { roomId, boostPoints, room } = action.payload;
+
+  const idx = state.rooms.findIndex((r) => r._id === roomId);
+
+  if (idx >= 0) {
+    state.rooms[idx] = {
+      ...state.rooms[idx],
+      ...(room || {}),
+      boostPoints: Number(boostPoints || 0),
+    };
+  }
+
+  const favIdx = state.favoriteRooms.findIndex((r) => r._id === roomId);
+
+  if (favIdx >= 0) {
+    state.favoriteRooms[favIdx] = {
+      ...state.favoriteRooms[favIdx],
+      ...(room || {}),
+      boostPoints: Number(boostPoints || 0),
+      isFavorite: true,
+    };
+  }
+
+  sortRoomsByBoost(state.rooms);
+  sortRoomsByBoost(state.favoriteRooms);
+})
       .addMatcher(
         (action) =>
           action.type.startsWith("room/") &&
@@ -2483,6 +2682,9 @@ if (idx >= 0) {
             toggleAntiSpam.typePrefix,
             addVip.typePrefix,
             removeVip.typePrefix,
+            addRoomToFavorites.typePrefix,
+            removeRoomFromFavorites.typePrefix,
+            toggleRoomFavorite.typePrefix,
             startPoll.typePrefix,
             votePoll.typePrefix,
             endPoll.typePrefix,
@@ -2490,7 +2692,6 @@ if (idx >= 0) {
             raiseHand.typePrefix,
             clearRaisedHand.typePrefix,
             addXP.typePrefix,
-            boostRoom.typePrefix,
             kickUser.typePrefix,
             deleteRoom.typePrefix,
             pinRoomMessage.typePrefix,
@@ -2512,7 +2713,6 @@ if (idx >= 0) {
             changeRoomType.typePrefix,
             changeRoomPremium.typePrefix,
             toggleAntiSpam.typePrefix,
-            boostRoom.typePrefix
           ].some((p) => action.type.startsWith(p)),
         (state, action: any) => {
           state.mutatingRoom = false;
@@ -2647,7 +2847,9 @@ const EMPTY_MESSAGES: RoomMessage[] = [];
 
 export const selectRooms = (state: RootState) => state.room.rooms;
 export const selectActiveRoomId = (state: RootState) => state.room.activeRoomId;
-
+export const selectFavoriteRooms = (state: RootState) => state.room.favoriteRooms;
+export const selectLoadingFavoriteRooms = (state: RootState) =>
+  state.room.loadingFavoriteRooms;
 export const selectRoomUsers = createSelector(
   [(state: RootState) => state.room.usersByRoom, (_: RootState, roomId: string) => roomId],
   (usersByRoom, roomId) => usersByRoom[roomId] ?? EMPTY_USERS

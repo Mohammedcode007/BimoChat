@@ -85,13 +85,16 @@ export interface MessageItem {
 interface MessageState {
   messages: Record<string, MessageItem[]>;
   loading: boolean;
+  loadingByChatId: Record<string, boolean>;
+  prefetchedChatIds: Record<string, boolean>;
 }
 
 const initialState: MessageState = {
   messages: {},
   loading: false,
+  loadingByChatId: {},
+  prefetchedChatIds: {},
 };
-
 /* =====================================================
    HELPERS
 ===================================================== */
@@ -162,22 +165,25 @@ const mergeUniqueMessages = (
 ===================================================== */
 
 export const loadMessages = createAsyncThunk<
-  { chatId: string; messages: MessageItem[]; page: number },
-  { chatId: string; page: number }
->("message/loadMessages", async ({ chatId, page }, { rejectWithValue }) => {
-  try {
-    const res = await api.get(`/messages/${chatId}?page=${page}`);
+  { chatId: string; messages: MessageItem[]; page: number; silent?: boolean },
+  { chatId: string; page: number; silent?: boolean }
+>(
+  "message/loadMessages",
+  async ({ chatId, page, silent }, { rejectWithValue }) => {
+    try {
+      const res = await api.get(`/messages/${chatId}?page=${page}`);
 
-    return {
-      chatId,
-      messages: Array.isArray(res.data) ? res.data : [],
-      page,
-    };
-  } catch (error: any) {
-    return rejectWithValue(error?.response?.data || "Failed");
+      return {
+        chatId,
+        messages: Array.isArray(res.data) ? res.data : [],
+        page,
+        silent,
+      };
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data || "Failed");
+    }
   }
-});
-
+);
 /* =====================================================
    SLICE
 ===================================================== */
@@ -349,31 +355,52 @@ const messageSlice = createSlice({
      EXTRA REDUCERS (ASYNC)
   ===================================================== */
 
-  extraReducers: (builder) => {
-    builder
-      .addCase(loadMessages.pending, (state) => {
+ extraReducers: (builder) => {
+  builder
+    .addCase(loadMessages.pending, (state, action) => {
+      const { chatId, silent } = action.meta.arg;
+
+      state.loadingByChatId[chatId] = true;
+
+      if (!silent) {
         state.loading = true;
-      })
+      }
+    })
 
-      .addCase(loadMessages.fulfilled, (state, action) => {
-        const { chatId, messages, page } = action.payload;
+    .addCase(loadMessages.fulfilled, (state, action) => {
+      const { chatId, messages, page, silent } = action.payload;
+
+      state.loadingByChatId[chatId] = false;
+
+      if (!silent) {
         state.loading = false;
+      }
 
-        const normalized = messages.map(normalizeMessage);
+      const normalized = messages.map(normalizeMessage);
+      const existing = state.messages[chatId] || [];
 
-        if (page === 1) {
-          state.messages[chatId] = normalized;
-          return;
-        }
-
-        const existing = state.messages[chatId] || [];
+      // مهم جدًا:
+      // لا تمسح الرسائل الموجودة عند page 1
+      // لأن ممكن تكون جاية من cache أو prefetch
+      if (page === 1) {
         state.messages[chatId] = mergeUniqueMessages(existing, normalized);
-      })
+        state.prefetchedChatIds[chatId] = true;
+        return;
+      }
 
-      .addCase(loadMessages.rejected, (state) => {
+      state.messages[chatId] = mergeUniqueMessages(existing, normalized);
+    })
+
+    .addCase(loadMessages.rejected, (state, action) => {
+      const { chatId, silent } = action.meta.arg;
+
+      state.loadingByChatId[chatId] = false;
+
+      if (!silent) {
         state.loading = false;
-      });
-  },
+      }
+    });
+},
 });
 
 /* =====================================================

@@ -1,8 +1,7 @@
 import { Linking } from "react-native";
 
 export const RICH_TOKEN_REGEX =
-  /(https?:\/\/[^\s]+|www\.[^\s]+|@[\u0600-\u06FF\w_]+|#[\u0600-\u06FF\w_]+)/g;
-
+  /(https?:\/\/[^\s]+|www\.[^\s]+|@[^\s@#]+|#[^\s@#]+)/g;
 export const URL_REGEX = /(https?:\/\/[^\s]+|www\.[^\s]+)/i;
 
 export const isValidUrl = (url?: string) => {
@@ -109,7 +108,6 @@ export function parseRichText(text: string) {
 
   return result;
 }
-
 export const getFeedItemKey = (item: any) => {
   if (item?.feedType === "retweet") {
     return `retweet-${item?.retweetId || item?._id}-${item?.retweetedBy?._id || ""}`;

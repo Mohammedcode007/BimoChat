@@ -69,7 +69,9 @@ export type MessageBubbleProps = {
   inputSearchValue: string;
   highlightedMessageIds: Set<string>;
   selectedSearchMessageId: string | null;
-
+onPlayAudio: (uri: string) => void;
+activeAudioUri?: string | null;
+activeAudioPlaying?: boolean;
   mediaSendingState: MediaSendingState;
 
   onLongPress: (item: MessageItem) => void;

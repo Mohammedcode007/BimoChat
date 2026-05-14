@@ -57,7 +57,23 @@ actionsCancel: {
   alignItems: "center",
   justifyContent: "center",
 },
+inlineAudioBtn: {
+  minWidth: 150,
+  height: 38,
+  borderRadius: 19,
+  paddingHorizontal: 8,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
+},
 
+inlineAudioIcon: {
+  width: 26,
+  height: 26,
+  borderRadius: 13,
+  alignItems: "center",
+  justifyContent: "center",
+},
 actionsCancelText: {
   fontSize: 15,
   fontWeight: "900",

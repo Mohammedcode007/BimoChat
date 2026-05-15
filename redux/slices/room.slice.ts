@@ -2600,15 +2600,54 @@ sortRoomsByBoost(state.favoriteRooms);
       })
 
       .addCase(toggleRoomFavorite.fulfilled, (state, action) => {
-        const { roomId, isFavorite } = action.payload;
+  state.mutatingRoom = false;
 
-        const room = state.rooms.find((r) => r._id === roomId);
-        if (room) room.isFavorite = isFavorite;
+  const roomId = String(action.payload?.roomId || "");
+  const isFavorite = Boolean(action.payload?.isFavorite);
 
-        if (!isFavorite) {
-          state.favoriteRooms = state.favoriteRooms.filter((r) => r._id !== roomId);
-        }
-      })
+  if (!roomId) return;
+
+  const idx = state.rooms.findIndex(
+    (r) => String(r._id) === roomId
+  );
+
+  if (idx >= 0) {
+    state.rooms[idx] = {
+      ...state.rooms[idx],
+      isFavorite,
+      favoriteCreatedAt: isFavorite
+        ? state.rooms[idx].favoriteCreatedAt || new Date().toISOString()
+        : undefined,
+    };
+  }
+
+  const favIdx = state.favoriteRooms.findIndex(
+    (r) => String(r._id) === roomId
+  );
+
+  if (isFavorite) {
+    if (favIdx < 0 && idx >= 0) {
+      state.favoriteRooms.unshift({
+        ...state.rooms[idx],
+        isFavorite: true,
+        favoriteCreatedAt: new Date().toISOString(),
+      });
+    }
+
+    if (favIdx >= 0) {
+      state.favoriteRooms[favIdx] = {
+        ...state.favoriteRooms[favIdx],
+        isFavorite: true,
+      };
+    }
+  } else {
+    state.favoriteRooms = state.favoriteRooms.filter(
+      (r) => String(r._id) !== roomId
+    );
+  }
+
+  sortRoomsByBoost(state.favoriteRooms);
+})
       .addCase(createRoom.pending, (state) => {
         state.loadingRooms = true;
         state.error = undefined;
@@ -2765,6 +2804,8 @@ sortRoomsByBoost(state.favoriteRooms);
             votePoll.typePrefix,
             endPoll.typePrefix,
             setMaxVoiceSeats.typePrefix,
+                  toggleRoomFavorite.typePrefix, // ✅ أضفها
+
             raiseHand.typePrefix,
             clearRaisedHand.typePrefix,
             addXP.typePrefix,

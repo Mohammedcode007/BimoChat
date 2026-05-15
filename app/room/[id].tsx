@@ -48,6 +48,7 @@ import { createChat, setActiveChat } from "@/redux/slices/chatSlice";
 import { searchUsers } from "@/redux/slices/friendSlice";
 import { setMessages } from "@/redux/slices/messageSlice";
 import {
+  boostRoom,
   clearBannedFlag,
   clearKickedFlag,
   fetchRoomMessages,
@@ -59,20 +60,22 @@ import {
   optimisticAddRoomMessage,
   pinRoomMessage,
   selectBannedFlag,
+  selectFavoriteRooms,
   selectKickedFlag,
   selectRoomActiveCount,
   selectRoomAvatarById,
   selectRoomLoadingMessages,
   selectRoomMessages,
   selectRoomNameById,
+  selectRooms,
   selectRoomUsers,
   sendBombColorAnswer,
   sendRoomMessage,
   socketRoleSetFailed,
   socketRoleSetRequested,
   socketRoleSetSucceeded,
+  toggleRoomFavorite,
 } from "@/redux/slices/room.slice";
-import { boostRoom } from "@/redux/slices/roomControl.slice";
 import { debitMyCoinz } from "@/redux/slices/userSlice";
 import { RootState } from "@/redux/store";
 import api from "@/services/api";
@@ -276,6 +279,21 @@ export default function ChatScreen() {
   const roomName = useAppSelector((state) => selectRoomNameById(state, roomId));
   const roomAvatar = useAppSelector((state) => selectRoomAvatarById(state, roomId));
   const activeCount = useAppSelector((state) => selectRoomActiveCount(state, roomId));
+  const rooms = useAppSelector(selectRooms);
+const favoriteRooms = useAppSelector(selectFavoriteRooms);
+const mutatingRoom = useAppSelector((state) => state.room.mutatingRoom);
+
+const currentRoom = useMemo(() => {
+  return rooms.find((r: any) => String(r?._id) === String(roomId));
+}, [rooms, roomId]);
+
+const isRoomFavorite = useMemo(() => {
+  if (currentRoom?.isFavorite) return true;
+
+  return favoriteRooms.some(
+    (r: any) => String(r?._id) === String(roomId)
+  );
+}, [currentRoom?.isFavorite, favoriteRooms, roomId]);
   const showInitialMessagesSkeleton =
     loadingMessages && (!reduxMessages || reduxMessages.length === 0);
   const [text, setText] = useState("");
@@ -2143,6 +2161,17 @@ const [usersModalLoading, setUsersModalLoading] = useState(false);
       Alert.alert("Error", e?.message || "Failed to load stats");
     }
   };
+const onToggleRoomFavorite = async () => {
+  if (!roomId || mutatingRoom) return;
+
+  try {
+    setShowRoomMenu(false);
+
+    await dispatch(toggleRoomFavorite({ roomId })).unwrap();
+  } catch {
+    // Failed silently
+  }
+};
   const onLeaveRoom = () => {
     if (!roomId) return;
     if (didLeaveRef.current) return;
@@ -2245,45 +2274,63 @@ const [usersModalLoading, setUsersModalLoading] = useState(false);
   };
 
   /* ================= BOOST ================= */
-  const onBoostRoom = async () => {
-    try {
-      // if (!canModerate) {
-      //   Alert.alert("No permission", "You don't have permission to boost this room.");
-      //   return;
-      // }
-      if (!roomId) return;
+const onBoostRoom = async () => {
+  try {
+    if (!roomId) return;
 
-      const level = 1;
-      const hours = 24;
+    /**
+     * مهم:
+     * boostRoom الآن لا يستقبل level ولا hours.
+     * الباك هو الذي يحدد:
+     * - كل بوست = 1
+     * - السعر = 1500 Coinz
+     * - المدة = 30 يوم
+     */
+    const r = await dispatch(boostRoom({ roomId })).unwrap();
 
-      const r = await dispatch(boostRoom({ roomId, level, hours })).unwrap();
+    const boostPoints = Number(r?.boostPoints || r?.room?.boostPoints || 0);
 
-      if (!r?.boostExpiresAt && typeof r?.boostLevel !== "number") {
-        Alert.alert("Error", "Boost did not succeed.");
-        return;
-      }
-
-      await dispatch(
-        sendRoomMessage({
-          roomId,
-          type: "gift",
-          content: "boost_rocket",
-          gift: {
-            key: "boost_rocket",
-            name: "boost",
-            value: level,
-            icon: "🚀",
-            animation: "rocket"
-          }
-        } as any)
-      ).unwrap();
-
-      const content = `🚀 <b>${myName}</b> boosted the room!`;
-      await dispatch(sendRoomMessage({ roomId, content, type: "announcement" })).unwrap();
-    } catch (e: any) {
-      Alert.alert("Error", e?.message || String(e) || "Boost failed");
+    if (!boostPoints) {
+      Alert.alert("Error", "Boost did not succeed.");
+      return;
     }
-  };
+
+    await dispatch(
+      sendRoomMessage({
+        roomId,
+        clientId: `boost_gift_${Date.now()}_${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+        type: "gift",
+        content: "boost_rocket",
+        gift: {
+          key: "boost_rocket",
+          name: "boost",
+          value: 1500,
+          icon: "🚀",
+          animation: "rocket",
+        },
+      } as any)
+    ).unwrap();
+
+    const content = `🚀 <b>${myName}</b> boosted the room! Total boosts: ${boostPoints}`;
+
+    await dispatch(
+      sendRoomMessage({
+        roomId,
+        clientId: `boost_announcement_${Date.now()}_${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+        content,
+        type: "announcement",
+      })
+    ).unwrap();
+
+    await dispatch(fetchRoomStats(roomId)).unwrap();
+  } catch (e: any) {
+    Alert.alert("Error", e?.message || String(e) || "Boost failed");
+  }
+};
 
   const goDetails = () => {
     router.push({ pathname: "/room-details", params: { roomId } });
@@ -2458,10 +2505,7 @@ const [usersModalLoading, setUsersModalLoading] = useState(false);
                 <Text style={styles.menuText}>Users</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.menuItem} onPress={onOpenStats} activeOpacity={0.85}>
-                <Ionicons name="stats-chart" size={18} color={theme.text} />
-                <Text style={styles.menuText}>Stats</Text>
-              </TouchableOpacity>
+           
 
               <TouchableOpacity
                 style={styles.menuItem}
@@ -2486,7 +2530,28 @@ const [usersModalLoading, setUsersModalLoading] = useState(false);
                 <Ionicons name="settings-outline" size={18} color={theme.text} />
                 <Text style={styles.menuText}>Setting Room</Text>
               </TouchableOpacity>
+<TouchableOpacity
+  style={styles.menuItem}
+  onPress={onToggleRoomFavorite}
+  activeOpacity={0.85}
+  disabled={mutatingRoom}
+>
+  <Ionicons
+    name={isRoomFavorite ? "star" : "star-outline"}
+    size={18}
+    color={isRoomFavorite ? "#F59E0B" : theme.text}
+  />
 
+  <Text
+    style={[
+      styles.menuText,
+      isRoomFavorite && { color: "#F59E0B" },
+      mutatingRoom && { opacity: 0.6 },
+    ]}
+  >
+    {isRoomFavorite ? "Remove from Favorites" : "Add to Favorites"}
+  </Text>
+</TouchableOpacity>
               <View style={styles.menuDivider} />
 
               <TouchableOpacity style={styles.menuItem} onPress={onLeaveRoom} activeOpacity={0.85}>

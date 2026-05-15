@@ -26,9 +26,12 @@ import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
 import {
   createRoom as createRoomThunk,
   enterRoomDirect,
+  fetchFavoriteRooms,
   fetchRoomsByType,
   joinRoomAndEnter,
   searchRooms as searchRoomsThunk,
+  selectFavoriteRooms,
+  selectLoadingFavoriteRooms,
   selectRoomActiveCount,
   selectRoomError,
   selectRoomLoadingRooms,
@@ -46,7 +49,8 @@ type RoomUI = {
   image: string;
   roomType?: "public" | "private" | "protected" | "subscription";
   isProtected?: boolean;
-
+  isFavorite?: boolean;
+  boostPoints?: number;
   isVIP?: boolean;
   isPrivate?: boolean;
   isVoice?: boolean;
@@ -60,7 +64,7 @@ type RoomUI = {
 const PAGE_SIZE = 30;
 
 // ✅ NEW TAB
-const TABS = ["All", "Active", "Trending", "VIP", "Private"] as const;
+const TABS = ["All", "Active", "Trending", "VIP", "Favorite"] as const;
 type TabType = (typeof TABS)[number];
 
 const Badge = memo(function Badge({
@@ -84,9 +88,10 @@ const mapRoomToUI = (r: any): RoomUI => {
   const id = r._id || r.id;
   const type = r.type as RoomUI["roomType"];
   const maxUsers = typeof r.maxUsers === "number" && r.maxUsers > 0 ? r.maxUsers : 50;
+  const boostPoints = Number(r.boostPoints || 0);
 
   const isProtected = type === "protected";
-  const isPrivate = type === "private"; // ✅ private فقط
+  const isPrivate = type === "private";
 
   return {
     id,
@@ -99,12 +104,14 @@ const mapRoomToUI = (r: any): RoomUI => {
     isProtected,
 
     isVIP: Boolean(r.isVIP || (typeof r.premiumLevel === "number" && r.premiumLevel > 0)),
-    isPrivate: isPrivate, // ✅ private فقط
+    isPrivate,
     isVoice: Boolean(r.isVoice || (typeof r.maxVoiceSeats === "number" && r.maxVoiceSeats > 0)),
     isVerified: Boolean(r.isVerified),
-    isTrending: Boolean(r.isTrending || (typeof r.boostLevel === "number" && r.boostLevel > 0)),
+    isTrending: Boolean(r.isTrending || boostPoints > 0),
 
-    // ✅ NEW: يعتمد على الباك
+    isFavorite: Boolean(r.isFavorite),
+    boostPoints,
+
     isActive: Boolean(r.isActive)
   };
 };
@@ -258,11 +265,12 @@ export default function RoomsScreen() {
 
   const theme = Colors[colorScheme === "dark" ? "dark" : "light"];
   const { onScroll, onScrollBeginDrag } = useHideTabBarOnScroll();
-const didMountSearchRef = useRef(false);
+  const didMountSearchRef = useRef(false);
   const reduxRooms = useAppSelector(selectRooms);
   const reduxError = useAppSelector(selectRoomError);
   const loadingRooms = useAppSelector(selectRoomLoadingRooms);
-
+  const reduxFavoriteRooms = useAppSelector(selectFavoriteRooms);
+  const loadingFavoriteRooms = useAppSelector(selectLoadingFavoriteRooms);
   const [tab, setTab] = useState<TabType>("All");
   const [search, setSearch] = useState("");
 
@@ -286,32 +294,33 @@ const didMountSearchRef = useRef(false);
   // ✅ Creating / searching nice loading
   const [creating, setCreating] = useState(false);
   const [searching, setSearching] = useState(false);
-const activeRoomId = useSelector(
-  (state: RootState) => state.room.activeRoomId
-);
-const goToRoom = useCallback(
-  (roomId: string) => {
-    router.push({
-      pathname: "/room/[id]",
-      params: { id: roomId },
-    });
-  },
-  [router]
-);
+  const activeRoomId = useSelector(
+    (state: RootState) => state.room.activeRoomId
+  );
+  const goToRoom = useCallback(
+    (roomId: string) => {
+      router.push({
+        pathname: "/room/[id]",
+        params: { id: roomId },
+      });
+    },
+    [router]
+  );
   // ✅ لو فشل join بسبب ban: نخزنها محليًا ونمنع محاولة الدخول + نظهر Badge
   const [bannedByRoomId, setBannedByRoomId] = useState<Record<string, string>>({});
-const myUserId = useAppSelector((state) => state.auth.user?._id);
+  const myUserId = useAppSelector((state) => state.auth.user?._id);
   // ✅ backendType: كما هو (Private -> private otherwise public)
-  const backendType: "public" | "private" = tab === "Private" ? "private" : "public";
-useEffect(() => {
-  if (myUserId) {
-    dispatch(setCurrentRoomUserId(myUserId));
-  }
-}, [myUserId]);
+  const backendType: "public" = "public";
+  const isFavoriteTab = tab === "Favorite";
+  useEffect(() => {
+    if (myUserId) {
+      dispatch(setCurrentRoomUserId(myUserId));
+    }
+  }, [myUserId]);
   const isInitialLoading = useMemo(() => {
-    return Boolean(loadingRooms && rooms.length === 0 && !search.trim());
-  }, [loadingRooms, rooms.length, search]);
-
+    const loading = isFavoriteTab ? loadingFavoriteRooms : loadingRooms;
+    return Boolean(loading && rooms.length === 0 && !search.trim());
+  }, [loadingRooms, loadingFavoriteRooms, rooms.length, search, isFavoriteTab]);
   /* =====================================================
      ✅ Fetch first page when backendType changes
      (ملاحظة: لا نعيد الجلب عند الضغط على تب "Active" فقط لأنه فلترة محلية)
@@ -322,24 +331,29 @@ useEffect(() => {
     setRooms([]);
     setError("");
 
-    // ✅ مهم: امنع وميض Loading more
     setIsLoadingMore(false);
     setSearching(false);
 
-    dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
-  }, [dispatch, backendType]);
+    if (isFavoriteTab) {
+      dispatch(fetchFavoriteRooms({ page: 1, limit: PAGE_SIZE }));
+    } else {
+      dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
+    }
+  }, [dispatch, backendType, isFavoriteTab]);
   /* =====================================================
      ✅ Accumulate rooms from redux -> local map (stable)
   ===================================================== */
   useEffect(() => {
-    if (!reduxRooms) return;
+    const sourceRooms = isFavoriteTab ? reduxFavoriteRooms : reduxRooms;
+    if (!sourceRooms) return;
 
-    for (const r of reduxRooms) {
+    for (const r of sourceRooms) {
       const ui = mapRoomToUI(r);
       accRef.current.set(ui.id, ui);
     }
+
     setRooms(Array.from(accRef.current.values()));
-  }, [reduxRooms]);
+  }, [reduxRooms, reduxFavoriteRooms, isFavoriteTab]);
 
   /* =====================================================
      ✅ Refresh
@@ -357,7 +371,9 @@ useEffect(() => {
       setRooms([]);
 
       const q = search.trim();
-      if (q) {
+      if (isFavoriteTab) {
+        await dispatch(fetchFavoriteRooms({ page: 1, limit: PAGE_SIZE })).unwrap();
+      } else if (q) {
         setSearching(true);
         await dispatch(searchRoomsThunk({ q, type: backendType, limit: PAGE_SIZE })).unwrap();
       } else {
@@ -369,7 +385,7 @@ useEffect(() => {
       setSearching(false);
       setRefreshing(false);
     }
-  }, [dispatch, backendType, search]);
+  }, [dispatch, backendType, search, isFavoriteTab]);
   /* =====================================================
      ✅ Load more (pagination)
   ===================================================== */
@@ -387,9 +403,15 @@ useEffect(() => {
 
       const next = page + 1;
 
-      await dispatch(
-        fetchRoomsByType({ type: backendType, page: next, limit: PAGE_SIZE })
-      ).unwrap();
+      if (isFavoriteTab) {
+        await dispatch(
+          fetchFavoriteRooms({ page: next, limit: PAGE_SIZE })
+        ).unwrap();
+      } else {
+        await dispatch(
+          fetchRoomsByType({ type: backendType, page: next, limit: PAGE_SIZE })
+        ).unwrap();
+      }
 
       setPage(next); // ✅ بعد النجاح فقط
     } catch (e: any) {
@@ -397,61 +419,63 @@ useEffect(() => {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [dispatch, backendType, loadingRooms, isLoadingMore, page, search, isInitialLoading]);
+  }, [dispatch, backendType, loadingRooms, isLoadingMore, page, search, isInitialLoading, isFavoriteTab]);
   /* =====================================================
      ✅ Debounced search
   ===================================================== */
-useEffect(() => {
-  if (!didMountSearchRef.current) {
-    didMountSearchRef.current = true;
-    return;
-  }
-
-  const q = search.trim();
-
-  const t = setTimeout(async () => {
-    try {
-      setError("");
-      accRef.current = new Map();
-      setRooms([]);
-      setPage(1);
-
-      if (!q) {
-        setSearching(false);
-        dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
-        return;
-      }
-
-      setSearching(true);
-      await dispatch(
-        searchRoomsThunk({ q, type: backendType, limit: PAGE_SIZE })
-      ).unwrap();
-    } catch (e: any) {
-      setError(e?.message || "Search failed");
-    } finally {
-      setSearching(false);
+  useEffect(() => {
+    if (!didMountSearchRef.current) {
+      didMountSearchRef.current = true;
+      return;
     }
-  }, 450);
 
-  return () => clearTimeout(t);
-}, [search, backendType, dispatch]);
+    const q = search.trim();
 
+    const t = setTimeout(async () => {
+      try {
+        setError("");
+        accRef.current = new Map();
+        setRooms([]);
+        setPage(1);
+
+        if (isFavoriteTab) {
+          setSearching(false);
+          dispatch(fetchFavoriteRooms({ page: 1, limit: PAGE_SIZE }));
+          return;
+        }
+
+        if (!q) {
+          setSearching(false);
+          dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
+          return;
+        }
+
+        setSearching(true);
+        await dispatch(
+          searchRoomsThunk({ q, type: backendType, limit: PAGE_SIZE })
+        ).unwrap();
+      } catch (e: any) {
+        setError(e?.message || "Search failed");
+      } finally {
+        setSearching(false);
+      }
+    }, 450);
+
+    return () => clearTimeout(t);
+  }, [search, backendType, dispatch, isFavoriteTab]);
   /* =====================================================
      ✅ Sort & filter
   ===================================================== */
-  const sortRooms = useCallback((list: RoomUI[]) => {
-    return [...list].sort((a, b) => {
-      const score = (r: RoomUI) =>
-        (r.isActive ? 6 : 0) + // ✅ NEW: active أعلى أولوية
-        (r.isTrending ? 5 : 0) +
-        (r.isVIP ? 4 : 0) +
-        (r.isVerified ? 3 : 0) +
-        (!r.isPrivate ? 2 : 0) +
-        (r.isVoice ? 1 : 0);
+ const sortRooms = useCallback((list: RoomUI[]) => {
+  return [...list].sort((a, b) => {
+    const bpA = Number(a.boostPoints || 0);
+    const bpB = Number(b.boostPoints || 0);
 
-      return score(b) - score(a);
-    });
-  }, []);
+    if (bpB !== bpA) return bpB - bpA;
+
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
+}, []);
 
   const filteredRooms = useMemo(() => {
     let data = rooms;
@@ -461,9 +485,9 @@ useEffect(() => {
 
     if (tab === "Trending") data = data.filter((r) => r.isTrending);
     if (tab === "VIP") data = data.filter((r) => r.isVIP);
+    if (tab === "Favorite") data = data.filter((r) => r.isFavorite);
     // if (tab === "Voice") data = data.filter((r) => r.isVoice);
-    if (tab === "Private") data = data.filter((r) => r.isPrivate);
-
+    if (tab === "Favorite") data = data.filter((r) => r.isFavorite);
     if (search.trim()) {
       const qq = search.trim().toLowerCase();
       data = data.filter((r) => r.name.toLowerCase().includes(qq));
@@ -531,89 +555,89 @@ useEffect(() => {
   }, []);
 
 
-const enterActiveRoomDirect = useCallback(
-  async (roomId: string) => {
-    if (joining) return;
+  const enterActiveRoomDirect = useCallback(
+    async (roomId: string) => {
+      if (joining) return;
 
-    const room = rooms.find((r) => String(r.id) === String(roomId));
+      const room = rooms.find((r) => String(r.id) === String(roomId));
 
-    const alreadyInside =
-      String(activeRoomId || "") === String(roomId) ||
-      Boolean(room?.isActive);
+      const alreadyInside =
+        String(activeRoomId || "") === String(roomId) ||
+        Boolean(room?.isActive);
 
-    if (alreadyInside) {
-      setJoining(false);
-      setError("");
-      goToRoom(roomId);
-      return;
-    }
-
-    try {
-      setJoining(true);
-      setError("");
-
-      await dispatch(
-        enterRoomDirect({ roomId, preload: true })
-      ).unwrap();
-
-      setJoining(false);
-      goToRoom(roomId);
-    } catch (e: any) {
-      const msgStr = String(e?.message || e || "Enter room failed");
-      setError(msgStr);
-      setJoining(false);
-    }
-  },
-  [dispatch, joining, activeRoomId, rooms, goToRoom]
-);
-const doJoin = useCallback(
-  async (roomId: string, password?: string) => {
-    if (joining) return;
-
-    const room = rooms.find((r) => String(r.id) === String(roomId));
-
-    const alreadyInside =
-      String(activeRoomId || "") === String(roomId) ||
-      Boolean(room?.isActive);
-
-    if (alreadyInside) {
-      setJoining(false);
-      setError("");
-      goToRoom(roomId);
-      return;
-    }
-
-    try {
-      setJoining(true);
-      setError("");
-
-      await dispatch(
-        joinRoomAndEnter({ roomId, preload: true, password })
-      ).unwrap();
-
-      setJoining(false);
-      goToRoom(roomId);
-    } catch (e: any) {
-      const msgStr = String(e?.message || e || "Join failed");
-
-      if (isBanMessage(msgStr)) {
-        markRoomBanned(roomId, msgStr);
+      if (alreadyInside) {
+        setJoining(false);
+        setError("");
+        goToRoom(roomId);
+        return;
       }
 
-      setError(msgStr);
-      setJoining(false);
-    }
-  },
-  [
-    dispatch,
-    joining,
-    activeRoomId,
-    rooms,
-    goToRoom,
-    isBanMessage,
-    markRoomBanned,
-  ]
-);
+      try {
+        setJoining(true);
+        setError("");
+
+        await dispatch(
+          enterRoomDirect({ roomId, preload: true })
+        ).unwrap();
+
+        setJoining(false);
+        goToRoom(roomId);
+      } catch (e: any) {
+        const msgStr = String(e?.message || e || "Enter room failed");
+        setError(msgStr);
+        setJoining(false);
+      }
+    },
+    [dispatch, joining, activeRoomId, rooms, goToRoom]
+  );
+  const doJoin = useCallback(
+    async (roomId: string, password?: string) => {
+      if (joining) return;
+
+      const room = rooms.find((r) => String(r.id) === String(roomId));
+
+      const alreadyInside =
+        String(activeRoomId || "") === String(roomId) ||
+        Boolean(room?.isActive);
+
+      if (alreadyInside) {
+        setJoining(false);
+        setError("");
+        goToRoom(roomId);
+        return;
+      }
+
+      try {
+        setJoining(true);
+        setError("");
+
+        await dispatch(
+          joinRoomAndEnter({ roomId, preload: true, password })
+        ).unwrap();
+
+        setJoining(false);
+        goToRoom(roomId);
+      } catch (e: any) {
+        const msgStr = String(e?.message || e || "Join failed");
+
+        if (isBanMessage(msgStr)) {
+          markRoomBanned(roomId, msgStr);
+        }
+
+        setError(msgStr);
+        setJoining(false);
+      }
+    },
+    [
+      dispatch,
+      joining,
+      activeRoomId,
+      rooms,
+      goToRoom,
+      isBanMessage,
+      markRoomBanned,
+    ]
+  );
   const openRoom = useCallback(
     async (roomId: string) => {
       const room = accRef.current.get(roomId);
@@ -767,10 +791,10 @@ const doJoin = useCallback(
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         onScroll={onScroll}
-      onScrollBeginDrag={(e) => {
-    canLoadMoreRef.current = true;
-    onScrollBeginDrag(e);
-  }}
+        onScrollBeginDrag={(e) => {
+          canLoadMoreRef.current = true;
+          onScrollBeginDrag(e);
+        }}
         onMomentumScrollBegin={() => {
           onEndReachedCalledDuringMomentum.current = false;
         }}
@@ -871,11 +895,11 @@ const doJoin = useCallback(
       </Modal>
 
       {/* ✅ Global overlay loaders */}
-<LoadingOverlay
-  visible={joining}
-  title="Entering room..."
-  subtitle="Verifying access and loading room data"
-/>
+      <LoadingOverlay
+        visible={joining}
+        title="Entering room..."
+        subtitle="Verifying access and loading room data"
+      />
       <LoadingOverlay visible={creating} title="جاري إنشاء الغرفة..." subtitle="لحظات من فضلك" />
     </View>
   );
@@ -941,22 +965,22 @@ const styles = StyleSheet.create({
   empty: { marginTop: 40, alignItems: "center" },
   emptyText: { marginTop: 10, color: "#9CA3AF" },
 
-fab: {
-  position: "absolute",
-  right: 20,
-  bottom: 40, // ✅ كان 20
-  width: 58,
-  height: 58,
-  borderRadius: 29,
-  backgroundColor: "#4F46E5",
-  alignItems: "center",
-  justifyContent: "center",
-  elevation: 10,
-  shadowColor: "#000",
-  shadowOpacity: 0.2,
-  shadowRadius: 10,
-  shadowOffset: { width: 0, height: 6 },
-},
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 40, // ✅ كان 20
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: "#4F46E5",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+  },
 
   modalOverlay: {
     flex: 1,

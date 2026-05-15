@@ -67,7 +67,7 @@ export const connectSocket = (token: string): Socket => {
   }
 
 
-  socket = io("http://192.168.0.100:5000", {
+  socket = io("http://192.168.1.17:5000", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true,
@@ -538,31 +538,53 @@ dispatch(
       dispatch(socketRoomSlowModeUpdate({ roomId: activeRoomId, slowModeSeconds: payload }));
     }
   });
-
   socket.on("room:boost:update", (payload) => {
-    const activeRoomId = getState().room?.activeRoomId;
+  const activeRoomId = getState().room?.activeRoomId;
 
-    if (payload?.roomId) {
-      dispatch(
-        socketRoomBoostUpdate({
-          roomId: payload.roomId,
-          boostLevel: payload.boostLevel,
-          boostExpiresAt: payload.boostExpiresAt
-        })
-      );
-      return;
-    }
+  if (payload?.roomId) {
+    dispatch(
+      socketRoomBoostUpdate({
+        roomId: String(payload.roomId),
+        boostPoints: Number(payload.boostPoints || 0),
+      })
+    );
+    return;
+  }
 
-    if (activeRoomId) {
-      dispatch(
-        socketRoomBoostUpdate({
-          roomId: activeRoomId,
-          boostLevel: payload?.boostLevel ?? 0,
-          boostExpiresAt: payload?.boostExpiresAt
-        })
-      );
-    }
-  });
+  if (activeRoomId) {
+    dispatch(
+      socketRoomBoostUpdate({
+        roomId: String(activeRoomId),
+        boostPoints: Number(payload?.boostPoints || 0),
+      })
+    );
+  }
+});
+
+  // socket.on("room:boost:update", (payload) => {
+  //   const activeRoomId = getState().room?.activeRoomId;
+
+  //   if (payload?.roomId) {
+  //     dispatch(
+  //       socketRoomBoostUpdate({
+  //         roomId: payload.roomId,
+  //         boostLevel: payload.boostLevel,
+  //         boostExpiresAt: payload.boostExpiresAt
+  //       })
+  //     );
+  //     return;
+  //   }
+
+  //   if (activeRoomId) {
+  //     dispatch(
+  //       socketRoomBoostUpdate({
+  //         roomId: activeRoomId,
+  //         boostLevel: payload?.boostLevel ?? 0,
+  //         boostExpiresAt: payload?.boostExpiresAt
+  //       })
+  //     );
+  //   }
+  // });
 
   socket.on("room:deleted", (data) => {
     if (!data?.roomId) return;

@@ -4,7 +4,8 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { createTweet } from "@/redux/slices/tweetSlice";
 import { AppDispatch } from "@/redux/store";
-import { uploadToCloudinary } from "@/services/upload.service";
+import { LocalUploadFile } from "@/services/upload/types";
+import { uploadSingleFile } from "@/services/upload/uploadApi";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ResizeMode, Video } from "expo-av";
 import * as ImagePicker from "expo-image-picker";
@@ -31,6 +32,8 @@ const MAX_IMAGES = 2;
 type MediaItem = {
   uri: string;
   type: "image" | "video";
+  name?: string;
+  mimeType?: string;
 };
 
 export default function CreateTweetScreen() {
@@ -111,13 +114,14 @@ export default function CreateTweetScreen() {
       });
 
       if (!result.canceled && result.assets?.length > 0) {
-        const selectedImages: MediaItem[] = result.assets
-          .slice(0, remainingSlots)
-          .map((asset) => ({
-            uri: asset.uri,
-            type: "image",
-          }));
-
+    const selectedImages: MediaItem[] = result.assets
+  .slice(0, remainingSlots)
+  .map((asset, index) => ({
+    uri: asset.uri,
+    type: "image",
+    name: asset.fileName || `tweet-image-${Date.now()}-${index + 1}.jpg`,
+    mimeType: asset.mimeType || "image/jpeg",
+  }));
         setLocalMedia((prev) => [...prev, ...selectedImages]);
       }
     } catch (error) {
@@ -147,12 +151,16 @@ export default function CreateTweetScreen() {
       });
 
       if (!result.canceled && result.assets?.length > 0) {
-        setLocalMedia([
-          {
-            uri: result.assets[0].uri,
-            type: "video",
-          },
-        ]);
+   const asset = result.assets[0];
+
+setLocalMedia([
+  {
+    uri: asset.uri,
+    type: "video",
+    name: asset.fileName || `tweet-video-${Date.now()}.mp4`,
+    mimeType: asset.mimeType || "video/mp4",
+  },
+]);
       }
     } catch (error) {
       Alert.alert("Error", "Failed to pick video");
@@ -168,50 +176,86 @@ export default function CreateTweetScreen() {
       setContent(text);
     }
   };
+function getTweetUploadFile(item: MediaItem, index: number): LocalUploadFile {
+  const fallbackName =
+    item.type === "video"
+      ? `tweet-video-${Date.now()}-${index + 1}.mp4`
+      : `tweet-image-${Date.now()}-${index + 1}.jpg`;
 
-  const handleCreate = async () => {
-    if (!content.trim() && localMedia.length === 0) return;
+  const fallbackType = item.type === "video" ? "video/mp4" : "image/jpeg";
 
-    try {
-      setLoading(true);
-      setProgress(0);
-
-      const total = localMedia.length;
-      let uploadedUrls: string[] = [];
-
-      if (total > 0) {
-        const progresses = new Array(total).fill(0);
-
-        const uploadPromises = localMedia.map((item, index) =>
-          uploadToCloudinary(item.uri, item.type, (fileProgress: number) => {
-            progresses[index] = Math.min(100, Math.max(0, fileProgress));
-
-            const overallProgress =
-              progresses.reduce((sum, value) => sum + value, 0) / total;
-
-            setProgress(Math.min(100, Math.max(0, overallProgress)));
-          })
-        );
-
-        uploadedUrls = await Promise.all(uploadPromises);
-      }
-
- await dispatch(
-  createTweet({
-    content: content.trim(),
-    media: uploadedUrls,
-  })
-).unwrap();
-
-
-setProgress(100);
-router.back();
-    } catch (error) {
-      Alert.alert("Error", "Upload failed");
-    } finally {
-      setLoading(false);
-    }
+  return {
+    uri: item.uri,
+    name: item.name || fallbackName,
+    type: item.mimeType || fallbackType,
   };
+}
+const handleCreate = async () => {
+  if (!content.trim() && localMedia.length === 0) return;
+
+  try {
+    setLoading(true);
+    setProgress(0);
+
+    const total = localMedia.length;
+    const uploadedUrls: string[] = [];
+
+    console.log("[CreateTweet] start create tweet");
+    console.log("[CreateTweet] content length:", content.trim().length);
+    console.log("[CreateTweet] media count:", total);
+
+    if (total > 0) {
+      for (let index = 0; index < localMedia.length; index++) {
+        const item = localMedia[index];
+
+        const file = getTweetUploadFile(item, index);
+
+        console.log("[CreateTweet] uploading media:", {
+          index: index + 1,
+          type: item.type,
+          file,
+        });
+
+        const uploaded = await uploadSingleFile({
+          file,
+          folder: item.type === "video" ? "videos" : "chat",
+          extraFields: {
+            source: "tweet",
+            mediaType: item.type,
+          },
+        });
+
+        console.log("[CreateTweet] uploaded media:", uploaded);
+
+        uploadedUrls.push(uploaded.url);
+
+        const currentProgress = ((index + 1) / total) * 100;
+        setProgress(Math.min(100, Math.max(0, currentProgress)));
+      }
+    }
+
+    console.log("[CreateTweet] creating tweet with media:", uploadedUrls);
+
+    await dispatch(
+      createTweet({
+        content: content.trim(),
+        media: uploadedUrls,
+      })
+    ).unwrap();
+
+    setProgress(100);
+    router.back();
+  } catch (error: any) {
+    console.log("[CreateTweet] error:", error);
+
+    Alert.alert(
+      "Error",
+      String(error?.message || error || "Upload failed")
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <SafeAreaView

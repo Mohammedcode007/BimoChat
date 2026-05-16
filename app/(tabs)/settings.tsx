@@ -158,7 +158,7 @@
 //      * fallback:
 //      * حتى لو حصل خطأ، نظف محليًا واخرج المستخدم من الواجهة
 //      */
-   
+
 
 //     dispatch(setActiveRoom(undefined));
 //     dispatch(resetRoomState());
@@ -522,6 +522,7 @@
 //     color: '#9CA3AF',
 //   },
 // });
+
 import BirthdatePickerModal from "@/components/settings/BirthdatePickerModal";
 import BlockedUsersSettingsModal from "@/components/settings/BlockedUsersModal";
 import CountryCityPickerModal, {
@@ -563,7 +564,9 @@ import {
   setNotificationSoundEnabled,
 } from "@/services/localSettings.service";
 import { disconnectSocket } from "@/services/socket";
-import { uploadToCloudinary } from "@/services/upload.service";
+// import { uploadToCloudinary } from "@/services/upload.service";
+import { LocalUploadFile } from "@/services/upload/types";
+import { uploadSingleFile } from "@/services/upload/uploadApi";
 import { Ionicons } from "@expo/vector-icons";
 import { Country } from "country-state-city";
 import { Image } from "expo-image";
@@ -860,6 +863,39 @@ export default function SettingsScreen() {
     );
   }
 
+  // async function pickNormalImage(type: "avatar" | "cover", withCrop: boolean) {
+  //   const ok = await ensureMediaPermission();
+  //   if (!ok) return;
+
+  //   const result = await ImagePicker.launchImageLibraryAsync({
+  //     mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  //     allowsEditing: withCrop,
+  //     aspect:
+  //       withCrop && type === "avatar"
+  //         ? [1, 1]
+  //         : withCrop && type === "cover"
+  //         ? [16, 9]
+  //         : undefined,
+  //     quality: withCrop ? 0.9 : 0.85,
+  //   });
+
+  //   if (result.canceled) return;
+
+  //   const asset = result.assets?.[0];
+  //   const uri = asset?.uri;
+
+  //   if (!uri) return;
+
+  //   if (isGifAsset(asset) && type === "avatar") {
+  //     Alert.alert(
+  //       "GIF",
+  //       "لو تريد الحفاظ على حركة GIF اخترها من خيار Choose GIF."
+  //     );
+  //     return;
+  //   }
+
+  //   await uploadAndSaveMedia(type, uri);
+  // }
   async function pickNormalImage(type: "avatar" | "cover", withCrop: boolean) {
     const ok = await ensureMediaPermission();
     if (!ok) return;
@@ -871,8 +907,8 @@ export default function SettingsScreen() {
         withCrop && type === "avatar"
           ? [1, 1]
           : withCrop && type === "cover"
-          ? [16, 9]
-          : undefined,
+            ? [16, 9]
+            : undefined,
       quality: withCrop ? 0.9 : 0.85,
     });
 
@@ -881,7 +917,7 @@ export default function SettingsScreen() {
     const asset = result.assets?.[0];
     const uri = asset?.uri;
 
-    if (!uri) return;
+    if (!asset || !uri) return;
 
     if (isGifAsset(asset) && type === "avatar") {
       Alert.alert(
@@ -891,34 +927,56 @@ export default function SettingsScreen() {
       return;
     }
 
-    await uploadAndSaveMedia(type, uri);
+    await uploadAndSaveMedia(type, asset);
+  }
+  // async function pickGifAvatar() {
+  //   const ok = await ensureMediaPermission();
+  //   if (!ok) return;
+
+  //   const result = await ImagePicker.launchImageLibraryAsync({
+  //     mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  //     allowsEditing: false,
+  //     quality: 1,
+  //   });
+
+  //   if (result.canceled) return;
+
+  //   const asset = result.assets?.[0];
+  //   const uri = asset?.uri;
+
+  //   if (!uri) return;
+
+  //   if (!isGifAsset(asset)) {
+  //     Alert.alert("GIF only", "Please choose GIF image.");
+  //     return;
+  //   }
+
+  //   await uploadAndSaveMedia("avatar", uri);
+  // }
+async function pickGifAvatar() {
+  const ok = await ensureMediaPermission();
+  if (!ok) return;
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: false,
+    quality: 1,
+  });
+
+  if (result.canceled) return;
+
+  const asset = result.assets?.[0];
+  const uri = asset?.uri;
+
+  if (!asset || !uri) return;
+
+  if (!isGifAsset(asset)) {
+    Alert.alert("GIF only", "Please choose GIF image.");
+    return;
   }
 
-  async function pickGifAvatar() {
-    const ok = await ensureMediaPermission();
-    if (!ok) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
-      quality: 1,
-    });
-
-    if (result.canceled) return;
-
-    const asset = result.assets?.[0];
-    const uri = asset?.uri;
-
-    if (!uri) return;
-
-    if (!isGifAsset(asset)) {
-      Alert.alert("GIF only", "Please choose GIF image.");
-      return;
-    }
-
-    await uploadAndSaveMedia("avatar", uri);
-  }
-
+  await uploadAndSaveMedia("avatar", asset, true);
+}
   function openAvatarPicker() {
     if (pageLoading) return;
 
@@ -961,37 +1019,117 @@ export default function SettingsScreen() {
     ]);
   }
 
-  async function uploadAndSaveMedia(type: "avatar" | "cover", uri: string) {
-    try {
-      setSavingMedia(true);
-      setSavingAction(
-        type === "avatar" ? "Updating avatar..." : "Updating cover..."
-      );
+  // async function uploadAndSaveMedia(type: "avatar" | "cover", uri: string) {
+  //   try {
+  //     setSavingMedia(true);
+  //     setSavingAction(
+  //       type === "avatar" ? "Updating avatar..." : "Updating cover..."
+  //     );
 
-      const uploadedUrl = await uploadToCloudinary(uri, "image");
+  //     const uploadedUrl = await uploadToCloudinary(uri, "image");
 
-      await dispatch(
-        updateProfile({
-          avatar: type === "avatar" ? uploadedUrl : undefined,
-          coverImage: type === "cover" ? uploadedUrl : undefined,
-        } as any)
-      ).unwrap();
+  //     await dispatch(
+  //       updateProfile({
+  //         avatar: type === "avatar" ? uploadedUrl : undefined,
+  //         coverImage: type === "cover" ? uploadedUrl : undefined,
+  //       } as any)
+  //     ).unwrap();
 
-      await refreshMe();
+  //     await refreshMe();
 
-      Toast.show({
-        type: "success",
-        text1: "Success",
-        text2: type === "avatar" ? "Avatar updated" : "Cover updated",
-      });
-    } catch (error: any) {
-      Alert.alert("Error", String(error?.message || error || "Upload failed"));
-    } finally {
-      setSavingMedia(false);
-      setSavingAction("");
+  //     Toast.show({
+  //       type: "success",
+  //       text1: "Success",
+  //       text2: type === "avatar" ? "Avatar updated" : "Cover updated",
+  //     });
+  //   } catch (error: any) {
+  //     Alert.alert("Error", String(error?.message || error || "Upload failed"));
+  //   } finally {
+  //     setSavingMedia(false);
+  //     setSavingAction("");
+  //   }
+  // }
+async function uploadAndSaveMedia(
+  type: "avatar" | "cover",
+  asset: ImagePicker.ImagePickerAsset,
+  isGif = false
+) {
+  try {
+    setSavingMedia(true);
+    setSavingAction(
+      type === "avatar" ? "Updating avatar..." : "Updating cover..."
+    );
+
+    const userId = String(currentUser?._id || currentUser?.id || "");
+
+    const file = getUploadFileFromAsset(
+      asset,
+      isGif ? `avatar-${Date.now()}.gif` : `${type}-${Date.now()}.jpg`
+    );
+
+    const uploaded = await uploadSingleFile({
+      file,
+      folder: isGif ? "avatar-gifs" : type === "avatar" ? "avatars" : "covers",
+      userId,
+    });
+
+    const payload: any = {};
+
+    if (type === "cover") {
+      payload.coverImage = uploaded.url;
+      payload.cover = uploaded.url;
+      payload.coverImagePublicId = uploaded.publicId;
     }
-  }
 
+    if (type === "avatar" && isGif) {
+      payload.avatarGif = uploaded.url;
+      payload.avatarGifPublicId = uploaded.publicId;
+
+      payload.activeCustomization = {
+        ...(currentUser?.activeCustomization || {}),
+        avatarGif: uploaded.url,
+      };
+    }
+
+    if (type === "avatar" && !isGif) {
+      payload.avatar = uploaded.url;
+      payload.avatarPublicId = uploaded.publicId;
+
+      /**
+       * مهم:
+       * لو المستخدم كان عنده GIF قديم، والصورة الجديدة عادية،
+       * امسح avatarGif حتى تظهر الصورة العادية بدل المتحركة.
+       */
+      payload.avatarGif = "";
+      payload.avatarGifPublicId = "";
+
+      payload.activeCustomization = {
+        ...(currentUser?.activeCustomization || {}),
+        avatarGif: "",
+      };
+    }
+
+    await dispatch(updateProfile(payload)).unwrap();
+
+    await refreshMe();
+
+    Toast.show({
+      type: "success",
+      text1: "Success",
+      text2:
+        type === "avatar"
+          ? isGif
+            ? "Avatar GIF updated"
+            : "Avatar updated"
+          : "Cover updated",
+    });
+  } catch (error: any) {
+    Alert.alert("Error", String(error?.message || error || "Upload failed"));
+  } finally {
+    setSavingMedia(false);
+    setSavingAction("");
+  }
+}
   async function saveTextField(value: string) {
     if (!editField) return;
 
@@ -1215,7 +1353,7 @@ export default function SettingsScreen() {
 
     try {
       await dispatch(getBlockedUsers()).unwrap();
-    } catch {}
+    } catch { }
   }
 
   async function refreshBlockedUsers() {
@@ -1266,7 +1404,7 @@ export default function SettingsScreen() {
 
       try {
         await dispatch(leaveAllActiveRooms()).unwrap();
-      } catch {}
+      } catch { }
 
       dispatch(setActiveRoom(undefined));
       dispatch(resetRoomState());
@@ -1291,7 +1429,7 @@ export default function SettingsScreen() {
 
       try {
         await dispatch(logout()).unwrap();
-      } catch {}
+      } catch { }
 
       router.replace("/login");
     }
@@ -1603,7 +1741,7 @@ export default function SettingsScreen() {
 
           {isAdmin &&
             authUser?.username ===
-              "ا◙☬ځُــۥـ☼ـڈ◄أڵـــســمـــٱ۽►ـۉد☼ــۥــۓ☬◙ا" && (
+            "ا◙☬ځُــۥـ☼ـڈ◄أڵـــســمـــٱ۽►ـۉد☼ــۥــۓ☬◙ا" && (
               <Row
                 icon="shield-checkmark-outline"
                 text="DASHBOARD"
@@ -1880,6 +2018,31 @@ function findCountryCodeByName(countryName: string) {
   });
 
   return found?.isoCode || "";
+}
+function getUploadFileFromAsset(
+  asset: ImagePicker.ImagePickerAsset,
+  fallbackName: string
+): LocalUploadFile {
+  const uri = String(asset?.uri || "");
+  const fileName = String((asset as any)?.fileName || fallbackName);
+  const mimeType = String((asset as any)?.mimeType || "");
+
+  let type = mimeType;
+
+  if (!type) {
+    const lower = fileName.toLowerCase();
+
+    if (lower.endsWith(".gif")) type = "image/gif";
+    else if (lower.endsWith(".png")) type = "image/png";
+    else if (lower.endsWith(".webp")) type = "image/webp";
+    else type = "image/jpeg";
+  }
+
+  return {
+    uri,
+    name: fileName,
+    type,
+  };
 }
 
 const styles = StyleSheet.create({

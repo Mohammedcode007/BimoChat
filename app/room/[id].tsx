@@ -87,7 +87,6 @@ import {
   setRoomUserRoleSocket,
   toggleRoomReaction as toggleRoomReactionSocket,
 } from "@/services/socket";
-import { uploadToCloudinary } from "@/services/upload.service";
 import {
   addManySeenGiftIds,
   addSeenGiftId,
@@ -112,6 +111,8 @@ import { makeBubbleStyles } from "@/components/roomScreen/styles/bubbleStyles";
 import { makeScreenStyles } from "@/components/roomScreen/styles/roomStyles";
 import { MessageUI, Reaction, RoomRole, UserBadgeUI, UserUI } from "@/components/roomScreen/types";
 import { StickerItem } from "@/data/roomStickers";
+import { LocalUploadFile } from "@/services/upload/types";
+import { uploadSingleFile } from "@/services/upload/uploadApi";
 
 const normalizeMessageReactions = (m: any) => {
   const raw = Array.isArray(m?.reactions)
@@ -1916,61 +1917,171 @@ game:
       Alert.alert("Error", e?.message || "Send failed");
     }
   };
+function getFileNameFromUri(uri: string, fallback: string) {
+  const cleanUri = String(uri || "").split("?")[0];
+  const name = cleanUri.split("/").pop();
 
-  const sendImage = async () => {
-    if (!roomId) return;
+  if (name && name.includes(".")) return name;
 
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.85,
-      allowsEditing: false,
+  return fallback;
+}
+
+function getRoomUploadFile(params: {
+  uri: string;
+  name?: string | null;
+  mimeType?: string | null;
+  fallbackName: string;
+  fallbackType: string;
+}): LocalUploadFile {
+  return {
+    uri: params.uri,
+    name:
+      String(params.name || "").trim() ||
+      getFileNameFromUri(params.uri, params.fallbackName),
+    type: String(params.mimeType || "").trim() || params.fallbackType,
+  };
+}
+const sendImage = async () => {
+  if (!roomId) return;
+
+  const res = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    quality: 0.85,
+    allowsEditing: false,
+  });
+
+  if (res.canceled) return;
+
+  const asset = res.assets?.[0];
+  const localUri = asset?.uri;
+
+  if (!asset || !localUri) return;
+
+  try {
+    setUploading({
+      visible: true,
+      title: "جاري رفع الصورة…",
+      sub: "يتم تجهيز الصورة وإرسالها",
+      startedAt: Date.now(),
+      previewUri: localUri,
+      kind: "image",
     });
 
-    if (res.canceled) return;
+    const clientId = `image:${Date.now()}:${Math.random()
+      .toString(16)
+      .slice(2)}`;
 
-    const asset = res.assets?.[0];
-    const localUri = asset?.uri;
-    if (!localUri) return;
+    const file = getRoomUploadFile({
+      uri: localUri,
+      name: asset.fileName || null,
+      mimeType: asset.mimeType || null,
+      fallbackName: `room-image-${Date.now()}.jpg`,
+      fallbackType: "image/jpeg",
+    });
 
-    try {
-      setUploading({
-        visible: true,
-        title: "جاري رفع الصورة…",
-        sub: "يتم تجهيز الصورة وإرسالها",
-        startedAt: Date.now(),
-        previewUri: localUri,
-        kind: "image",
-      });
+    console.log("[Room Upload][Image] file:", file);
 
-      const secureUrl = await uploadToCloudinary(localUri, "image");
+    const uploaded = await uploadSingleFile({
+      file,
+      folder: "rooms",
+      userId: myUserId,
+      extraFields: {
+        source: "room",
+        roomId,
+        mediaType: "image",
+      },
+    });
 
-      await dispatch(
-        sendRoomMessage({
-          roomId,
-          content: "📷 Image",
-          type: "image",
-          media: {
-            url: secureUrl,
-            mimeType: asset?.mimeType || "image/jpeg",
-            fileName: asset?.fileName || "image.jpg",
-          },
-        })
-      ).unwrap();
+    console.log("[Room Upload][Image] uploaded:", uploaded);
 
-      scrollToBottom();
-    } catch (e: any) {
-      Alert.alert("Error", e?.message || "Upload failed");
-    } finally {
-      setUploading({
-        visible: false,
-        title: "Uploading…",
-        sub: undefined,
-        startedAt: undefined,
-        previewUri: undefined,
-        kind: undefined,
-      });
-    }
-  };
+    await dispatch(
+      sendRoomMessage({
+        roomId,
+        clientId,
+        content: "📷 Image",
+        type: "image",
+        media: {
+          url: uploaded.url,
+          publicId: uploaded.publicId,
+          resourceType: uploaded.resourceType,
+          mimeType: file.type,
+          fileName: file.name,
+          size: uploaded.bytes,
+          width: uploaded.width,
+          height: uploaded.height,
+        },
+      } as any)
+    ).unwrap();
+
+    scrollToBottom();
+  } catch (e: any) {
+    console.log("[Room Upload][Image] error:", e);
+    Alert.alert("Error", e?.message || "Upload failed");
+  } finally {
+    setUploading({
+      visible: false,
+      title: "Uploading…",
+      sub: undefined,
+      startedAt: undefined,
+      previewUri: undefined,
+      kind: undefined,
+    });
+  }
+};
+  // const sendImage = async () => {
+  //   if (!roomId) return;
+
+  //   const res = await ImagePicker.launchImageLibraryAsync({
+  //     mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  //     quality: 0.85,
+  //     allowsEditing: false,
+  //   });
+
+  //   if (res.canceled) return;
+
+  //   const asset = res.assets?.[0];
+  //   const localUri = asset?.uri;
+  //   if (!localUri) return;
+
+  //   try {
+  //     setUploading({
+  //       visible: true,
+  //       title: "جاري رفع الصورة…",
+  //       sub: "يتم تجهيز الصورة وإرسالها",
+  //       startedAt: Date.now(),
+  //       previewUri: localUri,
+  //       kind: "image",
+  //     });
+
+  //     const secureUrl = await uploadToCloudinary(localUri, "image");
+
+  //     await dispatch(
+  //       sendRoomMessage({
+  //         roomId,
+  //         content: "📷 Image",
+  //         type: "image",
+  //         media: {
+  //           url: secureUrl,
+  //           mimeType: asset?.mimeType || "image/jpeg",
+  //           fileName: asset?.fileName || "image.jpg",
+  //         },
+  //       })
+  //     ).unwrap();
+
+  //     scrollToBottom();
+  //   } catch (e: any) {
+  //     Alert.alert("Error", e?.message || "Upload failed");
+  //   } finally {
+  //     setUploading({
+  //       visible: false,
+  //       title: "Uploading…",
+  //       sub: undefined,
+  //       startedAt: undefined,
+  //       previewUri: undefined,
+  //       kind: undefined,
+  //     });
+  //   }
+  // };
   const sendSticker = async (sticker: StickerItem) => {
     if (!roomId) return;
 
@@ -2021,68 +2132,154 @@ game:
       });
     }
   };
-  const sendGifFromDevice = async () => {
-    if (!roomId) return;
+  // const sendGifFromDevice = async () => {
+  //   if (!roomId) return;
 
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["image/gif"],
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
+  //   try {
+  //     const result = await DocumentPicker.getDocumentAsync({
+  //       type: ["image/gif"],
+  //       copyToCacheDirectory: true,
+  //       multiple: false,
+  //     });
 
-      if (result.canceled) return;
+  //     if (result.canceled) return;
 
-      const asset = result.assets?.[0];
-      const localUri = asset?.uri;
+  //     const asset = result.assets?.[0];
+  //     const localUri = asset?.uri;
 
-      if (!localUri) return;
+  //     if (!localUri) return;
 
-      const clientId = `gif:${Date.now()}:${Math.random()
-        .toString(16)
-        .slice(2)}`;
+  //     const clientId = `gif:${Date.now()}:${Math.random()
+  //       .toString(16)
+  //       .slice(2)}`;
 
-      setUploading({
-        visible: true,
-        title: "جاري رفع GIF…",
-        sub: asset?.name ? `يتم رفع ${asset.name}` : "يتم رفع GIF وإرساله",
-        startedAt: Date.now(),
-        previewUri: localUri,
-        kind: "gif",
-      });
+  //     setUploading({
+  //       visible: true,
+  //       title: "جاري رفع GIF…",
+  //       sub: asset?.name ? `يتم رفع ${asset.name}` : "يتم رفع GIF وإرساله",
+  //       startedAt: Date.now(),
+  //       previewUri: localUri,
+  //       kind: "gif",
+  //     });
 
-      const secureUrl = await uploadToCloudinary(localUri, "image");
+  //     const secureUrl = await uploadToCloudinary(localUri, "image");
 
-      await dispatch(
-        sendRoomMessage({
-          roomId,
-          clientId,
-          content: "GIF",
-          type: "image",
-          media: {
-            url: secureUrl,
-            mimeType: "image/gif",
-            fileName: asset?.name || "animation.gif",
-          },
-        })
-      ).unwrap();
+  //     await dispatch(
+  //       sendRoomMessage({
+  //         roomId,
+  //         clientId,
+  //         content: "GIF",
+  //         type: "image",
+  //         media: {
+  //           url: secureUrl,
+  //           mimeType: "image/gif",
+  //           fileName: asset?.name || "animation.gif",
+  //         },
+  //       })
+  //     ).unwrap();
 
-      scrollToBottom();
-    } catch (e: any) {
-      Alert.alert("Error", e?.message || "GIF upload failed");
-    } finally {
-      setUploading({
-        visible: false,
-        title: "Uploading…",
-        sub: undefined,
-        startedAt: undefined,
-        previewUri: undefined,
-        kind: undefined,
-      });
-    }
-  };
+  //     scrollToBottom();
+  //   } catch (e: any) {
+  //     Alert.alert("Error", e?.message || "GIF upload failed");
+  //   } finally {
+  //     setUploading({
+  //       visible: false,
+  //       title: "Uploading…",
+  //       sub: undefined,
+  //       startedAt: undefined,
+  //       previewUri: undefined,
+  //       kind: undefined,
+  //     });
+  //   }
+  // };
 
+const sendGifFromDevice = async () => {
+  if (!roomId) return;
 
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["image/gif"],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+
+    if (result.canceled) return;
+
+    const asset = result.assets?.[0];
+    const localUri = asset?.uri;
+
+    if (!asset || !localUri) return;
+
+    const clientId = `gif:${Date.now()}:${Math.random()
+      .toString(16)
+      .slice(2)}`;
+
+    setUploading({
+      visible: true,
+      title: "جاري رفع GIF…",
+      sub: asset?.name ? `يتم رفع ${asset.name}` : "يتم رفع GIF وإرساله",
+      startedAt: Date.now(),
+      previewUri: localUri,
+      kind: "gif",
+    });
+
+    const file = getRoomUploadFile({
+      uri: localUri,
+      name: asset.name || null,
+      mimeType: asset.mimeType || "image/gif",
+      fallbackName: `room-gif-${Date.now()}.gif`,
+      fallbackType: "image/gif",
+    });
+
+    console.log("[Room Upload][GIF] file:", file);
+
+    const uploaded = await uploadSingleFile({
+      file,
+      folder: "rooms",
+      userId: myUserId,
+      extraFields: {
+        source: "room",
+        roomId,
+        mediaType: "gif",
+      },
+    });
+
+    console.log("[Room Upload][GIF] uploaded:", uploaded);
+
+    await dispatch(
+      sendRoomMessage({
+        roomId,
+        clientId,
+        content: "GIF",
+        type: "image",
+        media: {
+          url: uploaded.url,
+          publicId: uploaded.publicId,
+          resourceType: uploaded.resourceType,
+          mimeType: file.type,
+          fileName: file.name,
+          size: uploaded.bytes,
+          width: uploaded.width,
+          height: uploaded.height,
+        },
+      } as any)
+    ).unwrap();
+
+    scrollToBottom();
+  } catch (e: any) {
+    console.log("[Room Upload][GIF] error:", e);
+    Alert.alert("Error", e?.message || "GIF upload failed");
+  } finally {
+    setUploading({
+      visible: false,
+      title: "Uploading…",
+      sub: undefined,
+      startedAt: undefined,
+      previewUri: undefined,
+      kind: undefined,
+    });
+  }
+};
   /* ================= RECORDING ================= */
   const startRecording = async () => {
     try {
@@ -2689,7 +2886,7 @@ game:
           </TouchableOpacity>
         )}
         {/* ================= VOICE PREVIEW ================= */}
-        {!!pendingVoiceUri && (
+        {/* {!!pendingVoiceUri && (
           <VoiceRecorderPreview
             uri={pendingVoiceUri}
             topOffset={insets.top + 56} // عدل الرقم حسب ارتفاع الهيدر عندك
@@ -2699,16 +2896,50 @@ game:
               try {
                 setUploading({ visible: true, title: "جاري رفع الصوت…", sub: "يرجى الانتظار" });
 
-                const secureUrl = await uploadToCloudinary(pendingVoiceUri, "raw");
+           const clientId = `voice:${Date.now()}:${Math.random()
+  .toString(16)
+  .slice(2)}`;
 
-                await dispatch(
-                  sendRoomMessage({
-                    roomId,
-                    content: "🎤 Voice message",
-                    type: "audio",
-                    media: { url: secureUrl }
-                  })
-                ).unwrap();
+const file = getRoomUploadFile({
+  uri: pendingVoiceUri,
+  name: `voice-${Date.now()}.m4a`,
+  mimeType: "audio/mp4",
+  fallbackName: `voice-${Date.now()}.m4a`,
+  fallbackType: "audio/mp4",
+});
+
+console.log("[Room Upload][Voice] file:", file);
+
+const uploaded = await uploadSingleFile({
+  file,
+  folder: "voice",
+  userId: myUserId,
+  extraFields: {
+    source: "room",
+    roomId,
+    mediaType: "voice",
+  },
+});
+
+console.log("[Room Upload][Voice] uploaded:", uploaded);
+
+await dispatch(
+  sendRoomMessage({
+    roomId,
+    clientId,
+    content: "🎤 Voice message",
+    type: "audio",
+    media: {
+      url: uploaded.url,
+      publicId: uploaded.publicId,
+      resourceType: uploaded.resourceType,
+      mimeType: file.type,
+      fileName: file.name,
+      size: uploaded.bytes,
+      duration: uploaded.duration,
+    },
+  } as any)
+).unwrap();
 
                 try {
                   await FileSystem.deleteAsync(pendingVoiceUri, { idempotent: true });
@@ -2723,8 +2954,94 @@ game:
               }
             }}
           />
-        )}
+        )} */}
+{!!pendingVoiceUri && (
+  <VoiceRecorderPreview
+    uri={pendingVoiceUri}
+    topOffset={insets.top + 56}
+    onCancel={() => setPendingVoiceUri(null)}
+    onSend={async () => {
+      if (!roomId || !pendingVoiceUri) return;
 
+      try {
+        setUploading({
+          visible: true,
+          title: "جاري رفع الصوت…",
+          sub: "يرجى الانتظار",
+          startedAt: Date.now(),
+          previewUri: undefined,
+          kind: undefined,
+        });
+
+        const clientId = `voice:${Date.now()}:${Math.random()
+          .toString(16)
+          .slice(2)}`;
+
+        const file = getRoomUploadFile({
+          uri: pendingVoiceUri,
+          name: `voice-${Date.now()}.m4a`,
+          mimeType: "audio/mp4",
+          fallbackName: `voice-${Date.now()}.m4a`,
+          fallbackType: "audio/mp4",
+        });
+
+        console.log("[Room Upload][Voice] file:", file);
+
+        const uploaded = await uploadSingleFile({
+          file,
+          folder: "voice",
+          userId: myUserId,
+          extraFields: {
+            source: "room",
+            roomId,
+            mediaType: "voice",
+          },
+        });
+
+        console.log("[Room Upload][Voice] uploaded:", uploaded);
+
+        await dispatch(
+          sendRoomMessage({
+            roomId,
+            clientId,
+            content: "🎤 Voice message",
+            type: "audio",
+            media: {
+              url: uploaded.url,
+              publicId: uploaded.publicId,
+              resourceType: uploaded.resourceType,
+              mimeType: file.type,
+              fileName: file.name,
+              size: uploaded.bytes,
+              duration: uploaded.duration,
+            },
+          } as any)
+        ).unwrap();
+
+        try {
+          await FileSystem.deleteAsync(pendingVoiceUri, {
+            idempotent: true,
+          });
+        } catch {}
+
+        setPendingVoiceUri(null);
+        scrollToBottom();
+      } catch (e: any) {
+        console.log("[Room Upload][Voice] error:", e);
+        Alert.alert("Error", e?.message || "Failed to send voice");
+      } finally {
+        setUploading({
+          visible: false,
+          title: "Uploading…",
+          sub: undefined,
+          startedAt: undefined,
+          previewUri: undefined,
+          kind: undefined,
+        });
+      }
+    }}
+  />
+)}
         {/* ================= CHAT ================= */}
         <FlatList
           ref={flatListRef}

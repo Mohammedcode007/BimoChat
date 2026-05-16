@@ -89,7 +89,8 @@ import {
 } from "@/services/socket";
 
 import MiniAudioBar from "@/components/roomScreen/MiniAudioBar";
-import { uploadToCloudinary } from "@/services/upload.service";
+import { LocalUploadFile } from "@/services/upload/types";
+import { uploadSingleFile } from "@/services/upload/uploadApi";
 import { loadMessagesFromCache, saveMessagesToCache } from "@/storage/chatCache";
 import { mergeMessages } from "@/utils/mergeMessages";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
@@ -818,93 +819,178 @@ useEffect(() => {
     setText("");
     setReplyToMessage(null);
   };
+function getFileNameFromUri(uri: string, fallback: string) {
+  const cleanUri = String(uri || "").split("?")[0];
+  const name = cleanUri.split("/").pop();
 
-  const sendMediaMessage = async (
-    uri: string,
-    type: "image" | "video" | "audio"
-  ) => {
-    if (!currentUser?._id) return;
+  if (name && name.includes(".")) return name;
 
-    const tempId = `temp-${Date.now()}`;
+  return fallback;
+}
 
-    const optimisticMessage: MessageItem = {
-      _id: tempId,
-      clientTempId: tempId,
-      chat: chatId,
-      sender: currentUser._id,
+function getChatUploadFile(params: {
+  uri: string;
+  type: "image" | "video" | "audio";
+}): LocalUploadFile {
+  const now = Date.now();
+
+  if (params.type === "image") {
+    return {
+      uri: params.uri,
+      name: getFileNameFromUri(params.uri, `chat-image-${now}.jpg`),
+      type: "image/jpeg",
+    };
+  }
+
+  if (params.type === "video") {
+    return {
+      uri: params.uri,
+      name: getFileNameFromUri(params.uri, `chat-video-${now}.mp4`),
+      type: "video/mp4",
+    };
+  }
+
+  return {
+    uri: params.uri,
+    name: getFileNameFromUri(params.uri, `chat-voice-${now}.m4a`),
+    type: "audio/mp4",
+  };
+}
+const sendMediaMessage = async (
+  uri: string,
+  type: "image" | "video" | "audio"
+) => {
+  if (!currentUser?._id) return;
+
+  const tempId = `temp-${Date.now()}`;
+
+  const optimisticMessage: MessageItem = {
+    _id: tempId,
+    clientTempId: tempId,
+    chat: chatId,
+    sender: currentUser._id,
+    type,
+    content: uri,
+    media: {
+      url: uri,
+      mimeType:
+        type === "image"
+          ? "image/jpeg"
+          : type === "video"
+          ? "video/mp4"
+          : "audio/mp4",
+    },
+    replyTo: replyToMessage?._id,
+    reactions: [],
+    deliveryStatus: {
+      deliveredTo: [],
+      seenBy: [],
+    },
+    createdAt: new Date().toISOString(),
+    optimistic: true,
+  } as any;
+
+  dispatch(addMessage(optimisticMessage));
+  setMediaSendingState((prev) => ({ ...prev, [tempId]: "uploading" }));
+
+  try {
+    const file = getChatUploadFile({
+      uri,
       type,
-      content: uri,
-      media: { url: uri },
-      replyTo: replyToMessage?._id,
-      reactions: [],
-      deliveryStatus: {
-        deliveredTo: [],
-        seenBy: [],
-      },
-      createdAt: new Date().toISOString(),
-      optimistic: true,
-    } as any;
+    });
 
-    dispatch(addMessage(optimisticMessage));
-    setMediaSendingState((prev) => ({ ...prev, [tempId]: "uploading" }));
+    console.log("[Chat Upload] start:", {
+      chatId,
+      tempId,
+      file,
+      mediaType: type,
+    });
 
-    try {
-      const cloudType =
-        type === "image" ? "image" : type === "video" ? "video" : "raw";
-
-      const url = await uploadToCloudinary(uri, cloudType);
-
-      setMediaSendingState((prev) => ({ ...prev, [tempId]: "sending" }));
-
-      sendSocketMessage(
+    const uploaded = await uploadSingleFile({
+      file,
+      folder:
+        type === "image"
+          ? "chat"
+          : type === "video"
+          ? "videos"
+          : "voice",
+      userId: String(currentUser._id),
+      extraFields: {
+        source: "private_chat",
         chatId,
-        url,
-        type,
-        tempId,
-        undefined,
-        replyToMessage?._id
-      );
+        mediaType: type,
+      },
+    });
 
-      setReplyToMessage(null);
-    } catch (error: any) {
-      setMediaSendingState((prev) => {
-        const next = { ...prev };
-        delete next[tempId];
-        return next;
-      });
+    console.log("[Chat Upload] success:", uploaded);
 
-      Alert.alert("خطأ", "فشل رفع أو إرسال الملف");
+    setMediaSendingState((prev) => ({ ...prev, [tempId]: "sending" }));
+
+    /**
+     * ملاحظة:
+     * sendSocketMessage عندك يأخذ content كرابط فقط.
+     * لذلك نرسل uploaded.url مثل القديم.
+     * لو الباك يدعم media object لاحقًا، نقدر نرسل publicId و mimeType أيضًا.
+     */
+    sendSocketMessage(
+      chatId,
+      uploaded.url,
+      type,
+      tempId,
+      undefined,
+      replyToMessage?._id
+    );
+
+    setReplyToMessage(null);
+  } catch (error: any) {
+    console.log("[Chat Upload] error:", {
+      message: error?.message,
+      error,
+    });
+
+    setMediaSendingState((prev) => {
+      const next = { ...prev };
+      delete next[tempId];
+      return next;
+    });
+
+    Alert.alert(
+      "خطأ",
+      String(error?.message || "فشل رفع أو إرسال الملف")
+    );
+  }
+};
+
+const pickImage = async () => {
+  try {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      const uri = result.assets[0].uri;
+      await sendMediaMessage(uri, "image");
     }
-  };
+  } catch (error: any) {
+    console.log("[Chat Pick Image] error:", error);
+  }
+};
+const pickVideo = async () => {
+  try {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      quality: 0.8,
+    });
 
-  const pickImage = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets?.length) {
-        const uri = result.assets[0].uri;
-        await sendMediaMessage(uri, "image");
-      }
-    } catch { }
-  };
-
-  const pickVideo = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["videos"],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets?.length) {
-        const uri = result.assets[0].uri;
-        await sendMediaMessage(uri, "video");
-      }
-    } catch { }
-  };
-
+    if (!result.canceled && result.assets?.length) {
+      const uri = result.assets[0].uri;
+      await sendMediaMessage(uri, "video");
+    }
+  } catch (error: any) {
+    console.log("[Chat Pick Video] error:", error);
+  }
+};
 
 
   const handleDeleteMessage = async (

@@ -51,6 +51,7 @@ import {
   boostRoom,
   clearBannedFlag,
   clearKickedFlag,
+  clearRoomMessages,
   fetchRoomMessages,
   fetchRoomsByType,
   fetchRoomStats,
@@ -580,6 +581,29 @@ export default function ChatScreen() {
       expiresAt?: string | null;
     } | null;
   };
+  const normalizeResolvedBadges = (badges?: any[]): UserBadgeUI[] => {
+  if (!Array.isArray(badges)) return [];
+
+  return badges
+    .map((b: any) => ({
+      key: String(b?.key || b?._id || ""),
+      name: String(b?.name || ""),
+      iconUrl: String(b?.iconUrl || ""),
+      lottieUrl: String(b?.lottieUrl || ""),
+      isAnimated: Boolean(b?.isAnimated || b?.lottieUrl),
+    }))
+    .filter((b: any) => b.key || b.iconUrl || b.lottieUrl);
+};
+
+const getUserActiveBadges = (user: any, fallbackInventory?: any[]) => {
+  const resolved = normalizeResolvedBadges(user?.activeBadgesResolved);
+
+  if (resolved.length > 0) {
+    return resolved;
+  }
+
+  return buildActiveBadgesFromUser(user, fallbackInventory);
+};
   const usersMap = useMemo(() => {
     const map = new Map<string, UsersMapValue>();
 
@@ -592,10 +616,10 @@ export default function ChatScreen() {
           usernameColor: u?.activeCustomization?.usernameColor || u?.usernameColor || "",
           messageTextColor: u?.activeCustomization?.messageTextColor || u?.messageTextColor || "",
           role: u.role,
-          activeBadges:
-            String(u?._id) === String(myUserId)
-              ? buildActiveBadgesFromUser(u, myInventory)
-              : buildActiveBadgesFromUser(u),
+       activeBadges:
+  String(u?._id) === String(myUserId)
+    ? getUserActiveBadges(u, myInventory)
+    : getUserActiveBadges(u),
           customEmojiBadge:
             u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
               ? {
@@ -632,7 +656,7 @@ export default function ChatScreen() {
           (authUser as any)?.messageTextColor ||
           "",
         role: myRole,
-        activeBadges: meInRoom ? buildActiveBadgesFromUser(meInRoom, myInventory) : [],
+activeBadges: meInRoom ? getUserActiveBadges(meInRoom, myInventory) : [],
         customEmojiBadge:
           (authUser as any)?.customEmojiBadge && typeof (authUser as any).customEmojiBadge === "object"
             ? {
@@ -856,43 +880,101 @@ export default function ChatScreen() {
       setInviteSendingId(null);
     }
   };
+useEffect(() => {
+  if (!roomId) return;
 
-  useEffect(() => {
-    if (!roomId) return;
+  let cancelled = false;
 
-    const hasMessages = Array.isArray(reduxMessages) && reduxMessages.length > 0;
-    const hasUsers = Array.isArray(roomUsers) && roomUsers.length > 0;
-    const hasStats = typeof activeCount === "number";
+  const loadRoom = async () => {
+    try {
+      /**
+       * لا تعرض رسائل قديمة من Redux عند دخول الغرفة.
+       */
+      dispatch(clearRoomMessages({ roomId }));
 
-    const loadRoom = async () => {
-      try {
-        if (!hasMessages) {
-          await dispatch(
-            fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false })
-          ).unwrap();
-        }
+      /**
+       * ادخل سوكيت الغرفة أولًا حتى تستقبل الجديد فقط.
+       */
+      joinRoomSocket(roomId);
 
-        if (!hasUsers) {
-          await dispatch(fetchRoomUsers(roomId)).unwrap();
-        }
+      /**
+       * اجلب الرسائل من السيرفر دائمًا.
+       * السيرفر بعد تعديل clearedAt سيرجع رسائل ما بعد دخولك فقط.
+       */
+      const messagesPromise = dispatch(
+        fetchRoomMessages({
+          roomId,
+          pagination: { limit: 50 },
+          append: false,
+        })
+      ).unwrap();
 
-        if (!hasStats) {
-          await dispatch(fetchRoomStats(roomId)).unwrap();
-        }
+      const usersPromise = dispatch(fetchRoomUsers(roomId)).unwrap();
+      const statsPromise = dispatch(fetchRoomStats(roomId)).unwrap();
+      const inventoryPromise = dispatch(getMyInventory() as any);
 
-        await dispatch(getMyInventory() as any);
-        joinRoomSocket(roomId);
-        ensureMicPermission();
-      } catch (e) {
-      }
-    };
+      await Promise.allSettled([
+        messagesPromise,
+        usersPromise,
+        statsPromise,
+        inventoryPromise,
+      ]);
 
-    loadRoom();
+      if (cancelled) return;
 
-    return () => {
-      // leaveRoomSocket(roomId);
-    };
-  }, [roomId]);
+      ensureMicPermission();
+    } catch (e) {
+      console.log("[ChatScreen][loadRoom] error:", e);
+    }
+  };
+
+  loadRoom();
+
+  return () => {
+    cancelled = true;
+
+    /**
+     * اختياري لكنه مهم حتى لا تظهر رسائل قديمة عند الرجوع للغرفة.
+     */
+    dispatch(clearRoomMessages({ roomId }));
+  };
+}, [roomId, dispatch]);
+  // useEffect(() => {
+  //   if (!roomId) return;
+
+  //   const hasMessages = Array.isArray(reduxMessages) && reduxMessages.length > 0;
+  //   const hasUsers = Array.isArray(roomUsers) && roomUsers.length > 0;
+  //   const hasStats = typeof activeCount === "number";
+
+  //   const loadRoom = async () => {
+  //     try {
+  //       if (!hasMessages) {
+  //         await dispatch(
+  //           fetchRoomMessages({ roomId, pagination: { limit: 50 }, append: false })
+  //         ).unwrap();
+  //       }
+
+  //       if (!hasUsers) {
+  //         await dispatch(fetchRoomUsers(roomId)).unwrap();
+  //       }
+
+  //       if (!hasStats) {
+  //         await dispatch(fetchRoomStats(roomId)).unwrap();
+  //       }
+
+  //       await dispatch(getMyInventory() as any);
+  //       joinRoomSocket(roomId);
+  //       ensureMicPermission();
+  //     } catch (e) {
+  //     }
+  //   };
+
+  //   loadRoom();
+
+  //   return () => {
+  //     // leaveRoomSocket(roomId);
+  //   };
+  // }, [roomId]);
   /* ================= KICK/BAN HANDLERS ================= */
   useEffect(() => {
     if (!roomId || !kicked) return;
@@ -972,9 +1054,9 @@ export default function ChatScreen() {
 
       role: u?.role,
       activeBadges:
-        String(u?._id) === String(myUserId)
-          ? buildActiveBadgesFromUser(u, myInventory)
-          : buildActiveBadgesFromUser(u),
+  String(u?._id) === String(myUserId)
+    ? getUserActiveBadges(u, myInventory)
+    : getUserActiveBadges(u),
       customEmojiBadge:
         u?.customEmojiBadge && typeof u?.customEmojiBadge === "object"
           ? {
@@ -1088,16 +1170,28 @@ export default function ChatScreen() {
 
     const snapshotRole = String(snap?.role || senderObj?.role || "").trim();
 
-    const activeBadgesFromSnapshot =
-      senderId === myUserId
-        ? buildActiveBadgesFromUser(snap, myInventory)
-        : buildActiveBadgesFromUser(snap);
+  const activeBadgesFromSnapshot =
+  snap
+    ? senderId === myUserId
+      ? getUserActiveBadges(snap, myInventory)
+      : getUserActiveBadges(snap)
+    : [];
 
-    const activeBadgesFromUsersMap = usersMap.get(senderId)?.activeBadges || [];
-    const activeBadges =
-      activeBadgesFromSnapshot.length > 0
-        ? activeBadgesFromSnapshot
-        : activeBadgesFromUsersMap;
+const activeBadgesFromSenderObj =
+  senderObj
+    ? senderId === myUserId
+      ? getUserActiveBadges(senderObj, myInventory)
+      : getUserActiveBadges(senderObj)
+    : [];
+
+const activeBadgesFromUsersMap = usersMap.get(senderId)?.activeBadges || [];
+
+const activeBadges =
+  activeBadgesFromSnapshot.length > 0
+    ? activeBadgesFromSnapshot
+    : activeBadgesFromSenderObj.length > 0
+      ? activeBadgesFromSenderObj
+      : activeBadgesFromUsersMap;
 
     const customEmojiBadge =
       snap?.customEmojiBadge && typeof snap.customEmojiBadge === "object"
@@ -1853,34 +1947,38 @@ game:
           replyTo: replyTo?.serverId || replyTo?.id,
           mentions: [],
           sender: currentUserId,
-          senderSnapshot: meInRoom
-            ? {
-              _id: meInRoom._id,
-              username: meInRoom.username,
-              atUsername: me?.atUsername || "",
-              avatar: meInRoom.avatar,
-              avatarGif:
-                meInRoom?.activeCustomization?.avatarGif || meInRoom?.avatarGif || "",
-              coverImage: me?.coverImage || "",
-              usernameColor:
-                meInRoom?.activeCustomization?.usernameColor || meInRoom?.usernameColor || "",
-              messageTextColor:
-                meInRoom?.activeCustomization?.messageTextColor || meInRoom?.messageTextColor || "",
-              isOnline: true,
-              verificationType:
-                meInRoom?.verificationType || me?.verificationType || "none",
-              activeCustomization:
-                meInRoom?.activeCustomization || { badges: [] },
-              inventory: Array.isArray(myInventory) ? myInventory : [],
-              customEmojiBadge:
-                meInRoom?.customEmojiBadge || me?.customEmojiBadge || null,
-            }
+        senderSnapshot: meInRoom
+  ? {
+      _id: meInRoom._id,
+      username: meInRoom.username,
+      atUsername: me?.atUsername || "",
+      avatar: meInRoom.avatar,
+      avatarGif:
+        meInRoom?.activeCustomization?.avatarGif || meInRoom?.avatarGif || "",
+      coverImage: me?.coverImage || "",
+      usernameColor:
+        meInRoom?.activeCustomization?.usernameColor || meInRoom?.usernameColor || "",
+      messageTextColor:
+        meInRoom?.activeCustomization?.messageTextColor || meInRoom?.messageTextColor || "",
+      isOnline: true,
+      verificationType:
+        meInRoom?.verificationType || me?.verificationType || "none",
+      activeCustomization:
+        meInRoom?.activeCustomization || { badges: [] },
+      inventory: Array.isArray(myInventory) ? myInventory : [],
+      activeBadgesResolved: normalizeResolvedBadges(
+        (meInRoom as any)?.activeBadgesResolved
+      ),
+      customEmojiBadge:
+        meInRoom?.customEmojiBadge || me?.customEmojiBadge || null,
+    }
             : me
               ? {
                 _id: me._id,
                 username: me.username,
                 atUsername: me.atUsername,
                 avatar: me.avatar,
+                activeBadgesResolved: normalizeResolvedBadges((me as any)?.activeBadgesResolved),
                 avatarGif:
                   me?.activeCustomization?.avatarGif || me?.avatarGif || "",
                 coverImage: me.coverImage,

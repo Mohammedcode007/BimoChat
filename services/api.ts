@@ -60,15 +60,15 @@ const getDeviceId = async () => {
   return deviceId;
 };
 
-// const api = axios.create({
-//   baseURL: "http://192.168.1.17:5000/api",
-//   timeout: 20000,
-// });
-
 const api = axios.create({
-  baseURL: "https://te-bot.site/api",
+  baseURL: "http://192.168.1.17:5000/api",
   timeout: 20000,
 });
+
+// const api = axios.create({
+//   baseURL: "https://te-bot.site/api",
+//   timeout: 20000,
+// });
 
 const clearLocalSession = async () => {
   await AsyncStorage.multiRemove(["token", "user"]);

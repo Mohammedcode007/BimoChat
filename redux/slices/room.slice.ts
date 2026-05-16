@@ -102,6 +102,13 @@ export type UserPublicSnapshot = {
   avatar?: string;
   avatarGif?: string;
   coverImage?: string;
+  activeBadgesResolved?: {
+  key?: string;
+  name?: string;
+  iconUrl?: string;
+  lottieUrl?: string;
+  isAnimated?: boolean;
+}[];
   usernameColor?: string;
   messageTextColor?: string;
   isOnline?: boolean;
@@ -149,6 +156,13 @@ export type RoomUser = {
   avatarGif?: string;
   usernameColor?: string;
   messageTextColor?: string;
+  activeBadgesResolved?: {
+  key?: string;
+  name?: string;
+  iconUrl?: string;
+  lottieUrl?: string;
+  isAnimated?: boolean;
+}[];
   isOnline?: boolean;
   lastSeen?: string;
   role?: "creator" | "owner" | "admin" | "member";
@@ -531,6 +545,39 @@ const sortRoomsByBoost = (rooms: RoomItem[]) => {
   });
 };
 const toStr = (x: any) => (x === null || x === undefined ? "" : String(x));
+const normalizeActiveBadgesResolved = (badges: any[] | undefined) => {
+  if (!Array.isArray(badges)) return [];
+
+  return badges
+    .map((b: any) => ({
+      key: String(b?.key || b?._id || ""),
+      name: String(b?.name || ""),
+      iconUrl: String(b?.iconUrl || ""),
+      lottieUrl: String(b?.lottieUrl || ""),
+      isAnimated: Boolean(b?.isAnimated || b?.lottieUrl),
+    }))
+    .filter((b: any) => b.key || b.iconUrl || b.lottieUrl);
+};
+
+const normalizeMessageBadges = (message: any) => {
+  if (!message || typeof message !== "object") return message;
+
+  const senderSnapshot = message?.senderSnapshot;
+
+  if (!senderSnapshot || typeof senderSnapshot !== "object") {
+    return message;
+  }
+
+  return {
+    ...message,
+    senderSnapshot: {
+      ...senderSnapshot,
+      activeBadgesResolved: normalizeActiveBadgesResolved(
+        senderSnapshot?.activeBadgesResolved
+      ),
+    },
+  };
+};
 const getReactionUserId = (r: any) => {
   return String(
     r?.userId ||
@@ -796,6 +843,15 @@ export const fetchRoomUsers = createAsyncThunk<
         avatar: u?.avatar ? String(u.avatar) : "",
         avatarGif: u?.avatarGif ? String(u.avatarGif) : "",
         usernameColor: u?.usernameColor ? String(u.usernameColor) : "",
+        activeBadgesResolved: Array.isArray(u?.activeBadgesResolved)
+  ? u.activeBadgesResolved.map((b: any) => ({
+      key: String(b?.key || ""),
+      name: String(b?.name || ""),
+      iconUrl: String(b?.iconUrl || ""),
+      lottieUrl: String(b?.lottieUrl || ""),
+      isAnimated: Boolean(b?.isAnimated || b?.lottieUrl),
+    }))
+  : [],
         messageTextColor: u?.messageTextColor ? String(u.messageTextColor) : "",
         isOnline: Boolean(u?.isOnline),
         lastSeen: u?.lastSeen ? String(u.lastSeen) : undefined,
@@ -1703,7 +1759,15 @@ const roomSlice = createSlice({
       const room = state.rooms.find((r) => r._id === action.payload.roomId);
       if (room) room.isActive = true;
     },
+clearRoomMessages: (
+  state,
+  action: PayloadAction<{ roomId: string }>
+) => {
+  const roomId = String(action.payload?.roomId || "").trim();
+  if (!roomId) return;
 
+  state.messagesByRoom[roomId] = [];
+},
     markRoomInactive: (state, action: PayloadAction<{ roomId: string }>) => {
       const room = state.rooms.find((r) => r._id === action.payload.roomId);
       if (room) room.isActive = false;
@@ -1830,13 +1894,13 @@ const roomSlice = createSlice({
       if (!updated?._id) return;
 
       const idx = state.rooms.findIndex((r) => r._id === updated._id);
-    if (idx >= 0) {
-  state.rooms[idx] = { ...state.rooms[idx], ...updated };
-} else {
-  state.rooms.unshift(updated);
-}
+      if (idx >= 0) {
+        state.rooms[idx] = { ...state.rooms[idx], ...updated };
+      } else {
+        state.rooms.unshift(updated);
+      }
 
-sortRoomsByBoost(state.rooms);
+      sortRoomsByBoost(state.rooms);
 
       if (state.activeCountByRoom[updated._id] === undefined) {
         state.activeCountByRoom[updated._id] = 0;
@@ -1903,42 +1967,42 @@ sortRoomsByBoost(state.rooms);
     /**
      * room:boost:update
      */
-socketRoomBoostUpdate: (
-  state,
-  action: PayloadAction<{ roomId: string; boostPoints: number }>
-) => {
-  const { roomId, boostPoints } = action.payload;
+    socketRoomBoostUpdate: (
+      state,
+      action: PayloadAction<{ roomId: string; boostPoints: number }>
+    ) => {
+      const { roomId, boostPoints } = action.payload;
 
-  const room = state.rooms.find((r) => r._id === roomId);
-  if (room) {
-    room.boostPoints = Number(boostPoints) || 0;
-  }
+      const room = state.rooms.find((r) => r._id === roomId);
+      if (room) {
+        room.boostPoints = Number(boostPoints) || 0;
+      }
 
-  const favoriteRoom = state.favoriteRooms.find((r) => r._id === roomId);
-  if (favoriteRoom) {
-    favoriteRoom.boostPoints = Number(boostPoints) || 0;
-  }
+      const favoriteRoom = state.favoriteRooms.find((r) => r._id === roomId);
+      if (favoriteRoom) {
+        favoriteRoom.boostPoints = Number(boostPoints) || 0;
+      }
 
-  sortRoomsByBoost(state.rooms);
-  sortRoomsByBoost(state.favoriteRooms);
-},
+      sortRoomsByBoost(state.rooms);
+      sortRoomsByBoost(state.favoriteRooms);
+    },
 
     /**
      * room:deleted
      */
-socketRoomDeleted: (state, action: PayloadAction<{ roomId: string }>) => {
-  const { roomId } = action.payload;
+    socketRoomDeleted: (state, action: PayloadAction<{ roomId: string }>) => {
+      const { roomId } = action.payload;
 
-  state.rooms = state.rooms.filter((r) => r._id !== roomId);
-  state.favoriteRooms = state.favoriteRooms.filter((r) => r._id !== roomId);
+      state.rooms = state.rooms.filter((r) => r._id !== roomId);
+      state.favoriteRooms = state.favoriteRooms.filter((r) => r._id !== roomId);
 
-  delete state.usersByRoom[roomId];
-  delete state.messagesByRoom[roomId];
-  delete state.activeCountByRoom[roomId];
-  delete state.detailsByRoom[roomId];
+      delete state.usersByRoom[roomId];
+      delete state.messagesByRoom[roomId];
+      delete state.activeCountByRoom[roomId];
+      delete state.detailsByRoom[roomId];
 
-  if (state.activeRoomId === roomId) state.activeRoomId = undefined;
-},
+      if (state.activeRoomId === roomId) state.activeRoomId = undefined;
+    },
     /**
      * room:user:joined / room:user:left
      *
@@ -1972,11 +2036,28 @@ socketRoomDeleted: (state, action: PayloadAction<{ roomId: string }>) => {
      * room:message:new
      */
 
-    socketNewRoomMessage: (state, action) => {
-      const { roomId, message } = action.payload;
-      if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
-      const list = state.messagesByRoom[roomId];
+  socketNewRoomMessage: (state, action) => {
+  const { roomId } = action.payload;
+  const message = normalizeMessageBadges(action.payload?.message);
 
+  console.log("🏷️ [ROOM_SLICE_BADGE_DEBUG][socketNewRoomMessage]", {
+    roomId,
+    messageId: String(message?._id || ""),
+    clientId: String(message?.clientId || ""),
+    type: String(message?.type || ""),
+    content: String(message?.content || "").slice(0, 80),
+    senderSnapshot: {
+      id: String(message?.senderSnapshot?._id || ""),
+      username: String(message?.senderSnapshot?.username || ""),
+      activeCustomizationBadges:
+        message?.senderSnapshot?.activeCustomization?.badges || [],
+      activeBadgesResolved:
+        message?.senderSnapshot?.activeBadgesResolved || [],
+    },
+  });
+
+  if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+  const list = state.messagesByRoom[roomId];
       // ✅ محاولة ربط رسالة سوكت برسالة optimistic عند غياب clientId
       if (!message?.clientId && message?._id) {
         const idxOpt = list.findIndex((m) =>
@@ -2359,30 +2440,59 @@ socketRoomDeleted: (state, action: PayloadAction<{ roomId: string }>) => {
         state.sending = true;
         state.error = undefined;
       })
-      .addCase(sendRoomMessage.fulfilled, (state, action) => {
-        state.sending = false;
+   .addCase(sendRoomMessage.fulfilled, (state, action) => {
+  state.sending = false;
 
+  const { roomId } = action.payload;
+  let { message } = action.payload;
 
-        const { roomId } = action.payload;
-        let { message } = action.payload;
+  // ✅ حقن clientId من arg لو الباك لم يرجعه
+  const argClientId = (action.meta as any)?.arg?.clientId;
 
-        // ✅ حقن clientId من arg لو الباك لم يرجعه
-        const argClientId = (action.meta as any)?.arg?.clientId;
-        if (argClientId && !message?.clientId) {
-          message = { ...message, clientId: String(argClientId) };
-        }
+  if (argClientId && !message?.clientId) {
+    message = {
+      ...message,
+      clientId: String(argClientId),
+    };
+  }
 
-        if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
-        const list = state.messagesByRoom[roomId];
+  /**
+   * ✅ مهم للبادج:
+   * نظّف senderSnapshot.activeBadgesResolved
+   * حتى تصل إلى ChatScreen بشكل ثابت.
+   */
+  message = normalizeMessageBadges(message);
 
-        // ✅ الآن سيتم الاستبدال وليس الإضافة
-        debugMsg("send:fulfilled:IN", roomId, message);
-        debugList("send:fulfilled:BEFORE", roomId, list);
+  console.log("🏷️ [ROOM_SLICE_BADGE_DEBUG][sendRoomMessage.fulfilled]", {
+    roomId,
+    messageId: String(message?._id || ""),
+    clientId: String(message?.clientId || ""),
+    type: String(message?.type || ""),
+    content: String(message?.content || "").slice(0, 80),
+    senderSnapshot: {
+      id: String(message?.senderSnapshot?._id || ""),
+      username: String(message?.senderSnapshot?.username || ""),
+      activeCustomizationBadges:
+        message?.senderSnapshot?.activeCustomization?.badges || [],
+      activeBadgesResolved:
+        message?.senderSnapshot?.activeBadgesResolved || [],
+    },
+  });
 
-        upsertMessageByClientIdOrId(list, message);
+  if (!state.messagesByRoom[roomId]) {
+    state.messagesByRoom[roomId] = [];
+  }
 
-        debugList("send:fulfilled:AFTER", roomId, list);
-      })
+  const list = state.messagesByRoom[roomId];
+
+  // ✅ الآن سيتم الاستبدال وليس الإضافة
+  debugMsg("send:fulfilled:IN", roomId, message);
+  debugList("send:fulfilled:BEFORE", roomId, list);
+
+  upsertMessageByClientIdOrId(list, message);
+
+  debugList("send:fulfilled:AFTER", roomId, list);
+})
       .addCase(sendRoomMessage.rejected, (state, action) => {
         state.sending = false;
         state.error = (action.payload as any) || "Send failed";
@@ -2392,126 +2502,163 @@ socketRoomDeleted: (state, action: PayloadAction<{ roomId: string }>) => {
         state.loadingMessages = true;
         state.error = undefined;
       })
-      .addCase(fetchRoomMessages.fulfilled, (state, action) => {
-        state.loadingMessages = false;
-        const { roomId, messages, append } = action.payload;
+     .addCase(fetchRoomMessages.fulfilled, (state, action) => {
+  state.loadingMessages = false;
 
-        if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
-        const list = state.messagesByRoom[roomId];
+  const { roomId, append } = action.payload;
 
+  /**
+   * ✅ مهم للبادج:
+   * كل رسالة قادمة من السيرفر يتم تنظيف activeBadgesResolved داخل senderSnapshot.
+   */
+  const messages = Array.isArray(action.payload.messages)
+    ? action.payload.messages.map((m: any) => normalizeMessageBadges(m))
+    : [];
 
+  console.log("🏷️ [ROOM_SLICE_BADGE_DEBUG][fetchRoomMessages.fulfilled]", {
+    roomId,
+    append,
+    count: messages.length,
+    sample: messages.slice(0, 5).map((m: any) => ({
+      id: String(m?._id || ""),
+      clientId: String(m?.clientId || ""),
+      type: String(m?.type || ""),
+      content: String(m?.content || "").slice(0, 60),
+      senderSnapshot: {
+        id: String(m?.senderSnapshot?._id || ""),
+        username: String(m?.senderSnapshot?.username || ""),
+        activeCustomizationBadges:
+          m?.senderSnapshot?.activeCustomization?.badges || [],
+        activeBadgesResolved:
+          m?.senderSnapshot?.activeBadgesResolved || [],
+      },
+    })),
+  });
 
-        if (append) {
-          const existingIds = new Set(list.map((m) => String(m?._id || "")));
-          const existingClientIds = new Set(
-            list.map((m) => String(m?.clientId || "")).filter(Boolean)
-          );
+  if (!state.messagesByRoom[roomId]) {
+    state.messagesByRoom[roomId] = [];
+  }
 
-          const filtered = (messages || []).filter((m) => {
-            const id = String(m?._id || "");
-            const cid = String(m?.clientId || "");
+  const list = state.messagesByRoom[roomId];
 
-            const dupById = id && existingIds.has(id);
-            const dupByClient = cid && existingClientIds.has(cid);
+  if (append) {
+    const existingIds = new Set(list.map((m) => String(m?._id || "")));
+    const existingClientIds = new Set(
+      list.map((m) => String(m?.clientId || "")).filter(Boolean)
+    );
 
-            if (dupById || dupByClient) {
-              return false;
-            }
+    const filtered = (messages || []).filter((m) => {
+      const id = String(m?._id || "");
+      const cid = String(m?.clientId || "");
 
-            return true;
-          });
+      const dupById = id && existingIds.has(id);
+      const dupByClient = cid && existingClientIds.has(cid);
 
-          for (const incoming of filtered as any[]) {
-            const incomingId = String(incoming?._id || "");
-            const incomingClientId = String(incoming?.clientId || "");
+      if (dupById || dupByClient) {
+        return false;
+      }
 
-            const old = list.find((m: any) => {
-              return (
-                String(m?._id || "") === incomingId ||
-                (!!incomingClientId && String(m?.clientId || "") === incomingClientId)
-              );
-            });
+      return true;
+    });
 
-            const oldReactions = Array.isArray(old?.reactions) ? old.reactions : [];
-            const incomingReactions = Array.isArray(incoming?.reactions)
-              ? incoming.reactions
-              : [];
+    for (const rawIncoming of filtered as any[]) {
+      const incoming = normalizeMessageBadges(rawIncoming);
 
-            if (old && oldReactions.length > 0 && incomingReactions.length === 0) {
-              list.push({
-                ...incoming,
-                reactions: oldReactions,
-                reactionCount: old.reactionCount || oldReactions.length,
-              });
-            } else {
-              list.push(incoming);
-            }
-          }
-        } else {
-          const seen = new Set<string>();
-          const out: typeof messages = [];
+      const incomingId = String(incoming?._id || "");
+      const incomingClientId = String(incoming?.clientId || "");
 
-          for (const m of (messages || [])) {
-            const id = String(m?._id || "");
-            const cid = String(m?.clientId || "");
-            const key = cid ? `c:${cid}` : `i:${id}`;
+      const old = list.find((m: any) => {
+        return (
+          String(m?._id || "") === incomingId ||
+          (!!incomingClientId &&
+            String(m?.clientId || "") === incomingClientId)
+        );
+      });
 
-            if (!id && !cid) {
-              continue;
-            }
+      const oldReactions = Array.isArray(old?.reactions)
+        ? old.reactions
+        : [];
 
-            if (seen.has(key)) {
-              continue;
-            }
+      const incomingReactions = Array.isArray(incoming?.reactions)
+        ? incoming.reactions
+        : [];
 
-            seen.add(key);
+      if (old && oldReactions.length > 0 && incomingReactions.length === 0) {
+        list.push({
+          ...incoming,
+          reactions: oldReactions,
+          reactionCount: old.reactionCount || oldReactions.length,
+        });
+      } else {
+        list.push(incoming);
+      }
+    }
+  } else {
+    const seen = new Set<string>();
+    const out: typeof messages = [];
 
-            const old = list.find((oldMsg: any) => {
-              return (
-                String(oldMsg?._id || "") === id ||
-                (!!cid && String(oldMsg?.clientId || "") === cid)
-              );
-            });
+    for (const rawMessage of messages || []) {
+      const m = normalizeMessageBadges(rawMessage);
 
-            const incomingReactions = Array.isArray((m as any)?.reactions)
-              ? (m as any).reactions
-              : [];
+      const id = String(m?._id || "");
+      const cid = String(m?.clientId || "");
+      const key = cid ? `c:${cid}` : `i:${id}`;
 
-            const oldReactions = Array.isArray((old as any)?.reactions)
-              ? (old as any).reactions
-              : [];
+      if (!id && !cid) {
+        continue;
+      }
 
-            const incomingReactionCount = Number(
-              (m as any)?.reactionCount || (m as any)?.reactionsCount || 0
-            );
+      if (seen.has(key)) {
+        continue;
+      }
 
-            const oldReactionCount = Number(
-              (old as any)?.reactionCount ||
-              (old as any)?.reactionsCount ||
-              oldReactions.length ||
-              0
-            );
+      seen.add(key);
 
-            if (
-              old &&
-              oldReactions.length > 0 &&
-              incomingReactions.length === 0 &&
-              incomingReactionCount === 0
-            ) {
-              out.push({
-                ...m,
-                reactions: oldReactions,
-                reactionCount: oldReactionCount,
-              });
-            } else {
-              out.push(m);
-            }
-          }
+      const old = list.find((oldMsg: any) => {
+        return (
+          String(oldMsg?._id || "") === id ||
+          (!!cid && String(oldMsg?.clientId || "") === cid)
+        );
+      });
 
-          state.messagesByRoom[roomId] = out;
-        }
+      const incomingReactions = Array.isArray((m as any)?.reactions)
+        ? (m as any).reactions
+        : [];
 
-      })
+      const oldReactions = Array.isArray((old as any)?.reactions)
+        ? (old as any).reactions
+        : [];
+
+      const incomingReactionCount = Number(
+        (m as any)?.reactionCount || (m as any)?.reactionsCount || 0
+      );
+
+      const oldReactionCount = Number(
+        (old as any)?.reactionCount ||
+          (old as any)?.reactionsCount ||
+          oldReactions.length ||
+          0
+      );
+
+      if (
+        old &&
+        oldReactions.length > 0 &&
+        incomingReactions.length === 0 &&
+        incomingReactionCount === 0
+      ) {
+        out.push({
+          ...m,
+          reactions: oldReactions,
+          reactionCount: oldReactionCount,
+        });
+      } else {
+        out.push(m);
+      }
+    }
+
+    state.messagesByRoom[roomId] = out;
+  }
+})
       .addCase(fetchRoomMessages.rejected, (state, action) => {
         state.loadingMessages = false;
         state.error = (action.payload as any) || "Failed to fetch messages";
@@ -2571,12 +2718,12 @@ socketRoomDeleted: (state, action: PayloadAction<{ roomId: string }>) => {
       })
       .addCase(fetchFavoriteRooms.fulfilled, (state, action) => {
         state.loadingFavoriteRooms = false;
-      state.favoriteRooms = action.payload.items.map((room) => ({
-  ...room,
-  isFavorite: true,
-}));
+        state.favoriteRooms = action.payload.items.map((room) => ({
+          ...room,
+          isFavorite: true,
+        }));
 
-sortRoomsByBoost(state.favoriteRooms);
+        sortRoomsByBoost(state.favoriteRooms);
       })
       .addCase(fetchFavoriteRooms.rejected, (state, action) => {
         state.loadingFavoriteRooms = false;
@@ -2600,54 +2747,54 @@ sortRoomsByBoost(state.favoriteRooms);
       })
 
       .addCase(toggleRoomFavorite.fulfilled, (state, action) => {
-  state.mutatingRoom = false;
+        state.mutatingRoom = false;
 
-  const roomId = String(action.payload?.roomId || "");
-  const isFavorite = Boolean(action.payload?.isFavorite);
+        const roomId = String(action.payload?.roomId || "");
+        const isFavorite = Boolean(action.payload?.isFavorite);
 
-  if (!roomId) return;
+        if (!roomId) return;
 
-  const idx = state.rooms.findIndex(
-    (r) => String(r._id) === roomId
-  );
+        const idx = state.rooms.findIndex(
+          (r) => String(r._id) === roomId
+        );
 
-  if (idx >= 0) {
-    state.rooms[idx] = {
-      ...state.rooms[idx],
-      isFavorite,
-      favoriteCreatedAt: isFavorite
-        ? state.rooms[idx].favoriteCreatedAt || new Date().toISOString()
-        : undefined,
-    };
-  }
+        if (idx >= 0) {
+          state.rooms[idx] = {
+            ...state.rooms[idx],
+            isFavorite,
+            favoriteCreatedAt: isFavorite
+              ? state.rooms[idx].favoriteCreatedAt || new Date().toISOString()
+              : undefined,
+          };
+        }
 
-  const favIdx = state.favoriteRooms.findIndex(
-    (r) => String(r._id) === roomId
-  );
+        const favIdx = state.favoriteRooms.findIndex(
+          (r) => String(r._id) === roomId
+        );
 
-  if (isFavorite) {
-    if (favIdx < 0 && idx >= 0) {
-      state.favoriteRooms.unshift({
-        ...state.rooms[idx],
-        isFavorite: true,
-        favoriteCreatedAt: new Date().toISOString(),
-      });
-    }
+        if (isFavorite) {
+          if (favIdx < 0 && idx >= 0) {
+            state.favoriteRooms.unshift({
+              ...state.rooms[idx],
+              isFavorite: true,
+              favoriteCreatedAt: new Date().toISOString(),
+            });
+          }
 
-    if (favIdx >= 0) {
-      state.favoriteRooms[favIdx] = {
-        ...state.favoriteRooms[favIdx],
-        isFavorite: true,
-      };
-    }
-  } else {
-    state.favoriteRooms = state.favoriteRooms.filter(
-      (r) => String(r._id) !== roomId
-    );
-  }
+          if (favIdx >= 0) {
+            state.favoriteRooms[favIdx] = {
+              ...state.favoriteRooms[favIdx],
+              isFavorite: true,
+            };
+          }
+        } else {
+          state.favoriteRooms = state.favoriteRooms.filter(
+            (r) => String(r._id) !== roomId
+          );
+        }
 
-  sortRoomsByBoost(state.favoriteRooms);
-})
+        sortRoomsByBoost(state.favoriteRooms);
+      })
       .addCase(createRoom.pending, (state) => {
         state.loadingRooms = true;
         state.error = undefined;
@@ -2681,35 +2828,35 @@ sortRoomsByBoost(state.favoriteRooms);
         state.loadingRooms = false;
         state.error = (action.payload as any) || "Search failed";
       })
-    .addCase(boostRoom.fulfilled, (state, action) => {
-  state.mutatingRoom = false;
+      .addCase(boostRoom.fulfilled, (state, action) => {
+        state.mutatingRoom = false;
 
-  const { roomId, boostPoints, room } = action.payload;
+        const { roomId, boostPoints, room } = action.payload;
 
-  const idx = state.rooms.findIndex((r) => r._id === roomId);
+        const idx = state.rooms.findIndex((r) => r._id === roomId);
 
-  if (idx >= 0) {
-    state.rooms[idx] = {
-      ...state.rooms[idx],
-      ...(room || {}),
-      boostPoints: Number(boostPoints || 0),
-    };
-  }
+        if (idx >= 0) {
+          state.rooms[idx] = {
+            ...state.rooms[idx],
+            ...(room || {}),
+            boostPoints: Number(boostPoints || 0),
+          };
+        }
 
-  const favIdx = state.favoriteRooms.findIndex((r) => r._id === roomId);
+        const favIdx = state.favoriteRooms.findIndex((r) => r._id === roomId);
 
-  if (favIdx >= 0) {
-    state.favoriteRooms[favIdx] = {
-      ...state.favoriteRooms[favIdx],
-      ...(room || {}),
-      boostPoints: Number(boostPoints || 0),
-      isFavorite: true,
-    };
-  }
+        if (favIdx >= 0) {
+          state.favoriteRooms[favIdx] = {
+            ...state.favoriteRooms[favIdx],
+            ...(room || {}),
+            boostPoints: Number(boostPoints || 0),
+            isFavorite: true,
+          };
+        }
 
-  sortRoomsByBoost(state.rooms);
-  sortRoomsByBoost(state.favoriteRooms);
-})
+        sortRoomsByBoost(state.rooms);
+        sortRoomsByBoost(state.favoriteRooms);
+      })
       .addMatcher(
         (action) =>
           action.type.startsWith("room/") &&
@@ -2804,7 +2951,7 @@ sortRoomsByBoost(state.favoriteRooms);
             votePoll.typePrefix,
             endPoll.typePrefix,
             setMaxVoiceSeats.typePrefix,
-                  toggleRoomFavorite.typePrefix, // ✅ أضفها
+            toggleRoomFavorite.typePrefix, // ✅ أضفها
 
             raiseHand.typePrefix,
             clearRaisedHand.typePrefix,
@@ -2871,6 +3018,7 @@ export const {
   socketRoomDeleted,
   clearKickedFlag,
   setCurrentRoomUserId, // ✅ أضف هذا
+  clearRoomMessages,
 
   clearBannedFlag,
   socketRoomKicked,

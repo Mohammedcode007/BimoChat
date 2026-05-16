@@ -144,10 +144,10 @@ export function makeBubbleStyles(theme: typeof Colors.light) {
     },
 
     senderName: {
-      fontSize: 12,
-      fontWeight: "900",
+      fontSize: 14,
+      fontWeight: "800",
       color: theme.text,
-      maxWidth: 180,
+      maxWidth: 250,
     },
 
     nameUnderline: {
@@ -158,10 +158,10 @@ export function makeBubbleStyles(theme: typeof Colors.light) {
     },
 
     msgText: {
-      fontSize: 14,
+      fontSize: 13,
       lineHeight: 21,
       color: theme.text,
-      fontWeight: "500",
+      fontWeight: "600",
     },
 
     msgTextMuted: {

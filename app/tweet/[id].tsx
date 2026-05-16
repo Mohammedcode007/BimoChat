@@ -140,7 +140,13 @@ export default function TweetDetailsScreen() {
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return `${num}`;
   };
+const getUserName = (author?: Author | null) => {
+  return String(author?.username || author?.atUsername || t('tweetDetailsScreen.user')).trim();
+};
 
+const getReplyMentionName = (author?: Author | null) => {
+  return String(author?.username || '').replace(/^@/, '').trim();
+};
   const tweetStats = currentTweet as any;
 
   const viewsCount = useMemo(
@@ -283,25 +289,21 @@ export default function TweetDetailsScreen() {
     }
   };
 
-  const handleStartReply = (comment: CommentItem) => {
-    const mention = comment.user?.atUsername || comment.user?.username || '';
-    const mentionText = mention
-      ? mention.startsWith('@')
-        ? `${mention} `
-        : `@${mention} `
-      : '';
+const handleStartReply = (comment: CommentItem) => {
+  const username = getReplyMentionName(comment.user);
 
-    setReplyingTo(comment);
-    setCommentText(mentionText);
+  const mentionText = username ? `@${username} ` : '';
 
-    setTimeout(() => {
-      flatListRef.current?.scrollToOffset?.({
-        offset: 0,
-        animated: true,
-      });
-    }, 100);
-  };
+  setReplyingTo(comment);
+  setCommentText(mentionText);
 
+  setTimeout(() => {
+    flatListRef.current?.scrollToOffset?.({
+      offset: 0,
+      animated: true,
+    });
+  }, 100);
+};
   const handleCancelReply = () => {
     setReplyingTo(null);
     setCommentText('');
@@ -377,14 +379,9 @@ export default function TweetDetailsScreen() {
     const isLoadingReplies = !!loadingRepliesMap[item._id];
     const isReplyLevel = depth > 0;
     const commentUser = item.user || {};
+const commentUsername = getUserName(commentUser);
 
-    const commentUsername =
-      commentUser.username ||
-      commentUser.atUsername ||
-      t('tweetDetailsScreen.user');
-
-    const commentAtUsername =
-      commentUser.atUsername || commentUser.username || '';
+const commentAtUsername = '';
     return (
       <View key={item._id}>
         <View
@@ -433,19 +430,7 @@ export default function TweetDetailsScreen() {
                 {commentUsername}
               </Text>
 
-              {!!commentAtUsername && (
-                <Text
-                  style={[
-                    styles.replyHandle,
-                    { color: subtle as any, textAlign: isRTL ? 'right' : 'left' },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {commentAtUsername.startsWith('@')
-                    ? commentAtUsername
-                    : `@${commentAtUsername}`}
-                </Text>
-              )}
+           
             </View>
 
             <Text
@@ -979,15 +964,9 @@ export default function TweetDetailsScreen() {
                   ]}
                   numberOfLines={1}
                 >
-                  {language === 'ar'
-                    ? `الرد على ${replyingTo.user?.username ||
-                    replyingTo.user?.atUsername ||
-                    t('tweetDetailsScreen.user')
-                    }`
-                    : `Replying to ${replyingTo.user?.username ||
-                    replyingTo.user?.atUsername ||
-                    t('tweetDetailsScreen.user')
-                    }`}
+              {language === 'ar'
+  ? `الرد على ${getUserName(replyingTo.user)}`
+  : `Replying to ${getUserName(replyingTo.user)}`}
                 </Text>
               </View>
 

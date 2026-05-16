@@ -10,6 +10,7 @@ import React from "react";
 import {
   Alert,
   Animated,
+  Linking,
   Pressable,
   Text,
   TouchableOpacity,
@@ -85,6 +86,76 @@ export default function MessageItem({
   onOpenReactionDetails?: (message: MessageUI) => void;
 }) {
   const { width } = useWindowDimensions();
+  const URL_REGEX = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+
+const normalizeUrl = (url: string) => {
+  const clean = String(url || "").trim();
+
+  if (!clean) return "";
+
+  if (/^https?:\/\//i.test(clean)) {
+    return clean;
+  }
+
+  if (/^www\./i.test(clean)) {
+    return `https://${clean}`;
+  }
+
+  return clean;
+};
+
+const openMessageLink = async (url: string) => {
+  try {
+    const safeUrl = normalizeUrl(url);
+
+    if (!safeUrl) return;
+
+    const canOpen = await Linking.canOpenURL(safeUrl);
+
+    if (!canOpen) {
+      Alert.alert("Error", "Cannot open this link");
+      return;
+    }
+
+    await Linking.openURL(safeUrl);
+  } catch (e) {
+    Alert.alert("Error", "Failed to open link");
+  }
+};
+
+const renderMessageTextWithLinks = (text?: string) => {
+  const value = String(text || "");
+
+  if (!value) return null;
+
+  const parts = value.split(URL_REGEX);
+
+  return parts.map((part, index) => {
+    const isLink = /^(https?:\/\/[^\s]+|www\.[^\s]+)$/i.test(part);
+
+    if (!isLink) {
+      return (
+        <Text key={`text-${index}`}>
+          {part}
+        </Text>
+      );
+    }
+
+    return (
+      <Text
+        key={`link-${index}`}
+        onPress={() => openMessageLink(part)}
+        style={{
+          color: "#2563EB",
+          fontWeight: "800",
+          textDecorationLine: "underline",
+        }}
+      >
+        {part}
+      </Text>
+    );
+  });
+};
   type CricketMessageUI = MessageUI & {
     type: "game";
     game: {
@@ -103,6 +174,39 @@ export default function MessageItem({
   function isSugarLuckMessage(item: MessageUI) {
     return item.type === "game" && item.game?.gameType === "luck";
   }
+  function isShotMessage(item: MessageUI) {
+  return (
+    item.type === "game" &&
+    (
+      item.game?.gameType === "shot" ||
+      item.game?.payload?.game === "shot_game" ||
+      item.game?.payload?.command === "shot" ||
+      item.action === "shot_game" ||
+      item.meta?.action === "shot_game"
+    )
+  );
+}
+function isLookalikeMessage(item: MessageUI) {
+  return (
+    item.type === "game" &&
+    (
+      item.game?.gameType === "lookalike" ||
+      item.game?.payload?.game === "lookalike_game" ||
+      item.game?.payload?.action === "lookalike_game" ||
+      item.meta?.action === "lookalike_game" ||
+      item.action === "lookalike_game"
+    )
+  );
+}
+  function isAnaTitleMessage(item: MessageUI) {
+  return (
+    item.type === "game" &&
+    (
+      item.game?.gameType === "ana_title" ||
+      item.game?.payload?.game === "ana_title_game"
+    )
+  );
+}
   function isDuelMessage(item: MessageUI) {
   return item.type === "game" && item.game?.gameType === "duel";
 }
@@ -466,6 +570,376 @@ return (
 );
    
   }
+  if (isLookalikeMessage(item)) {
+  const payload = item.game?.payload || {};
+
+  const targetName = String(payload?.targetName || "").trim();
+
+  const title = String(
+    payload?.title ||
+      item.game?.title ||
+      item.text ||
+      ""
+  ).trim();
+
+  return (
+    <View style={[bubble.row, bubble.rowOther]}>
+<Pressable
+  style={bubble.avatarWrapLeft}
+  onPress={() => onAvatarPress(item.sender)}
+  onLongPress={() => onAvatarLongPress(item.sender)}
+  delayLongPress={350}
+>
+<Image
+  source={{
+    uri:
+      item.game?.payload?.avatar ||
+      item.meta?.avatar ||
+      item.sender?.avatar ||
+      item.sender?.avatarGif ||
+      "https://res.cloudinary.com/dmejkp0m4/image/upload/v1778658281/k7pj9rdqhuipqr0ecu1v.jpg",
+  }}
+  style={[
+    bubble.avatar,
+    {
+      borderColor: "#F59E0B",
+      borderWidth: 2,
+    },
+  ]}
+  contentFit="cover"
+  cachePolicy="memory-disk"
+  transition={0}
+/>
+</Pressable>
+      <TouchableOpacity
+        activeOpacity={0.88}
+        onLongPress={onLongPress}
+        style={[bubble.bubble, bubble.bubbleOther]}
+      >
+        <View style={bubble.nameWrap}>
+          <View style={[bubble.nameRow, { alignSelf: "flex-start" }]}>
+            <Text
+              style={[
+                bubble.senderName,
+                {
+                  color: "#F59E0B",
+                  flexShrink: 1,
+                  flexWrap: "wrap",
+                },
+              ]}
+              numberOfLines={1}
+            >
+              game
+            </Text>
+          </View>
+
+          <View style={bubble.nameUnderline} />
+        </View>
+
+        {!!targetName && (
+          <Text
+            style={[
+              bubble.msgText,
+              {
+                fontWeight: "900",
+                marginBottom: 4,
+                color: theme.text,
+              },
+            ]}
+            numberOfLines={1}
+          >
+            شبيه {targetName}
+          </Text>
+        )}
+
+        <Text
+          style={[
+            bubble.msgText,
+            {
+              color: "#F59E0B",
+              fontSize: 18,
+              fontWeight: "900",
+            },
+            getTextDirectionStyle(title),
+          ]}
+        >
+          {title}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+if (isShotMessage(item)) {
+  const payload = item.game?.payload || {};
+
+  const title = String(item.game?.title || "🔫 Shot").trim();
+  const state = String(item.game?.state || payload?.state || "").trim();
+  const pointsChange = Number(payload?.pointsChange || 0);
+  const balance = Number(payload?.balance || 0);
+
+  const targetName = String(payload?.targetName || "").trim();
+  const targetEmoji = String(payload?.targetEmoji || "🎯").trim();
+
+  const isWin = state === "win" || pointsChange > 0;
+  const isMiss = state === "miss";
+
+  const accentColor = isWin ? "#22C55E" : isMiss ? "#94A3B8" : "#F59E0B";
+
+  return (
+    <View style={bubble.sysWrap}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onLongPress={onLongPress}
+        style={[
+          bubble.sysBubble,
+          {
+            width: Math.min(width - 36, 360),
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+            borderWidth: 1,
+            borderColor: `${accentColor}55`,
+            backgroundColor:
+              theme.background === "#000" ||
+              String(theme.background).toLowerCase().includes("000")
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(0,0,0,0.04)",
+          },
+        ]}
+      >
+        <View
+          style={{
+            alignSelf: "stretch",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 8,
+          }}
+        >
+          <Text style={{ fontSize: 20 }}>🔫</Text>
+
+          <Text
+            style={{
+              marginLeft: 6,
+              color: accentColor,
+              fontSize: 14,
+              fontWeight: "900",
+              textAlign: "center",
+            }}
+            numberOfLines={1}
+          >
+            Shot
+          </Text>
+        </View>
+
+        {!!title && (
+          <Text
+            style={{
+              color: theme.text,
+              fontSize: 14,
+              fontWeight: "900",
+              textAlign: "center",
+              marginBottom: 6,
+            }}
+          >
+            {title}
+          </Text>
+        )}
+
+        {!!targetName && (
+          <View
+            style={{
+              marginBottom: 8,
+              alignSelf: "center",
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 999,
+              backgroundColor: `${accentColor}18`,
+              borderWidth: 1,
+              borderColor: `${accentColor}45`,
+            }}
+          >
+            <Text
+              style={{
+                color: accentColor,
+                fontSize: 12,
+                fontWeight: "900",
+              }}
+            >
+              {targetEmoji} {targetName}
+            </Text>
+          </View>
+        )}
+
+        <Text
+          style={[
+            {
+              color: theme.text,
+              fontSize: 13,
+              lineHeight: 22,
+              fontWeight: "800",
+              textAlign: "center",
+            },
+            getTextDirectionStyle(item.text || ""),
+          ]}
+        >
+          {item.text}
+        </Text>
+
+        {typeof payload?.player?.points !== "undefined" ? (
+          <View
+            style={{
+              marginTop: 10,
+              alignSelf: "center",
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 999,
+              backgroundColor: `${accentColor}18`,
+              borderWidth: 1,
+              borderColor: `${accentColor}45`,
+            }}
+          >
+            <Text
+              style={{
+                color: accentColor,
+                fontSize: 12,
+                fontWeight: "900",
+              }}
+            >
+              Balance: {payload.player.points} points
+            </Text>
+          </View>
+        ) : balance ? (
+          <View
+            style={{
+              marginTop: 10,
+              alignSelf: "center",
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 999,
+              backgroundColor: `${accentColor}18`,
+              borderWidth: 1,
+              borderColor: `${accentColor}45`,
+            }}
+          >
+            <Text
+              style={{
+                color: accentColor,
+                fontSize: 12,
+                fontWeight: "900",
+              }}
+            >
+              Balance: {balance} points
+            </Text>
+          </View>
+        ) : null}
+
+        <Text style={[bubble.sysTime, { marginTop: 8 }]}>
+          {item.time}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+  if (isAnaTitleMessage(item)) {
+  const payload = item.game?.payload || {};
+
+  const targetName = String(
+    payload?.targetName ||
+      item.game?.title ||
+      ""
+  ).trim();
+
+  const title = String(
+    payload?.title ||
+      item.game?.title ||
+      item.text ||
+      ""
+  ).trim();
+
+  return (
+    <View style={bubble.sysWrap}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onLongPress={onLongPress}
+        style={[
+          bubble.sysBubble,
+          {
+            width: Math.min(width - 36, 320),
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            borderWidth: 1,
+            borderColor: "rgba(245,158,11,0.35)",
+            backgroundColor:
+              theme.background === "#000" ||
+              String(theme.background).toLowerCase().includes("000")
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(245,158,11,0.08)",
+          },
+        ]}
+      >
+        <View
+          style={{
+            alignSelf: "stretch",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 8,
+          }}
+        >
+          <Ionicons
+            name="game-controller-outline"
+            size={17}
+            color="#F59E0B"
+          />
+
+          <Text
+            style={{
+              marginLeft: 6,
+              color: "#F59E0B",
+              fontSize: 13,
+              fontWeight: "900",
+              textAlign: "center",
+            }}
+            numberOfLines={1}
+          >
+            game
+          </Text>
+        </View>
+
+        {!!targetName && (
+          <Text
+            style={{
+              color: theme.text,
+              fontSize: 14,
+              fontWeight: "900",
+              textAlign: "center",
+              marginBottom: 6,
+            }}
+            numberOfLines={1}
+          >
+            {targetName}
+          </Text>
+        )}
+
+        <Text
+          style={{
+            color: "#F59E0B",
+            fontSize: 22,
+            lineHeight: 30,
+            fontWeight: "900",
+            textAlign: "center",
+          }}
+          numberOfLines={2}
+        >
+          {title}
+        </Text>
+
+    
+      </TouchableOpacity>
+    </View>
+  );
+}
+
   if (isSugarLuckMessage(item)) {
     const title = String(item.game?.title || "سُــــــكَّــــــر").trim();
     const state = String(item.game?.state || "").trim();
@@ -1025,14 +1499,14 @@ if (isBombColorMessage(item)) {
         )
       )}
 
-      <TouchableOpacity
-        activeOpacity={0.88}
-        onLongPress={onLongPress}
-        onPress={() => {
-          if (item.type === "text" || item.type === "file") copyMessageContent();
-        }}
-        style={[bubble.bubble, isMe ? bubble.bubbleMe : bubble.bubbleOther]}
-      >
+<TouchableOpacity
+  activeOpacity={0.88}
+  onLongPress={onLongPress}
+  onPress={() => {
+    if (item.type === "file") copyMessageContent();
+  }}
+  style={[bubble.bubble, isMe ? bubble.bubbleMe : bubble.bubbleOther]}
+>
         {shouldShowAvatarAndName && (
           <View style={bubble.nameWrap}>
             {/* <View style={bubble.nameRow}>
@@ -1104,19 +1578,19 @@ if (isBombColorMessage(item)) {
               </View>
             )}
 
-            {item.type === "text" && (
-              <Text
-                style={[
-                  bubble.msgText,
-                  getTextDirectionStyle(item.text),
-                  resolveMessageTextColor(item.sender)
-                    ? { color: resolveMessageTextColor(item.sender) }
-                    : null,
-                ]}
-              >
-                {item.text}
-              </Text>
-            )}
+   {item.type === "text" && (
+  <Text
+    style={[
+      bubble.msgText,
+      getTextDirectionStyle(item.text),
+      resolveMessageTextColor(item.sender)
+        ? { color: resolveMessageTextColor(item.sender) }
+        : null,
+    ]}
+  >
+    {renderMessageTextWithLinks(item.text)}
+  </Text>
+)}
 
             {item.type === "gift" ? (
               (() => {

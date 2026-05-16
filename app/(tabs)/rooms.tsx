@@ -290,6 +290,7 @@ export default function RoomsScreen() {
   const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [joining, setJoining] = useState(false);
+  const [enteredRoomIds, setEnteredRoomIds] = useState<Record<string, boolean>>({});
   const onEndReachedCalledDuringMomentum = useRef(false);
   // ✅ Creating / searching nice loading
   const [creating, setCreating] = useState(false);
@@ -306,6 +307,28 @@ export default function RoomsScreen() {
     },
     [router]
   );
+  const markRoomEntered = useCallback((roomId: string) => {
+    const id = String(roomId || "").trim();
+    if (!id) return;
+
+    setEnteredRoomIds((prev) => {
+      if (prev[id]) return prev;
+      return {
+        ...prev,
+        [id]: true,
+      };
+    });
+
+    const existing = accRef.current.get(id);
+    if (existing) {
+      accRef.current.set(id, {
+        ...existing,
+        isActive: true,
+      });
+
+      setRooms(Array.from(accRef.current.values()));
+    }
+  }, []);
   // ✅ لو فشل join بسبب ban: نخزنها محليًا ونمنع محاولة الدخول + نظهر Badge
   const [bannedByRoomId, setBannedByRoomId] = useState<Record<string, string>>({});
   const myUserId = useAppSelector((state) => state.auth.user?._id);
@@ -317,6 +340,22 @@ export default function RoomsScreen() {
       dispatch(setCurrentRoomUserId(myUserId));
     }
   }, [myUserId]);
+  useEffect(() => {
+    const activeIds: Record<string, boolean> = {};
+
+    for (const room of rooms) {
+      if (room.isActive) {
+        activeIds[String(room.id)] = true;
+      }
+    }
+
+    if (Object.keys(activeIds).length) {
+      setEnteredRoomIds((prev) => ({
+        ...prev,
+        ...activeIds,
+      }));
+    }
+  }, [rooms]);
   const isInitialLoading = useMemo(() => {
     const loading = isFavoriteTab ? loadingFavoriteRooms : loadingRooms;
     return Boolean(loading && rooms.length === 0 && !search.trim());
@@ -466,16 +505,16 @@ export default function RoomsScreen() {
   /* =====================================================
      ✅ Sort & filter
   ===================================================== */
- const sortRooms = useCallback((list: RoomUI[]) => {
-  return [...list].sort((a, b) => {
-    const bpA = Number(a.boostPoints || 0);
-    const bpB = Number(b.boostPoints || 0);
+  const sortRooms = useCallback((list: RoomUI[]) => {
+    return [...list].sort((a, b) => {
+      const bpA = Number(a.boostPoints || 0);
+      const bpB = Number(b.boostPoints || 0);
 
-    if (bpB !== bpA) return bpB - bpA;
+      if (bpB !== bpA) return bpB - bpA;
 
-    return String(a.name || "").localeCompare(String(b.name || ""));
-  });
-}, []);
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+  }, []);
 
   const filteredRooms = useMemo(() => {
     let data = rooms;
@@ -563,11 +602,13 @@ export default function RoomsScreen() {
 
       const alreadyInside =
         String(activeRoomId || "") === String(roomId) ||
-        Boolean(room?.isActive);
+        Boolean(room?.isActive) ||
+        Boolean(enteredRoomIds[String(roomId)]);
 
       if (alreadyInside) {
         setJoining(false);
         setError("");
+        markRoomEntered(roomId);
         goToRoom(roomId);
         return;
       }
@@ -580,6 +621,8 @@ export default function RoomsScreen() {
           enterRoomDirect({ roomId, preload: true })
         ).unwrap();
 
+        markRoomEntered(roomId);
+
         setJoining(false);
         goToRoom(roomId);
       } catch (e: any) {
@@ -588,7 +631,15 @@ export default function RoomsScreen() {
         setJoining(false);
       }
     },
-    [dispatch, joining, activeRoomId, rooms, goToRoom]
+    [
+      dispatch,
+      joining,
+      activeRoomId,
+      rooms,
+      enteredRoomIds,
+      markRoomEntered,
+      goToRoom,
+    ]
   );
   const doJoin = useCallback(
     async (roomId: string, password?: string) => {
@@ -598,11 +649,13 @@ export default function RoomsScreen() {
 
       const alreadyInside =
         String(activeRoomId || "") === String(roomId) ||
-        Boolean(room?.isActive);
+        Boolean(room?.isActive) ||
+        Boolean(enteredRoomIds[String(roomId)]);
 
       if (alreadyInside) {
         setJoining(false);
         setError("");
+        markRoomEntered(roomId);
         goToRoom(roomId);
         return;
       }
@@ -614,6 +667,8 @@ export default function RoomsScreen() {
         await dispatch(
           joinRoomAndEnter({ roomId, preload: true, password })
         ).unwrap();
+
+        markRoomEntered(roomId);
 
         setJoining(false);
         goToRoom(roomId);
@@ -633,6 +688,8 @@ export default function RoomsScreen() {
       joining,
       activeRoomId,
       rooms,
+      enteredRoomIds,
+      markRoomEntered,
       goToRoom,
       isBanMessage,
       markRoomBanned,
@@ -648,7 +705,7 @@ export default function RoomsScreen() {
       }
 
       // ✅ Active -> دخول مباشر بدون join
-      if (room?.isActive) {
+      if (room?.isActive || enteredRoomIds[String(roomId)]) {
         await enterActiveRoomDirect(roomId);
         return;
       }
@@ -663,7 +720,7 @@ export default function RoomsScreen() {
 
       await doJoin(roomId);
     },
-    [doJoin, bannedByRoomId, enterActiveRoomDirect]
+    [doJoin, bannedByRoomId, enterActiveRoomDirect, enteredRoomIds]
   );
 
   const confirmJoinWithPassword = useCallback(async () => {

@@ -280,20 +280,20 @@ export default function ChatScreen() {
   const roomAvatar = useAppSelector((state) => selectRoomAvatarById(state, roomId));
   const activeCount = useAppSelector((state) => selectRoomActiveCount(state, roomId));
   const rooms = useAppSelector(selectRooms);
-const favoriteRooms = useAppSelector(selectFavoriteRooms);
-const mutatingRoom = useAppSelector((state) => state.room.mutatingRoom);
+  const favoriteRooms = useAppSelector(selectFavoriteRooms);
+  const mutatingRoom = useAppSelector((state) => state.room.mutatingRoom);
 
-const currentRoom = useMemo(() => {
-  return rooms.find((r: any) => String(r?._id) === String(roomId));
-}, [rooms, roomId]);
+  const currentRoom = useMemo(() => {
+    return rooms.find((r: any) => String(r?._id) === String(roomId));
+  }, [rooms, roomId]);
 
-const isRoomFavorite = useMemo(() => {
-  if (currentRoom?.isFavorite) return true;
+  const isRoomFavorite = useMemo(() => {
+    if (currentRoom?.isFavorite) return true;
 
-  return favoriteRooms.some(
-    (r: any) => String(r?._id) === String(roomId)
-  );
-}, [currentRoom?.isFavorite, favoriteRooms, roomId]);
+    return favoriteRooms.some(
+      (r: any) => String(r?._id) === String(roomId)
+    );
+  }, [currentRoom?.isFavorite, favoriteRooms, roomId]);
   const showInitialMessagesSkeleton =
     loadingMessages && (!reduxMessages || reduxMessages.length === 0);
   const [text, setText] = useState("");
@@ -367,7 +367,7 @@ const isRoomFavorite = useMemo(() => {
   };
   const [showRoomMenu, setShowRoomMenu] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
-const [usersModalLoading, setUsersModalLoading] = useState(false);
+  const [usersModalLoading, setUsersModalLoading] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<MessageUI | null>(null);
   const [pinnedHidden, setPinnedHidden] = useState(false);
@@ -1185,7 +1185,10 @@ const [usersModalLoading, setUsersModalLoading] = useState(false);
     logSenderFromMessage(m, "MAP_MESSAGE_USER_DUMP");
 
     const backendType = String(m?.type || "text");
+    const metaAction = String(m?.meta?.action || m?.action || "").trim();
 
+    const isAnaTitleGame = metaAction === "ana_title_game";
+    const isLookalikeGame = metaAction === "lookalike_game";
     const parsedSong =
       backendType === "song"
         ? parseSongMessage(m)
@@ -1359,10 +1362,22 @@ const [usersModalLoading, setUsersModalLoading] = useState(false);
       !!mediaUrl &&
       (mediaMime.startsWith("audio/") || systemTypeRaw === "room_music_audio");
 
+    // let uiType: MessageUI["type"] = "text";
+    // let resolvedSystemType: MessageUI["systemType"] | undefined = undefined;
+
+    // if (backendType === "gift") uiType = "gift";
+    // else if (backendType === "song") uiType = "song";
+    // else if (backendType === "game") uiType = "game";
+    // else if (backendType === "image") uiType = "image";
+    // else if (backendType === "video") uiType = "video";
+    // else if (backendType === "audio") uiType = "audio";
+    // else if (backendType === "file") uiType = "file";
+    // else if (isSystem) uiType = "system";
     let uiType: MessageUI["type"] = "text";
     let resolvedSystemType: MessageUI["systemType"] | undefined = undefined;
 
-    if (backendType === "gift") uiType = "gift";
+    if (isAnaTitleGame || isLookalikeGame) uiType = "game";
+    else if (backendType === "gift") uiType = "gift";
     else if (backendType === "song") uiType = "song";
     else if (backendType === "game") uiType = "game";
     else if (backendType === "image") uiType = "image";
@@ -1440,9 +1455,39 @@ const [usersModalLoading, setUsersModalLoading] = useState(false);
         }
         : undefined,
 
-      game:
-        backendType === "game"
-          ? {
+game:
+  isAnaTitleGame
+    ? {
+        gameType: "ana_title",
+        gameId: String(m?._id || "").trim(),
+        title: String(m?.meta?.role || m?.role || m?.content || "").trim(),
+        state: "result",
+        turnUserId: "",
+        winnerUserId: "",
+        payload: {
+          game: "ana_title_game",
+          targetName: String(m?.meta?.targetName || m?.targetName || "").trim(),
+          title: String(m?.meta?.role || m?.role || m?.content || "").trim(),
+          botName: String(m?.meta?.actorName || m?.actorName || "game").trim(),
+        },
+      }
+    : isLookalikeGame
+      ? {
+          gameType: "lookalike",
+          gameId: String(m?._id || "").trim(),
+          title: String(m?.meta?.role || m?.role || m?.content || "").trim(),
+          state: "result",
+          turnUserId: "",
+          winnerUserId: "",
+          payload: {
+            game: "lookalike_game",
+            targetName: String(m?.meta?.targetName || m?.targetName || "").trim(),
+            title: String(m?.meta?.role || m?.role || m?.content || "").trim(),
+            botName: String(m?.meta?.actorName || m?.actorName || "game").trim(),
+          },
+        }
+      : backendType === "game"
+        ? {
             gameType: String(m?.gameType || m?.game?.gameType || "").trim(),
             gameId: String(m?.game?.gameId || "").trim(),
             title: String(m?.game?.title || m?.content || "").trim(),
@@ -1451,7 +1496,7 @@ const [usersModalLoading, setUsersModalLoading] = useState(false);
             winnerUserId: String(m?.game?.winnerUserId || "").trim(),
             payload: m?.game?.payload || null,
           }
-          : undefined,
+        : undefined,
       text: messageText,
       uri: m?.media?.url,
       mediaMimeType: String(m?.media?.mimeType || ""),
@@ -1567,7 +1612,12 @@ const [usersModalLoading, setUsersModalLoading] = useState(false);
       m?.game?.turnUserId || "",
       m?.game?.winnerUserId || "",
       m?.game?.payload ? JSON.stringify(m.game.payload) : "",
-
+      m?.action || "",
+      m?.targetName || "",
+      m?.role || "",
+      m?.meta?.action || "",
+      m?.meta?.targetName || "",
+      m?.meta?.role || "",
       m?.gift?.key || m?.meta?.gift?.key || "",
       m?.gift?.targetId || m?.meta?.gift?.targetId || "",
     ].join("|");
@@ -2161,17 +2211,17 @@ const [usersModalLoading, setUsersModalLoading] = useState(false);
       Alert.alert("Error", e?.message || "Failed to load stats");
     }
   };
-const onToggleRoomFavorite = async () => {
-  if (!roomId || mutatingRoom) return;
+  const onToggleRoomFavorite = async () => {
+    if (!roomId || mutatingRoom) return;
 
-  try {
-    setShowRoomMenu(false);
+    try {
+      setShowRoomMenu(false);
 
-    await dispatch(toggleRoomFavorite({ roomId })).unwrap();
-  } catch {
-    // Failed silently
-  }
-};
+      await dispatch(toggleRoomFavorite({ roomId })).unwrap();
+    } catch {
+      // Failed silently
+    }
+  };
   const onLeaveRoom = () => {
     if (!roomId) return;
     if (didLeaveRef.current) return;
@@ -2274,63 +2324,63 @@ const onToggleRoomFavorite = async () => {
   };
 
   /* ================= BOOST ================= */
-const onBoostRoom = async () => {
-  try {
-    if (!roomId) return;
+  const onBoostRoom = async () => {
+    try {
+      if (!roomId) return;
 
-    /**
-     * مهم:
-     * boostRoom الآن لا يستقبل level ولا hours.
-     * الباك هو الذي يحدد:
-     * - كل بوست = 1
-     * - السعر = 1500 Coinz
-     * - المدة = 30 يوم
-     */
-    const r = await dispatch(boostRoom({ roomId })).unwrap();
+      /**
+       * مهم:
+       * boostRoom الآن لا يستقبل level ولا hours.
+       * الباك هو الذي يحدد:
+       * - كل بوست = 1
+       * - السعر = 1500 Coinz
+       * - المدة = 30 يوم
+       */
+      const r = await dispatch(boostRoom({ roomId })).unwrap();
 
-    const boostPoints = Number(r?.boostPoints || r?.room?.boostPoints || 0);
+      const boostPoints = Number(r?.boostPoints || r?.room?.boostPoints || 0);
 
-    if (!boostPoints) {
-      Alert.alert("Error", "Boost did not succeed.");
-      return;
+      if (!boostPoints) {
+        Alert.alert("Error", "Boost did not succeed.");
+        return;
+      }
+
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          clientId: `boost_gift_${Date.now()}_${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+          type: "gift",
+          content: "boost_rocket",
+          gift: {
+            key: "boost_rocket",
+            name: "boost",
+            value: 1500,
+            icon: "🚀",
+            animation: "rocket",
+          },
+        } as any)
+      ).unwrap();
+
+      const content = `🚀 <b>${myName}</b> boosted the room! Total boosts: ${boostPoints}`;
+
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          clientId: `boost_announcement_${Date.now()}_${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+          content,
+          type: "announcement",
+        })
+      ).unwrap();
+
+      await dispatch(fetchRoomStats(roomId)).unwrap();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || String(e) || "Boost failed");
     }
-
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        clientId: `boost_gift_${Date.now()}_${Math.random()
-          .toString(36)
-          .slice(2, 8)}`,
-        type: "gift",
-        content: "boost_rocket",
-        gift: {
-          key: "boost_rocket",
-          name: "boost",
-          value: 1500,
-          icon: "🚀",
-          animation: "rocket",
-        },
-      } as any)
-    ).unwrap();
-
-    const content = `🚀 <b>${myName}</b> boosted the room! Total boosts: ${boostPoints}`;
-
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        clientId: `boost_announcement_${Date.now()}_${Math.random()
-          .toString(36)
-          .slice(2, 8)}`,
-        content,
-        type: "announcement",
-      })
-    ).unwrap();
-
-    await dispatch(fetchRoomStats(roomId)).unwrap();
-  } catch (e: any) {
-    Alert.alert("Error", e?.message || String(e) || "Boost failed");
-  }
-};
+  };
 
   const goDetails = () => {
     router.push({ pathname: "/room-details", params: { roomId } });
@@ -2376,24 +2426,24 @@ const onBoostRoom = async () => {
         </View>
 
         <View style={styles.headerRight}>
-  <TouchableOpacity
-  onPress={async () => {
-    setShowUsersModal(true);
+          <TouchableOpacity
+            onPress={async () => {
+              setShowUsersModal(true);
 
-    try {
-      setUsersModalLoading(true);
-      await dispatch(fetchRoomUsers(roomId)).unwrap();
-    } catch (e) {
-    } finally {
-      setUsersModalLoading(false);
-    }
-  }}
-  hitSlop={10}
-  style={{ marginRight: 10 }}
-  activeOpacity={0.85}
->
-  <Ionicons name="people-outline" size={23} color={theme.text} />
-</TouchableOpacity>
+              try {
+                setUsersModalLoading(true);
+                await dispatch(fetchRoomUsers(roomId)).unwrap();
+              } catch (e) {
+              } finally {
+                setUsersModalLoading(false);
+              }
+            }}
+            hitSlop={10}
+            style={{ marginRight: 10 }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="people-outline" size={23} color={theme.text} />
+          </TouchableOpacity>
 
           <TouchableOpacity
             onPress={onBoostRoom}
@@ -2505,7 +2555,7 @@ const onBoostRoom = async () => {
                 <Text style={styles.menuText}>Users</Text>
               </TouchableOpacity>
 
-           
+
 
               <TouchableOpacity
                 style={styles.menuItem}
@@ -2530,28 +2580,28 @@ const onBoostRoom = async () => {
                 <Ionicons name="settings-outline" size={18} color={theme.text} />
                 <Text style={styles.menuText}>Setting Room</Text>
               </TouchableOpacity>
-<TouchableOpacity
-  style={styles.menuItem}
-  onPress={onToggleRoomFavorite}
-  activeOpacity={0.85}
-  disabled={mutatingRoom}
->
-  <Ionicons
-    name={isRoomFavorite ? "star" : "star-outline"}
-    size={18}
-    color={isRoomFavorite ? "#F59E0B" : theme.text}
-  />
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={onToggleRoomFavorite}
+                activeOpacity={0.85}
+                disabled={mutatingRoom}
+              >
+                <Ionicons
+                  name={isRoomFavorite ? "star" : "star-outline"}
+                  size={18}
+                  color={isRoomFavorite ? "#F59E0B" : theme.text}
+                />
 
-  <Text
-    style={[
-      styles.menuText,
-      isRoomFavorite && { color: "#F59E0B" },
-      mutatingRoom && { opacity: 0.6 },
-    ]}
-  >
-    {isRoomFavorite ? "Remove from Favorites" : "Add to Favorites"}
-  </Text>
-</TouchableOpacity>
+                <Text
+                  style={[
+                    styles.menuText,
+                    isRoomFavorite && { color: "#F59E0B" },
+                    mutatingRoom && { opacity: 0.6 },
+                  ]}
+                >
+                  {isRoomFavorite ? "Remove from Favorites" : "Add to Favorites"}
+                </Text>
+              </TouchableOpacity>
               <View style={styles.menuDivider} />
 
               <TouchableOpacity style={styles.menuItem} onPress={onLeaveRoom} activeOpacity={0.85}>

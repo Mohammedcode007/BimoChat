@@ -1015,20 +1015,6 @@ export default function RoomSettingsScreen() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.dangerBtn, (saving || deleting) && { opacity: 0.6 }]}
-            disabled={saving || deleting}
-            onPress={deleteRoom}
-          >
-            {deleting ? (
-              <ActivityIndicator color={theme.primaryText} />
-            ) : (
-              <>
-                <Ionicons name="trash-outline" size={18} color={theme.primaryText} />
-                <Text style={styles.dangerBtnText}>حذف الغرفة</Text>
-              </>
-            )}
-          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -1040,12 +1026,12 @@ export default function RoomSettingsScreen() {
                 <Ionicons name="close" size={18} color={theme.text} />
               </TouchableOpacity>
 
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>المحظورون</Text>
-                <Text style={styles.modalSubTitle}>
-                  الإجمالي: {filteredBanned.length} • المعروض: {visibleBanned.length}
-                </Text>
-              </View>
+          <View style={{ flex: 1 }}>
+  <Text style={styles.modalTitle}>Banned Users</Text>
+  <Text style={styles.modalSubTitle}>
+    Total: {filteredBanned.length} • Showing: {visibleBanned.length}
+  </Text>
+</View>
 
               <TouchableOpacity style={styles.iconBtn} onPress={refreshBanned} disabled={bannedRefreshing}>
                 {bannedRefreshing ? (

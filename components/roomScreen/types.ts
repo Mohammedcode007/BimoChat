@@ -132,7 +132,13 @@ export type MessageUI = {
   music?: SongMusicUI;
 
   game?: GameUI;
+  meta?: Record<string, any>;
 
+  /**
+   * نوع أكشن الرسالة مثل:
+   * lookalike_game, ana_title_game...
+   */
+  action?: string;
   deletedForEveryone?: boolean;
 };
 

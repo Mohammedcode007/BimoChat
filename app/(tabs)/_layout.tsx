@@ -7,13 +7,18 @@ import {
 } from "@/components/backgroundReminder";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { fetchChats, fetchTotalUnread } from "@/redux/slices/chatSlice";
+import { selectSortedChats } from "@/redux/selectors";
+import { fetchChats, fetchTotalUnread, hydrateChatsFromCache } from "@/redux/slices/chatSlice";
+import { getFriends } from "@/redux/slices/friendSlice";
+import { fetchMyStories, fetchStoriesFeed } from "@/redux/slices/storySlice";
+import { getFollowingFeed, getForYouFeed } from "@/redux/slices/tweetSlice";
 import { fetchMyFullUser } from "@/redux/slices/userSlice";
 import { AppDispatch, RootState } from "@/redux/store";
+import { loadChatsFromCache } from "@/storage/chatCache";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, Tabs, useRouter, useSegments } from "expo-router";
 import React, { useEffect, useMemo, useRef } from "react";
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, InteractionManager, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -29,13 +34,13 @@ const TAB_CONFIG = {
   rooms: {
     title: "Rooms",
     label: "Rooms",
-    icon: "headset-outline" as IoniconName,
+    icon: "grid-outline" as IoniconName,
     activeIcon: "headset" as IoniconName,
   },
   chats: {
     title: "Chats",
     label: "Chats",
-    icon: "chatbubble-ellipses-outline" as IoniconName,
+    icon: "chatbox-outline" as IoniconName,
     activeIcon: "chatbubble-ellipses" as IoniconName,
   },
   friends: {
@@ -44,14 +49,80 @@ const TAB_CONFIG = {
     icon: "people-outline" as IoniconName,
     activeIcon: "people" as IoniconName,
   },
-  settings: {
-    title: "Settings",
-    label: "Settings",
-    icon: "settings-outline" as IoniconName,
-    activeIcon: "settings" as IoniconName,
-  },
-} as const;
 
+} as const;
+type TabIconProps = {
+  focused: boolean;
+  color: string;
+  iconName: IoniconName;
+  size?: number;
+  children?: React.ReactNode;
+  styles: ReturnType<typeof makeStyles>;
+};
+
+const AnimatedTabIcon = React.memo(function AnimatedTabIcon({
+  focused,
+  color,
+  iconName,
+  size,
+  children,
+  styles,
+}: TabIconProps) {
+  const progress = useRef(new Animated.Value(focused ? 1 : 0)).current;
+
+  useEffect(() => {
+   Animated.timing(progress, {
+  toValue: focused ? 1 : 0,
+  duration: 220,
+  easing: Easing.out(Easing.cubic),
+  useNativeDriver: false,
+}).start();
+  }, [focused, progress]);
+
+  const bgOpacity = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  const bgScale = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.72, 1],
+  });
+const bgColor = progress.interpolate({
+  inputRange: [0, 1],
+  outputRange: ["rgba(217,238,243,0)", "rgba(217,238,243,1)"],
+});
+  const iconScale = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.06],
+  });
+
+  return (
+    <View style={styles.tabIconWrap}>
+ <Animated.View
+  pointerEvents="none"
+  style={[
+    styles.activeTabIconBg,
+    {
+      opacity: bgOpacity,
+      backgroundColor: bgColor,
+      transform: [{ scale: bgScale }],
+    },
+  ]}
+/>
+
+      <Animated.View
+        style={{
+          transform: [{ scale: iconScale }],
+        }}
+      >
+        <Ionicons name={iconName} size={size ?? 22} color={color} />
+      </Animated.View>
+
+      {children}
+    </View>
+  );
+});
 export default function TabLayout() {
   const { colorScheme } = useColorScheme();
   const theme = Colors[colorScheme ?? "light"];
@@ -63,6 +134,11 @@ export default function TabLayout() {
   const totalUnread = useSelector(
     (state: RootState) => state.chat.totalUnread
   );
+  const authUser = useSelector((state: RootState) => state.auth.user);
+const chats = useSelector(selectSortedChats);
+
+const preloadStartedRef = useRef(false);
+const messagesPreloadedRef = useRef(false);
   const me = useSelector((state: RootState) => state.user.me);
   const hasCheckedBackgroundReminderRef = useRef(false);
 
@@ -72,14 +148,63 @@ export default function TabLayout() {
 
   const s = useMemo(() => makeStyles(theme), [theme]);
 
-  useEffect(() => {
-    if (token && !me) {
-      dispatch(fetchMyFullUser());
-    }
-    dispatch(fetchChats() as any);
-    dispatch(fetchTotalUnread() as any);
-  }, [dispatch, token, me]);
+  // useEffect(() => {
+  //   if (!token) return;
 
+  //   dispatch(fetchMyFullUser());
+  //   dispatch(fetchChats() as any);
+  //   dispatch(fetchTotalUnread() as any);
+  // }, [dispatch, token]);
+useEffect(() => {
+  if (!token) return;
+  if (!hydrated || loading || !isLoggedIn) return;
+  if (preloadStartedRef.current) return;
+
+  preloadStartedRef.current = true;
+
+  const currentUserId = String(authUser?._id || me?._id || "");
+
+  try {
+    if (currentUserId) {
+      const cachedChats = loadChatsFromCache(currentUserId);
+
+      if (Array.isArray(cachedChats) && cachedChats.length > 0) {
+        dispatch(hydrateChatsFromCache(cachedChats));
+      }
+    }
+  } catch (error) {
+    console.log("[MAIN_LAYOUT_PRELOAD][cache chats error]", error);
+  }
+
+  dispatch(fetchMyFullUser());
+
+  dispatch(fetchChats() as any);
+  dispatch(fetchTotalUnread() as any);
+
+  const task = InteractionManager.runAfterInteractions(() => {
+    setTimeout(() => {
+      dispatch(getFriends() as any);
+
+      dispatch(fetchMyStories() as any);
+      dispatch(fetchStoriesFeed({ page: 1, limit: 30 }) as any);
+
+      dispatch(getForYouFeed({ page: 1 }) as any);
+      dispatch(getFollowingFeed({ page: 1 }) as any);
+    }, 350);
+  });
+
+  return () => {
+    task.cancel?.();
+  };
+}, [
+  token,
+  hydrated,
+  loading,
+  isLoggedIn,
+  authUser?._id,
+  me?._id,
+  dispatch,
+]);
   useEffect(() => {
     const checkBackgroundReminder = async () => {
       try {
@@ -140,7 +265,10 @@ export default function TabLayout() {
 
             return {
               headerShown: false,
-              animation: "none",
+              animation: "fade",
+              lazy: true,
+              freezeOnBlur: true,
+              tabBarHideOnKeyboard: true,
               sceneStyle: {
                 backgroundColor: theme.background,
               },
@@ -150,17 +278,16 @@ export default function TabLayout() {
                 colorScheme === "dark" ? "#7E8695" : "#6B7280",
               tabBarShowLabel: true,
               tabBarLabelStyle: {
-                fontSize: 11,
-                fontWeight: "600" as const,
-                marginTop: -2,
-                marginBottom: 2,
+                fontSize: 12,
+                fontWeight: "800" as const,
+                marginTop: 5,
+                marginBottom: 0,
               },
               tabBarStyle: {
-                height: tabBarHeight,
-                paddingTop: 6,
+                height: tabBarHeight + 4,
+                paddingTop: 5,
                 paddingBottom: bottomPadding,
-                backgroundColor:
-                  colorScheme === "dark" ? "#000000" : "#FFFFFF",
+                backgroundColor: colorScheme === "dark" ? "#000000" : "#FFFFFF",
                 borderTopWidth: 1,
                 borderTopColor:
                   colorScheme === "dark"
@@ -169,20 +296,21 @@ export default function TabLayout() {
                 elevation: 8,
               },
               tabBarItemStyle: {
-                paddingVertical: 2,
+                paddingTop: 2,
+                paddingBottom: 4,
               },
               tabBarIcon: ({ focused, color, size }) => {
                 const isChatsTab = route.name === "chats";
                 const unread = Number(totalUnread || 0);
 
                 return (
-                  <View style={s.tabIconWrap}>
-                    <Ionicons
-                      name={focused ? config.activeIcon : config.icon}
-                      size={size ?? 22}
-                      color={color}
-                    />
-
+                  <AnimatedTabIcon
+                    focused={focused}
+                    color={color}
+                    iconName={config.icon}
+                    size={20}
+                    styles={s}
+                  >
                     {isChatsTab && unread > 0 && (
                       <View style={s.unreadBadge}>
                         <Text style={s.unreadBadgeText}>
@@ -190,7 +318,7 @@ export default function TabLayout() {
                         </Text>
                       </View>
                     )}
-                  </View>
+                  </AnimatedTabIcon>
                 );
               },
               title: config.title,
@@ -203,7 +331,6 @@ export default function TabLayout() {
           <Tabs.Screen name="index" options={{ href: null }} />
           <Tabs.Screen name="chats" />
           <Tabs.Screen name="friends" />
-          <Tabs.Screen name="settings" />
         </Tabs>
       </View>
     </View>
@@ -221,11 +348,18 @@ function makeStyles(theme: any) {
       alignItems: "center",
     },
     tabIconWrap: {
-      width: 30,
+      width: 54,
       height: 30,
       alignItems: "center",
       justifyContent: "center",
     },
+
+activeTabIconBg: {
+  position: "absolute",
+  width: 70,
+  height: 28,
+  borderRadius: 18,
+},
 
     unreadBadge: {
       position: "absolute",

@@ -125,180 +125,97 @@ export default function AppHeader() {
   //     setShowLogoutModal(false);
   //   }
   // };
-const handleConfirmLogout = async () => {
-  try {
-    setShowLogoutModal(false);
-    closeThemeMenu();
-
-    /**
-     * 1) اخرج من كل الغرف قبل فصل السوكيت وقبل مسح التوكن
-     */
+  const handleConfirmLogout = async () => {
     try {
-      await dispatch(leaveAllActiveRooms()).unwrap();
+      setShowLogoutModal(false);
+      closeThemeMenu();
+
+      /**
+       * 1) اخرج من كل الغرف قبل فصل السوكيت وقبل مسح التوكن
+       */
+      try {
+        await dispatch(leaveAllActiveRooms()).unwrap();
+      } catch (e) {
+        // لا تمنع تسجيل الخروج لو فشل طلب الخروج من الغرف
+      }
+
+      /**
+       * 2) نظف بيانات الغرف من Redux حتى لا تظهر رسائل قديمة بعد تسجيل الدخول
+       */
+      dispatch(setActiveRoom(undefined));
+      dispatch(resetRoomState());
+
+      /**
+       * 3) افصل السوكيت بعد الخروج من الغرف
+       */
+      disconnectSocket();
+
+      /**
+       * 4) سجل خروج ونظف باقي البيانات
+       */
+      await dispatch(logout()).unwrap();
+
+      dispatch(resetUserState());
+      dispatch(resetChatState());
+
+      router.replace("/login");
     } catch (e) {
-      // لا تمنع تسجيل الخروج لو فشل طلب الخروج من الغرف
+      setShowLogoutModal(false);
+
+      dispatch(setActiveRoom(undefined));
+      dispatch(resetRoomState());
+      dispatch(resetUserState());
+      dispatch(resetChatState());
+
+      disconnectSocket();
+
+      router.replace("/login");
     }
+  };
+  const activeTabName = useMemo(() => {
+  if (pathname === "/" || pathname.includes("/home")) return "Home";
+  if (pathname.includes("/tweets")) return "Tweets";
+  if (pathname.includes("/rooms")) return "Rooms";
+  if (pathname.includes("/chats")) return "Chats";
+  if (pathname.includes("/store")) return "Store";
+  if (pathname.includes("/friends")) return "Friends";
+  if (pathname.includes("/profile")) return "Profile";
+  if (pathname.includes("/settings")) return "Settings";
 
-    /**
-     * 2) نظف بيانات الغرف من Redux حتى لا تظهر رسائل قديمة بعد تسجيل الدخول
-     */
-    dispatch(setActiveRoom(undefined));
-    dispatch(resetRoomState());
-
-    /**
-     * 3) افصل السوكيت بعد الخروج من الغرف
-     */
-    disconnectSocket();
-
-    /**
-     * 4) سجل خروج ونظف باقي البيانات
-     */
-    await dispatch(logout()).unwrap();
-
-    dispatch(resetUserState());
-    dispatch(resetChatState());
-
-    router.replace("/login");
-  } catch (e) {
-    setShowLogoutModal(false);
-
-    dispatch(setActiveRoom(undefined));
-    dispatch(resetRoomState());
-    dispatch(resetUserState());
-    dispatch(resetChatState());
-
-    disconnectSocket();
-
-    router.replace("/login");
-  }
-};
+  return "Bimo";
+}, [pathname]);
   return (
     <View style={[s.wrap, { paddingTop: insets.top }]}>
       <View style={s.container}>
         {/* User */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={s.userContainer}
-          onPress={() => {
-            if (!user?._id) return;
+      <TouchableOpacity
+  activeOpacity={0.9}
+  style={s.userContainer}
+onPress={() => {
+  router.push("/settings" as any);
+}}
+>
+  <View style={s.avatarWrap}>
+    <Image
+      source={
+        user?.avatar
+          ? { uri: String(user.avatar) }
+          : require("@/assets/images/default-avatar.png")
+      }
+      style={s.avatar}
+      contentFit="cover"
+      transition={0}
+      cachePolicy="memory-disk"
+    />
+    <View style={s.onlineDot} />
+  </View>
 
-            router.push({
-              pathname: "/profile/[id]" as any,
-              params: { id: user._id },
-            } as any);
-          }}
-        >
-          <View style={s.avatarWrap}>
-            <Image
-              source={
-                user?.avatar
-                  ? { uri: String(user.avatar) }
-                  : require("@/assets/images/default-avatar.png")
-              }
-              style={s.avatar}
-              contentFit="cover"
-              transition={0}
-              cachePolicy="memory-disk"
-            />
-            <View style={s.onlineDot} />
-          </View>
-        </TouchableOpacity>
+  <Text style={s.activeTabName} numberOfLines={1}>
+    {activeTabName}
+  </Text>
+</TouchableOpacity>
 
         <View style={s.rightActions}>
-          {/* Theme Button */}
-          {/* <View style={s.themeMenuWrap}>
-            <Pressable
-              onPress={toggleThemeMenu}
-              android_ripple={{ color: "rgba(255,255,255,0.12)", radius: 22 }}
-              style={({ pressed }) => [
-                s.themeBtn,
-                pressed && Platform.OS === "ios" ? { opacity: 0.86 } : null,
-              ]}
-            >
-              <Ionicons name={themeIcon as any} size={18} color={theme.icon} />
-              <Ionicons
-                name={showThemeMenu ? "chevron-up" : "chevron-down"}
-                size={14}
-                color={theme.mutedText}
-              />
-            </Pressable>
-
-            {showThemeMenu && (
-              <>
-                <Pressable style={s.backdrop} onPress={closeThemeMenu} />
-
-                <Animated.View style={[s.dropdown, dropdownAnimatedStyle]}>
-                  {[
-                    {
-                      key: "system",
-                      label: "System",
-                      icon: "phone-portrait-outline",
-                    },
-                    {
-                      key: "light",
-                      label: "Light",
-                      icon: "sunny-outline",
-                    },
-                    {
-                      key: "dark",
-                      label: "Dark",
-                      icon: "moon-outline",
-                    },
-                  ].map((item) => {
-                    const active = themePreference === item.key;
-
-                    return (
-                      <Pressable
-                        key={item.key}
-                        onPress={async () => {
-                          await setThemePreference(item.key as any);
-                          closeThemeMenu();
-                        }}
-                        android_ripple={{
-                          color: isDark
-                            ? "rgba(255,255,255,0.08)"
-                            : "rgba(0,0,0,0.06)",
-                        }}
-                        style={({ pressed }) => [
-                          s.dropdownItem,
-                          active && {
-                            backgroundColor: theme.primarySoft,
-                          },
-                          pressed && Platform.OS === "ios"
-                            ? { opacity: 0.82 }
-                            : null,
-                        ]}
-                      >
-                        <View style={s.dropdownItemLeft}>
-                          <Ionicons
-                            name={item.icon as any}
-                            size={18}
-                            color={active ? theme.primary : theme.icon}
-                          />
-                          <Text
-                            style={[
-                              s.dropdownItemText,
-                              { color: active ? theme.primary : theme.text },
-                            ]}
-                          >
-                            {item.label}
-                          </Text>
-                        </View>
-
-                        {active && (
-                          <Ionicons
-                            name="checkmark"
-                            size={18}
-                            color={theme.primary}
-                          />
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </Animated.View>
-              </>
-            )}
-          </View> */}
 
           {/* Notifications Button */}
           <Pressable
@@ -433,7 +350,26 @@ function makeStyles(theme: any, isDark: boolean) {
       alignItems: "center",
       overflow: "visible",
     },
+userTextBox: {
+  flex: 1,
+  minWidth: 0,
+  justifyContent: "center",
+},
 
+tabName: {
+  fontSize: 14,
+  fontWeight: "900",
+  color: theme.text,
+  maxWidth: 160,
+},
+
+tabSubName: {
+  marginTop: 1,
+  fontSize: 11,
+  fontWeight: "700",
+  color: theme.mutedText,
+  maxWidth: 160,
+},
     userContainer: {
       flexDirection: "row",
       alignItems: "center",
@@ -502,7 +438,14 @@ function makeStyles(theme: any, isDark: boolean) {
       position: "relative",
       overflow: "visible",
     },
-
+activeTabName: {
+  flex: 1,
+  minWidth: 0,
+  fontSize: 17,
+  fontWeight: "900",
+  color: theme.text,
+  marginLeft: 10,
+},
     logoutIconBtn: {
       width: 36,
       height: 36,

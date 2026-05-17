@@ -11,6 +11,14 @@ import { initFCMAndSyncToken, registerFCMListeners } from '@/services/fcm';
 import "@/services/notificationTasks";
 import { registerBackgroundNotificationTask } from '@/services/notificationTasks';
 import { attachSocketListeners, connectSocket, disconnectSocket } from '@/services/socket';
+import {
+  Cairo_400Regular,
+  Cairo_500Medium,
+  Cairo_600SemiBold,
+  Cairo_700Bold,
+  Cairo_800ExtraBold,
+  useFonts,
+} from "@expo-google-fonts/cairo";
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -22,7 +30,6 @@ import 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import AuthLoadingScreen from './auth-loading';
-
 function RootStack() {
 
   return (
@@ -42,7 +49,7 @@ function RootStack() {
       <Stack.Screen name="biometric-lock" />
       <Stack.Screen name="suggested-friends" />
 
-
+<Stack.Screen name="settings" />
 
       <Stack.Screen name="paymob-checkout" />
       <Stack.Screen name="two-factor" />
@@ -207,6 +214,17 @@ const isLoggedIn = useSelector((state: RootState) => state.auth.isLoggedIn);
 export default function RootLayout() {
 
 const { colorScheme } = useColorScheme();
+const [fontsLoaded] = useFonts({
+  CairoRegular: Cairo_400Regular,
+  CairoMedium: Cairo_500Medium,
+  CairoSemiBold: Cairo_600SemiBold,
+  CairoBold: Cairo_700Bold,
+  CairoExtraBold: Cairo_800ExtraBold,
+});
+
+if (!fontsLoaded) {
+  return null;
+}
 
   return (
     <KeyboardProvider>

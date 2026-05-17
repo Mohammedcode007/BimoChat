@@ -51,7 +51,6 @@ import {
   boostRoom,
   clearBannedFlag,
   clearKickedFlag,
-  clearRoomMessages,
   fetchRoomMessages,
   fetchRoomsByType,
   fetchRoomStats,
@@ -75,7 +74,7 @@ import {
   socketRoleSetFailed,
   socketRoleSetRequested,
   socketRoleSetSucceeded,
-  toggleRoomFavorite,
+  toggleRoomFavorite
 } from "@/redux/slices/room.slice";
 import { debitMyCoinz } from "@/redux/slices/userSlice";
 import { RootState } from "@/redux/store";
@@ -888,26 +887,23 @@ useEffect(() => {
   const loadRoom = async () => {
     try {
       /**
-       * لا تعرض رسائل قديمة من Redux عند دخول الغرفة.
-       */
-      dispatch(clearRoomMessages({ roomId }));
-
-      /**
-       * ادخل سوكيت الغرفة أولًا حتى تستقبل الجديد فقط.
+       * لا تمسح الرسائل هنا.
+       * لو الرسائل موجودة في Redux، ستظل ظاهرة بدون فلاش.
        */
       joinRoomSocket(roomId);
 
-      /**
-       * اجلب الرسائل من السيرفر دائمًا.
-       * السيرفر بعد تعديل clearedAt سيرجع رسائل ما بعد دخولك فقط.
-       */
-      const messagesPromise = dispatch(
-        fetchRoomMessages({
-          roomId,
-          pagination: { limit: 50 },
-          append: false,
-        })
-      ).unwrap();
+      const hasMessages =
+        Array.isArray(reduxMessages) && reduxMessages.length > 0;
+
+      const messagesPromise = hasMessages
+        ? Promise.resolve()
+        : dispatch(
+            fetchRoomMessages({
+              roomId,
+              pagination: { limit: 50 },
+              append: false,
+            })
+          ).unwrap();
 
       const usersPromise = dispatch(fetchRoomUsers(roomId)).unwrap();
       const statsPromise = dispatch(fetchRoomStats(roomId)).unwrap();
@@ -934,9 +930,9 @@ useEffect(() => {
     cancelled = true;
 
     /**
-     * اختياري لكنه مهم حتى لا تظهر رسائل قديمة عند الرجوع للغرفة.
+     * لا تمسح الرسائل عند الخروج للخلف.
+     * امسحها فقط عند leave الحقيقي أو logout.
      */
-    dispatch(clearRoomMessages({ roomId }));
   };
 }, [roomId, dispatch]);
   // useEffect(() => {
@@ -2230,67 +2226,7 @@ const sendImage = async () => {
       });
     }
   };
-  // const sendGifFromDevice = async () => {
-  //   if (!roomId) return;
-
-  //   try {
-  //     const result = await DocumentPicker.getDocumentAsync({
-  //       type: ["image/gif"],
-  //       copyToCacheDirectory: true,
-  //       multiple: false,
-  //     });
-
-  //     if (result.canceled) return;
-
-  //     const asset = result.assets?.[0];
-  //     const localUri = asset?.uri;
-
-  //     if (!localUri) return;
-
-  //     const clientId = `gif:${Date.now()}:${Math.random()
-  //       .toString(16)
-  //       .slice(2)}`;
-
-  //     setUploading({
-  //       visible: true,
-  //       title: "جاري رفع GIF…",
-  //       sub: asset?.name ? `يتم رفع ${asset.name}` : "يتم رفع GIF وإرساله",
-  //       startedAt: Date.now(),
-  //       previewUri: localUri,
-  //       kind: "gif",
-  //     });
-
-  //     const secureUrl = await uploadToCloudinary(localUri, "image");
-
-  //     await dispatch(
-  //       sendRoomMessage({
-  //         roomId,
-  //         clientId,
-  //         content: "GIF",
-  //         type: "image",
-  //         media: {
-  //           url: secureUrl,
-  //           mimeType: "image/gif",
-  //           fileName: asset?.name || "animation.gif",
-  //         },
-  //       })
-  //     ).unwrap();
-
-  //     scrollToBottom();
-  //   } catch (e: any) {
-  //     Alert.alert("Error", e?.message || "GIF upload failed");
-  //   } finally {
-  //     setUploading({
-  //       visible: false,
-  //       title: "Uploading…",
-  //       sub: undefined,
-  //       startedAt: undefined,
-  //       previewUri: undefined,
-  //       kind: undefined,
-  //     });
-  //   }
-  // };
-
+ 
 const sendGifFromDevice = async () => {
   if (!roomId) return;
 
@@ -2329,7 +2265,6 @@ const sendGifFromDevice = async () => {
       fallbackType: "image/gif",
     });
 
-    console.log("[Room Upload][GIF] file:", file);
 
     const uploaded = await uploadSingleFile({
       file,
@@ -2342,7 +2277,6 @@ const sendGifFromDevice = async () => {
       },
     });
 
-    console.log("[Room Upload][GIF] uploaded:", uploaded);
 
     await dispatch(
       sendRoomMessage({

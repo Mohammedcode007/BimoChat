@@ -291,6 +291,7 @@ export default function RoomsScreen() {
   const [passwordInput, setPasswordInput] = useState("");
   const [joining, setJoining] = useState(false);
   const [enteredRoomIds, setEnteredRoomIds] = useState<Record<string, boolean>>({});
+  const enteredRoomIdsRef = useRef<Record<string, boolean>>({});
   const onEndReachedCalledDuringMomentum = useRef(false);
   // ✅ Creating / searching nice loading
   const [creating, setCreating] = useState(false);
@@ -307,28 +308,30 @@ export default function RoomsScreen() {
     },
     [router]
   );
-  const markRoomEntered = useCallback((roomId: string) => {
-    const id = String(roomId || "").trim();
-    if (!id) return;
+const markRoomEntered = useCallback((roomId: string) => {
+  const id = String(roomId || "").trim();
+  if (!id) return;
 
-    setEnteredRoomIds((prev) => {
-      if (prev[id]) return prev;
-      return {
-        ...prev,
-        [id]: true,
-      };
+  enteredRoomIdsRef.current[id] = true;
+
+  setEnteredRoomIds((prev) => {
+    if (prev[id]) return prev;
+    return {
+      ...prev,
+      [id]: true,
+    };
+  });
+
+  const existing = accRef.current.get(id);
+  if (existing) {
+    accRef.current.set(id, {
+      ...existing,
+      isActive: true,
     });
 
-    const existing = accRef.current.get(id);
-    if (existing) {
-      accRef.current.set(id, {
-        ...existing,
-        isActive: true,
-      });
-
-      setRooms(Array.from(accRef.current.values()));
-    }
-  }, []);
+    setRooms(Array.from(accRef.current.values()));
+  }
+}, []);
   // ✅ لو فشل join بسبب ban: نخزنها محليًا ونمنع محاولة الدخول + نظهر Badge
   const [bannedByRoomId, setBannedByRoomId] = useState<Record<string, string>>({});
   const myUserId = useAppSelector((state) => state.auth.user?._id);
@@ -340,22 +343,7 @@ export default function RoomsScreen() {
       dispatch(setCurrentRoomUserId(myUserId));
     }
   }, [myUserId]);
-  useEffect(() => {
-    const activeIds: Record<string, boolean> = {};
 
-    for (const room of rooms) {
-      if (room.isActive) {
-        activeIds[String(room.id)] = true;
-      }
-    }
-
-    if (Object.keys(activeIds).length) {
-      setEnteredRoomIds((prev) => ({
-        ...prev,
-        ...activeIds,
-      }));
-    }
-  }, [rooms]);
   const isInitialLoading = useMemo(() => {
     const loading = isFavoriteTab ? loadingFavoriteRooms : loadingRooms;
     return Boolean(loading && rooms.length === 0 && !search.trim());
@@ -379,20 +367,53 @@ export default function RoomsScreen() {
       dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
     }
   }, [dispatch, backendType, isFavoriteTab]);
+const keepRoomActiveState = useCallback(
+  (ui: RoomUI): RoomUI => {
+    const id = String(ui.id || "");
+
+    const wasActiveBefore = Boolean(accRef.current.get(id)?.isActive);
+    const enteredBefore = Boolean(enteredRoomIdsRef.current[id]);
+    const isCurrentActiveRoom = String(activeRoomId || "") === id;
+
+    const isActive =
+      Boolean(ui.isActive) ||
+      wasActiveBefore ||
+      enteredBefore ||
+      isCurrentActiveRoom;
+
+    if (isActive) {
+      enteredRoomIdsRef.current[id] = true;
+    }
+
+    return {
+      ...ui,
+      isActive,
+    };
+  },
+  [activeRoomId]
+);
   /* =====================================================
      ✅ Accumulate rooms from redux -> local map (stable)
   ===================================================== */
   useEffect(() => {
-    const sourceRooms = isFavoriteTab ? reduxFavoriteRooms : reduxRooms;
-    if (!sourceRooms) return;
+  const sourceRooms = isFavoriteTab ? reduxFavoriteRooms : reduxRooms;
+  if (!sourceRooms) return;
 
-    for (const r of sourceRooms) {
-      const ui = mapRoomToUI(r);
-      accRef.current.set(ui.id, ui);
-    }
+  const nextMap = new Map(accRef.current);
 
-    setRooms(Array.from(accRef.current.values()));
-  }, [reduxRooms, reduxFavoriteRooms, isFavoriteTab]);
+  for (const r of sourceRooms) {
+    const ui = keepRoomActiveState(mapRoomToUI(r));
+    nextMap.set(ui.id, ui);
+  }
+
+  accRef.current = nextMap;
+  setRooms(Array.from(nextMap.values()));
+}, [
+  reduxRooms,
+  reduxFavoriteRooms,
+  isFavoriteTab,
+  keepRoomActiveState,
+]);
 
   /* =====================================================
      ✅ Refresh
@@ -406,6 +427,30 @@ export default function RoomsScreen() {
       canLoadMoreRef.current = false;
 
       setPage(1);
+
+const activeSnapshot: Record<string, boolean> = {};
+
+for (const room of accRef.current.values()) {
+  const id = String(room.id || "");
+  if (
+    room.isActive ||
+    enteredRoomIdsRef.current[id] ||
+    String(activeRoomId || "") === id
+  ) {
+    activeSnapshot[id] = true;
+  }
+}
+
+enteredRoomIdsRef.current = {
+  ...enteredRoomIdsRef.current,
+  ...activeSnapshot,
+};
+
+setEnteredRoomIds((prev) => ({
+  ...prev,
+  ...activeSnapshot,
+}));
+
       accRef.current = new Map();
       setRooms([]);
 
@@ -424,7 +469,13 @@ export default function RoomsScreen() {
       setSearching(false);
       setRefreshing(false);
     }
-  }, [dispatch, backendType, search, isFavoriteTab]);
+ }, [
+  dispatch,
+  backendType,
+  search,
+  isFavoriteTab,
+  activeRoomId,
+]); 
   /* =====================================================
      ✅ Load more (pagination)
   ===================================================== */

@@ -3,24 +3,24 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    FlatList,
-    Pressable,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  Animated,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/theme";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
-    enterRoomDirect,
-    fetchRoomsByType,
-    selectRoomActiveCount,
+  enterRoomDirect,
+  fetchRoomsByType,
+  selectRoomActiveCount,
 } from "@/redux/slices/room.slice";
 
 type ActiveRoomUI = {
@@ -46,8 +46,8 @@ const DEFAULT_ROOM_IMAGE =
 
 const PAGE_SIZE = 80;
 
-const mapRoomToActiveUI = (r: any): ActiveRoomUI => {
-  const id = String(r?._id || r?.id || "").trim();
+const mapRoomToActiveUI = (r: any, currentRoomId?: string): ActiveRoomUI => {
+    const id = String(r?._id || r?.id || "").trim();
   const type = String(r?.type || "").trim();
 
   return {
@@ -59,8 +59,9 @@ const mapRoomToActiveUI = (r: any): ActiveRoomUI => {
     maxUsers: Number(r?.maxUsers || 50) || 50,
 
     // ✅ المهم: هذا هو الحقيقي القادم من الباك
-    isActive: Boolean(r?.isActive),
-
+isActive:
+  Boolean(r?.isActive) ||
+  String(r?._id || r?.id || "") === String(currentRoomId || ""),
     isVIP: Boolean(r?.isVIP || (typeof r?.premiumLevel === "number" && r.premiumLevel > 0)),
     isPrivate: type === "private",
     isProtected: type === "protected",
@@ -317,7 +318,7 @@ export default function ActiveRoomsDrawer({
         const map = new Map<string, ActiveRoomUI>();
 
         for (const raw of allRaw) {
-          const ui = mapRoomToActiveUI(raw);
+const ui = mapRoomToActiveUI(raw, currentRoomId);
           if (!ui.id) continue;
 
           // ✅ نعرض الحقيقي فقط: الغرف التي أنت Active فيها حسب الباك
@@ -335,7 +336,7 @@ export default function ActiveRoomsDrawer({
         setRefreshing(false);
       }
     },
-    [dispatch]
+[dispatch, currentRoomId]
   );
 
   useEffect(() => {

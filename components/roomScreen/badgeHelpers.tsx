@@ -185,7 +185,7 @@ export const isCustomEmojiBadgeActive = (
  */
 export function DynamicUserBadge({
   badge,
-  size = 25,
+  size = 35,
 }: {
   badge?: UserBadgeUI | null;
   size?: number;
@@ -307,12 +307,13 @@ export function CustomEmojiBadgeView({
   return (
     <View
       style={{
-        marginLeft: 6,
+        marginLeft: 3,
+        marginRight:6,
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      <Text style={{ fontSize: 15 }}>{badge?.emoji}</Text>
+      <Text style={{ fontSize: 25 }}>{badge?.emoji}</Text>
     </View>
   );
 }

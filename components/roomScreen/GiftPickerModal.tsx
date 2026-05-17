@@ -4,17 +4,18 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import LottieView from "lottie-react-native";
 import React from "react";
 import {
-    Modal,
-    Pressable,
-    Text,
-    TouchableOpacity,
-    View,
+  Modal,
+  Pressable,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { Colors } from "@/constants/theme";
 
 import { TEMP_GIFTS } from "./giftHelpers";
 import { UserUI } from "./types";
+
 
 export default function GiftPickerModal({
   visible,
@@ -178,16 +179,7 @@ export default function GiftPickerModal({
             ))}
           </View>
 
-          <Text
-            style={{
-              marginTop: 12,
-              fontSize: 12,
-              color: theme.mutedText,
-              lineHeight: 18,
-            }}
-          >
-            (مؤقتًا) اختيار الهدية فقط بدون إرسال.
-          </Text>
+    
         </Pressable>
       </Pressable>
     </Modal>

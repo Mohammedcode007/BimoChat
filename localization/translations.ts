@@ -16,6 +16,7 @@ export const translations = {
 
 
     },
+
     tweetDetailsScreen: {
       title: "Post",
       notAvailable: "Post not available",
@@ -327,6 +328,15 @@ export const translations = {
       blockedYou: "Blocked You",
       online: "Online",
     },
+    friendRequestModal: {
+  sentYouRequest: "sent you a friend request",
+  accept: "Accept",
+  reject: "Reject",
+  accepting: "Accepting...",
+  rejecting: "Rejecting...",
+  requestNotFound: "Friend request not found",
+  defaultUser: "User",
+},
     storeScreen: {
       tabs: {
         all: "All",
@@ -2041,6 +2051,15 @@ phoneLogin: "تسجيل الدخول باستخدام الاسم",
       typing: "يكتب...",
       deleteChat: "حذف المحادثة",
     },
+    friendRequestModal: {
+  sentYouRequest: "أرسل إليك طلب صداقة",
+  accept: "قبول",
+  reject: "رفض",
+  accepting: "جاري القبول...",
+  rejecting: "جاري الرفض...",
+  requestNotFound: "طلب الصداقة غير موجود",
+  defaultUser: "مستخدم",
+},
     storeScreen: {
       tabs: {
         all: "الكل",

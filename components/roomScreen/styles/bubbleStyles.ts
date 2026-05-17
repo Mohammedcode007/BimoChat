@@ -142,14 +142,12 @@ export function makeBubbleStyles(theme: typeof Colors.light) {
       alignItems: "center",
       maxWidth: "100%",
     },
-
-    senderName: {
-      fontSize: 14,
-      fontWeight: "800",
-      color: theme.text,
-      maxWidth: 250,
-    },
-
+senderName: {
+ fontSize: 14,
+      fontWeight: "900",
+  color: theme.text,
+  maxWidth: 250,
+},
     nameUnderline: {
       height: 1,
       backgroundColor: theme.separator,
@@ -157,12 +155,12 @@ export function makeBubbleStyles(theme: typeof Colors.light) {
       opacity: 0.7,
     },
 
-    msgText: {
-      fontSize: 13,
-      lineHeight: 21,
-      color: theme.text,
-      fontWeight: "600",
-    },
+msgText: {
+  fontSize: 13,
+  lineHeight: 20,
+  color: theme.text,
+      fontWeight: "900",
+},
 
     msgTextMuted: {
       fontSize: 12,

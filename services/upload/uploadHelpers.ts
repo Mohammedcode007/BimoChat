@@ -23,11 +23,13 @@ export function getMimeTypeFromName(fileName?: string) {
   if (name.endsWith(".mov")) return "video/quicktime";
   if (name.endsWith(".webm")) return "video/webm";
 
+  if (name.endsWith(".m4a")) return "audio/m4a";
   if (name.endsWith(".mp3")) return "audio/mpeg";
-  if (name.endsWith(".m4a")) return "audio/mp4";
   if (name.endsWith(".wav")) return "audio/wav";
   if (name.endsWith(".aac")) return "audio/aac";
-  if (name.endsWith(".webm")) return "audio/webm";
+  if (name.endsWith(".caf")) return "audio/x-caf";
+  if (name.endsWith(".3gp")) return "audio/3gpp";
+  if (name.endsWith(".amr")) return "audio/amr";
 
   if (name.endsWith(".pdf")) return "application/pdf";
 
@@ -39,7 +41,14 @@ export function normalizeUploadFile(
   fallbackName = "upload-file"
 ): Required<LocalUploadFile> {
   const name = file.name || getFileNameFromUri(file.uri, fallbackName);
-  const type = file.type || getMimeTypeFromName(name);
+
+  let type = file.type || getMimeTypeFromName(name);
+
+  // إصلاح مهم جدًا:
+  // بعض تسجيلات Expo تكون .m4a لكن type يطلع audio/mp4
+  if (String(name).toLowerCase().endsWith(".m4a")) {
+    type = "audio/m4a";
+  }
 
   return {
     uri: file.uri,

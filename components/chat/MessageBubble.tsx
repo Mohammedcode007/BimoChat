@@ -471,17 +471,20 @@ function renderTextWithLinks({
         }
 
         return (
-          <Text
-            key={`link-${index}`}
-            onPress={() => openMessageLink(cleanPart)}
-            style={{
-              color: isMe ? "#DBEAFE" : "#2563EB",
-              fontWeight: "900",
-              textDecorationLine: "underline",
-            }}
-          >
-            {cleanPart}
-          </Text>
+       <Text
+  key={`link-${index}`}
+  onPress={(e) => {
+    e.stopPropagation();
+    openMessageLink(cleanPart);
+  }}
+  style={{
+    color: isMe ? "#DBEAFE" : "#2563EB",
+    fontWeight: "900",
+    textDecorationLine: "underline",
+  }}
+>
+  {cleanPart}
+</Text>
         );
       })}
     </Text>
@@ -528,7 +531,6 @@ function MessageBubble({
       بين فتح اللينك ونسخ الرسالة.
       النسخ يظل من الضغط المطول.
     */
-    if (item.type === "text") return;
 
     onCopy(item);
   };

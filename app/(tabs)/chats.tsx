@@ -676,6 +676,7 @@
 //     fontSize: 14,
 //   },
 // });
+
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";

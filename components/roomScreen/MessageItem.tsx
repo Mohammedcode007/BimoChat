@@ -1502,8 +1502,11 @@ if (isBombColorMessage(item)) {
 <TouchableOpacity
   activeOpacity={0.88}
   onLongPress={onLongPress}
+  delayLongPress={350}
   onPress={() => {
-    if (item.type === "file") copyMessageContent();
+    if (item.type === "text") {
+      copyMessageContent();
+    }
   }}
   style={[bubble.bubble, isMe ? bubble.bubbleMe : bubble.bubbleOther]}
 >

@@ -103,12 +103,12 @@ export type UserPublicSnapshot = {
   avatarGif?: string;
   coverImage?: string;
   activeBadgesResolved?: {
-  key?: string;
-  name?: string;
-  iconUrl?: string;
-  lottieUrl?: string;
-  isAnimated?: boolean;
-}[];
+    key?: string;
+    name?: string;
+    iconUrl?: string;
+    lottieUrl?: string;
+    isAnimated?: boolean;
+  }[];
   usernameColor?: string;
   messageTextColor?: string;
   isOnline?: boolean;
@@ -157,12 +157,12 @@ export type RoomUser = {
   usernameColor?: string;
   messageTextColor?: string;
   activeBadgesResolved?: {
-  key?: string;
-  name?: string;
-  iconUrl?: string;
-  lottieUrl?: string;
-  isAnimated?: boolean;
-}[];
+    key?: string;
+    name?: string;
+    iconUrl?: string;
+    lottieUrl?: string;
+    isAnimated?: boolean;
+  }[];
   isOnline?: boolean;
   lastSeen?: string;
   role?: "creator" | "owner" | "admin" | "member";
@@ -844,14 +844,14 @@ export const fetchRoomUsers = createAsyncThunk<
         avatarGif: u?.avatarGif ? String(u.avatarGif) : "",
         usernameColor: u?.usernameColor ? String(u.usernameColor) : "",
         activeBadgesResolved: Array.isArray(u?.activeBadgesResolved)
-  ? u.activeBadgesResolved.map((b: any) => ({
-      key: String(b?.key || ""),
-      name: String(b?.name || ""),
-      iconUrl: String(b?.iconUrl || ""),
-      lottieUrl: String(b?.lottieUrl || ""),
-      isAnimated: Boolean(b?.isAnimated || b?.lottieUrl),
-    }))
-  : [],
+          ? u.activeBadgesResolved.map((b: any) => ({
+            key: String(b?.key || ""),
+            name: String(b?.name || ""),
+            iconUrl: String(b?.iconUrl || ""),
+            lottieUrl: String(b?.lottieUrl || ""),
+            isAnimated: Boolean(b?.isAnimated || b?.lottieUrl),
+          }))
+          : [],
         messageTextColor: u?.messageTextColor ? String(u.messageTextColor) : "",
         isOnline: Boolean(u?.isOnline),
         lastSeen: u?.lastSeen ? String(u.lastSeen) : undefined,
@@ -1759,15 +1759,15 @@ const roomSlice = createSlice({
       const room = state.rooms.find((r) => r._id === action.payload.roomId);
       if (room) room.isActive = true;
     },
-clearRoomMessages: (
-  state,
-  action: PayloadAction<{ roomId: string }>
-) => {
-  const roomId = String(action.payload?.roomId || "").trim();
-  if (!roomId) return;
+    clearRoomMessages: (
+      state,
+      action: PayloadAction<{ roomId: string }>
+    ) => {
+      const roomId = String(action.payload?.roomId || "").trim();
+      if (!roomId) return;
 
-  state.messagesByRoom[roomId] = [];
-},
+      state.messagesByRoom[roomId] = [];
+    },
     markRoomInactive: (state, action: PayloadAction<{ roomId: string }>) => {
       const room = state.rooms.find((r) => r._id === action.payload.roomId);
       if (room) room.isActive = false;
@@ -2035,66 +2035,115 @@ clearRoomMessages: (
     /**
      * room:message:new
      */
+    socketNewRoomMessage: (state, action: PayloadAction<{ roomId: string; message: RoomMessage }>) => {
+      const roomId = String(action.payload?.roomId || "").trim();
 
-  socketNewRoomMessage: (state, action) => {
-  const { roomId } = action.payload;
-  const message = normalizeMessageBadges(action.payload?.message);
+      let message = normalizeMessageBadges(action.payload?.message) as RoomMessage;
 
-  console.log("🏷️ [ROOM_SLICE_BADGE_DEBUG][socketNewRoomMessage]", {
-    roomId,
-    messageId: String(message?._id || ""),
-    clientId: String(message?.clientId || ""),
-    type: String(message?.type || ""),
-    content: String(message?.content || "").slice(0, 80),
-    senderSnapshot: {
-      id: String(message?.senderSnapshot?._id || ""),
-      username: String(message?.senderSnapshot?.username || ""),
-      activeCustomizationBadges:
-        message?.senderSnapshot?.activeCustomization?.badges || [],
-      activeBadgesResolved:
-        message?.senderSnapshot?.activeBadgesResolved || [],
-    },
-  });
+      if (!roomId || !message) return;
 
-  if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
-  const list = state.messagesByRoom[roomId];
-      // ✅ محاولة ربط رسالة سوكت برسالة optimistic عند غياب clientId
-      if (!message?.clientId && message?._id) {
-        const idxOpt = list.findIndex((m) =>
-          m.optimistic &&
-          m.type === message.type &&
-          m.content === message.content &&
-          // (اختياري) نفس المرسل إن توفر
-          (toStr((m.senderSnapshot as any)?._id) === toStr((message.senderSnapshot as any)?._id) || true)
+      if (!state.messagesByRoom[roomId]) {
+        state.messagesByRoom[roomId] = [];
+      }
+
+      const list = state.messagesByRoom[roomId];
+
+      const normalizedMessage: RoomMessage = {
+        ...message,
+        room: roomId,
+        optimistic: false,
+        failed: false,
+      };
+
+      /**
+       * ✅ لو رسالة السيرفر لم ترجع clientId
+       * نحاول نربطها برسالة optimistic بناءً على:
+       * نفس النوع + نفس المحتوى + نفس المرسل
+       */
+      if (!normalizedMessage.clientId && normalizedMessage._id) {
+        const incomingSenderId = String(
+          (normalizedMessage.senderSnapshot as any)?._id ||
+          (typeof normalizedMessage.sender === "string"
+            ? normalizedMessage.sender
+            : (normalizedMessage.sender as any)?._id) ||
+          ""
         );
 
+        const idxOpt = list.findIndex((m: any) => {
+          if (!m?.optimistic) return false;
+
+          const oldSenderId = String(
+            (m.senderSnapshot as any)?._id ||
+            (typeof m.sender === "string" ? m.sender : m.sender?._id) ||
+            ""
+          );
+
+          return (
+            String(m.type || "") === String(normalizedMessage.type || "") &&
+            String(m.content || "") === String(normalizedMessage.content || "") &&
+            (!incomingSenderId || !oldSenderId || incomingSenderId === oldSenderId)
+          );
+        });
+
         if (idxOpt >= 0) {
-          list[idxOpt] = mergeMessagePreserveReactions(list[idxOpt], {
-            ...message,
-            optimistic: false,
-            failed: false,
-          });
+          list[idxOpt] = mergeMessagePreserveReactions(list[idxOpt], normalizedMessage);
           dedupeMessages(list);
           return;
         }
       }
 
-      upsertMessageByClientIdOrId(list, message);
+      upsertMessageByClientIdOrId(list, normalizedMessage);
+
+      const room = state.rooms.find((r) => r._id === roomId);
+      if (room) {
+        room.updatedAt = normalizedMessage.updatedAt || normalizedMessage.createdAt;
+      }
     },
-    // socketNewRoomMessage: (state, action: PayloadAction<{ roomId: string; message: RoomMessage }>) => {
-    //   const { roomId, message } = action.payload;
+    // socketNewRoomMessage: (state, action) => {
+    // const { roomId } = action.payload;
+    // const message = normalizeMessageBadges(action.payload?.message);
 
-    //   if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+    // console.log("🏷️ [ROOM_SLICE_BADGE_DEBUG][socketNewRoomMessage]", {
+    //   roomId,
+    //   messageId: String(message?._id || ""),
+    //   clientId: String(message?.clientId || ""),
+    //   type: String(message?.type || ""),
+    //   content: String(message?.content || "").slice(0, 80),
+    //   senderSnapshot: {
+    //     id: String(message?.senderSnapshot?._id || ""),
+    //     username: String(message?.senderSnapshot?.username || ""),
+    //     activeCustomizationBadges:
+    //       message?.senderSnapshot?.activeCustomization?.badges || [],
+    //     activeBadgesResolved:
+    //       message?.senderSnapshot?.activeBadgesResolved || [],
+    //   },
+    // });
 
-    //   const exists = state.messagesByRoom[roomId].some((m) => m._id === message._id);
-    //   if (!exists) state.messagesByRoom[roomId].unshift(message);
+    // if (!state.messagesByRoom[roomId]) state.messagesByRoom[roomId] = [];
+    // const list = state.messagesByRoom[roomId];
+    //     // ✅ محاولة ربط رسالة سوكت برسالة optimistic عند غياب clientId
+    //     if (!message?.clientId && message?._id) {
+    //       const idxOpt = list.findIndex((m) =>
+    //         m.optimistic &&
+    //         m.type === message.type &&
+    //         m.content === message.content &&
+    //         // (اختياري) نفس المرسل إن توفر
+    //         (toStr((m.senderSnapshot as any)?._id) === toStr((message.senderSnapshot as any)?._id) || true)
+    //       );
 
-    //   const room = state.rooms.find((r) => r._id === roomId);
-    //   if (room) {
-    //     room.messagesCount = (room.messagesCount || 0) + 1;
-    //     room.updatedAt = message.updatedAt || message.createdAt;
-    //   }
-    // },
+    //       if (idxOpt >= 0) {
+    //         list[idxOpt] = mergeMessagePreserveReactions(list[idxOpt], {
+    //           ...message,
+    //           optimistic: false,
+    //           failed: false,
+    //         });
+    //         dedupeMessages(list);
+    //         return;
+    //       }
+    //     }
+
+    //     upsertMessageByClientIdOrId(list, message);
+    //   },
 
     /**
      * room:message:pinned / room:message:edited (دمج نفس reducer)
@@ -2440,59 +2489,59 @@ clearRoomMessages: (
         state.sending = true;
         state.error = undefined;
       })
-   .addCase(sendRoomMessage.fulfilled, (state, action) => {
-  state.sending = false;
+      .addCase(sendRoomMessage.fulfilled, (state, action) => {
+        state.sending = false;
 
-  const { roomId } = action.payload;
-  let { message } = action.payload;
+        const { roomId } = action.payload;
+        let { message } = action.payload;
 
-  // ✅ حقن clientId من arg لو الباك لم يرجعه
-  const argClientId = (action.meta as any)?.arg?.clientId;
+        // ✅ حقن clientId من arg لو الباك لم يرجعه
+        const argClientId = (action.meta as any)?.arg?.clientId;
 
-  if (argClientId && !message?.clientId) {
-    message = {
-      ...message,
-      clientId: String(argClientId),
-    };
-  }
+        if (argClientId && !message?.clientId) {
+          message = {
+            ...message,
+            clientId: String(argClientId),
+          };
+        }
 
-  /**
-   * ✅ مهم للبادج:
-   * نظّف senderSnapshot.activeBadgesResolved
-   * حتى تصل إلى ChatScreen بشكل ثابت.
-   */
-  message = normalizeMessageBadges(message);
+        /**
+         * ✅ مهم للبادج:
+         * نظّف senderSnapshot.activeBadgesResolved
+         * حتى تصل إلى ChatScreen بشكل ثابت.
+         */
+        message = normalizeMessageBadges(message);
 
-  console.log("🏷️ [ROOM_SLICE_BADGE_DEBUG][sendRoomMessage.fulfilled]", {
-    roomId,
-    messageId: String(message?._id || ""),
-    clientId: String(message?.clientId || ""),
-    type: String(message?.type || ""),
-    content: String(message?.content || "").slice(0, 80),
-    senderSnapshot: {
-      id: String(message?.senderSnapshot?._id || ""),
-      username: String(message?.senderSnapshot?.username || ""),
-      activeCustomizationBadges:
-        message?.senderSnapshot?.activeCustomization?.badges || [],
-      activeBadgesResolved:
-        message?.senderSnapshot?.activeBadgesResolved || [],
-    },
-  });
+        console.log("🏷️ [ROOM_SLICE_BADGE_DEBUG][sendRoomMessage.fulfilled]", {
+          roomId,
+          messageId: String(message?._id || ""),
+          clientId: String(message?.clientId || ""),
+          type: String(message?.type || ""),
+          content: String(message?.content || "").slice(0, 80),
+          senderSnapshot: {
+            id: String(message?.senderSnapshot?._id || ""),
+            username: String(message?.senderSnapshot?.username || ""),
+            activeCustomizationBadges:
+              message?.senderSnapshot?.activeCustomization?.badges || [],
+            activeBadgesResolved:
+              message?.senderSnapshot?.activeBadgesResolved || [],
+          },
+        });
 
-  if (!state.messagesByRoom[roomId]) {
-    state.messagesByRoom[roomId] = [];
-  }
+        if (!state.messagesByRoom[roomId]) {
+          state.messagesByRoom[roomId] = [];
+        }
 
-  const list = state.messagesByRoom[roomId];
+        const list = state.messagesByRoom[roomId];
 
-  // ✅ الآن سيتم الاستبدال وليس الإضافة
-  debugMsg("send:fulfilled:IN", roomId, message);
-  debugList("send:fulfilled:BEFORE", roomId, list);
+        // ✅ الآن سيتم الاستبدال وليس الإضافة
+        debugMsg("send:fulfilled:IN", roomId, message);
+        debugList("send:fulfilled:BEFORE", roomId, list);
 
-  upsertMessageByClientIdOrId(list, message);
+        upsertMessageByClientIdOrId(list, message);
 
-  debugList("send:fulfilled:AFTER", roomId, list);
-})
+        debugList("send:fulfilled:AFTER", roomId, list);
+      })
       .addCase(sendRoomMessage.rejected, (state, action) => {
         state.sending = false;
         state.error = (action.payload as any) || "Send failed";
@@ -2502,163 +2551,203 @@ clearRoomMessages: (
         state.loadingMessages = true;
         state.error = undefined;
       })
-     .addCase(fetchRoomMessages.fulfilled, (state, action) => {
-  state.loadingMessages = false;
+      .addCase(fetchRoomMessages.fulfilled, (state, action) => {
+        state.loadingMessages = false;
 
-  const { roomId, append } = action.payload;
+        const roomId = String(action.payload?.roomId || "").trim();
+        const append = Boolean(action.payload?.append);
 
-  /**
-   * ✅ مهم للبادج:
-   * كل رسالة قادمة من السيرفر يتم تنظيف activeBadgesResolved داخل senderSnapshot.
-   */
-  const messages = Array.isArray(action.payload.messages)
-    ? action.payload.messages.map((m: any) => normalizeMessageBadges(m))
-    : [];
+        const incoming = Array.isArray(action.payload?.messages)
+          ? action.payload.messages.map((m: any) => normalizeMessageBadges(m))
+          : [];
 
-  console.log("🏷️ [ROOM_SLICE_BADGE_DEBUG][fetchRoomMessages.fulfilled]", {
-    roomId,
-    append,
-    count: messages.length,
-    sample: messages.slice(0, 5).map((m: any) => ({
-      id: String(m?._id || ""),
-      clientId: String(m?.clientId || ""),
-      type: String(m?.type || ""),
-      content: String(m?.content || "").slice(0, 60),
-      senderSnapshot: {
-        id: String(m?.senderSnapshot?._id || ""),
-        username: String(m?.senderSnapshot?.username || ""),
-        activeCustomizationBadges:
-          m?.senderSnapshot?.activeCustomization?.badges || [],
-        activeBadgesResolved:
-          m?.senderSnapshot?.activeBadgesResolved || [],
-      },
-    })),
-  });
+        if (!roomId) return;
 
-  if (!state.messagesByRoom[roomId]) {
-    state.messagesByRoom[roomId] = [];
-  }
+        const current = state.messagesByRoom[roomId] || [];
 
-  const list = state.messagesByRoom[roomId];
+        /**
+         * ✅ مهم:
+         * append=false لا يعني نمسح رسائل السوكت الحالية.
+         * ندمج بدل الاستبدال حتى لا تختفي الرسائل التي وصلت مباشر.
+         */
+        const merged: RoomMessage[] = append
+          ? [...current, ...incoming]
+          : [...incoming, ...current];
 
-  if (append) {
-    const existingIds = new Set(list.map((m) => String(m?._id || "")));
-    const existingClientIds = new Set(
-      list.map((m) => String(m?.clientId || "")).filter(Boolean)
-    );
+        const finalList: RoomMessage[] = [];
 
-    const filtered = (messages || []).filter((m) => {
-      const id = String(m?._id || "");
-      const cid = String(m?.clientId || "");
+        for (const msg of merged) {
+          upsertMessageByClientIdOrId(finalList, msg as RoomMessage);
+        }
 
-      const dupById = id && existingIds.has(id);
-      const dupByClient = cid && existingClientIds.has(cid);
+        dedupeMessages(finalList);
 
-      if (dupById || dupByClient) {
-        return false;
-      }
-
-      return true;
-    });
-
-    for (const rawIncoming of filtered as any[]) {
-      const incoming = normalizeMessageBadges(rawIncoming);
-
-      const incomingId = String(incoming?._id || "");
-      const incomingClientId = String(incoming?.clientId || "");
-
-      const old = list.find((m: any) => {
-        return (
-          String(m?._id || "") === incomingId ||
-          (!!incomingClientId &&
-            String(m?.clientId || "") === incomingClientId)
-        );
-      });
-
-      const oldReactions = Array.isArray(old?.reactions)
-        ? old.reactions
-        : [];
-
-      const incomingReactions = Array.isArray(incoming?.reactions)
-        ? incoming.reactions
-        : [];
-
-      if (old && oldReactions.length > 0 && incomingReactions.length === 0) {
-        list.push({
-          ...incoming,
-          reactions: oldReactions,
-          reactionCount: old.reactionCount || oldReactions.length,
+        finalList.sort((a: any, b: any) => {
+          return (
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime()
+          );
         });
-      } else {
-        list.push(incoming);
-      }
-    }
-  } else {
-    const seen = new Set<string>();
-    const out: typeof messages = [];
 
-    for (const rawMessage of messages || []) {
-      const m = normalizeMessageBadges(rawMessage);
+        state.messagesByRoom[roomId] = finalList;
+      })
+      // .addCase(fetchRoomMessages.fulfilled, (state, action) => {
+      //   state.loadingMessages = false;
 
-      const id = String(m?._id || "");
-      const cid = String(m?.clientId || "");
-      const key = cid ? `c:${cid}` : `i:${id}`;
+      //   const { roomId, append } = action.payload;
 
-      if (!id && !cid) {
-        continue;
-      }
+      //   /**
+      //    * ✅ مهم للبادج:
+      //    * كل رسالة قادمة من السيرفر يتم تنظيف activeBadgesResolved داخل senderSnapshot.
+      //    */
+      //   const messages = Array.isArray(action.payload.messages)
+      //     ? action.payload.messages.map((m: any) => normalizeMessageBadges(m))
+      //     : [];
 
-      if (seen.has(key)) {
-        continue;
-      }
+      //   console.log("🏷️ [ROOM_SLICE_BADGE_DEBUG][fetchRoomMessages.fulfilled]", {
+      //     roomId,
+      //     append,
+      //     count: messages.length,
+      //     sample: messages.slice(0, 5).map((m: any) => ({
+      //       id: String(m?._id || ""),
+      //       clientId: String(m?.clientId || ""),
+      //       type: String(m?.type || ""),
+      //       content: String(m?.content || "").slice(0, 60),
+      //       senderSnapshot: {
+      //         id: String(m?.senderSnapshot?._id || ""),
+      //         username: String(m?.senderSnapshot?.username || ""),
+      //         activeCustomizationBadges:
+      //           m?.senderSnapshot?.activeCustomization?.badges || [],
+      //         activeBadgesResolved:
+      //           m?.senderSnapshot?.activeBadgesResolved || [],
+      //       },
+      //     })),
+      //   });
 
-      seen.add(key);
+      //   if (!state.messagesByRoom[roomId]) {
+      //     state.messagesByRoom[roomId] = [];
+      //   }
 
-      const old = list.find((oldMsg: any) => {
-        return (
-          String(oldMsg?._id || "") === id ||
-          (!!cid && String(oldMsg?.clientId || "") === cid)
-        );
-      });
+      //   const list = state.messagesByRoom[roomId];
 
-      const incomingReactions = Array.isArray((m as any)?.reactions)
-        ? (m as any).reactions
-        : [];
+      //   if (append) {
+      //     const existingIds = new Set(list.map((m) => String(m?._id || "")));
+      //     const existingClientIds = new Set(
+      //       list.map((m) => String(m?.clientId || "")).filter(Boolean)
+      //     );
 
-      const oldReactions = Array.isArray((old as any)?.reactions)
-        ? (old as any).reactions
-        : [];
+      //     const filtered = (messages || []).filter((m) => {
+      //       const id = String(m?._id || "");
+      //       const cid = String(m?.clientId || "");
 
-      const incomingReactionCount = Number(
-        (m as any)?.reactionCount || (m as any)?.reactionsCount || 0
-      );
+      //       const dupById = id && existingIds.has(id);
+      //       const dupByClient = cid && existingClientIds.has(cid);
 
-      const oldReactionCount = Number(
-        (old as any)?.reactionCount ||
-          (old as any)?.reactionsCount ||
-          oldReactions.length ||
-          0
-      );
+      //       if (dupById || dupByClient) {
+      //         return false;
+      //       }
 
-      if (
-        old &&
-        oldReactions.length > 0 &&
-        incomingReactions.length === 0 &&
-        incomingReactionCount === 0
-      ) {
-        out.push({
-          ...m,
-          reactions: oldReactions,
-          reactionCount: oldReactionCount,
-        });
-      } else {
-        out.push(m);
-      }
-    }
+      //       return true;
+      //     });
 
-    state.messagesByRoom[roomId] = out;
-  }
-})
+      //     for (const rawIncoming of filtered as any[]) {
+      //       const incoming = normalizeMessageBadges(rawIncoming);
+
+      //       const incomingId = String(incoming?._id || "");
+      //       const incomingClientId = String(incoming?.clientId || "");
+
+      //       const old = list.find((m: any) => {
+      //         return (
+      //           String(m?._id || "") === incomingId ||
+      //           (!!incomingClientId &&
+      //             String(m?.clientId || "") === incomingClientId)
+      //         );
+      //       });
+
+      //       const oldReactions = Array.isArray(old?.reactions)
+      //         ? old.reactions
+      //         : [];
+
+      //       const incomingReactions = Array.isArray(incoming?.reactions)
+      //         ? incoming.reactions
+      //         : [];
+
+      //       if (old && oldReactions.length > 0 && incomingReactions.length === 0) {
+      //         list.push({
+      //           ...incoming,
+      //           reactions: oldReactions,
+      //           reactionCount: old.reactionCount || oldReactions.length,
+      //         });
+      //       } else {
+      //         list.push(incoming);
+      //       }
+      //     }
+      //   } else {
+      //     const seen = new Set<string>();
+      //     const out: typeof messages = [];
+
+      //     for (const rawMessage of messages || []) {
+      //       const m = normalizeMessageBadges(rawMessage);
+
+      //       const id = String(m?._id || "");
+      //       const cid = String(m?.clientId || "");
+      //       const key = cid ? `c:${cid}` : `i:${id}`;
+
+      //       if (!id && !cid) {
+      //         continue;
+      //       }
+
+      //       if (seen.has(key)) {
+      //         continue;
+      //       }
+
+      //       seen.add(key);
+
+      //       const old = list.find((oldMsg: any) => {
+      //         return (
+      //           String(oldMsg?._id || "") === id ||
+      //           (!!cid && String(oldMsg?.clientId || "") === cid)
+      //         );
+      //       });
+
+      //       const incomingReactions = Array.isArray((m as any)?.reactions)
+      //         ? (m as any).reactions
+      //         : [];
+
+      //       const oldReactions = Array.isArray((old as any)?.reactions)
+      //         ? (old as any).reactions
+      //         : [];
+
+      //       const incomingReactionCount = Number(
+      //         (m as any)?.reactionCount || (m as any)?.reactionsCount || 0
+      //       );
+
+      //       const oldReactionCount = Number(
+      //         (old as any)?.reactionCount ||
+      //         (old as any)?.reactionsCount ||
+      //         oldReactions.length ||
+      //         0
+      //       );
+
+      //       if (
+      //         old &&
+      //         oldReactions.length > 0 &&
+      //         incomingReactions.length === 0 &&
+      //         incomingReactionCount === 0
+      //       ) {
+      //         out.push({
+      //           ...m,
+      //           reactions: oldReactions,
+      //           reactionCount: oldReactionCount,
+      //         });
+      //       } else {
+      //         out.push(m);
+      //       }
+      //     }
+
+      //     state.messagesByRoom[roomId] = out;
+      //   }
+      // })
       .addCase(fetchRoomMessages.rejected, (state, action) => {
         state.loadingMessages = false;
         state.error = (action.payload as any) || "Failed to fetch messages";

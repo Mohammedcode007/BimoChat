@@ -371,17 +371,30 @@ const handleLogin = async () => {
 
          <Animated.View style={passStyle}>
   <View style={[s.passwordBox, !!errors.password && s.inputError]}>
-    <TextInput
-      placeholder={t("loginScreen.passwordPH")}
-      placeholderTextColor={theme.subtleText as any}
-      secureTextEntry={!showPassword}
-      value={password}
-      onChangeText={setPassword}
-      style={s.passwordInput}
-      editable={!loading}
-      onSubmitEditing={handleLogin}
-      returnKeyType="done"
-    />
+   <TextInput
+  placeholder={t("loginScreen.passwordPH")}
+  placeholderTextColor={theme.subtleText as any}
+  secureTextEntry={!showPassword}
+  value={password}
+  onChangeText={setPassword}
+  style={s.passwordInput}
+  editable={!loading}
+  onSubmitEditing={handleLogin}
+  returnKeyType="done"
+
+  // السماح بظهور الحافظة / Paste
+  contextMenuHidden={false}
+  selectTextOnFocus={false}
+
+  // تحسين ظهور اقتراحات كلمة المرور والحفظ
+  textContentType="password"
+  autoComplete="password"
+  importantForAutofill="yes"
+
+  // منع التصحيح فقط، وليس منع اللصق
+  autoCorrect={false}
+  autoCapitalize="none"
+/>
 
     <TouchableOpacity
       onPress={() => setShowPassword((v) => !v)}

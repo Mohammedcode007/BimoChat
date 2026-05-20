@@ -67,19 +67,19 @@ export const connectSocket = (token: string): Socket => {
   }
 
 
-  // socket = io("http://192.168.0.100:5000", {
-  //   auth: { token },
-  //   transports: ["websocket"],
-  //   reconnection: true,
- 
-  // });
-
-    socket = io("https://te-bot.site", {
+  socket = io("http://192.168.0.100:5000", {
     auth: { token },
     transports: ["websocket"],
     reconnection: true,
  
   });
+
+  //   socket = io("https://te-bot.site", {
+  //   auth: { token },
+  //   transports: ["websocket"],
+  //   reconnection: true,
+ 
+  // });
 
   socket.on("connect", () => {
   });
@@ -108,15 +108,7 @@ export const attachSocketListeners = (dispatch: any, getState: any) => {
 
   isListenersAttached = true;
 
-  // ✅ helper: find roomId by messageId if backend doesn't send roomId
-  // const findRoomIdByMessageId = (messageId: string) => {
-  //   const byRoom = getState().room?.messagesByRoom || {};
-  //   for (const rid of Object.keys(byRoom)) {
-  //     const list = byRoom[rid] || [];
-  //     if (list.some((m: any) => m?._id === messageId)) return rid;
-  //   }
-  //   return undefined;
-  // };
+
 const findRoomIdByMessageId = (messageId: string) => {
   const byRoom = getState().room?.messagesByRoom || {};
   const mid = String(messageId || "");
@@ -186,18 +178,49 @@ const findRoomIdByMessageId = (messageId: string) => {
 
   /* ================= CHAT NEW MESSAGE ================= */
 
-  socket.on("chat:new", (message) => {
+  // socket.on("chat:new", (message) => {
 
-    dispatch(addMessage(message));
+  //   dispatch(addMessage(message));
 
-    dispatch(
-      socketNewMessage({
-        chatId: message.chat,
-        message
-      })
-    );
-  });
+  //   dispatch(
+  //     socketNewMessage({
+  //       chatId: message.chat,
+  //       message
+  //     })
+  //   );
+  // });
 
+  socket.on("chat:new", (rawMessage) => {
+  if (!rawMessage) return;
+
+  const chatId =
+    typeof rawMessage.chat === "string"
+      ? rawMessage.chat
+      : String(rawMessage.chat?._id || rawMessage.chat || rawMessage.chatId || "");
+
+  if (!chatId) return;
+
+  const message = {
+    ...rawMessage,
+    chat: chatId,
+  };
+
+  dispatch(addMessage(message));
+
+  dispatch(
+    socketNewMessage({
+      chatId,
+      message,
+    })
+  );
+
+  const activeChatId = String(getState()?.chat?.activeChatId || "");
+
+  if (activeChatId && activeChatId === chatId) {
+    socket?.emit("chat:seen", { chatId });
+    dispatch(setUnreadFromServer({ chatId, unreadCount: 0 }));
+  }
+});
   /* ================= DELIVERY ================= */
 
   socket.on("chat:delivery:update", (data) => {
@@ -273,12 +296,7 @@ const findRoomIdByMessageId = (messageId: string) => {
       })
     );
   });
-  // socket.on("chat:inbox:update", (payload) => {
-  //   const chatId = payload?.chat?._id || payload?.chatId;
-  //   if (!chatId) return;
 
-  //   dispatch(socketUpsertChatFromInbox(payload));
-  // });
   socket.on("chat:snapshot", (payload) => {
     const chat = payload?.chat;
     const chatId = chat?._id;
@@ -409,13 +427,7 @@ dispatch(
           : 0,
   })
 );
-    // dispatch(
-    //   socketReactionUpdate({
-    //     roomId,
-    //     messageId,
-    //     reactions: Array.isArray(data.reactions) ? data.reactions : []
-    //   })
-    // );
+
   });
 
   socket.on("room:error", (err) => {
@@ -561,30 +573,6 @@ dispatch(
   }
 });
 
-  // socket.on("room:boost:update", (payload) => {
-  //   const activeRoomId = getState().room?.activeRoomId;
-
-  //   if (payload?.roomId) {
-  //     dispatch(
-  //       socketRoomBoostUpdate({
-  //         roomId: payload.roomId,
-  //         boostLevel: payload.boostLevel,
-  //         boostExpiresAt: payload.boostExpiresAt
-  //       })
-  //     );
-  //     return;
-  //   }
-
-  //   if (activeRoomId) {
-  //     dispatch(
-  //       socketRoomBoostUpdate({
-  //         roomId: activeRoomId,
-  //         boostLevel: payload?.boostLevel ?? 0,
-  //         boostExpiresAt: payload?.boostExpiresAt
-  //       })
-  //     );
-  //   }
-  // });
 
   socket.on("room:deleted", (data) => {
     if (!data?.roomId) return;

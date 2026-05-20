@@ -168,10 +168,23 @@ async function parseUploadResponse(response: Response) {
       `Invalid upload response from server. Status: ${response.status}`
     );
   }
+  console.log("[uploadApi] response:", {
+  status: response.status,
+  ok: response.ok,
+  json,
+});
 
-  if (!response.ok || !json.success) {
-    throw new Error(json.message || `Upload failed. Status: ${response.status}`);
-  }
+if (!response.ok || !json.success) {
+  throw new Error(
+    json.message || `Upload failed. Status: ${response.status}`
+  );
+}
+
+if (!response.ok || !json.success) {
+  throw new Error(
+    json.message || `Upload failed. Status: ${response.status}`
+  );
+}
 
   if (!json.data) {
     throw new Error("Upload response data is missing");
@@ -211,7 +224,12 @@ export async function uploadSingleFile({
   const normalized = normalizeUploadFile(file, "upload-file");
   const cloudinaryFolder = getCloudinaryFolder(folder, userId);
   const url = getUploadUrl(endpoint);
-
+console.log("[uploadApi] target:", {
+  RAW_API_URL,
+  API_URL,
+  endpoint,
+  url,
+});
   const formData = new FormData();
 
   formData.append("file", {

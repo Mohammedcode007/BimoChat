@@ -261,23 +261,14 @@ useEffect(() => {
   if (!currentUser?._id) return;
   if (!Array.isArray(messages)) return;
 
-  // مهم جدًا:
-  // لا تحفظ array فاضية حتى لا تمسح رسائل الكاش القديمة
+
   if (messages.length === 0) return;
 
   try {
     saveMessagesToCache(currentUser._id, chatId, messages);
   } catch {}
 }, [messages, chatId, currentUser?._id]);
-  // useEffect(() => {
-  //   if (!chatId) return;
-  //   if (!currentUser?._id) return;
-  //   if (!Array.isArray(messages)) return;
 
-  //   try {
-  //     saveMessagesToCache(currentUser._id, chatId, messages);
-  //   } catch { }
-  // }, [messages, chatId, currentUser?._id]);
 
   useEffect(() => {
     const targetId = otherUser?._id;
@@ -309,7 +300,6 @@ useEffect(() => {
         }) as any
       ).unwrap?.();
     } catch (e) {
-      // لا تعطل فتح المحادثة لو فشل تصفير الإشعارات
     }
   };
   const hasReduxMessages =
@@ -324,27 +314,72 @@ useEffect(() => {
         dispatch(setActiveChat(chatId));
         joinChatRoom(chatId);
 
-        // لا تجعل تصفير الإشعارات يؤخر فتح المحادثة
         markChatNotificationsAsRead();
 
         const currentReduxMessages = messagesRef.current || [];
 
-        if (currentReduxMessages.length) {
-          setLoadedPages([1]);
-          setPage(1);
-          setHasMore(currentReduxMessages.length >= 20);
+        // if (currentReduxMessages.length) {
+        //   setLoadedPages([1]);
+        //   setPage(1);
+        //   setHasMore(currentReduxMessages.length >= 20);
 
-          const hasIncoming = currentReduxMessages.some((m: any) => {
-            return String(m?.sender?._id || m?.sender) !== String(currentUser._id);
-          });
+        //   const hasIncoming = currentReduxMessages.some((m: any) => {
+        //     return String(m?.sender?._id || m?.sender) !== String(currentUser._id);
+        //   });
 
-          if (hasIncoming) {
-            emitMarkAsSeen(chatId);
-          }
+        //   if (hasIncoming) {
+        //     emitMarkAsSeen(chatId);
+        //   }
 
-          return;
-        }
+        //   return;
+        // }
+if (currentReduxMessages.length) {
+  setLoadedPages([1]);
+  setPage(1);
+  setHasMore(currentReduxMessages.length >= 20);
 
+  const hasIncoming = currentReduxMessages.some((m: any) => {
+    return String(m?.sender?._id || m?.sender) !== String(currentUser._id);
+  });
+
+  if (hasIncoming) {
+    emitMarkAsSeen(chatId);
+  }
+
+  dispatch(
+    loadMessages({
+      chatId,
+      page: 1,
+      silent: true,
+    }) as any
+  )
+    .unwrap()
+    .then(async (res: any) => {
+      if (!isMounted) return;
+
+      const incoming = Array.isArray(res?.messages) ? res.messages : [];
+      const latest = messagesRef.current || currentReduxMessages;
+      const merged = mergeMessages(latest, incoming);
+
+      messagesRef.current = merged;
+
+      dispatch(setMessages({ chatId, messages: merged }));
+      await saveMessagesToCache(currentUser._id!, chatId, merged);
+
+      setHasMore(incoming.length >= 20);
+
+      const hasNewIncoming = merged.some((m: any) => {
+        return String(m?.sender?._id || m?.sender) !== String(currentUser._id);
+      });
+
+      if (hasNewIncoming) {
+        emitMarkAsSeen(chatId);
+      }
+    })
+    .catch(() => {});
+
+  return;
+}
         const cached = await loadMessagesFromCache(currentUser._id!, chatId);
 
         if (!isMounted) return;
@@ -365,7 +400,6 @@ useEffect(() => {
             emitMarkAsSeen(chatId);
           }
 
-          // افتح من الكاش فورًا ثم حدث من السيرفر في الخلفية
           dispatch(
             loadMessages({
               chatId,
@@ -413,53 +447,7 @@ useEffect(() => {
         }
       } catch (e) { }
     };
-    //     const run = async () => {
-    //       try {
-    //         dispatch(setActiveChat(chatId));
-    //         joinChatRoom(chatId);
-    //         await markChatNotificationsAsRead();
-
-    //         const cached = await loadMessagesFromCache(currentUser._id!, chatId);
-
-    //         if (!isMounted) return;
-
-    //         if (cached.length) {
-    //           dispatch(setMessages({ chatId, messages: cached }));
-    //         }
-
-    // const shouldFetchFirstPage = !hasReduxMessages && !cached.length;
-
-    // const res = shouldFetchFirstPage
-    //   ? await dispatch(loadMessages({ chatId, page: 1 })).unwrap()
-    //   : { messages: messagesRef.current || [] };
-
-    //         if (!isMounted) return;
-
-    //         const incoming = Array.isArray(res?.messages) ? res.messages : [];
-    //         const currentStateMessages = messagesRef.current || [];
-    //         const baseMessages = currentStateMessages.length
-    //           ? currentStateMessages
-    //           : cached;
-
-    //         const merged = mergeMessages(baseMessages, incoming);
-
-    //         dispatch(setMessages({ chatId, messages: merged }));
-    //         await saveMessagesToCache(currentUser._id!, chatId, merged);
-
-    //         setLoadedPages([1]);
-    //         setPage(1);
-    //         setHasMore(incoming.length >= 20);
-
-    //         const hasIncoming = merged.some((m: any) => {
-    //           return String(m?.sender?._id || m?.sender) !== String(currentUser._id);
-    //         });
-
-    //         if (hasIncoming) {
-    //           emitMarkAsSeen(chatId);
-    //         }
-    //       } catch (e) { }
-    //     };
-
+   
     run();
 
     return () => {
@@ -827,6 +815,63 @@ function getFileNameFromUri(uri: string, fallback: string) {
 
   return fallback;
 }
+function getMimeTypeFromUri(uri: string, fallback: string) {
+  const cleanUri = String(uri || "").split("?")[0].toLowerCase();
+
+  if (cleanUri.endsWith(".jpg") || cleanUri.endsWith(".jpeg")) {
+    return "image/jpeg";
+  }
+
+  if (cleanUri.endsWith(".png")) {
+    return "image/png";
+  }
+
+  if (cleanUri.endsWith(".webp")) {
+    return "image/webp";
+  }
+
+  if (cleanUri.endsWith(".gif")) {
+    return "image/gif";
+  }
+
+  if (cleanUri.endsWith(".mp4")) {
+    return fallback.startsWith("audio/") ? "audio/mp4" : "video/mp4";
+  }
+
+  if (cleanUri.endsWith(".mov")) {
+    return "video/quicktime";
+  }
+
+  if (cleanUri.endsWith(".m4a")) {
+    return "audio/m4a";
+  }
+
+  if (cleanUri.endsWith(".aac")) {
+    return "audio/aac";
+  }
+
+  if (cleanUri.endsWith(".mp3")) {
+    return "audio/mpeg";
+  }
+
+  if (cleanUri.endsWith(".wav")) {
+    return "audio/wav";
+  }
+
+  if (cleanUri.endsWith(".caf")) {
+    return "audio/x-caf";
+  }
+
+  if (cleanUri.endsWith(".3gp")) {
+    return "audio/3gpp";
+  }
+
+  if (cleanUri.endsWith(".amr")) {
+    return "audio/amr";
+  }
+
+  return fallback;
+}
 
 function getChatUploadFile(params: {
   uri: string;
@@ -838,7 +883,7 @@ function getChatUploadFile(params: {
     return {
       uri: params.uri,
       name: getFileNameFromUri(params.uri, `chat-image-${now}.jpg`),
-      type: "image/jpeg",
+      type: getMimeTypeFromUri(params.uri, "image/jpeg"),
     };
   }
 
@@ -846,14 +891,14 @@ function getChatUploadFile(params: {
     return {
       uri: params.uri,
       name: getFileNameFromUri(params.uri, `chat-video-${now}.mp4`),
-      type: "video/mp4",
+      type: getMimeTypeFromUri(params.uri, "video/mp4"),
     };
   }
 
   return {
     uri: params.uri,
     name: getFileNameFromUri(params.uri, `chat-voice-${now}.m4a`),
-    type: "audio/mp4",
+    type: getMimeTypeFromUri(params.uri, "audio/m4a"),
   };
 }
 const sendMediaMessage = async (
@@ -871,15 +916,15 @@ const sendMediaMessage = async (
     sender: currentUser._id,
     type,
     content: uri,
-    media: {
-      url: uri,
-      mimeType:
-        type === "image"
-          ? "image/jpeg"
-          : type === "video"
-          ? "video/mp4"
-          : "audio/mp4",
-    },
+media: {
+  url: uri,
+  mimeType:
+    type === "image"
+      ? getMimeTypeFromUri(uri, "image/jpeg")
+      : type === "video"
+      ? getMimeTypeFromUri(uri, "video/mp4")
+      : getMimeTypeFromUri(uri, "audio/m4a"),
+},
     replyTo: replyToMessage?._id,
     reactions: [],
     deliveryStatus: {
@@ -943,10 +988,12 @@ const sendMediaMessage = async (
 
     setReplyToMessage(null);
   } catch (error: any) {
-    console.log("[Chat Upload] error:", {
-      message: error?.message,
-      error,
-    });
+console.log("[Chat Upload] error:", {
+  message: error?.message,
+  status: error?.response?.status,
+  response: error?.response?.data,
+  error,
+});
 
     setMediaSendingState((prev) => {
       const next = { ...prev };
@@ -1419,9 +1466,7 @@ const pickVideo = async () => {
         onScroll={(event) => {
           const y = event.nativeEvent.contentOffset.y;
 
-          // لأن FlatList inverted:
-          // y = 0 يعني أنت في آخر المحادثة
-          // كلما زاد y يعني المستخدم طلع لفوق
+        
           setShowScrollToBottom(y > 220);
         }}
         initialNumToRender={14}

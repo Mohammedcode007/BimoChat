@@ -36,7 +36,12 @@ export type UpdateProfilePayload = {
 
   age?: number;
   tags?: string[];
-
+customImageBadge?: {
+  url?: string;
+  isActive?: boolean;
+  purchasedAt?: string | Date | null;
+  expiresAt?: string | Date | null;
+};
   privacy?: {
     profileVisible?: boolean;
     showLastActive?: boolean;
@@ -112,7 +117,12 @@ export type UserFull = {
   countryCode?: string;
   city?: string;
   gender?: string;
-
+customImageBadge?: {
+  url?: string;
+  isActive?: boolean;
+  purchasedAt?: string | null;
+  expiresAt?: string | null;
+};
   displayName?: string;
   bio?: string;
   status?: string;
@@ -269,10 +279,16 @@ const normalizeUser = (rawUser: any): UserFull => {
 
     email: user?.email || "",
 
-    avatar: user?.avatar || "",
+        avatar: user?.avatar || "",
     cover: user?.cover || user?.coverImage || "",
     coverImage: user?.coverImage || user?.cover || "",
 
+    customImageBadge: {
+      url: String(user?.customImageBadge?.url || ""),
+      isActive: Boolean(user?.customImageBadge?.isActive),
+      purchasedAt: user?.customImageBadge?.purchasedAt || null,
+      expiresAt: user?.customImageBadge?.expiresAt || null,
+    },
     bio: user?.bio || "",
     status: user?.status || "",
     statusMessage: user?.statusMessage || user?.status || user?.bio || "",
@@ -379,6 +395,11 @@ const mergeUser = (oldUser: UserFull | null, newUser: any): UserFull => {
     activeCustomization: {
       ...(oldUser?.activeCustomization || {}),
       ...(normalized?.activeCustomization || {}),
+    },
+
+    customImageBadge: {
+      ...(oldUser?.customImageBadge || {}),
+      ...(normalized?.customImageBadge || {}),
     },
   };
 };

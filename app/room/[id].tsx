@@ -581,28 +581,28 @@ export default function ChatScreen() {
     } | null;
   };
   const normalizeResolvedBadges = (badges?: any[]): UserBadgeUI[] => {
-  if (!Array.isArray(badges)) return [];
+    if (!Array.isArray(badges)) return [];
 
-  return badges
-    .map((b: any) => ({
-      key: String(b?.key || b?._id || ""),
-      name: String(b?.name || ""),
-      iconUrl: String(b?.iconUrl || ""),
-      lottieUrl: String(b?.lottieUrl || ""),
-      isAnimated: Boolean(b?.isAnimated || b?.lottieUrl),
-    }))
-    .filter((b: any) => b.key || b.iconUrl || b.lottieUrl);
-};
+    return badges
+      .map((b: any) => ({
+        key: String(b?.key || b?._id || ""),
+        name: String(b?.name || ""),
+        iconUrl: String(b?.iconUrl || ""),
+        lottieUrl: String(b?.lottieUrl || ""),
+        isAnimated: Boolean(b?.isAnimated || b?.lottieUrl),
+      }))
+      .filter((b: any) => b.key || b.iconUrl || b.lottieUrl);
+  };
 
-const getUserActiveBadges = (user: any, fallbackInventory?: any[]) => {
-  const resolved = normalizeResolvedBadges(user?.activeBadgesResolved);
+  const getUserActiveBadges = (user: any, fallbackInventory?: any[]) => {
+    const resolved = normalizeResolvedBadges(user?.activeBadgesResolved);
 
-  if (resolved.length > 0) {
-    return resolved;
-  }
+    if (resolved.length > 0) {
+      return resolved;
+    }
 
-  return buildActiveBadgesFromUser(user, fallbackInventory);
-};
+    return buildActiveBadgesFromUser(user, fallbackInventory);
+  };
   const usersMap = useMemo(() => {
     const map = new Map<string, UsersMapValue>();
 
@@ -615,10 +615,10 @@ const getUserActiveBadges = (user: any, fallbackInventory?: any[]) => {
           usernameColor: u?.activeCustomization?.usernameColor || u?.usernameColor || "",
           messageTextColor: u?.activeCustomization?.messageTextColor || u?.messageTextColor || "",
           role: u.role,
-       activeBadges:
-  String(u?._id) === String(myUserId)
-    ? getUserActiveBadges(u, myInventory)
-    : getUserActiveBadges(u),
+          activeBadges:
+            String(u?._id) === String(myUserId)
+              ? getUserActiveBadges(u, myInventory)
+              : getUserActiveBadges(u),
           customEmojiBadge:
             u?.customEmojiBadge && typeof u.customEmojiBadge === "object"
               ? {
@@ -655,7 +655,7 @@ const getUserActiveBadges = (user: any, fallbackInventory?: any[]) => {
           (authUser as any)?.messageTextColor ||
           "",
         role: myRole,
-activeBadges: meInRoom ? getUserActiveBadges(meInRoom, myInventory) : [],
+        activeBadges: meInRoom ? getUserActiveBadges(meInRoom, myInventory) : [],
         customEmojiBadge:
           (authUser as any)?.customEmojiBadge && typeof (authUser as any).customEmojiBadge === "object"
             ? {
@@ -879,25 +879,25 @@ activeBadges: meInRoom ? getUserActiveBadges(meInRoom, myInventory) : [],
       setInviteSendingId(null);
     }
   };
-useEffect(() => {
-  if (!roomId) return;
+  useEffect(() => {
+    if (!roomId) return;
 
-  let cancelled = false;
+    let cancelled = false;
 
-  const loadRoom = async () => {
-    try {
-      /**
-       * لا تمسح الرسائل هنا.
-       * لو الرسائل موجودة في Redux، ستظل ظاهرة بدون فلاش.
-       */
-      joinRoomSocket(roomId);
+    const loadRoom = async () => {
+      try {
+        /**
+         * لا تمسح الرسائل هنا.
+         * لو الرسائل موجودة في Redux، ستظل ظاهرة بدون فلاش.
+         */
+        joinRoomSocket(roomId);
 
-      const hasMessages =
-        Array.isArray(reduxMessages) && reduxMessages.length > 0;
+        const hasMessages =
+          Array.isArray(reduxMessages) && reduxMessages.length > 0;
 
-      const messagesPromise = hasMessages
-        ? Promise.resolve()
-        : dispatch(
+        const messagesPromise = hasMessages
+          ? Promise.resolve()
+          : dispatch(
             fetchRoomMessages({
               roomId,
               pagination: { limit: 50 },
@@ -905,36 +905,36 @@ useEffect(() => {
             })
           ).unwrap();
 
-      const usersPromise = dispatch(fetchRoomUsers(roomId)).unwrap();
-      const statsPromise = dispatch(fetchRoomStats(roomId)).unwrap();
-      const inventoryPromise = dispatch(getMyInventory() as any);
+        const usersPromise = dispatch(fetchRoomUsers(roomId)).unwrap();
+        const statsPromise = dispatch(fetchRoomStats(roomId)).unwrap();
+        const inventoryPromise = dispatch(getMyInventory() as any);
 
-      await Promise.allSettled([
-        messagesPromise,
-        usersPromise,
-        statsPromise,
-        inventoryPromise,
-      ]);
+        await Promise.allSettled([
+          messagesPromise,
+          usersPromise,
+          statsPromise,
+          inventoryPromise,
+        ]);
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      ensureMicPermission();
-    } catch (e) {
-      console.log("[ChatScreen][loadRoom] error:", e);
-    }
-  };
+        ensureMicPermission();
+      } catch (e) {
+        console.log("[ChatScreen][loadRoom] error:", e);
+      }
+    };
 
-  loadRoom();
+    loadRoom();
 
-  return () => {
-    cancelled = true;
+    return () => {
+      cancelled = true;
 
-    /**
-     * لا تمسح الرسائل عند الخروج للخلف.
-     * امسحها فقط عند leave الحقيقي أو logout.
-     */
-  };
-}, [roomId, dispatch]);
+      /**
+       * لا تمسح الرسائل عند الخروج للخلف.
+       * امسحها فقط عند leave الحقيقي أو logout.
+       */
+    };
+  }, [roomId, dispatch]);
   // useEffect(() => {
   //   if (!roomId) return;
 
@@ -1050,9 +1050,9 @@ useEffect(() => {
 
       role: u?.role,
       activeBadges:
-  String(u?._id) === String(myUserId)
-    ? getUserActiveBadges(u, myInventory)
-    : getUserActiveBadges(u),
+        String(u?._id) === String(myUserId)
+          ? getUserActiveBadges(u, myInventory)
+          : getUserActiveBadges(u),
       customEmojiBadge:
         u?.customEmojiBadge && typeof u?.customEmojiBadge === "object"
           ? {
@@ -1166,28 +1166,28 @@ useEffect(() => {
 
     const snapshotRole = String(snap?.role || senderObj?.role || "").trim();
 
-  const activeBadgesFromSnapshot =
-  snap
-    ? senderId === myUserId
-      ? getUserActiveBadges(snap, myInventory)
-      : getUserActiveBadges(snap)
-    : [];
+    const activeBadgesFromSnapshot =
+      snap
+        ? senderId === myUserId
+          ? getUserActiveBadges(snap, myInventory)
+          : getUserActiveBadges(snap)
+        : [];
 
-const activeBadgesFromSenderObj =
-  senderObj
-    ? senderId === myUserId
-      ? getUserActiveBadges(senderObj, myInventory)
-      : getUserActiveBadges(senderObj)
-    : [];
+    const activeBadgesFromSenderObj =
+      senderObj
+        ? senderId === myUserId
+          ? getUserActiveBadges(senderObj, myInventory)
+          : getUserActiveBadges(senderObj)
+        : [];
 
-const activeBadgesFromUsersMap = usersMap.get(senderId)?.activeBadges || [];
+    const activeBadgesFromUsersMap = usersMap.get(senderId)?.activeBadges || [];
 
-const activeBadges =
-  activeBadgesFromSnapshot.length > 0
-    ? activeBadgesFromSnapshot
-    : activeBadgesFromSenderObj.length > 0
-      ? activeBadgesFromSenderObj
-      : activeBadgesFromUsersMap;
+    const activeBadges =
+      activeBadgesFromSnapshot.length > 0
+        ? activeBadgesFromSnapshot
+        : activeBadgesFromSenderObj.length > 0
+          ? activeBadgesFromSenderObj
+          : activeBadgesFromUsersMap;
 
     const customEmojiBadge =
       snap?.customEmojiBadge && typeof snap.customEmojiBadge === "object"
@@ -1546,48 +1546,48 @@ const activeBadges =
         }
         : undefined,
 
-game:
-  isAnaTitleGame
-    ? {
-        gameType: "ana_title",
-        gameId: String(m?._id || "").trim(),
-        title: String(m?.meta?.role || m?.role || m?.content || "").trim(),
-        state: "result",
-        turnUserId: "",
-        winnerUserId: "",
-        payload: {
-          game: "ana_title_game",
-          targetName: String(m?.meta?.targetName || m?.targetName || "").trim(),
-          title: String(m?.meta?.role || m?.role || m?.content || "").trim(),
-          botName: String(m?.meta?.actorName || m?.actorName || "game").trim(),
-        },
-      }
-    : isLookalikeGame
-      ? {
-          gameType: "lookalike",
-          gameId: String(m?._id || "").trim(),
-          title: String(m?.meta?.role || m?.role || m?.content || "").trim(),
-          state: "result",
-          turnUserId: "",
-          winnerUserId: "",
-          payload: {
-            game: "lookalike_game",
-            targetName: String(m?.meta?.targetName || m?.targetName || "").trim(),
+      game:
+        isAnaTitleGame
+          ? {
+            gameType: "ana_title",
+            gameId: String(m?._id || "").trim(),
             title: String(m?.meta?.role || m?.role || m?.content || "").trim(),
-            botName: String(m?.meta?.actorName || m?.actorName || "game").trim(),
-          },
-        }
-      : backendType === "game"
-        ? {
-            gameType: String(m?.gameType || m?.game?.gameType || "").trim(),
-            gameId: String(m?.game?.gameId || "").trim(),
-            title: String(m?.game?.title || m?.content || "").trim(),
-            state: String(m?.game?.state || "").trim(),
-            turnUserId: String(m?.game?.turnUserId || "").trim(),
-            winnerUserId: String(m?.game?.winnerUserId || "").trim(),
-            payload: m?.game?.payload || null,
+            state: "result",
+            turnUserId: "",
+            winnerUserId: "",
+            payload: {
+              game: "ana_title_game",
+              targetName: String(m?.meta?.targetName || m?.targetName || "").trim(),
+              title: String(m?.meta?.role || m?.role || m?.content || "").trim(),
+              botName: String(m?.meta?.actorName || m?.actorName || "game").trim(),
+            },
           }
-        : undefined,
+          : isLookalikeGame
+            ? {
+              gameType: "lookalike",
+              gameId: String(m?._id || "").trim(),
+              title: String(m?.meta?.role || m?.role || m?.content || "").trim(),
+              state: "result",
+              turnUserId: "",
+              winnerUserId: "",
+              payload: {
+                game: "lookalike_game",
+                targetName: String(m?.meta?.targetName || m?.targetName || "").trim(),
+                title: String(m?.meta?.role || m?.role || m?.content || "").trim(),
+                botName: String(m?.meta?.actorName || m?.actorName || "game").trim(),
+              },
+            }
+            : backendType === "game"
+              ? {
+                gameType: String(m?.gameType || m?.game?.gameType || "").trim(),
+                gameId: String(m?.game?.gameId || "").trim(),
+                title: String(m?.game?.title || m?.content || "").trim(),
+                state: String(m?.game?.state || "").trim(),
+                turnUserId: String(m?.game?.turnUserId || "").trim(),
+                winnerUserId: String(m?.game?.winnerUserId || "").trim(),
+                payload: m?.game?.payload || null,
+              }
+              : undefined,
       text: messageText,
       uri: m?.media?.url,
       mediaMimeType: String(m?.media?.mimeType || ""),
@@ -1943,31 +1943,31 @@ game:
           replyTo: replyTo?.serverId || replyTo?.id,
           mentions: [],
           sender: currentUserId,
-        senderSnapshot: meInRoom
-  ? {
-      _id: meInRoom._id,
-      username: meInRoom.username,
-      atUsername: me?.atUsername || "",
-      avatar: meInRoom.avatar,
-      avatarGif:
-        meInRoom?.activeCustomization?.avatarGif || meInRoom?.avatarGif || "",
-      coverImage: me?.coverImage || "",
-      usernameColor:
-        meInRoom?.activeCustomization?.usernameColor || meInRoom?.usernameColor || "",
-      messageTextColor:
-        meInRoom?.activeCustomization?.messageTextColor || meInRoom?.messageTextColor || "",
-      isOnline: true,
-      verificationType:
-        meInRoom?.verificationType || me?.verificationType || "none",
-      activeCustomization:
-        meInRoom?.activeCustomization || { badges: [] },
-      inventory: Array.isArray(myInventory) ? myInventory : [],
-      activeBadgesResolved: normalizeResolvedBadges(
-        (meInRoom as any)?.activeBadgesResolved
-      ),
-      customEmojiBadge:
-        meInRoom?.customEmojiBadge || me?.customEmojiBadge || null,
-    }
+          senderSnapshot: meInRoom
+            ? {
+              _id: meInRoom._id,
+              username: meInRoom.username,
+              atUsername: me?.atUsername || "",
+              avatar: meInRoom.avatar,
+              avatarGif:
+                meInRoom?.activeCustomization?.avatarGif || meInRoom?.avatarGif || "",
+              coverImage: me?.coverImage || "",
+              usernameColor:
+                meInRoom?.activeCustomization?.usernameColor || meInRoom?.usernameColor || "",
+              messageTextColor:
+                meInRoom?.activeCustomization?.messageTextColor || meInRoom?.messageTextColor || "",
+              isOnline: true,
+              verificationType:
+                meInRoom?.verificationType || me?.verificationType || "none",
+              activeCustomization:
+                meInRoom?.activeCustomization || { badges: [] },
+              inventory: Array.isArray(myInventory) ? myInventory : [],
+              activeBadgesResolved: normalizeResolvedBadges(
+                (meInRoom as any)?.activeBadgesResolved
+              ),
+              customEmojiBadge:
+                meInRoom?.customEmojiBadge || me?.customEmojiBadge || null,
+            }
             : me
               ? {
                 _id: me._id,
@@ -2011,117 +2011,117 @@ game:
       Alert.alert("Error", e?.message || "Send failed");
     }
   };
-function getFileNameFromUri(uri: string, fallback: string) {
-  const cleanUri = String(uri || "").split("?")[0];
-  const name = cleanUri.split("/").pop();
+  function getFileNameFromUri(uri: string, fallback: string) {
+    const cleanUri = String(uri || "").split("?")[0];
+    const name = cleanUri.split("/").pop();
 
-  if (name && name.includes(".")) return name;
+    if (name && name.includes(".")) return name;
 
-  return fallback;
-}
-
-function getRoomUploadFile(params: {
-  uri: string;
-  name?: string | null;
-  mimeType?: string | null;
-  fallbackName: string;
-  fallbackType: string;
-}): LocalUploadFile {
-  return {
-    uri: params.uri,
-    name:
-      String(params.name || "").trim() ||
-      getFileNameFromUri(params.uri, params.fallbackName),
-    type: String(params.mimeType || "").trim() || params.fallbackType,
-  };
-}
-const sendImage = async () => {
-  if (!roomId) return;
-
-  const res = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    quality: 0.85,
-    allowsEditing: false,
-  });
-
-  if (res.canceled) return;
-
-  const asset = res.assets?.[0];
-  const localUri = asset?.uri;
-
-  if (!asset || !localUri) return;
-
-  try {
-    setUploading({
-      visible: true,
-      title: "جاري رفع الصورة…",
-      sub: "يتم تجهيز الصورة وإرسالها",
-      startedAt: Date.now(),
-      previewUri: localUri,
-      kind: "image",
-    });
-
-    const clientId = `image:${Date.now()}:${Math.random()
-      .toString(16)
-      .slice(2)}`;
-
-    const file = getRoomUploadFile({
-      uri: localUri,
-      name: asset.fileName || null,
-      mimeType: asset.mimeType || null,
-      fallbackName: `room-image-${Date.now()}.jpg`,
-      fallbackType: "image/jpeg",
-    });
-
-    console.log("[Room Upload][Image] file:", file);
-
-    const uploaded = await uploadSingleFile({
-      file,
-      folder: "rooms",
-      userId: myUserId,
-      extraFields: {
-        source: "room",
-        roomId,
-        mediaType: "image",
-      },
-    });
-
-    console.log("[Room Upload][Image] uploaded:", uploaded);
-
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        clientId,
-        content: "📷 Image",
-        type: "image",
-        media: {
-          url: uploaded.url,
-          publicId: uploaded.publicId,
-          resourceType: uploaded.resourceType,
-          mimeType: file.type,
-          fileName: file.name,
-          size: uploaded.bytes,
-          width: uploaded.width,
-          height: uploaded.height,
-        },
-      } as any)
-    ).unwrap();
-
-    scrollToBottom();
-  } catch (e: any) {
-    console.log("[Room Upload][Image] error:", e);
-    Alert.alert("Error", e?.message || "Upload failed");
-  } finally {
-    setUploading({
-      visible: false,
-      title: "Uploading…",
-      sub: undefined,
-      startedAt: undefined,
-      previewUri: undefined,
-      kind: undefined,
-    });
+    return fallback;
   }
-};
+
+  function getRoomUploadFile(params: {
+    uri: string;
+    name?: string | null;
+    mimeType?: string | null;
+    fallbackName: string;
+    fallbackType: string;
+  }): LocalUploadFile {
+    return {
+      uri: params.uri,
+      name:
+        String(params.name || "").trim() ||
+        getFileNameFromUri(params.uri, params.fallbackName),
+      type: String(params.mimeType || "").trim() || params.fallbackType,
+    };
+  }
+  const sendImage = async () => {
+    if (!roomId) return;
+
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      allowsEditing: false,
+    });
+
+    if (res.canceled) return;
+
+    const asset = res.assets?.[0];
+    const localUri = asset?.uri;
+
+    if (!asset || !localUri) return;
+
+    try {
+      setUploading({
+        visible: true,
+        title: "جاري رفع الصورة…",
+        sub: "يتم تجهيز الصورة وإرسالها",
+        startedAt: Date.now(),
+        previewUri: localUri,
+        kind: "image",
+      });
+
+      const clientId = `image:${Date.now()}:${Math.random()
+        .toString(16)
+        .slice(2)}`;
+
+      const file = getRoomUploadFile({
+        uri: localUri,
+        name: asset.fileName || null,
+        mimeType: asset.mimeType || null,
+        fallbackName: `room-image-${Date.now()}.jpg`,
+        fallbackType: "image/jpeg",
+      });
+
+      console.log("[Room Upload][Image] file:", file);
+
+      const uploaded = await uploadSingleFile({
+        file,
+        folder: "rooms",
+        userId: myUserId,
+        extraFields: {
+          source: "room",
+          roomId,
+          mediaType: "image",
+        },
+      });
+
+      console.log("[Room Upload][Image] uploaded:", uploaded);
+
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          clientId,
+          content: "📷 Image",
+          type: "image",
+          media: {
+            url: uploaded.url,
+            publicId: uploaded.publicId,
+            resourceType: uploaded.resourceType,
+            mimeType: file.type,
+            fileName: file.name,
+            size: uploaded.bytes,
+            width: uploaded.width,
+            height: uploaded.height,
+          },
+        } as any)
+      ).unwrap();
+
+      scrollToBottom();
+    } catch (e: any) {
+      console.log("[Room Upload][Image] error:", e);
+      Alert.alert("Error", e?.message || "Upload failed");
+    } finally {
+      setUploading({
+        visible: false,
+        title: "Uploading…",
+        sub: undefined,
+        startedAt: undefined,
+        previewUri: undefined,
+        kind: undefined,
+      });
+    }
+  };
   // const sendImage = async () => {
   //   if (!roomId) return;
 
@@ -2226,92 +2226,92 @@ const sendImage = async () => {
       });
     }
   };
- 
-const sendGifFromDevice = async () => {
-  if (!roomId) return;
 
-  try {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ["image/gif"],
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
+  const sendGifFromDevice = async () => {
+    if (!roomId) return;
 
-    if (result.canceled) return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/gif"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
 
-    const asset = result.assets?.[0];
-    const localUri = asset?.uri;
+      if (result.canceled) return;
 
-    if (!asset || !localUri) return;
+      const asset = result.assets?.[0];
+      const localUri = asset?.uri;
 
-    const clientId = `gif:${Date.now()}:${Math.random()
-      .toString(16)
-      .slice(2)}`;
+      if (!asset || !localUri) return;
 
-    setUploading({
-      visible: true,
-      title: "جاري رفع GIF…",
-      sub: asset?.name ? `يتم رفع ${asset.name}` : "يتم رفع GIF وإرساله",
-      startedAt: Date.now(),
-      previewUri: localUri,
-      kind: "gif",
-    });
+      const clientId = `gif:${Date.now()}:${Math.random()
+        .toString(16)
+        .slice(2)}`;
 
-    const file = getRoomUploadFile({
-      uri: localUri,
-      name: asset.name || null,
-      mimeType: asset.mimeType || "image/gif",
-      fallbackName: `room-gif-${Date.now()}.gif`,
-      fallbackType: "image/gif",
-    });
+      setUploading({
+        visible: true,
+        title: "جاري رفع GIF…",
+        sub: asset?.name ? `يتم رفع ${asset.name}` : "يتم رفع GIF وإرساله",
+        startedAt: Date.now(),
+        previewUri: localUri,
+        kind: "gif",
+      });
 
-
-    const uploaded = await uploadSingleFile({
-      file,
-      folder: "rooms",
-      userId: myUserId,
-      extraFields: {
-        source: "room",
-        roomId,
-        mediaType: "gif",
-      },
-    });
+      const file = getRoomUploadFile({
+        uri: localUri,
+        name: asset.name || null,
+        mimeType: asset.mimeType || "image/gif",
+        fallbackName: `room-gif-${Date.now()}.gif`,
+        fallbackType: "image/gif",
+      });
 
 
-    await dispatch(
-      sendRoomMessage({
-        roomId,
-        clientId,
-        content: "GIF",
-        type: "image",
-        media: {
-          url: uploaded.url,
-          publicId: uploaded.publicId,
-          resourceType: uploaded.resourceType,
-          mimeType: file.type,
-          fileName: file.name,
-          size: uploaded.bytes,
-          width: uploaded.width,
-          height: uploaded.height,
+      const uploaded = await uploadSingleFile({
+        file,
+        folder: "rooms",
+        userId: myUserId,
+        extraFields: {
+          source: "room",
+          roomId,
+          mediaType: "gif",
         },
-      } as any)
-    ).unwrap();
+      });
 
-    scrollToBottom();
-  } catch (e: any) {
-    console.log("[Room Upload][GIF] error:", e);
-    Alert.alert("Error", e?.message || "GIF upload failed");
-  } finally {
-    setUploading({
-      visible: false,
-      title: "Uploading…",
-      sub: undefined,
-      startedAt: undefined,
-      previewUri: undefined,
-      kind: undefined,
-    });
-  }
-};
+
+      await dispatch(
+        sendRoomMessage({
+          roomId,
+          clientId,
+          content: "GIF",
+          type: "image",
+          media: {
+            url: uploaded.url,
+            publicId: uploaded.publicId,
+            resourceType: uploaded.resourceType,
+            mimeType: file.type,
+            fileName: file.name,
+            size: uploaded.bytes,
+            width: uploaded.width,
+            height: uploaded.height,
+          },
+        } as any)
+      ).unwrap();
+
+      scrollToBottom();
+    } catch (e: any) {
+      console.log("[Room Upload][GIF] error:", e);
+      Alert.alert("Error", e?.message || "GIF upload failed");
+    } finally {
+      setUploading({
+        visible: false,
+        title: "Uploading…",
+        sub: undefined,
+        startedAt: undefined,
+        previewUri: undefined,
+        kind: undefined,
+      });
+    }
+  };
   /* ================= RECORDING ================= */
   const startRecording = async () => {
     try {
@@ -2987,93 +2987,93 @@ await dispatch(
             }}
           />
         )} */}
-{!!pendingVoiceUri && (
-  <VoiceRecorderPreview
-    uri={pendingVoiceUri}
-    topOffset={insets.top + 56}
-    onCancel={() => setPendingVoiceUri(null)}
-    onSend={async () => {
-      if (!roomId || !pendingVoiceUri) return;
+        {!!pendingVoiceUri && (
+          <VoiceRecorderPreview
+            uri={pendingVoiceUri}
+            topOffset={insets.top + 56}
+            onCancel={() => setPendingVoiceUri(null)}
+            onSend={async () => {
+              if (!roomId || !pendingVoiceUri) return;
 
-      try {
-        setUploading({
-          visible: true,
-          title: "جاري رفع الصوت…",
-          sub: "يرجى الانتظار",
-          startedAt: Date.now(),
-          previewUri: undefined,
-          kind: undefined,
-        });
+              try {
+                setUploading({
+                  visible: true,
+                  title: "جاري رفع الصوت…",
+                  sub: "يرجى الانتظار",
+                  startedAt: Date.now(),
+                  previewUri: undefined,
+                  kind: undefined,
+                });
 
-        const clientId = `voice:${Date.now()}:${Math.random()
-          .toString(16)
-          .slice(2)}`;
+                const clientId = `voice:${Date.now()}:${Math.random()
+                  .toString(16)
+                  .slice(2)}`;
 
-        const file = getRoomUploadFile({
-          uri: pendingVoiceUri,
-          name: `voice-${Date.now()}.m4a`,
-          mimeType: "audio/mp4",
-          fallbackName: `voice-${Date.now()}.m4a`,
-          fallbackType: "audio/mp4",
-        });
+                const file = getRoomUploadFile({
+                  uri: pendingVoiceUri,
+                  name: `voice-${Date.now()}.m4a`,
+                  mimeType: "audio/mp4",
+                  fallbackName: `voice-${Date.now()}.m4a`,
+                  fallbackType: "audio/mp4",
+                });
 
-        console.log("[Room Upload][Voice] file:", file);
+                console.log("[Room Upload][Voice] file:", file);
 
-        const uploaded = await uploadSingleFile({
-          file,
-          folder: "voice",
-          userId: myUserId,
-          extraFields: {
-            source: "room",
-            roomId,
-            mediaType: "voice",
-          },
-        });
+                const uploaded = await uploadSingleFile({
+                  file,
+                  folder: "voice",
+                  userId: myUserId,
+                  extraFields: {
+                    source: "room",
+                    roomId,
+                    mediaType: "voice",
+                  },
+                });
 
-        console.log("[Room Upload][Voice] uploaded:", uploaded);
+                console.log("[Room Upload][Voice] uploaded:", uploaded);
 
-        await dispatch(
-          sendRoomMessage({
-            roomId,
-            clientId,
-            content: "🎤 Voice message",
-            type: "audio",
-            media: {
-              url: uploaded.url,
-              publicId: uploaded.publicId,
-              resourceType: uploaded.resourceType,
-              mimeType: file.type,
-              fileName: file.name,
-              size: uploaded.bytes,
-              duration: uploaded.duration,
-            },
-          } as any)
-        ).unwrap();
+                await dispatch(
+                  sendRoomMessage({
+                    roomId,
+                    clientId,
+                    content: "🎤 Voice message",
+                    type: "audio",
+                    media: {
+                      url: uploaded.url,
+                      publicId: uploaded.publicId,
+                      resourceType: uploaded.resourceType,
+                      mimeType: file.type,
+                      fileName: file.name,
+                      size: uploaded.bytes,
+                      duration: uploaded.duration,
+                    },
+                  } as any)
+                ).unwrap();
 
-        try {
-          await FileSystem.deleteAsync(pendingVoiceUri, {
-            idempotent: true,
-          });
-        } catch {}
+                try {
+                  await FileSystem.deleteAsync(pendingVoiceUri, {
+                    idempotent: true,
+                  });
+                } catch { }
 
-        setPendingVoiceUri(null);
-        scrollToBottom();
-      } catch (e: any) {
-        console.log("[Room Upload][Voice] error:", e);
-        Alert.alert("Error", e?.message || "Failed to send voice");
-      } finally {
-        setUploading({
-          visible: false,
-          title: "Uploading…",
-          sub: undefined,
-          startedAt: undefined,
-          previewUri: undefined,
-          kind: undefined,
-        });
-      }
-    }}
-  />
-)}
+                setPendingVoiceUri(null);
+                scrollToBottom();
+              } catch (e: any) {
+                console.log("[Room Upload][Voice] error:", e);
+                Alert.alert("Error", e?.message || "Failed to send voice");
+              } finally {
+                setUploading({
+                  visible: false,
+                  title: "Uploading…",
+                  sub: undefined,
+                  startedAt: undefined,
+                  previewUri: undefined,
+                  kind: undefined,
+                });
+              }
+            }}
+          />
+        )}
         {/* ================= CHAT ================= */}
         <FlatList
           ref={flatListRef}
@@ -3296,7 +3296,19 @@ await dispatch(
               </TouchableOpacity>
 
               {!!inviteSearchResults?.length && (
-                <View style={{ marginTop: 12, gap: 8 }}>
+                <ScrollView
+                  style={{
+                    marginTop: 12,
+                    maxHeight: 260,
+                  }}
+                  contentContainerStyle={{
+                    gap: 8,
+                    paddingBottom: 8,
+                  }}
+                  showsVerticalScrollIndicator
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled
+                >
                   {inviteSearchResults.map((user: any) => {
                     const userId = String(user?._id || user?.id || "");
                     const isSelected =
@@ -3308,6 +3320,7 @@ await dispatch(
                         key={userId}
                         activeOpacity={0.85}
                         onPress={() => setSelectedInviteUser(user)}
+                        disabled={isSending}
                         style={{
                           borderWidth: 1,
                           borderColor: isSelected ? theme.primary : theme.border,
@@ -3324,6 +3337,7 @@ await dispatch(
                           <Text style={{ color: theme.text, fontWeight: "700" }}>
                             {user?.username || user?.name || "User"}
                           </Text>
+
                           {!!user?.atUsername && (
                             <Text style={{ color: theme.mutedText, marginTop: 2 }}>
                               @{user.atUsername}
@@ -3332,12 +3346,16 @@ await dispatch(
                         </View>
 
                         {isSelected && (
-                          <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={20}
+                            color={theme.primary}
+                          />
                         )}
                       </TouchableOpacity>
                     );
                   })}
-                </View>
+                </ScrollView>
               )}
 
               <View style={styles.inviteActionsRow}>

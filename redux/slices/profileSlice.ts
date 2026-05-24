@@ -10,12 +10,37 @@ interface UpdateProfilePayload {
   username?: string;
   atUsername?: string;
   email?: string;
+
   avatar?: string;
+  avatarPublicId?: string;
+
+  avatarGif?: string;
+  avatarGifPublicId?: string;
+
   coverImage?: string;
+  cover?: string;
+  coverImagePublicId?: string;
+
   bio?: string;
   gender?: string;
-
   country?: string;
+
+  activeCustomization?: {
+    avatarFrame?: string;
+    avatarGif?: string;
+    usernameColor?: string;
+    messageTextColor?: string;
+    messageEffect?: string;
+    profileEntryAnimation?: string;
+    badges?: string[];
+    verificationType?: string;
+  };
+customImageBadge?: {
+  url?: string;
+  isActive?: boolean;
+  purchasedAt?: string | Date | null;
+  expiresAt?: string | Date | null;
+};
   notificationSound?: boolean;
   readReceiptsEnabled?: boolean;
 
@@ -73,18 +98,39 @@ export const updateProfile = createAsyncThunk(
   "profile/update",
   async (data: UpdateProfilePayload, thunkAPI) => {
     try {
-
+      console.log("🟡 [profileSlice][updateProfile] SEND:", {
+        keys: Object.keys(data || {}),
+        avatar: data?.avatar,
+        avatarGif: data?.avatarGif,
+        activeCustomizationAvatarGif: data?.activeCustomization?.avatarGif,
+        customImageBadge: data?.customImageBadge,
+        data,
+      });
 
       const res = await api.patch("/users/update", data);
 
+      console.log("🟢 [profileSlice][updateProfile] RESPONSE:", {
+        status: res.status,
+        userId: res.data?._id,
+        username: res.data?.username,
+        avatar: res.data?.avatar,
+        avatarGif: res.data?.avatarGif,
+        activeCustomizationAvatarGif:
+          res.data?.activeCustomization?.avatarGif,
+        customImageBadge: res.data?.customImageBadge,
+        data: res.data,
+      });
 
       // تحديث auth.user فورًا
       thunkAPI.dispatch(updateUser(res.data));
 
       return res.data;
-
     } catch (err: any) {
-
+      console.log("🔴 [profileSlice][updateProfile] ERROR:", {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data,
+      });
 
       return thunkAPI.rejectWithValue(
         err.response?.data?.message || "Update failed"

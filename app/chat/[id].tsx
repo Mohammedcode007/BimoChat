@@ -99,7 +99,7 @@ export default function ChatScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const chatId = id as string;
-
+const CHAT_INPUT_HEIGHT = 66;
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
 
@@ -178,10 +178,10 @@ export default function ChatScreen() {
   });
 
   const listSpacerAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      height: keyboardHeight.value,
-    };
-  });
+  return {
+    height: keyboardHeight.value + CHAT_INPUT_HEIGHT + Math.max(insets.bottom, 0),
+  };
+});
 
   const currentUser = useSelector(selectCurrentUser);
 
@@ -760,7 +760,25 @@ if (currentReduxMessages.length) {
       setRecordedUri(uri);
     } catch { }
   };
+const cancelRecording = async () => {
+  try {
+    if (!recordingRef.current) {
+      setIsRecording(false);
+      setRecordedUri(null);
+      return;
+    }
 
+    await recordingRef.current.stopAndUnloadAsync();
+
+    recordingRef.current = null;
+    setIsRecording(false);
+    setRecordedUri(null);
+  } catch {
+    recordingRef.current = null;
+    setIsRecording(false);
+    setRecordedUri(null);
+  }
+};
   const getReplyPreviewText = (msg: any) => {
     if (!msg) return "";
     if (msg.type === "image") return "📷 صورة";
@@ -1484,11 +1502,11 @@ const pickVideo = async () => {
         }
         keyExtractor={(item) => item._id}
         renderItem={renderMessage}
-        contentContainerStyle={{
-          paddingHorizontal: 12,
-          paddingTop: searchResultsCardVisible ? 210 : 12,
-          paddingBottom: 8,
-        }}
+      contentContainerStyle={{
+  paddingHorizontal: 12,
+  paddingTop: searchResultsCardVisible ? 210 : 12,
+  paddingBottom: 12,
+}}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         onScrollToIndexFailed={() => { }}
@@ -1513,37 +1531,44 @@ const pickVideo = async () => {
           />
         </TouchableOpacity>
       )}
-      <ChatInputBar
-        isDark={isDark}
-        isBlocked={isBlocked}
-        insetsBottom={insets.bottom}
-        inputBarAnimatedStyle={inputBarAnimatedStyle}
-        text={text}
-        isRecording={isRecording}
-        onPickVideo={pickVideo}
-        onPickImage={pickImage}
-        onSend={sendMessage}
-        onMicPressIn={startRecording}
-        onMicPressOut={stopRecording}
-        onFocus={() => {
-          setTimeout(() => {
-            flatListRef.current?.scrollToOffset?.({
-              offset: 0,
-              animated: true,
-            });
-          }, 50);
-        }}
-        onTextChange={(value) => {
-          setText(value);
+<ChatInputBar
+  isDark={isDark}
+  isBlocked={isBlocked}
+  insetsBottom={insets.bottom}
+  inputBarAnimatedStyle={inputBarAnimatedStyle}
+  text={text}
+  isRecording={isRecording}
+  onPickVideo={pickVideo}
+  onPickImage={pickImage}
+  onSend={sendMessage}
+  onMicPressIn={startRecording}
 
-          emitTyping(chatId, true);
-          clearTimeout(typingTimeout.current);
+  // ✅ ترك الضغط أو السحب لأعلى يوقف التسجيل ويظهر المعاينة
+  onMicPressOut={stopRecording}
+  onPauseRecording={stopRecording}
 
-          typingTimeout.current = setTimeout(() => {
-            emitTyping(chatId, false);
-          }, 1500);
-        }}
-      />
+  // ✅ السحب لليسار يلغي التسجيل تمامًا
+  onCancelRecording={cancelRecording}
+
+  onFocus={() => {
+    setTimeout(() => {
+      flatListRef.current?.scrollToOffset?.({
+        offset: 0,
+        animated: true,
+      });
+    }, 50);
+  }}
+  onTextChange={(value) => {
+    setText(value);
+
+    emitTyping(chatId, true);
+    clearTimeout(typingTimeout.current);
+
+    typingTimeout.current = setTimeout(() => {
+      emitTyping(chatId, false);
+    }, 1500);
+  }}
+/>
 
       <ImagePreviewModal
         imagePreview={imagePreview}

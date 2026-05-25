@@ -51,6 +51,7 @@ import {
   boostRoom,
   clearBannedFlag,
   clearKickedFlag,
+  enterRoomFast,
   fetchRoomMessages,
   fetchRoomsByType,
   fetchRoomStats,
@@ -101,6 +102,7 @@ import MessageItem from "@/components/roomScreen/MessageItem";
 import MiniAudioBar from "@/components/roomScreen/MiniAudioBar";
 import PinnedHtmlWebView from "@/components/roomScreen/PinnedHtmlWebView";
 import ReactionDetailsModal from "@/components/roomScreen/ReactionDetailsModal";
+import RoomMessageInput from "@/components/roomScreen/RoomMessageInput";
 import StickerPickerModal from "@/components/roomScreen/StickerPickerModal";
 import UploadingOverlay from "@/components/roomScreen/UploadingOverlay";
 import UsersModal from "@/components/roomScreen/UsersModal";
@@ -258,11 +260,20 @@ export default function ChatScreen() {
     };
   });
 
-  const listSpacerAnimatedStyle = useAnimatedStyle(() => {
+const listSpacerAnimatedStyle = useAnimatedStyle(
+  () => {
+    const inputHeight = inputBarHeight || 56;
+
     return {
-      height: keyboardHeight.value,
+      height:
+        keyboardHeight.value +
+        inputHeight +
+        Math.max(insets.bottom || 0, 0) -
+        8,
     };
-  });
+  },
+  [inputBarHeight, insets.bottom]
+);
   const authUser = useAppSelector((state) => state.auth.user);
   const myUserId = String((authUser as any)?._id || (authUser as any)?.id || "");
   const myName = String((authUser as any)?.username || (authUser as any)?.name || "Me");
@@ -879,6 +890,7 @@ export default function ChatScreen() {
       setInviteSendingId(null);
     }
   };
+  const enteredRoomRef = useRef<string>("");
   useEffect(() => {
     if (!roomId) return;
 
@@ -886,39 +898,26 @@ export default function ChatScreen() {
 
     const loadRoom = async () => {
       try {
-        /**
-         * لا تمسح الرسائل هنا.
-         * لو الرسائل موجودة في Redux، ستظل ظاهرة بدون فلاش.
-         */
-        joinRoomSocket(roomId);
+        const alreadyEntered = enteredRoomRef.current === roomId;
+
+        if (!alreadyEntered) {
+          enteredRoomRef.current = roomId;
+          joinRoomSocket(roomId);
+        }
 
         const hasMessages =
           Array.isArray(reduxMessages) && reduxMessages.length > 0;
 
-        const messagesPromise = hasMessages
-          ? Promise.resolve()
-          : dispatch(
-            fetchRoomMessages({
+        if (!hasMessages) {
+          await dispatch(
+            enterRoomFast({
               roomId,
-              pagination: { limit: 50 },
-              append: false,
+              limit: 20,
             })
           ).unwrap();
-
-        const usersPromise = dispatch(fetchRoomUsers(roomId)).unwrap();
-        const statsPromise = dispatch(fetchRoomStats(roomId)).unwrap();
-        const inventoryPromise = dispatch(getMyInventory() as any);
-
-        await Promise.allSettled([
-          messagesPromise,
-          usersPromise,
-          statsPromise,
-          inventoryPromise,
-        ]);
+        }
 
         if (cancelled) return;
-
-        ensureMicPermission();
       } catch (e) {
         console.log("[ChatScreen][loadRoom] error:", e);
       }
@@ -928,13 +927,66 @@ export default function ChatScreen() {
 
     return () => {
       cancelled = true;
-
-      /**
-       * لا تمسح الرسائل عند الخروج للخلف.
-       * امسحها فقط عند leave الحقيقي أو logout.
-       */
     };
+    // مهم: لا تضف reduxMessages.length هنا حتى لا يتكرر joinRoomSocket
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, dispatch]);
+  // useEffect(() => {
+  //   if (!roomId) return;
+
+  //   let cancelled = false;
+
+  //   const loadRoom = async () => {
+  //     try {
+  //       /**
+  //        * لا تمسح الرسائل هنا.
+  //        * لو الرسائل موجودة في Redux، ستظل ظاهرة بدون فلاش.
+  //        */
+  //       joinRoomSocket(roomId);
+
+  //       const hasMessages =
+  //         Array.isArray(reduxMessages) && reduxMessages.length > 0;
+
+  //       const messagesPromise = hasMessages
+  //         ? Promise.resolve()
+  //         : dispatch(
+  //           fetchRoomMessages({
+  //             roomId,
+  //             pagination: { limit: 50 },
+  //             append: false,
+  //           })
+  //         ).unwrap();
+
+  //       const usersPromise = dispatch(fetchRoomUsers(roomId)).unwrap();
+  //       const statsPromise = dispatch(fetchRoomStats(roomId)).unwrap();
+  //       const inventoryPromise = dispatch(getMyInventory() as any);
+
+  //       await Promise.allSettled([
+  //         messagesPromise,
+  //         usersPromise,
+  //         statsPromise,
+  //         inventoryPromise,
+  //       ]);
+
+  //       if (cancelled) return;
+
+  //       ensureMicPermission();
+  //     } catch (e) {
+  //       console.log("[ChatScreen][loadRoom] error:", e);
+  //     }
+  //   };
+
+  //   loadRoom();
+
+  //   return () => {
+  //     cancelled = true;
+
+  //     /**
+  //      * لا تمسح الرسائل عند الخروج للخلف.
+  //      * امسحها فقط عند leave الحقيقي أو logout.
+  //      */
+  //   };
+  // }, [roomId, dispatch]);
   // useEffect(() => {
   //   if (!roomId) return;
 
@@ -2336,7 +2388,46 @@ export default function ChatScreen() {
       setRecording(null);
     }
   };
+  const pauseRecording = async () => {
+    try {
+      if (!recording) return;
 
+      if (typeof recording.pauseAsync === "function") {
+        await recording.pauseAsync();
+      }
+    } catch (e) {
+      console.log("[RoomVoice][pauseRecording] error:", e);
+    }
+  };
+
+  const cancelRecording = async () => {
+    try {
+      if (!recording) return;
+
+      try {
+        await recording.stopAndUnloadAsync();
+      } catch { }
+
+      setRecording(null);
+      setPendingVoiceUri(null);
+    } catch (e) {
+      console.log("[RoomVoice][cancelRecording] error:", e);
+    }
+  };
+
+  const sendRecording = async () => {
+    try {
+      if (!recording) return;
+
+      /**
+       * لو دالة stopRecording عندك هي التي تحفظ وترفع وترسل الصوت،
+       * استخدمها هنا مباشرة.
+       */
+      await stopRecording();
+    } catch (e) {
+      console.log("[RoomVoice][sendRecording] error:", e);
+    }
+  };
   const stopRecording = async () => {
     try {
       if (!recording) return;
@@ -3089,10 +3180,13 @@ await dispatch(
             // كلما زاد y يعني المستخدم طلع لفوق
             setShowScrollToBottom(y > 220);
           }}
-          ListHeaderComponent={<Reanimated.View style={listSpacerAnimatedStyle} />}
+          ListHeaderComponent={
+            <Reanimated.View style={listSpacerAnimatedStyle} />
+          }
           contentContainerStyle={{
-            padding: 14,
+            paddingHorizontal: 14,
             paddingTop: replyTo ? 78 : 14,
+            paddingBottom: 10,
           }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -3171,7 +3265,7 @@ await dispatch(
 
 
         {/* ================= INPUT ================= */}
-        <Reanimated.View
+        {/* <Reanimated.View
           onLayout={(e) => {
             setInputBarHeight(e.nativeEvent.layout.height);
           }}
@@ -3230,7 +3324,32 @@ await dispatch(
               </Animated.View>
             )}
           </View>
-        </Reanimated.View>
+        </Reanimated.View> */}
+        {/* ================= INPUT ================= */}
+        <RoomMessageInput
+          text={text}
+          setText={setText}
+          uploadingVisible={uploading.visible}
+          pendingVoiceUri={pendingVoiceUri}
+          recording={recording}
+          inputBarAnimatedStyle={inputBarAnimatedStyle}
+          theme={theme}
+          onLayoutHeight={setInputBarHeight}
+          onOpenMediaPicker={() => setShowMediaPicker(true)}
+          onSendText={sendText}
+          onStartRecording={startRecording}
+          onPauseRecording={pauseRecording}
+          onCancelRecording={cancelRecording}
+          onSendRecording={sendRecording}
+          onInputFocus={() => {
+            setTimeout(() => {
+              flatListRef.current?.scrollToOffset?.({
+                offset: 0,
+                animated: true,
+              });
+            }, 50);
+          }}
+        />
         <Modal
           transparent
           visible={showInviteModal}

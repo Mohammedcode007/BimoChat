@@ -12,6 +12,19 @@ export type RoomBannedEntry = {
   bannedAt?: string;
   until?: string | null; // لو عندك حظر مؤقت
 };
+export type EnterRoomFastResponse = {
+  room: RoomItem;
+  my: {
+    userId: string;
+    role: "creator" | "owner" | "admin" | "member" | "none";
+    isInside: boolean;
+    canManage: boolean;
+  };
+  stats: RoomStats;
+  activeUsersPreview: RoomUser[];
+  messages: RoomMessage[];
+  pinnedMessage?: RoomMessage | null;
+};
 export type GiftPayload = {
   key: string;          // gift_rose / boost_rocket ...
   name: string;         // rose / boost
@@ -193,25 +206,7 @@ export type RoomUser = {
   } | null;
 };
 
-// export type RoomMessageType =
-//   | "text"
-//   | "image"
-//   | "video"
-//   | "audio"
-//   | "file"
-//   | "system"
-//   | "announcement"
-//   | "join"
-//   | "leave"
-//   | "gif"
-//   | "sticker"
-//   | "promotion"
-//   | "role"
-//   | "invitation"
-//   | "ban"
-//   | "gift"
-//   | "song"
-//   | "game";
+
 export type RoomMessageType =
   | "text"
   | "image"
@@ -1113,6 +1108,31 @@ export const sendRoomMessage = createAsyncThunk<
     return { roomId: payload.roomId, message: msg };
   } catch (e: any) {
     return thunkAPI.rejectWithValue(errMsg(e, "Send failed"));
+  }
+});
+export const enterRoomFast = createAsyncThunk<
+  { roomId: string; data: EnterRoomFastResponse },
+  { roomId: string; password?: string; limit?: number },
+  { state: RootState }
+>("room/enterRoomFast", async ({ roomId, password, limit = 20 }, thunkAPI) => {
+  try {
+    const res = await api.post(`/rooms/${roomId}/enter`, {
+      password,
+      limit,
+    });
+
+    const data: EnterRoomFastResponse = dataOf(res);
+
+    if (!data?.room?._id) {
+      return thunkAPI.rejectWithValue("Invalid enter room response");
+    }
+
+    return {
+      roomId,
+      data,
+    };
+  } catch (e: any) {
+    return thunkAPI.rejectWithValue(errMsg(e, "Enter room failed"));
   }
 });
 export const sendBombColorAnswer = createAsyncThunk<
@@ -2318,6 +2338,89 @@ const roomSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
+      .addCase(enterRoomFast.pending, (state) => {
+        state.loadingMessages = true;
+        state.error = undefined;
+      })
+.addCase(enterRoomFast.fulfilled, (state, action) => {
+  const { roomId, data } = action.payload;
+
+  state.activeRoomId = roomId;
+
+  const existingIndex = state.rooms.findIndex(
+    (r) => String(r._id) === String(roomId)
+  );
+
+  const roomItem: RoomItem = {
+    ...(data.room as any),
+    isActive: true,
+  };
+
+  if (existingIndex >= 0) {
+    state.rooms[existingIndex] = {
+      ...state.rooms[existingIndex],
+      ...roomItem,
+    };
+  } else {
+    state.rooms.unshift(roomItem);
+  }
+
+  const messagesList = Array.isArray(data.messages)
+    ? [...data.messages]
+    : [];
+
+  dedupeMessages(messagesList);
+
+  state.messagesByRoom[roomId] = messagesList;
+
+  if (data.pinnedMessage) {
+    const exists = state.messagesByRoom[roomId].some(
+      (m) => String(m._id) === String(data.pinnedMessage?._id)
+    );
+
+    if (!exists) {
+      state.messagesByRoom[roomId].push(data.pinnedMessage);
+    }
+  }
+
+  state.usersByRoom[roomId] = Array.isArray(data.activeUsersPreview)
+    ? data.activeUsersPreview
+    : [];
+
+  state.activeCountByRoom[roomId] = Number(
+    data.stats?.activeCount || 0
+  );
+
+  state.detailsByRoom[roomId] = {
+    room: {
+      ...(data.room as any),
+      totalRevenue: Number((data.room as any)?.totalRevenue || 0),
+      isVerified: Boolean((data.room as any)?.isVerified),
+      passwordProtected: data.room.type === "protected",
+      membersCount: Number(data.room.usersCount || 0),
+    },
+    lists: {
+      creator: {} as any,
+      owners: [],
+      admins: [],
+      activeUsers: Array.isArray(data.activeUsersPreview)
+        ? data.activeUsersPreview
+        : [],
+      voiceSpeakers: [],
+      voiceQueue: [],
+      raisedHands: [],
+      vipUsers: [],
+      mutedUsers: [],
+    },
+    my: data.my,
+  };
+
+  state.loadingMessages = false;
+})
+      .addCase(enterRoomFast.rejected, (state, action) => {
+        state.loadingMessages = false;
+        state.error = String(action.payload || "Enter room failed");
+      })
       // ====== BANNED LIST ======
       .addCase(enterRoomDirect.pending, (state) => {
         state.mutatingRoom = true;

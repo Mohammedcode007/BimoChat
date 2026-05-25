@@ -12,13 +12,13 @@ import "@/services/notificationTasks";
 import { registerBackgroundNotificationTask } from '@/services/notificationTasks';
 import { attachSocketListeners, connectSocket, disconnectSocket } from '@/services/socket';
 import {
-  Cairo_400Regular,
-  Cairo_500Medium,
-  Cairo_600SemiBold,
-  Cairo_700Bold,
-  Cairo_800ExtraBold,
+  NotoKufiArabic_400Regular,
+  NotoKufiArabic_500Medium,
+  NotoKufiArabic_600SemiBold,
+  NotoKufiArabic_700Bold,
+  NotoKufiArabic_800ExtraBold,
   useFonts,
-} from "@expo-google-fonts/cairo";
+} from "@expo-google-fonts/noto-kufi-arabic";
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -215,11 +215,11 @@ export default function RootLayout() {
 
 const { colorScheme } = useColorScheme();
 const [fontsLoaded] = useFonts({
-  CairoRegular: Cairo_400Regular,
-  CairoMedium: Cairo_500Medium,
-  CairoSemiBold: Cairo_600SemiBold,
-  CairoBold: Cairo_700Bold,
-  CairoExtraBold: Cairo_800ExtraBold,
+  NotoKufiRegular: NotoKufiArabic_400Regular,
+  NotoKufiMedium: NotoKufiArabic_500Medium,
+  NotoKufiSemiBold: NotoKufiArabic_600SemiBold,
+  NotoKufiBold: NotoKufiArabic_700Bold,
+  NotoKufiExtraBold: NotoKufiArabic_800ExtraBold,
 });
 
 if (!fontsLoaded) {

@@ -25,10 +25,9 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useHideTabBarOnScroll } from "@/hooks/useHideTabBarOnScroll";
 import {
   createRoom as createRoomThunk,
-  enterRoomDirect,
+  enterRoomFast,
   fetchFavoriteRooms,
   fetchRoomsByType,
-  joinRoomAndEnter,
   searchRooms as searchRoomsThunk,
   selectFavoriteRooms,
   selectLoadingFavoriteRooms,
@@ -64,8 +63,14 @@ type RoomUI = {
 const PAGE_SIZE = 30;
 
 // ✅ NEW TAB
-const TABS = ["All", "Active", "Trending", "VIP", "Favorite"] as const;
-type TabType = (typeof TABS)[number];
+const TABS = [
+  { key: "All", label: "All", icon: "grid-outline" },
+  { key: "Active", label: "Active", icon: "radio-outline" },
+  { key: "VIP", label: "VIP", icon: "star-outline" },
+  { key: "Favorite", label: "Favorite", icon: "heart-outline" },
+] as const;
+
+type TabType = (typeof TABS)[number]["key"];
 
 const Badge = memo(function Badge({
   icon,
@@ -308,30 +313,30 @@ export default function RoomsScreen() {
     },
     [router]
   );
-const markRoomEntered = useCallback((roomId: string) => {
-  const id = String(roomId || "").trim();
-  if (!id) return;
+  const markRoomEntered = useCallback((roomId: string) => {
+    const id = String(roomId || "").trim();
+    if (!id) return;
 
-  enteredRoomIdsRef.current[id] = true;
+    enteredRoomIdsRef.current[id] = true;
 
-  setEnteredRoomIds((prev) => {
-    if (prev[id]) return prev;
-    return {
-      ...prev,
-      [id]: true,
-    };
-  });
-
-  const existing = accRef.current.get(id);
-  if (existing) {
-    accRef.current.set(id, {
-      ...existing,
-      isActive: true,
+    setEnteredRoomIds((prev) => {
+      if (prev[id]) return prev;
+      return {
+        ...prev,
+        [id]: true,
+      };
     });
 
-    setRooms(Array.from(accRef.current.values()));
-  }
-}, []);
+    const existing = accRef.current.get(id);
+    if (existing) {
+      accRef.current.set(id, {
+        ...existing,
+        isActive: true,
+      });
+
+      setRooms(Array.from(accRef.current.values()));
+    }
+  }, []);
   // ✅ لو فشل join بسبب ban: نخزنها محليًا ونمنع محاولة الدخول + نظهر Badge
   const [bannedByRoomId, setBannedByRoomId] = useState<Record<string, string>>({});
   const myUserId = useAppSelector((state) => state.auth.user?._id);
@@ -367,53 +372,53 @@ const markRoomEntered = useCallback((roomId: string) => {
       dispatch(fetchRoomsByType({ type: backendType, page: 1, limit: PAGE_SIZE }));
     }
   }, [dispatch, backendType, isFavoriteTab]);
-const keepRoomActiveState = useCallback(
-  (ui: RoomUI): RoomUI => {
-    const id = String(ui.id || "");
+  const keepRoomActiveState = useCallback(
+    (ui: RoomUI): RoomUI => {
+      const id = String(ui.id || "");
 
-    const wasActiveBefore = Boolean(accRef.current.get(id)?.isActive);
-    const enteredBefore = Boolean(enteredRoomIdsRef.current[id]);
-    const isCurrentActiveRoom = String(activeRoomId || "") === id;
+      const wasActiveBefore = Boolean(accRef.current.get(id)?.isActive);
+      const enteredBefore = Boolean(enteredRoomIdsRef.current[id]);
+      const isCurrentActiveRoom = String(activeRoomId || "") === id;
 
-    const isActive =
-      Boolean(ui.isActive) ||
-      wasActiveBefore ||
-      enteredBefore ||
-      isCurrentActiveRoom;
+      const isActive =
+        Boolean(ui.isActive) ||
+        wasActiveBefore ||
+        enteredBefore ||
+        isCurrentActiveRoom;
 
-    if (isActive) {
-      enteredRoomIdsRef.current[id] = true;
-    }
+      if (isActive) {
+        enteredRoomIdsRef.current[id] = true;
+      }
 
-    return {
-      ...ui,
-      isActive,
-    };
-  },
-  [activeRoomId]
-);
+      return {
+        ...ui,
+        isActive,
+      };
+    },
+    [activeRoomId]
+  );
   /* =====================================================
      ✅ Accumulate rooms from redux -> local map (stable)
   ===================================================== */
   useEffect(() => {
-  const sourceRooms = isFavoriteTab ? reduxFavoriteRooms : reduxRooms;
-  if (!sourceRooms) return;
+    const sourceRooms = isFavoriteTab ? reduxFavoriteRooms : reduxRooms;
+    if (!sourceRooms) return;
 
-  const nextMap = new Map(accRef.current);
+    const nextMap = new Map(accRef.current);
 
-  for (const r of sourceRooms) {
-    const ui = keepRoomActiveState(mapRoomToUI(r));
-    nextMap.set(ui.id, ui);
-  }
+    for (const r of sourceRooms) {
+      const ui = keepRoomActiveState(mapRoomToUI(r));
+      nextMap.set(ui.id, ui);
+    }
 
-  accRef.current = nextMap;
-  setRooms(Array.from(nextMap.values()));
-}, [
-  reduxRooms,
-  reduxFavoriteRooms,
-  isFavoriteTab,
-  keepRoomActiveState,
-]);
+    accRef.current = nextMap;
+    setRooms(Array.from(nextMap.values()));
+  }, [
+    reduxRooms,
+    reduxFavoriteRooms,
+    isFavoriteTab,
+    keepRoomActiveState,
+  ]);
 
   /* =====================================================
      ✅ Refresh
@@ -428,28 +433,28 @@ const keepRoomActiveState = useCallback(
 
       setPage(1);
 
-const activeSnapshot: Record<string, boolean> = {};
+      const activeSnapshot: Record<string, boolean> = {};
 
-for (const room of accRef.current.values()) {
-  const id = String(room.id || "");
-  if (
-    room.isActive ||
-    enteredRoomIdsRef.current[id] ||
-    String(activeRoomId || "") === id
-  ) {
-    activeSnapshot[id] = true;
-  }
-}
+      for (const room of accRef.current.values()) {
+        const id = String(room.id || "");
+        if (
+          room.isActive ||
+          enteredRoomIdsRef.current[id] ||
+          String(activeRoomId || "") === id
+        ) {
+          activeSnapshot[id] = true;
+        }
+      }
 
-enteredRoomIdsRef.current = {
-  ...enteredRoomIdsRef.current,
-  ...activeSnapshot,
-};
+      enteredRoomIdsRef.current = {
+        ...enteredRoomIdsRef.current,
+        ...activeSnapshot,
+      };
 
-setEnteredRoomIds((prev) => ({
-  ...prev,
-  ...activeSnapshot,
-}));
+      setEnteredRoomIds((prev) => ({
+        ...prev,
+        ...activeSnapshot,
+      }));
 
       accRef.current = new Map();
       setRooms([]);
@@ -469,13 +474,13 @@ setEnteredRoomIds((prev) => ({
       setSearching(false);
       setRefreshing(false);
     }
- }, [
-  dispatch,
-  backendType,
-  search,
-  isFavoriteTab,
-  activeRoomId,
-]); 
+  }, [
+    dispatch,
+    backendType,
+    search,
+    isFavoriteTab,
+    activeRoomId,
+  ]);
   /* =====================================================
      ✅ Load more (pagination)
   ===================================================== */
@@ -573,7 +578,7 @@ setEnteredRoomIds((prev) => ({
     // ✅ NEW TAB FILTER
     if (tab === "Active") data = data.filter((r) => Boolean(r.isActive));
 
-    if (tab === "Trending") data = data.filter((r) => r.isTrending);
+    // if (tab === "Trending") data = data.filter((r) => r.isTrending);
     if (tab === "VIP") data = data.filter((r) => r.isVIP);
     if (tab === "Favorite") data = data.filter((r) => r.isFavorite);
     // if (tab === "Voice") data = data.filter((r) => r.isVoice);
@@ -645,134 +650,241 @@ setEnteredRoomIds((prev) => ({
   }, []);
 
 
-  const enterActiveRoomDirect = useCallback(
-    async (roomId: string) => {
-      if (joining) return;
+  // const enterActiveRoomDirect = useCallback(
+  //   async (roomId: string) => {
+  //     if (joining) return;
 
-      const room = rooms.find((r) => String(r.id) === String(roomId));
+  //     const room = rooms.find((r) => String(r.id) === String(roomId));
 
-      const alreadyInside =
-        String(activeRoomId || "") === String(roomId) ||
-        Boolean(room?.isActive) ||
-        Boolean(enteredRoomIds[String(roomId)]);
+  //     const alreadyInside =
+  //       String(activeRoomId || "") === String(roomId) ||
+  //       Boolean(room?.isActive) ||
+  //       Boolean(enteredRoomIds[String(roomId)]);
 
-      if (alreadyInside) {
-        setJoining(false);
-        setError("");
-        markRoomEntered(roomId);
-        goToRoom(roomId);
-        return;
-      }
+  //     if (alreadyInside) {
+  //       setJoining(false);
+  //       setError("");
+  //       markRoomEntered(roomId);
+  //       goToRoom(roomId);
+  //       return;
+  //     }
 
-      try {
-        setJoining(true);
-        setError("");
+  //     try {
+  //       setJoining(true);
+  //       setError("");
 
-        await dispatch(
-          enterRoomDirect({ roomId, preload: true })
-        ).unwrap();
+  //       await dispatch(
+  //         enterRoomDirect({ roomId, preload: true })
+  //       ).unwrap();
 
-        markRoomEntered(roomId);
+  //       markRoomEntered(roomId);
 
-        setJoining(false);
-        goToRoom(roomId);
-      } catch (e: any) {
-        const msgStr = String(e?.message || e || "Enter room failed");
-        setError(msgStr);
-        setJoining(false);
-      }
-    },
-    [
-      dispatch,
-      joining,
-      activeRoomId,
-      rooms,
-      enteredRoomIds,
-      markRoomEntered,
-      goToRoom,
-    ]
-  );
+  //       setJoining(false);
+  //       goToRoom(roomId);
+  //     } catch (e: any) {
+  //       const msgStr = String(e?.message || e || "Enter room failed");
+  //       setError(msgStr);
+  //       setJoining(false);
+  //     }
+  //   },
+  //   [
+  //     dispatch,
+  //     joining,
+  //     activeRoomId,
+  //     rooms,
+  //     enteredRoomIds,
+  //     markRoomEntered,
+  //     goToRoom,
+  //   ]
+  // );
+  
+  
+  // const doJoin = useCallback(
+  //   async (roomId: string, password?: string) => {
+  //     if (joining) return;
+
+  //     const room = rooms.find((r) => String(r.id) === String(roomId));
+
+  //     const alreadyInside =
+  //       String(activeRoomId || "") === String(roomId) ||
+  //       Boolean(room?.isActive) ||
+  //       Boolean(enteredRoomIds[String(roomId)]);
+
+  //     if (alreadyInside) {
+  //       setJoining(false);
+  //       setError("");
+  //       markRoomEntered(roomId);
+  //       goToRoom(roomId);
+  //       return;
+  //     }
+
+  //     try {
+  //       setJoining(true);
+  //       setError("");
+
+  //       await dispatch(
+  //         joinRoomAndEnter({ roomId, preload: true, password })
+  //       ).unwrap();
+
+  //       markRoomEntered(roomId);
+
+  //       setJoining(false);
+  //       goToRoom(roomId);
+  //     } catch (e: any) {
+  //       const msgStr = String(e?.message || e || "Join failed");
+
+  //       if (isBanMessage(msgStr)) {
+  //         markRoomBanned(roomId, msgStr);
+  //       }
+
+  //       setError(msgStr);
+  //       setJoining(false);
+  //     }
+  //   },
+  //   [
+  //     dispatch,
+  //     joining,
+  //     activeRoomId,
+  //     rooms,
+  //     enteredRoomIds,
+  //     markRoomEntered,
+  //     goToRoom,
+  //     isBanMessage,
+  //     markRoomBanned,
+  //   ]
+  // );
+
   const doJoin = useCallback(
-    async (roomId: string, password?: string) => {
-      if (joining) return;
+  async (roomId: string, password?: string) => {
+    if (joining) return;
 
-      const room = rooms.find((r) => String(r.id) === String(roomId));
+    const id = String(roomId || "").trim();
+    if (!id) return;
 
-      const alreadyInside =
-        String(activeRoomId || "") === String(roomId) ||
-        Boolean(room?.isActive) ||
-        Boolean(enteredRoomIds[String(roomId)]);
+    const room = rooms.find((r) => String(r.id) === id);
 
-      if (alreadyInside) {
-        setJoining(false);
-        setError("");
-        markRoomEntered(roomId);
-        goToRoom(roomId);
-        return;
+    const alreadyInside =
+      String(activeRoomId || "") === id ||
+      Boolean(room?.isActive) ||
+      Boolean(enteredRoomIds[id]) ||
+      Boolean(enteredRoomIdsRef.current[id]);
+
+    /**
+     * لو المستخدم داخل الغرفة بالفعل:
+     * لا تعمل join قديم ولا preload.
+     * فقط افتح الشاشة.
+     */
+    if (alreadyInside) {
+      setJoining(false);
+      setError("");
+      markRoomEntered(id);
+      goToRoom(id);
+      return;
+    }
+
+    try {
+      setJoining(true);
+      setError("");
+
+      await dispatch(
+        enterRoomFast({
+          roomId: id,
+          password,
+          limit: 20,
+        })
+      ).unwrap();
+
+      markRoomEntered(id);
+
+      setJoining(false);
+      goToRoom(id);
+    } catch (e: any) {
+      const msgStr = String(e?.message || e || "Join failed");
+
+      if (isBanMessage(msgStr)) {
+        markRoomBanned(id, msgStr);
       }
 
-      try {
-        setJoining(true);
-        setError("");
+      setError(msgStr);
+      setJoining(false);
+    }
+  },
+  [
+    dispatch,
+    joining,
+    activeRoomId,
+    rooms,
+    enteredRoomIds,
+    markRoomEntered,
+    goToRoom,
+    isBanMessage,
+    markRoomBanned,
+  ]
+);
+const openRoom = useCallback(
+  async (roomId: string) => {
+    const id = String(roomId || "").trim();
+    if (!id) return;
 
-        await dispatch(
-          joinRoomAndEnter({ roomId, preload: true, password })
-        ).unwrap();
+    const room = accRef.current.get(id);
 
-        markRoomEntered(roomId);
+    if (bannedByRoomId[id]) {
+      setError("أنت محظور من هذه الغرفة.");
+      return;
+    }
 
-        setJoining(false);
-        goToRoom(roomId);
-      } catch (e: any) {
-        const msgStr = String(e?.message || e || "Join failed");
+    /**
+     * لو الغرفة محمية والمستخدم ليس داخلها من قبل،
+     * افتح مودال الباسورد.
+     */
+    const alreadyInside =
+      Boolean(room?.isActive) ||
+      Boolean(enteredRoomIds[id]) ||
+      Boolean(enteredRoomIdsRef.current[id]) ||
+      String(activeRoomId || "") === id;
 
-        if (isBanMessage(msgStr)) {
-          markRoomBanned(roomId, msgStr);
-        }
+    if (room?.isProtected && !alreadyInside) {
+      setPendingRoomId(id);
+      setPasswordInput("");
+      setPasswordModalVisible(true);
+      setError("");
+      return;
+    }
 
-        setError(msgStr);
-        setJoining(false);
-      }
-    },
-    [
-      dispatch,
-      joining,
-      activeRoomId,
-      rooms,
-      enteredRoomIds,
-      markRoomEntered,
-      goToRoom,
-      isBanMessage,
-      markRoomBanned,
-    ]
-  );
-  const openRoom = useCallback(
-    async (roomId: string) => {
-      const room = accRef.current.get(roomId);
+    /**
+     * كل الحالات الأخرى تدخل من enterRoomFast.
+     */
+    await doJoin(id);
+  },
+  [doJoin, bannedByRoomId, enteredRoomIds, activeRoomId]
+);
+  // const openRoom = useCallback(
+  //   async (roomId: string) => {
+  //     const room = accRef.current.get(roomId);
 
-      if (bannedByRoomId[roomId]) {
-        setError("أنت محظور من هذه الغرفة.");
-        return;
-      }
+  //     if (bannedByRoomId[roomId]) {
+  //       setError("أنت محظور من هذه الغرفة.");
+  //       return;
+  //     }
 
-      // ✅ Active -> دخول مباشر بدون join
-      if (room?.isActive || enteredRoomIds[String(roomId)]) {
-        await enterActiveRoomDirect(roomId);
-        return;
-      }
+  //     // ✅ Active -> دخول مباشر بدون join
+  //     if (room?.isActive || enteredRoomIds[String(roomId)]) {
+  //       await enterActiveRoomDirect(roomId);
+  //       return;
+  //     }
 
-      if (room?.isProtected) {
-        setPendingRoomId(roomId);
-        setPasswordInput("");
-        setPasswordModalVisible(true);
-        setError("");
-        return;
-      }
+  //     if (room?.isProtected) {
+  //       setPendingRoomId(roomId);
+  //       setPasswordInput("");
+  //       setPasswordModalVisible(true);
+  //       setError("");
+  //       return;
+  //     }
 
-      await doJoin(roomId);
-    },
-    [doJoin, bannedByRoomId, enterActiveRoomDirect, enteredRoomIds]
-  );
+  //     await doJoin(roomId);
+  //   },
+  //   [doJoin, bannedByRoomId, enterActiveRoomDirect, enteredRoomIds]
+  // );
 
   const confirmJoinWithPassword = useCallback(async () => {
     const rid = pendingRoomId;
@@ -826,22 +938,33 @@ setEnteredRoomIds((prev) => ({
           ) : null}
         </View>
 
-        <View style={[styles.tabs, { backgroundColor: theme.background }]}>
-          {TABS.map((t) => {
-            const active = tab === t;
-            return (
-              <TouchableOpacity
-                key={t}
-                onPress={() => setTab(t)}
-                activeOpacity={0.7}
-                style={styles.tabBtn}
-              >
-                <Text style={[styles.tabText, active && styles.activeTabText]}>{t}</Text>
-                {active && <View style={styles.indicator} />}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+  <View style={styles.tabs}>
+  {TABS.map((item) => {
+    const active = tab === item.key;
+
+    return (
+      <TouchableOpacity
+        key={item.key}
+        onPress={() => setTab(item.key)}
+        activeOpacity={0.75}
+        style={[
+          styles.tabBtn,
+          active && styles.activeTabBtn,
+        ]}
+      >
+        <Ionicons
+          name={item.icon as keyof typeof Ionicons.glyphMap}
+          size={15}
+          color={active ? "#4F46E5" : "#6B7280"}
+        />
+
+        <Text style={[styles.tabText, active && styles.activeTabText]}>
+          {item.label}
+        </Text>
+      </TouchableOpacity>
+    );
+  })}
+</View>
 
         {!!(error || reduxError) && (
           <View style={styles.errorBanner}>
@@ -1105,19 +1228,45 @@ const styles = StyleSheet.create({
   cancel: { color: "#6B7280" },
   confirm: { color: "#4F46E5", fontWeight: "600" },
 
-  tabs: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 6
-  },
-  tabBtn: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 8, borderRadius: 12 },
-  tabText: { fontSize: 13, fontWeight: "500", color: "#6B7280" },
-  activeTabText: { color: "#4F46E5", fontWeight: "700" },
-  indicator: { marginTop: 6, width: 20, height: 3, borderRadius: 2, backgroundColor: "#4F46E5" },
+tabs: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginBottom: 12,
+  gap: 8,
+},
 
+tabBtn: {
+  flex: 1,
+  minHeight: 20,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 5,
+  paddingVertical: 5,
+  borderRadius: 5,
+
+  // ✅ Border لكل تاب
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+
+  backgroundColor: "#FFFFFF",
+},
+
+activeTabBtn: {
+  borderColor: "#4F46E5",
+  backgroundColor: "#EEF2FF",
+},
+
+tabText: {
+  fontSize: 12,
+  fontWeight: "700",
+  color: "#6B7280",
+},
+
+activeTabText: {
+  color: "#4F46E5",
+  fontWeight: "900",
+},
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",

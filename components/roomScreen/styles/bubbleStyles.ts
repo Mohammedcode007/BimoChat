@@ -142,12 +142,12 @@ export function makeBubbleStyles(theme: typeof Colors.light) {
       alignItems: "center",
       maxWidth: "100%",
     },
-senderName: {
- fontSize: 14,
-      fontWeight: "900",
-  color: theme.text,
-  maxWidth: 250,
-},
+    senderName: {
+      fontSize: 11,
+  fontFamily: "NotoKufiBold",
+      color: theme.text,
+      maxWidth: 250,
+    },
     nameUnderline: {
       height: 1,
       backgroundColor: theme.separator,
@@ -155,12 +155,12 @@ senderName: {
       opacity: 0.7,
     },
 
-msgText: {
-  fontSize: 13,
-  lineHeight: 20,
-  color: theme.text,
-      fontWeight: "900",
-},
+    msgText: {
+      fontFamily: "NotoKufiRegular",
+      fontSize: 14,
+      lineHeight: 22,
+      color: theme.text,
+    },
 
     msgTextMuted: {
       fontSize: 12,
